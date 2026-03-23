@@ -33,10 +33,17 @@ function cryptoRandomId() {
 
 function signToken(user) {
   return jwt.sign(
-    { id: user.id, email: user.email, role: user.role, nombre: user.nombre },
+    {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      nombre: user.nombre,
+      empresa: user.empresa || ''
+    },
     JWT_SECRET,
     { expiresIn: '7d' }
   );
+}
 }
 
 function sanitizeUser(row) {
