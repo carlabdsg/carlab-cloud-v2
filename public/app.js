@@ -12,6 +12,7 @@ const state = {
   activePanel: 'board',
   editingUserId: '',
   editingCompanyId: '',
+  editingGarantiaId: '',
 };
 
 const api = {
@@ -31,6 +32,7 @@ const api = {
   registerOperator(payload) { return this.request('/api/public/register-operator', { method: 'POST', body: JSON.stringify(payload) }); },
   getGarantias() { return this.request('/api/garantias'); },
   createGarantia(payload) { return this.request('/api/garantias', { method: 'POST', body: JSON.stringify(payload) }); },
+  updateGarantia(id, payload) { return this.request(`/api/garantias/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }); },
   deleteGarantia(id) { return this.request(`/api/garantias/${id}`, { method: 'DELETE' }); },
   reviewGarantia(id, payload) { return this.request(`/api/garantias/${id}/review`, { method: 'PATCH', body: JSON.stringify(payload) }); },
   updateOperational(id, payload) { return this.request(`/api/garantias/${id}/operational`, { method: 'PATCH', body: JSON.stringify(payload) }); },
@@ -128,8 +130,18 @@ async function fileToCompressedDataUrl(file, maxSide = 1600, quality = 0.78) {
 }
 function drawPreviews(container, items) { if (!container) return; container.innerHTML = ''; items.forEach(src => { const img = document.createElement('img'); img.src = src; container.appendChild(img); }); }
 
-els.evidencias?.addEventListener('change', async e => { state.currentEvidence = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file))); drawPreviews(els.previewEvidencias, state.currentEvidence); });
-els.evidenciasRefaccion?.addEventListener('change', async e => { state.currentRefEvidence = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file))); drawPreviews(els.previewRefaccion, state.currentRefEvidence); });
+els.evidencias?.addEventListener('change', async e => {
+  const incoming = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file)));
+  state.currentEvidence = [...state.currentEvidence, ...incoming];
+  drawPreviews(els.previewEvidencias, state.currentEvidence);
+  e.target.value = '';
+});
+els.evidenciasRefaccion?.addEventListener('change', async e => {
+  const incoming = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file)));
+  state.currentRefEvidence = [...state.currentRefEvidence, ...incoming];
+  drawPreviews(els.previewRefaccion, state.currentRefEvidence);
+  e.target.value = '';
+});
 els.solicitaRefaccion?.addEventListener('change', () => els.refaccionFields?.classList.toggle('hidden', !els.solicitaRefaccion.checked));
 
 function resetReportForm() {
@@ -454,7 +466,7 @@ function renderGarantias() {
       const div = document.createElement('div'); div.innerHTML = `<strong>${escapeHtml(label)}</strong>${escapeHtml(String(value || '—'))}`; miniGrid.appendChild(div);
     });
     const strip = node.querySelector('.evidence-strip'); [...(item.evidencias || []), ...(item.evidenciasRefaccion || [])].slice(0,6).forEach(src => { const img = document.createElement('img'); img.src = src; strip.appendChild(img); }); if (item.firma) { const img = document.createElement('img'); img.src = item.firma; strip.appendChild(img); }
-    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
+    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; if (isRole('admin')) baseRow.appendChild(button('Editar', 'btn btn-secondary', () => beginGarantiaEdit(item))); baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
     if (isRole('operativo','admin')) {
       const reviewBox = document.createElement('div'); reviewBox.innerHTML = `
         <label>Decisión operativa</label>
@@ -551,7 +563,16 @@ els.unitHistoryBtn?.addEventListener('click', renderUnitHistory);
 
 els.reportForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
-  try { await api.createGarantia(reportPayload()); notify('Reporte enviado. Ya cayó al sistema.'); resetReportForm(); switchPanel('board'); await loadGarantias(); }
+  try {
+    if (state.editingGarantiaId) {
+      await api.updateGarantia(state.editingGarantiaId, reportPayload());
+      notify('Reporte actualizado.');
+    } else {
+      await api.createGarantia(reportPayload());
+      notify('Reporte enviado. Ya cayó al sistema.');
+    }
+    resetReportForm(); switchPanel('board'); await loadGarantias();
+  }
   catch (error) { notify(error.message, true); }
 });
 

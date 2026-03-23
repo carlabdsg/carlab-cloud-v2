@@ -89,8 +89,11 @@ function mapGarantia(row) {
 function mapCompany(row) {
   return {
     id: row.id,
-    folio: row.folio || '',
     nombre: row.nombre,
+    contacto: row.contacto || '',
+    telefono: row.telefono || '',
+    email: row.email || '',
+    notas: row.notas || '',
     activo: row.activo,
     createdAt: row.created_at,
   };
@@ -400,9 +403,13 @@ app.patch('/api/companies/:id', authRequired, requireRoles('admin'), async (req,
 app.delete('/api/companies/:id', authRequired, requireRoles('admin'), async (req, res) => {
   const company = await pool.query('SELECT * FROM companies WHERE id = $1', [req.params.id]);
   if (!company.rowCount) return res.status(404).json({ error: 'Empresa no encontrada.' });
-  const linked = await pool.query('SELECT COUNT(*)::int AS total FROM garantias WHERE empresa = $1', [company.rows[0].nombre]);
-  if ((linked.rows[0]?.total || 0) > 0) {
-    return res.status(400).json({ error: 'Esta empresa ya tiene historial. Mejor desactívala.' });
+  const name = company.rows[0].nombre;
+  const linkedGarantias = await pool.query('SELECT COUNT(*)::int AS total FROM garantias WHERE empresa = $1', [name]);
+  const linkedUsers = await pool.query('SELECT COUNT(*)::int AS total FROM users WHERE empresa = $1 AND deleted_at IS NULL', [name]);
+  const linkedRequests = await pool.query("SELECT COUNT(*)::int AS total FROM registration_requests WHERE empresa = $1 AND status = 'pendiente'", [name]);
+  const totalLinks = (linkedGarantias.rows[0]?.total || 0) + (linkedUsers.rows[0]?.total || 0) + (linkedRequests.rows[0]?.total || 0);
+  if (totalLinks > 0) {
+    return res.status(400).json({ error: 'No se puede borrar porque la empresa tiene historial, usuarios o solicitudes activas. Desactívala.' });
   }
   await pool.query('DELETE FROM companies WHERE id = $1', [req.params.id]);
   res.json({ ok: true });
@@ -604,6 +611,28 @@ app.post('/api/garantias', authRequired, requireRoles('operador', 'admin'), asyn
 
   await addAuditLog(id, req.user.id, 'crear_reporte', `Reporte creado por ${req.user.nombre}`);
   res.status(201).json(mapGarantia(result.rows[0]));
+});
+
+app.patch('/api/garantias/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  const body = req.body;
+  const required = [body.numeroObra, body.modelo, body.numeroEconomico, body.empresa, body.tipoIncidente, body.descripcionFallo];
+  if (required.some(v => !String(v || '').trim())) {
+    return res.status(400).json({ error: 'Faltan campos obligatorios del reporte.' });
+  }
+  const current = await pool.query('SELECT * FROM garantias WHERE id = $1', [req.params.id]);
+  if (!current.rowCount) return res.status(404).json({ error: 'Garantía no encontrada.' });
+  const result = await pool.query(
+    `UPDATE garantias SET
+      numero_obra = $2, modelo = $3, numero_economico = $4, empresa = $5, kilometraje = $6,
+      contacto_nombre = $7, telefono = $8, tipo_incidente = $9, descripcion_fallo = $10,
+      solicita_refaccion = $11, detalle_refaccion = $12, evidencias = $13::jsonb, evidencias_refaccion = $14::jsonb,
+      firma = $15, updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [req.params.id, body.numeroObra, body.modelo, body.numeroEconomico, body.empresa, body.kilometraje || '', body.contactoNombre || '', body.telefono || '', body.tipoIncidente, body.descripcionFallo, !!body.solicitaRefaccion, body.detalleRefaccion || '', JSON.stringify(body.evidencias || []), JSON.stringify(body.evidenciasRefaccion || []), body.firma || '']
+  );
+  await addAuditLog(req.params.id, req.user.id, 'editar_reporte', `Admin ${req.user.nombre} editó el reporte ${current.rows[0].folio || ''}`);
+  res.json(mapGarantia(result.rows[0]));
 });
 
 app.patch('/api/garantias/:id/review', authRequired, requireRoles('operativo', 'admin'), async (req, res) => {
