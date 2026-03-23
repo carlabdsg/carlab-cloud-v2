@@ -625,7 +625,60 @@ app.post('/api/garantias', authRequired, requireRoles('operador', 'admin'), asyn
   await addAuditLog(id, req.user.id, 'crear_reporte', `Reporte creado por ${req.user.nombre}`);
   res.status(201).json(mapGarantia(result.rows[0]));
 });
+app.patch('/api/garantias/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  const body = req.body;
+  const required = [body.numeroObra, body.modelo, body.numeroEconomico, body.empresa, body.tipoIncidente, body.descripcionFallo];
 
+  if (required.some(v => !String(v || '').trim())) {
+    return res.status(400).json({ error: 'Faltan campos obligatorios del reporte.' });
+  }
+
+  const current = await pool.query('SELECT * FROM garantias WHERE id = $1', [req.params.id]);
+  if (!current.rowCount) {
+    return res.status(404).json({ error: 'Garantía no encontrada.' });
+  }
+
+  const result = await pool.query(
+    `UPDATE garantias SET
+      numero_obra = $2,
+      modelo = $3,
+      numero_economico = $4,
+      empresa = $5,
+      kilometraje = $6,
+      contacto_nombre = $7,
+      telefono = $8,
+      tipo_incidente = $9,
+      descripcion_fallo = $10,
+      solicita_refaccion = $11,
+      detalle_refaccion = $12,
+      evidencias = $13::jsonb,
+      evidencias_refaccion = $14::jsonb,
+      firma = $15,
+      updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [
+      req.params.id,
+      body.numeroObra,
+      body.modelo,
+      body.numeroEconomico,
+      body.empresa,
+      body.kilometraje || '',
+      body.contactoNombre || '',
+      body.telefono || '',
+      body.tipoIncidente,
+      body.descripcionFallo,
+      !!body.solicitaRefaccion,
+      body.detalleRefaccion || '',
+      JSON.stringify(body.evidencias || []),
+      JSON.stringify(body.evidenciasRefaccion || []),
+      body.firma || ''
+    ]
+  );
+
+  await addAuditLog(req.params.id, req.user.id, 'editar_reporte', `Admin ${req.user.nombre} editó el reporte`);
+  res.json(mapGarantia(result.rows[0]));
+});
 app.patch('/api/garantias/:id/review', authRequired, requireRoles('operativo', 'admin'), async (req, res) => {
   const estatusValidacion = String(req.body.estatusValidacion || '').trim();
   const observacionesOperativo = String(req.body.observacionesOperativo || '').trim();
