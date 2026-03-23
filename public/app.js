@@ -145,6 +145,7 @@ els.evidenciasRefaccion?.addEventListener('change', async e => {
 els.solicitaRefaccion?.addEventListener('change', () => els.refaccionFields?.classList.toggle('hidden', !els.solicitaRefaccion.checked));
 
 function resetReportForm() {
+  state.editGaratiaId = '';
   els.reportForm?.reset();
   state.currentEvidence = []; state.currentRefEvidence = [];
   drawPreviews(els.previewEvidencias, []); drawPreviews(els.previewRefaccion, []);
