@@ -44,12 +44,10 @@ function signToken(user) {
     { expiresIn: '7d' }
   );
 }
-}
 
 function sanitizeUser(row) {
   return {
     id: row.id,
-    folio: row.folio || '',
     nombre: row.nombre,
     email: row.email,
     role: row.role,
@@ -109,7 +107,6 @@ function mapCompany(row) {
 function mapRegistrationRequest(row) {
   return {
     id: row.id,
-    folio: row.folio || '',
     nombre: row.nombre,
     email: row.email,
     telefono: row.telefono || '',
@@ -152,8 +149,8 @@ async function addAuditLog(garantiaId, userId, accion, detalle) {
 }
 
 async function nextGarantiaFolio() {
-  const result = await pool.query("SELECT COUNT(*)::int AS total FROM garantias");
-  const next = (result.rows[0]?.total || 0) + 1;
+  const result = await pool.query('SELECT COALESCE(MAX(CAST(SUBSTRING(folio FROM 5) AS INTEGER)), 0) + 1 AS next FROM garantias');
+  const next = result.rows[0]?.next || 1;
   return `GAR-${String(next).padStart(5, '0')}`;
 }
 
@@ -241,13 +238,13 @@ async function initDb() {
     );
 
     ALTER TABLE users ADD COLUMN IF NOT EXISTS empresa TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS telefono TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
     ALTER TABLE companies ADD COLUMN IF NOT EXISTS contacto TEXT;
     ALTER TABLE companies ADD COLUMN IF NOT EXISTS telefono TEXT;
     ALTER TABLE companies ADD COLUMN IF NOT EXISTS email TEXT;
     ALTER TABLE companies ADD COLUMN IF NOT EXISTS notas TEXT;
     ALTER TABLE garantias ADD COLUMN IF NOT EXISTS folio TEXT;
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS telefono TEXT;
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
     ALTER TABLE garantias ADD COLUMN IF NOT EXISTS kilometraje TEXT;
     ALTER TABLE garantias ADD COLUMN IF NOT EXISTS contacto_nombre TEXT;
     ALTER TABLE garantias ADD COLUMN IF NOT EXISTS telefono TEXT;
@@ -282,16 +279,14 @@ async function initDb() {
   }
 }
 
-let dbReady = false;
-let dbInitError = null;
-
-app.get('/api/health', (_req, res) => {
-  res.json({
-    ok: true,
-    service: 'carlab-cloud-v2',
-    dbReady,
-    dbInitError: dbInitError ? 'db_init_failed' : null
-  });
+app.get('/api/health', async (_req, res) => {
+  try {
+    const result = await pool.query('SELECT NOW() AS now');
+    res.json({ ok: true, db: result.rows[0].now });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ ok: false, error: 'No hubo conexión con la base.' });
+  }
 });
 
 app.get('/api/public/companies', async (_req, res) => {
@@ -381,7 +376,12 @@ app.post('/api/companies', authRequired, requireRoles('admin'), async (req, res)
   const result = await pool.query(
     `INSERT INTO companies (id, nombre, contacto, telefono, email, notas, activo)
      VALUES ($1,$2,$3,$4,$5,$6,TRUE)
-     ON CONFLICT (nombre) DO UPDATE SET contacto = EXCLUDED.contacto, telefono = EXCLUDED.telefono, email = EXCLUDED.email, notas = EXCLUDED.notas, activo = TRUE
+     ON CONFLICT (nombre) DO UPDATE SET
+       contacto = EXCLUDED.contacto,
+       telefono = EXCLUDED.telefono,
+       email = EXCLUDED.email,
+       notas = EXCLUDED.notas,
+       activo = TRUE
      RETURNING *`,
     [cryptoRandomId(), nombre, contacto, telefono, email, notas]
   );
@@ -396,36 +396,38 @@ app.patch('/api/companies/:id', authRequired, requireRoles('admin'), async (req,
   const notas = String(req.body.notas || '').trim();
   const activo = req.body.activo !== false;
   if (!nombre) return res.status(400).json({ error: 'El nombre de la empresa es obligatorio.' });
+
   const exists = await pool.query('SELECT id FROM companies WHERE nombre = $1 AND id <> $2', [nombre, req.params.id]);
   if (exists.rowCount) return res.status(400).json({ error: 'Ya existe otra empresa con ese nombre.' });
+
   const result = await pool.query(
-    `UPDATE companies SET nombre = $2, contacto = $3, telefono = $4, email = $5, notas = $6, activo = $7
-     WHERE id = $1 RETURNING *`,
+    `UPDATE companies
+     SET nombre = $2, contacto = $3, telefono = $4, email = $5, notas = $6, activo = $7
+     WHERE id = $1
+     RETURNING *`,
     [req.params.id, nombre, contacto, telefono, email, notas, activo]
   );
   if (!result.rowCount) return res.status(404).json({ error: 'Empresa no encontrada.' });
   res.json(mapCompany(result.rows[0]));
 });
 
-app.delete('/api/companies/:id', authRequired, requireRoles('admin'), async (req, res) => {
-  const company = await pool.query('SELECT * FROM companies WHERE id = $1', [req.params.id]);
-  if (!company.rowCount) return res.status(404).json({ error: 'Empresa no encontrada.' });
-  const name = company.rows[0].nombre;
-  const linkedGarantias = await pool.query('SELECT COUNT(*)::int AS total FROM garantias WHERE empresa = $1', [name]);
-  const linkedUsers = await pool.query('SELECT COUNT(*)::int AS total FROM users WHERE empresa = $1 AND deleted_at IS NULL', [name]);
-  const linkedRequests = await pool.query("SELECT COUNT(*)::int AS total FROM registration_requests WHERE empresa = $1 AND status = 'pendiente'", [name]);
-  const totalLinks = (linkedGarantias.rows[0]?.total || 0) + (linkedUsers.rows[0]?.total || 0) + (linkedRequests.rows[0]?.total || 0);
-  if (totalLinks > 0) {
-    return res.status(400).json({ error: 'No se puede borrar porque la empresa tiene historial, usuarios o solicitudes activas. Desactívala.' });
-  }
-  await pool.query('DELETE FROM companies WHERE id = $1', [req.params.id]);
-  res.json({ ok: true });
-});
-
 app.patch('/api/companies/:id/deactivate', authRequired, requireRoles('admin'), async (req, res) => {
   const result = await pool.query('UPDATE companies SET activo = FALSE WHERE id = $1 RETURNING *', [req.params.id]);
   if (!result.rowCount) return res.status(404).json({ error: 'Empresa no encontrada.' });
   res.json(mapCompany(result.rows[0]));
+});
+
+app.delete('/api/companies/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  const current = await pool.query('SELECT * FROM companies WHERE id = $1', [req.params.id]);
+  if (!current.rowCount) return res.status(404).json({ error: 'Empresa no encontrada.' });
+
+  const linked = await pool.query('SELECT COUNT(*)::int AS total FROM garantias WHERE empresa = $1', [current.rows[0].nombre]);
+  if ((linked.rows[0]?.total || 0) > 0) {
+    return res.status(400).json({ error: 'Esta empresa tiene historial. Mejor desactívala.' });
+  }
+
+  await pool.query('DELETE FROM companies WHERE id = $1', [req.params.id]);
+  res.json({ ok: true });
 });
 
 app.get('/api/registration-requests', authRequired, requireRoles('admin'), async (_req, res) => {
@@ -444,6 +446,7 @@ app.patch('/api/registration-requests/:id', authRequired, requireRoles('admin'),
   const current = await pool.query('SELECT * FROM registration_requests WHERE id = $1', [req.params.id]);
   if (!current.rowCount) return res.status(404).json({ error: 'Solicitud no encontrada.' });
   const row = current.rows[0];
+
   if (row.status !== 'pendiente') {
     return res.status(400).json({ error: 'La solicitud ya fue procesada.' });
   }
@@ -561,13 +564,16 @@ app.delete('/api/users/:id', authRequired, requireRoles('admin'), async (req, re
 app.get('/api/garantias', authRequired, async (req, res) => {
   let query = 'SELECT * FROM garantias';
   const params = [];
+
   if (req.user.role === 'operador') {
     query += ' WHERE reportado_por_id = $1';
     params.push(req.user.id);
   } else if (req.user.role === 'supervisor') {
+    if (!req.user.empresa) return res.json([]);
     query += ' WHERE empresa = $1';
-    params.push(req.user.empresa || '');
+    params.push(req.user.empresa);
   }
+
   query += ' ORDER BY created_at DESC';
   const result = await pool.query(query, params);
   res.json(result.rows.map(mapGarantia));
@@ -620,38 +626,18 @@ app.post('/api/garantias', authRequired, requireRoles('operador', 'admin'), asyn
   res.status(201).json(mapGarantia(result.rows[0]));
 });
 
-app.patch('/api/garantias/:id', authRequired, requireRoles('admin'), async (req, res) => {
-  const body = req.body;
-  const required = [body.numeroObra, body.modelo, body.numeroEconomico, body.empresa, body.tipoIncidente, body.descripcionFallo];
-  if (required.some(v => !String(v || '').trim())) {
-    return res.status(400).json({ error: 'Faltan campos obligatorios del reporte.' });
-  }
-  const current = await pool.query('SELECT * FROM garantias WHERE id = $1', [req.params.id]);
-  if (!current.rowCount) return res.status(404).json({ error: 'Garantía no encontrada.' });
-  const result = await pool.query(
-    `UPDATE garantias SET
-      numero_obra = $2, modelo = $3, numero_economico = $4, empresa = $5, kilometraje = $6,
-      contacto_nombre = $7, telefono = $8, tipo_incidente = $9, descripcion_fallo = $10,
-      solicita_refaccion = $11, detalle_refaccion = $12, evidencias = $13::jsonb, evidencias_refaccion = $14::jsonb,
-      firma = $15, updated_at = NOW()
-     WHERE id = $1
-     RETURNING *`,
-    [req.params.id, body.numeroObra, body.modelo, body.numeroEconomico, body.empresa, body.kilometraje || '', body.contactoNombre || '', body.telefono || '', body.tipoIncidente, body.descripcionFallo, !!body.solicitaRefaccion, body.detalleRefaccion || '', JSON.stringify(body.evidencias || []), JSON.stringify(body.evidenciasRefaccion || []), body.firma || '']
-  );
-  await addAuditLog(req.params.id, req.user.id, 'editar_reporte', `Admin ${req.user.nombre} editó el reporte ${current.rows[0].folio || ''}`);
-  res.json(mapGarantia(result.rows[0]));
-});
-
 app.patch('/api/garantias/:id/review', authRequired, requireRoles('operativo', 'admin'), async (req, res) => {
   const estatusValidacion = String(req.body.estatusValidacion || '').trim();
   const observacionesOperativo = String(req.body.observacionesOperativo || '').trim();
   const motivoDecision = String(req.body.motivoDecision || '').trim();
+
   if (!['pendiente de revisión', 'aceptada', 'rechazada'].includes(estatusValidacion)) {
     return res.status(400).json({ error: 'Estatus de validación inválido.' });
   }
   if (estatusValidacion === 'rechazada' && !motivoDecision) {
     return res.status(400).json({ error: 'Debes escribir motivo de rechazo.' });
   }
+
   const current = await pool.query('SELECT * FROM garantias WHERE id = $1', [req.params.id]);
   if (!current.rowCount) return res.status(404).json({ error: 'Garantía no encontrada.' });
 
@@ -683,6 +669,7 @@ app.patch('/api/garantias/:id/review', authRequired, requireRoles('operativo', '
 app.patch('/api/garantias/:id/operational', authRequired, requireRoles('operativo', 'admin'), async (req, res) => {
   const estatusOperativo = String(req.body.estatusOperativo || '').trim();
   const observacionesOperativo = String(req.body.observacionesOperativo || '').trim();
+
   if (!['sin iniciar', 'en proceso', 'espera refacción', 'terminada'].includes(estatusOperativo)) {
     return res.status(400).json({ error: 'Estatus operativo inválido.' });
   }
@@ -711,6 +698,7 @@ app.patch('/api/garantias/:id/operational', authRequired, requireRoles('operativ
 app.delete('/api/garantias/:id', authRequired, requireRoles('admin'), async (req, res) => {
   const current = await pool.query('SELECT * FROM garantias WHERE id = $1', [req.params.id]);
   if (!current.rowCount) return res.status(404).json({ error: 'Garantía no encontrada.' });
+
   await addAuditLog(req.params.id, req.user.id, 'eliminar_reporte', `Admin ${req.user.nombre} eliminó el reporte`);
   await pool.query('DELETE FROM garantias WHERE id = $1', [req.params.id]);
   res.json({ ok: true });
@@ -718,9 +706,15 @@ app.delete('/api/garantias/:id', authRequired, requireRoles('admin'), async (req
 
 app.get('/api/audit/:garantiaId', authRequired, requireRoles('admin', 'operativo', 'supervisor'), async (req, res) => {
   if (req.user.role === 'supervisor') {
-    const allowed = await pool.query('SELECT id FROM garantias WHERE id = $1 AND empresa = $2', [req.params.garantiaId, req.user.empresa || '']);
-    if (!allowed.rowCount) return res.status(403).json({ error: 'No tienes acceso a esta garantía.' });
+    if (!req.user.empresa) return res.json([]);
+
+    const allowed = await pool.query(
+      'SELECT id FROM garantias WHERE id = $1 AND empresa = $2',
+      [req.params.garantiaId, req.user.empresa]
+    );
+    if (!allowed.rowCount) return res.json([]);
   }
+
   const result = await pool.query(
     `SELECT a.*, u.nombre AS user_nombre, u.email AS user_email
      FROM audit_logs a
@@ -733,14 +727,18 @@ app.get('/api/audit/:garantiaId', authRequired, requireRoles('admin', 'operativo
 });
 
 app.get('/api/history/unit/:numeroEconomico', authRequired, requireRoles('admin', 'operativo', 'supervisor'), async (req, res) => {
-  let sql = 'SELECT * FROM garantias WHERE numero_economico = $1';
+  let query = `SELECT * FROM garantias WHERE numero_economico = $1`;
   const params = [req.params.numeroEconomico];
+
   if (req.user.role === 'supervisor') {
-    sql += ' AND empresa = $2';
-    params.push(req.user.empresa || '');
+    if (!req.user.empresa) return res.json([]);
+    query += ` AND empresa = $2`;
+    params.push(req.user.empresa);
   }
-  sql += ' ORDER BY created_at DESC';
-  const result = await pool.query(sql, params);
+
+  query += ` ORDER BY created_at DESC`;
+
+  const result = await pool.query(query, params);
   res.json(result.rows.map(mapGarantia));
 });
 
@@ -748,15 +746,11 @@ app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`CARLAB CLOUD V3 Fase 3 corriendo en puerto ${PORT}`);
-  initDb()
-    .then(() => {
-      dbReady = true;
-      console.log('Base de datos inicializada.');
-    })
-    .catch((error) => {
-      dbInitError = error;
-      console.error('No se pudo inicializar la base:', error);
-    });
-});
+initDb()
+  .then(() => {
+    app.listen(PORT, () => console.log(`CARLAB CLOUD corriendo en puerto ${PORT}`));
+  })
+  .catch((error) => {
+    console.error('No se pudo inicializar la base:', error);
+    process.exit(1);
+  });
