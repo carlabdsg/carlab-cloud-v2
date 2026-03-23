@@ -171,6 +171,48 @@ function resetCompanyForm() {
   if (els.companySubmitBtn) els.companySubmitBtn.textContent = 'Guardar empresa';
   els.companyCancelEditBtn?.classList.add('hidden');
 }
+
+function beginGarantiaEdit(item) {
+  if (!item) return;
+
+  state.editingGarantiaId = item.id;
+
+  els.numeroObra.value = item.numeroObra || '';
+  els.modelo.value = item.modelo || '';
+  els.numeroEconomico.value = item.numeroEconomico || '';
+  els.empresa.value = item.empresa || '';
+  els.kilometraje.value = item.kilometraje || '';
+  els.contactoNombre.value = item.contactoNombre || '';
+  els.telefono.value = item.telefono || '';
+  els.descripcionFallo.value = item.descripcionFallo || '';
+  els.detalleRefaccion.value = item.detalleRefaccion || '';
+
+  const radio = document.querySelector(`input[name="tipoIncidente"][value="${item.tipoIncidente}"]`);
+  if (radio) radio.checked = true;
+
+  els.solicitaRefaccion.checked = !!item.solicitaRefaccion;
+  els.refaccionFields.classList.toggle('hidden', !item.solicitaRefaccion);
+
+  state.currentEvidence = [...(item.evidencias || [])];
+  state.currentRefEvidence = [...(item.evidenciasRefaccion || [])];
+
+  drawPreviews(els.previewEvidencias, state.currentEvidence);
+  drawPreviews(els.previewRefaccion, state.currentRefEvidence);
+
+  resetSignature();
+  if (item.firma) {
+    const img = new Image();
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, els.firmaCanvas.width, els.firmaCanvas.height);
+      state.hasSignature = true;
+    };
+    img.src = item.firma;
+  }
+
+  switchPanel('report');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 function reportPayload() {
   return {
     numeroObra: els.numeroObra?.value.trim(), modelo: els.modelo?.value.trim(), numeroEconomico: els.numeroEconomico?.value.trim(), empresa: els.empresa?.value.trim(), kilometraje: els.kilometraje?.value.trim(),
