@@ -1,0 +1,19 @@
+{
+  "name": "carlab-cloud-v3-stable",
+  "version": "3.4.1",
+  "description": "CARLAB CLOUD V3 stable reviewed build",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": "20.x"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.3"
+  }
+}
