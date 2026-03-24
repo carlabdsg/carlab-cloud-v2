@@ -61,8 +61,7 @@ function bind() {
     'evidencias','evidenciasRefaccion','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn','searchInput','validationFilter','operationalFilter',
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
-    'topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistoryBtn','unitHistoryResult',
-    'quickNewReportBtn','refreshBoardBtn','quickValidationChips','quickOperationalChips','detailModal','detailBody','detailTitle','closeDetailBtn','detailPdfBtn','detailPdfTallerBtn','detailHistoryBtn','detailEditBtn'
+    'topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistoryBtn','unitHistoryResult'
   ].forEach(id => els[id] = document.getElementById(id));
 }
 bind();
@@ -327,21 +326,18 @@ async function addPdfImage(doc, imgSrc, x, y, w, h) {
   if (!data) return;
   try { doc.addImage(data, 'JPEG', x, y, w, h); } catch { try { doc.addImage(data, 'PNG', x, y, w, h); } catch {} }
 }
-
-async function exportPdfMode(item, mode = 'full') {
+async function exportPdf(item) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   const logo = await getImageData('/logo.jpg');
   let y = 20;
   const textLine = (text, gap = 7, x = 14) => { doc.text(String(text), x, y); y += gap; };
 
-  doc.setFillColor(248, 248, 249); doc.rect(0, 0, 210, 297, 'F');
+  doc.setFillColor(250, 250, 252); doc.rect(0, 0, 210, 297, 'F');
   if (logo) await addPdfImage(doc, logo, 14, 12, 42, 42);
-  doc.setTextColor(34, 34, 34);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(18); doc.text(mode === 'taller' ? 'REPORTE TALLER' : 'REPORTE DE GARANTÍA', 62, 24);
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(10); doc.setTextColor(98, 102, 110); doc.text('CARLAB SERVICIOS INTEGRALES', 62, 31);
+  doc.setTextColor(30, 30, 30);
+  doc.setFontSize(18); doc.text('REPORTE DE GARANTÍA', 62, 24);
+  doc.setFontSize(10); doc.setTextColor(100, 100, 100); doc.text('CARLAB SERVICIOS INTEGRALES', 62, 31);
   doc.setFontSize(10); doc.setTextColor(120, 120, 120); doc.text(`Folio: ${item.folio || '—'}`, 196, 20, { align: 'right' });
   doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 196, 27, { align: 'right' });
 
@@ -358,7 +354,7 @@ async function exportPdfMode(item, mode = 'full') {
   doc.text(`Nombre: ${item.contactoNombre || '—'}`, 18, 96);
   doc.text(`Teléfono: ${item.telefono || '—'}`, 105, 96);
   doc.text(`Reportó: ${item.reportadoPorNombre || '—'}`, 18, 104);
-  if (mode !== 'taller') doc.text(`Revisó: ${item.revisadoPorNombre || '—'}`, 105, 104);
+  doc.text(`Revisó: ${item.revisadoPorNombre || '—'}`, 105, 104);
 
   y = 122;
   doc.setFontSize(12); doc.setTextColor(20, 20, 20); textLine('Descripción de la falla', 8);
@@ -370,7 +366,7 @@ async function exportPdfMode(item, mode = 'full') {
     y = ensurePdfSpace(doc, y, 24); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Detalle de refacción', 8);
     doc.setFontSize(10); doc.setTextColor(55,55,55); split = doc.splitTextToSize(item.detalleRefaccion, 178); doc.text(split, 14, y); y += split.length * 6 + 6;
   }
-  if (mode !== 'taller' && item.observacionesOperativo) {
+  if (item.observacionesOperativo) {
     y = ensurePdfSpace(doc, y, 24); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Observaciones del operativo', 8);
     doc.setFontSize(10); doc.setTextColor(55,55,55); split = doc.splitTextToSize(item.observacionesOperativo, 178); doc.text(split, 14, y); y += split.length * 6 + 6;
   }
@@ -379,7 +375,7 @@ async function exportPdfMode(item, mode = 'full') {
   if (images.length) {
     y = ensurePdfSpace(doc, y, 52); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Evidencias fotográficas', 8);
     let x = 14; let rowHeight = 0;
-    for (const src of images.slice(0, mode === 'taller' ? 4 : 6)) {
+    for (const src of images.slice(0, 6)) {
       if (x > 136) { x = 14; y += rowHeight + 8; rowHeight = 0; }
       y = ensurePdfSpace(doc, y, 48);
       await addPdfImage(doc, src, x + 1, y + 1, 54, 40);
@@ -391,16 +387,13 @@ async function exportPdfMode(item, mode = 'full') {
     y = ensurePdfSpace(doc, y, 42); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Firma', 8);
     await addPdfImage(doc, item.firma, 16, y + 2, 86, 24); y += 34;
   }
-  if (mode !== 'taller' && item.estatusValidacion === 'rechazada' && item.motivoDecision) {
+  if (item.estatusValidacion === 'rechazada' && item.observacionesOperativo) {
     y = ensurePdfSpace(doc, y, 24); doc.setFontSize(12); doc.setTextColor(170, 35, 35); textLine('Motivo de rechazo', 8);
-    doc.setFontSize(10); doc.setTextColor(80,80,80); split = doc.splitTextToSize(item.motivoDecision, 178); doc.text(split, 14, y); y += split.length * 6 + 6;
+    doc.setFontSize(10); doc.setTextColor(80,80,80); split = doc.splitTextToSize(item.observacionesOperativo, 178); doc.text(split, 14, y); y += split.length * 6 + 6;
   }
 
-  doc.save(`${item.folio || 'garantia'}_${item.numeroEconomico}_${item.numeroObra}${mode === 'taller' ? '_taller' : ''}.pdf`);
+  doc.save(`${item.folio || 'garantia'}_${item.numeroEconomico}_${item.numeroObra}.pdf`);
 }
-function exportPdf(item) { return exportPdfMode(item, 'full'); }
-function exportPdfTaller(item) { return exportPdfMode(item, 'taller'); }
-
 
 async function showAudit(item) {
   try {
@@ -499,226 +492,66 @@ function renderCompanies() {
   fillSelect(els.regEmpresa, state.companies.filter(x => x.activo), 'Selecciona empresa');
 }
 
-
-function buildDataList(id, values) {
-  let list = document.getElementById(id);
-  if (!list) {
-    list = document.createElement('datalist');
-    list.id = id;
-    document.body.appendChild(list);
-  }
-  const clean = [...new Set(values.map(v => String(v || '').trim()).filter(Boolean))].slice(0, 100);
-  list.innerHTML = clean.map(v => `<option value="${escapeHtml(v)}"></option>`).join('');
-}
-function refreshAutocomplete() {
-  buildDataList('obrasList', state.garantias.map(x => x.numeroObra));
-  buildDataList('modelosList', state.garantias.map(x => x.modelo));
-  buildDataList('economicosList', state.garantias.map(x => x.numeroEconomico));
-  buildDataList('contactosList', state.garantias.map(x => x.contactoNombre));
-  buildDataList('telefonosList', state.garantias.map(x => x.telefono));
-  if (els.numeroObra) els.numeroObra.setAttribute('list', 'obrasList');
-  if (els.modelo) els.modelo.setAttribute('list', 'modelosList');
-  if (els.numeroEconomico) els.numeroEconomico.setAttribute('list', 'economicosList');
-  if (els.contactoNombre) els.contactoNombre.setAttribute('list', 'contactosList');
-  if (els.telefono) els.telefono.setAttribute('list', 'telefonosList');
-}
-function statusPill(status, type = 'validation') {
-  const cls = type === 'validation' ? badgeClassValidation(status) : badgeClassOperational(status);
-  return `<span class="badge ${cls}">${escapeHtml(status || '—')}</span>`;
-}
-function summaryMeta(item) {
-  return [
-    ['Empresa', item.empresa || '—'],
-    ['Modelo', item.modelo || '—'],
-    ['Unidad', item.numeroEconomico || '—'],
-    ['Obra', item.numeroObra || '—'],
-    ['Contacto', item.contactoNombre || '—'],
-    ['Último cambio', fmtDate(item.updatedAt)]
-  ];
-}
-function openDetailModal(item) {
-  if (!els.detailModal || !els.detailBody) return;
-  els.detailTitle.textContent = `${item.folio || 'Sin folio'} · Unidad ${item.numeroEconomico || '—'}`;
-  els.detailPdfBtn.classList.remove('hidden');
-  els.detailPdfTallerBtn.classList.remove('hidden');
-  const images = [ ...(item.evidencias || []), ...(item.evidenciasRefaccion || []) ];
-  els.detailBody.innerHTML = `
-    <div class="detail-grid">
-      <section class="detail-section">
-        <div class="detail-kicker">Resumen</div>
-        <div class="detail-status-row">
-          ${statusPill(item.estatusValidacion, 'validation')}
-          ${statusPill(item.estatusOperativo, 'operational')}
-        </div>
-        <div class="detail-meta-grid">
-          ${summaryMeta(item).map(([k,v]) => `<div><strong>${escapeHtml(k)}</strong><span>${escapeHtml(v)}</span></div>`).join('')}
-          <div><strong>Tipo</strong><span>${escapeHtml(item.tipoIncidente || '—')}</span></div>
-          <div><strong>Kilometraje</strong><span>${escapeHtml(item.kilometraje || '—')}</span></div>
-          <div><strong>Solicita refacción</strong><span>${item.solicitaRefaccion ? 'Sí' : 'No'}</span></div>
-          <div><strong>Revisó</strong><span>${escapeHtml(item.revisadoPorNombre || 'Pendiente')}</span></div>
-        </div>
-      </section>
-      <section class="detail-section">
-        <div class="detail-kicker">Descripción</div>
-        <p class="detail-paragraph">${escapeHtml(item.descripcionFallo || 'Sin descripción')}</p>
-        ${item.detalleRefaccion ? `<div class="detail-kicker" style="margin-top:16px;">Refacción solicitada</div><p class="detail-paragraph">${escapeHtml(item.detalleRefaccion)}</p>` : ''}
-        ${item.observacionesOperativo ? `<div class="detail-kicker" style="margin-top:16px;">Observaciones operativas</div><p class="detail-paragraph">${escapeHtml(item.observacionesOperativo)}</p>` : ''}
-        ${item.motivoDecision ? `<div class="detail-kicker" style="margin-top:16px;">Motivo de decisión</div><p class="detail-paragraph">${escapeHtml(item.motivoDecision)}</p>` : ''}
-      </section>
-      <section class="detail-section detail-section-wide">
-        <div class="detail-kicker">Evidencias</div>
-        <div class="detail-image-grid">
-          ${images.length ? images.map(src => `<img src="${src}" alt="evidencia" />`).join('') : '<div class="muted">Sin evidencias registradas.</div>'}
-          ${item.firma ? `<img src="${item.firma}" alt="firma" />` : ''}
-        </div>
-      </section>
-    </div>
-  `;
-  els.detailPdfBtn.onclick = () => exportPdf(item);
-  els.detailPdfTallerBtn.onclick = () => exportPdfTaller(item);
-  els.detailHistoryBtn.onclick = () => showAudit(item);
-  els.detailHistoryBtn.classList.toggle('hidden', !isRole('admin','operativo','supervisor'));
-  els.detailEditBtn.onclick = () => { closeDetailModal(); beginGarantiaEdit(item); };
-  els.detailEditBtn.classList.toggle('hidden', !isRole('admin'));
-  els.detailModal.classList.remove('hidden');
-}
-function closeDetailModal() { els.detailModal?.classList.add('hidden'); }
-function renderQuickChips() {
-  const validationOptions = ['todos','nueva','pendiente de revisión','aceptada','rechazada'];
-  const operationalOptions = ['todos','sin iniciar','en proceso','espera refacción','terminada'];
-  if (els.quickValidationChips) {
-    els.quickValidationChips.innerHTML = validationOptions.map(v => `<button type="button" class="chip-btn ${els.validationFilter?.value === v ? 'active' : ''}" data-validation="${escapeHtml(v)}">${escapeHtml(v === 'todos' ? 'Todas' : v)}</button>`).join('');
-    els.quickValidationChips.querySelectorAll('[data-validation]').forEach(btn => btn.addEventListener('click', () => { els.validationFilter.value = btn.dataset.validation; renderGarantias(); }));
-  }
-  if (els.quickOperationalChips) {
-    els.quickOperationalChips.innerHTML = operationalOptions.map(v => `<button type="button" class="chip-btn ${els.operationalFilter?.value === v ? 'active' : ''}" data-operational="${escapeHtml(v)}">${escapeHtml(v === 'todos' ? 'Operativo' : v)}</button>`).join('');
-    els.quickOperationalChips.querySelectorAll('[data-operational]').forEach(btn => btn.addEventListener('click', () => { els.operationalFilter.value = btn.dataset.operational; renderGarantias(); }));
-  }
-}
-
-
 function renderGarantias() {
-  if (!els.garantiasList) return;
+  updateStats(); renderAnalytics();
   const items = filteredGarantias();
-  updateStats();
-  renderAnalytics();
-  renderQuickChips();
-  els.garantiasList.innerHTML = '';
-  els.emptyState?.classList.toggle('hidden', items.length !== 0);
-  if (!items.length) return;
-
+  if (els.garantiasList) els.garantiasList.innerHTML = '';
+  els.emptyState?.classList.toggle('hidden', items.length > 0);
   items.forEach(item => {
-    const node = els.garantiaCardTemplate.content.firstElementChild.cloneNode(true);
-    node.querySelector('.title').textContent = `${item.folio || 'Sin folio'} · ${item.numeroEconomico} · ${item.numeroObra}`;
-    node.querySelector('.meta').textContent = `${item.empresa} · ${item.modelo} · ${fmtDate(item.createdAt)}`;
+    const node = els.garantiaCardTemplate.content.cloneNode(true);
+    node.querySelector('.title').textContent = `${item.folio || 'GAR-—'} · Unidad ${item.numeroEconomico} · Obra ${item.numeroObra}`;
+    node.querySelector('.meta').textContent = `${item.empresa} · ${item.modelo} · Reportó ${item.reportadoPorNombre || '—'} · ${fmtDate(item.createdAt)}`;
+    node.querySelector('.description').textContent = item.descripcionFallo;
     const validationBadge = node.querySelector('.validation-badge'); validationBadge.textContent = item.estatusValidacion; validationBadge.classList.add(badgeClassValidation(item.estatusValidacion));
     const operationalBadge = node.querySelector('.operational-badge'); operationalBadge.textContent = item.estatusOperativo; operationalBadge.classList.add(badgeClassOperational(item.estatusOperativo));
-    node.querySelector('.description').textContent = (item.descripcionFallo || 'Sin descripción').slice(0, 240);
-
     const miniGrid = node.querySelector('.mini-grid');
-    [
-      ['Tipo', item.tipoIncidente],
-      ['Contacto', item.contactoNombre || '—'],
-      ['Teléfono', item.telefono || '—'],
-      ['Kilometraje', item.kilometraje || '—'],
-      ['Refacción', item.solicitaRefaccion ? 'Sí solicita' : 'No'],
-      ['Último cambio', fmtDate(item.updatedAt)]
-    ].forEach(([label, value]) => {
-      const div = document.createElement('div');
-      div.innerHTML = `<strong>${escapeHtml(label)}</strong>${escapeHtml(String(value || '—'))}`;
-      miniGrid.appendChild(div);
+    [ ['Incidencia', item.tipoIncidente], ['Solicita refacción', item.solicitaRefaccion ? 'Sí' : 'No'], ['KM', item.kilometraje || '—'], ['Contacto', item.contactoNombre || '—'], ['Teléfono', item.telefono || '—'], ['Revisó', item.revisadoPorNombre || 'Pendiente'], ['Último cambio', fmtDate(item.updatedAt)], ['Obs. operativo', item.observacionesOperativo || '—'], ['Motivo decisión', item.motivoDecision || '—'] ].forEach(([label, value]) => {
+      const div = document.createElement('div'); div.innerHTML = `<strong>${escapeHtml(label)}</strong>${escapeHtml(String(value || '—'))}`; miniGrid.appendChild(div);
     });
-
-    const strip = node.querySelector('.evidence-strip');
-    [...(item.evidencias || []), ...(item.evidenciasRefaccion || [])].slice(0,4).forEach(src => {
-      const img = document.createElement('img'); img.src = src; strip.appendChild(img);
-    });
-    const area = node.querySelector('.action-area');
-    const row = document.createElement('div');
-    row.className = 'action-row';
-    row.appendChild(button('Ver detalle', 'btn btn-secondary', () => openDetailModal(item)));
-    row.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item)));
-    row.appendChild(button('PDF taller', 'btn btn-ghost', () => exportPdfTaller(item)));
-    if (isRole('admin','operativo')) row.appendChild(button('Estatus', 'btn btn-primary', () => openStatusModal(item)));
-    if (isRole('admin')) row.appendChild(button('Editar', 'btn btn-ghost', () => beginGarantiaEdit(item)));
-    if (isRole('admin','operativo','supervisor')) row.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item)));
-    if (isRole('admin')) row.appendChild(button('Eliminar', 'btn btn-ghost', async () => {
-      if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return;
-      try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); }
-    }));
-    area.appendChild(row);
-
-    els.garantiasList.appendChild(node);
+    const strip = node.querySelector('.evidence-strip'); [...(item.evidencias || []), ...(item.evidenciasRefaccion || [])].slice(0,6).forEach(src => { const img = document.createElement('img'); img.src = src; strip.appendChild(img); }); if (item.firma) { const img = document.createElement('img'); img.src = item.firma; strip.appendChild(img); }
+    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; if (isRole('admin')) baseRow.appendChild(button('Editar', 'btn btn-secondary', () => beginGarantiaEdit(item))); baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
+    if (isRole('operativo','admin')) {
+      const reviewBox = document.createElement('div'); reviewBox.innerHTML = `
+        <label>Decisión operativa</label>
+        <div class="action-row">
+          <select class="reviewStatus"><option value="pendiente de revisión">Pendiente de revisión</option><option value="aceptada">Aceptada</option><option value="rechazada">Rechazada</option></select>
+          <input class="reviewReason" placeholder="Motivo o comentario" />
+          <button class="btn btn-primary reviewBtn" type="button">Guardar decisión</button>
+        </div>`;
+      reviewBox.querySelector('.reviewStatus').value = item.estatusValidacion === 'nueva' ? 'pendiente de revisión' : item.estatusValidacion;
+      reviewBox.querySelector('.reviewReason').value = item.estatusValidacion === 'rechazada' ? item.motivoDecision : item.observacionesOperativo;
+      reviewBox.querySelector('.reviewBtn').addEventListener('click', async () => {
+        try {
+          const status = reviewBox.querySelector('.reviewStatus').value; const text = reviewBox.querySelector('.reviewReason').value.trim();
+          await api.reviewGarantia(item.id, { estatusValidacion: status, observacionesOperativo: status !== 'rechazada' ? text : '', motivoDecision: status === 'rechazada' ? text : '' });
+          notify('Decisión guardada.'); await loadGarantias();
+        } catch (error) { notify(error.message, true); }
+      });
+      area.appendChild(reviewBox);
+      if (item.estatusValidacion === 'aceptada') {
+        const operationalBox = document.createElement('div'); operationalBox.innerHTML = `
+          <label>Flujo del trabajo</label>
+          <div class="action-row">
+            <select class="opStatus"><option value="sin iniciar">Sin iniciar</option><option value="en proceso">En proceso</option><option value="espera refacción">Espera refacción</option><option value="terminada">Terminada</option></select>
+            <input class="opNotes" placeholder="Observación operativa" value="${escapeHtml(item.observacionesOperativo || '')}" />
+            <button class="btn btn-secondary opBtn" type="button">Actualizar trabajo</button>
+          </div>`;
+        operationalBox.querySelector('.opStatus').value = item.estatusOperativo;
+        operationalBox.querySelector('.opBtn').addEventListener('click', async () => {
+          try { await api.updateOperational(item.id, { estatusOperativo: operationalBox.querySelector('.opStatus').value, observacionesOperativo: operationalBox.querySelector('.opNotes').value.trim() }); notify('Flujo actualizado.'); await loadGarantias(); }
+          catch (error) { notify(error.message, true); }
+        });
+        area.appendChild(operationalBox);
+      }
+    }
+    els.garantiasList?.appendChild(node);
   });
 }
 
-async function loadGarantias() { state.garantias = await api.getGarantias(); refreshAutocomplete(); renderGarantias(); }
-
+async function loadGarantias() { state.garantias = await api.getGarantias(); renderGarantias(); }
 async function loadUsers() { if (!isRole('admin')) return; state.users = await api.getUsers(); renderUsers(); }
 async function loadCompanies() { state.companies = isRole('admin') ? await api.getCompanies() : await api.getPublicCompanies(); renderCompanies(); }
 async function loadRequests() { if (!isRole('admin')) return; state.registrationRequests = await api.getRequests(); renderRequests(); }
-
-
-function openStatusModal(item) {
-  if (!els.detailModal || !els.detailBody) return;
-  els.detailTitle.textContent = `Actualizar estatus · ${item.folio || item.numeroObra}`;
-  els.detailBody.innerHTML = `
-    <div class="status-modal-grid">
-      <section class="detail-section">
-        <div class="detail-kicker">Validación</div>
-        <label>Estatus de validación</label>
-        <select id="modalValidationStatus">
-          <option value="pendiente de revisión">Pendiente de revisión</option>
-          <option value="aceptada">Aceptada</option>
-          <option value="rechazada">Rechazada</option>
-        </select>
-        <label style="margin-top:12px;">Comentario o motivo</label>
-        <textarea id="modalValidationNotes" rows="4" placeholder="Motivo de rechazo o comentario operativo"></textarea>
-      </section>
-      <section class="detail-section">
-        <div class="detail-kicker">Flujo operativo</div>
-        <label>Estatus operativo</label>
-        <select id="modalOperationalStatus">
-          <option value="sin iniciar">Sin iniciar</option>
-          <option value="en proceso">En proceso</option>
-          <option value="espera refacción">Espera refacción</option>
-          <option value="terminada">Terminada</option>
-        </select>
-        <label style="margin-top:12px;">Observación operativa</label>
-        <textarea id="modalOperationalNotes" rows="4" placeholder="Detalle de seguimiento"></textarea>
-      </section>
-      <div class="detail-actions-bar">
-        <button type="button" class="btn btn-primary" id="saveStatusModalBtn">Guardar cambios</button>
-      </div>
-    </div>
-  `;
-  const validation = document.getElementById('modalValidationStatus');
-  const validationNotes = document.getElementById('modalValidationNotes');
-  const operational = document.getElementById('modalOperationalStatus');
-  const operationalNotes = document.getElementById('modalOperationalNotes');
-  validation.value = item.estatusValidacion === 'nueva' ? 'pendiente de revisión' : item.estatusValidacion;
-  validationNotes.value = item.estatusValidacion === 'rechazada' ? item.motivoDecision : (item.observacionesOperativo || '');
-  operational.value = item.estatusOperativo || 'sin iniciar';
-  operationalNotes.value = item.observacionesOperativo || '';
-  els.detailPdfBtn.classList.add('hidden');
-  els.detailPdfTallerBtn.classList.add('hidden');
-  els.detailHistoryBtn.classList.add('hidden');
-  els.detailEditBtn.classList.add('hidden');
-  document.getElementById('saveStatusModalBtn').addEventListener('click', async () => {
-    try {
-      const v = validation.value;
-      const note = validationNotes.value.trim();
-      await api.reviewGarantia(item.id, { estatusValidacion: v, observacionesOperativo: v !== 'rechazada' ? note : '', motivoDecision: v === 'rechazada' ? note : '' });
-      if (v === 'aceptada') {
-        await api.updateOperational(item.id, { estatusOperativo: operational.value, observacionesOperativo: operationalNotes.value.trim() });
-      }
-      notify('Estatus actualizado.');
-      closeDetailModal();
-      await loadGarantias();
-    } catch (error) { notify(error.message, true); }
-  });
-  els.detailModal.classList.remove('hidden');
-}
 
 async function renderUnitHistory() {
   const numero = els.unitHistoryInput?.value.trim();
@@ -759,10 +592,6 @@ els.registerForm?.addEventListener('submit', async (e) => {
 });
 
 els.logoutBtn?.addEventListener('click', () => { localStorage.removeItem('carlabToken'); state.token = ''; state.user = null; showLogin(); });
-els.closeDetailBtn?.addEventListener('click', closeDetailModal);
-els.detailModal?.addEventListener('click', (e) => { if (e.target === els.detailModal) closeDetailModal(); });
-els.quickNewReportBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); });
-els.refreshBoardBtn?.addEventListener('click', async () => { await loadGarantias(); notify('Bandeja actualizada.'); });
 els.navBoardBtn?.addEventListener('click', () => switchPanel('board'));
 els.navNewReportBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); });
 els.navAnalyticsBtn?.addEventListener('click', () => switchPanel('analytics'));
