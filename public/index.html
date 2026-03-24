@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CARLAB CLOUD V3 | Fase 3</title>
+  <title>CARLAB CLOUD V3 | Enterprise</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -16,14 +16,17 @@
       <div class="auth-backdrop"></div>
       <div class="auth-layout">
         <div class="auth-brand">
-          <div class="pill">CARLAB CLOUD V3</div>
-          <h1>Garantías, operación y crecimiento comercial en una sola cabina.</h1>
-          <p>Acceso corporativo para el equipo interno y alta controlada para operadores. Menos llamadas, más trazabilidad y más argumentos para vender mantenimiento y refacciones.</p>
-          <div class="hero-grid">
-            <article><strong>Acceso controlado</strong><span>Tu equipo entra con credenciales. Los operadores nuevos solicitan acceso.</span></article>
-            <article><strong>Flujo real</strong><span>Operador reporta, operativo decide, supervisor observa y admin controla.</span></article>
-            <article><strong>Historial por unidad</strong><span>Detecta reincidencias y convierte fallas repetidas en oportunidad de venta.</span></article>
-            <article><strong>Imagen corporativa</strong><span>Más serio, más limpio y más vendible frente a cliente.</span></article>
+          <div class="brand-logo-card">
+            <img src="/logo.jpg" alt="Carlab" class="brand-logo" />
+          </div>
+          <div class="pill">CARLAB CLOUD</div>
+          <h1>Control empresarial para garantías, seguimiento y operación online.</h1>
+          <p>Partimos del build estable que ya te funciona y lo llevamos a una cabina más limpia, más corporativa y con mejor lectura para operar sin saturación.</p>
+          <div class="hero-grid hero-grid-enterprise">
+            <article><strong>Imagen corporativa</strong><span>Base blanco, gris y carbón, con acento fino de marca.</span></article>
+            <article><strong>Botones clave intactos</strong><span>PDF, PDF taller, historial y flujo operativo en una sola lógica.</span></article>
+            <article><strong>Autocompletado real</strong><span>Obra, modelo, económico, contacto y teléfono aprenden del historial.</span></article>
+            <article><strong>Menos ruido visual</strong><span>Resumen limpio en tarjetas y detalle completo en una vista enfocada.</span></article>
           </div>
         </div>
 
@@ -147,6 +150,8 @@
             <p id="statusLegend" class="muted">Operación más venta, con control y lectura por unidad.</p>
           </div>
           <div class="topbar-side">
+            <button id="quickNewReportBtn" class="btn btn-primary hidden" type="button">Nuevo reporte</button>
+            <button id="refreshBoardBtn" class="btn btn-ghost" type="button">Actualizar</button>
             <div class="topbar-chip"><span>Sesión</span><strong id="currentUserEmail">admin@carlab.local</strong></div>
           </div>
         </header>
@@ -200,21 +205,27 @@
         </section>
 
         <section id="filtersPanel" class="toolbar panel">
-          <input id="searchInput" type="text" placeholder="Buscar por obra, económico, empresa, modelo o contacto" />
-          <select id="validationFilter">
-            <option value="todos">Todas las validaciones</option>
-            <option value="nueva">Nueva</option>
-            <option value="pendiente de revisión">Pendiente de revisión</option>
-            <option value="aceptada">Aceptada</option>
-            <option value="rechazada">Rechazada</option>
-          </select>
-          <select id="operationalFilter">
-            <option value="todos">Todos los operativos</option>
-            <option value="sin iniciar">Sin iniciar</option>
-            <option value="en proceso">En proceso</option>
-            <option value="espera refacción">Espera refacción</option>
-            <option value="terminada">Terminada</option>
-          </select>
+          <div class="toolbar-main">
+            <input id="searchInput" type="text" placeholder="Buscar por obra, económico, empresa, modelo o contacto" />
+            <div class="chip-row" id="quickValidationChips"></div>
+            <div class="chip-row" id="quickOperationalChips"></div>
+          </div>
+          <div class="toolbar-side">
+            <select id="validationFilter">
+              <option value="todos">Todas las validaciones</option>
+              <option value="nueva">Nueva</option>
+              <option value="pendiente de revisión">Pendiente de revisión</option>
+              <option value="aceptada">Aceptada</option>
+              <option value="rechazada">Rechazada</option>
+            </select>
+            <select id="operationalFilter">
+              <option value="todos">Todos los operativos</option>
+              <option value="sin iniciar">Sin iniciar</option>
+              <option value="en proceso">En proceso</option>
+              <option value="espera refacción">Espera refacción</option>
+              <option value="terminada">Terminada</option>
+            </select>
+          </div>
         </section>
 
         <section id="reportFormPanel" class="panel hidden">
@@ -226,9 +237,9 @@
             <span class="badge badge-info">Captura controlada</span>
           </div>
           <form id="reportForm" class="grid-form">
-            <div><label>Número de obra</label><input id="numeroObra" required /></div>
-            <div><label>Modelo</label><input id="modelo" required /></div>
-            <div><label>Número económico</label><input id="numeroEconomico" required /></div>
+            <div><label>Número de obra</label><input id="numeroObra" placeholder="Con autocompletado del historial" required /></div>
+            <div><label>Modelo</label><input id="modelo" placeholder="Irizar i6, Marcopolo..." required /></div>
+            <div><label>Número económico</label><input id="numeroEconomico" placeholder="Unidad o número económico" required /></div>
             <div><label>Empresa</label><select id="empresa" required></select></div>
             <div><label>Kilometraje</label><input id="kilometraje" inputmode="numeric" placeholder="Ej. 245000" /></div>
             <div><label>Nombre de contacto</label><input id="contactoNombre" placeholder="Nombre del operador o responsable" /></div>
@@ -314,6 +325,25 @@
       <div class="action-area"></div>
     </article>
   </template>
+
+  <div id="detailModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <div class="topbar-kicker">CARLAB ENTERPRISE</div>
+          <h3 id="detailTitle">Detalle</h3>
+        </div>
+        <button id="closeDetailBtn" class="btn btn-ghost" type="button">Cerrar</button>
+      </div>
+      <div id="detailBody" class="modal-body"></div>
+      <div class="modal-foot">
+        <button id="detailPdfBtn" class="btn btn-secondary" type="button">PDF</button>
+        <button id="detailPdfTallerBtn" class="btn btn-secondary" type="button">PDF taller</button>
+        <button id="detailHistoryBtn" class="btn btn-ghost" type="button">Historial</button>
+        <button id="detailEditBtn" class="btn btn-primary" type="button">Editar</button>
+      </div>
+    </div>
+  </div>
 
   <script src="/app.js"></script>
 </body>
