@@ -13,7 +13,6 @@ const state = {
   editingUserId: '',
   editingCompanyId: '',
   editingGarantiaId: '',
-  compactMode: false,
 };
 
 const api = {
@@ -58,7 +57,6 @@ function bind() {
     'loginView','dashboardView','loginForm','loginEmail','loginPassword','loginError','registerForm','registerMessage','regNombre','regEmail','regTelefono','regEmpresa','regNumeroEconomico','regPassword',
     'tabLoginBtn','tabRegisterBtn','welcomeText','currentUserName','currentUserEmail','currentRoleBadge','avatarCircle','pageTitle','roleSummaryText','roleBrief','logoutBtn',
     'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','filtersPanel',
-    'commandDeck','deckSummary','quickAllBtn','quickInProgressBtn','quickWaitingBtn','quickDoneBtn','quickReviewBtn','heroTotal','heroAttention','heroOperational','heroClosed','statCardTotal','statCardAttention','statCardOperational','statCardClosed','focusStrip','activeViewBadge','toggleCompactBtn','boardPanel',
     'reportForm','numeroObra','modelo','numeroEconomico','empresa','kilometraje','contactoNombre','telefono','descripcionFallo','solicitaRefaccion','refaccionFields','detalleRefaccion',
     'evidencias','evidenciasRefaccion','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn','searchInput','validationFilter','operationalFilter',
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
@@ -98,45 +96,6 @@ function countBy(items, getter) {
   });
   return [...map.entries()].sort((a,b) => b[1] - a[1]);
 }
-
-function setQuickFilters({ validation = 'todos', operational = 'todos', label = 'Vista total' } = {}) {
-  if (els.validationFilter) els.validationFilter.value = validation;
-  if (els.operationalFilter) els.operationalFilter.value = operational;
-  if (els.activeViewBadge) els.activeViewBadge.textContent = label;
-  renderGarantias();
-}
-
-function syncFocusPills({ validation = els.validationFilter?.value || 'todos', operational = els.operationalFilter?.value || 'todos' } = {}) {
-  document.querySelectorAll('.focus-pill').forEach(btn => {
-    const match = btn.dataset.filterType === 'all'
-      ? validation === 'todos' && operational === 'todos'
-      : (btn.dataset.validation && btn.dataset.validation === validation && operational === 'todos') ||
-        (btn.dataset.operational && btn.dataset.operational === operational && validation === 'todos');
-    btn.classList.toggle('active', !!match);
-  });
-}
-
-function updateDeckMetrics() {
-  const total = state.garantias.length;
-  const attention = state.garantias.filter(item => ['nueva','pendiente de revisión'].includes(item.estatusValidacion)).length;
-  const operational = state.garantias.filter(item => ['en proceso','espera refacción'].includes(item.estatusOperativo)).length;
-  const closed = state.garantias.filter(item => item.estatusOperativo === 'terminada').length;
-  if (els.heroTotal) els.heroTotal.textContent = total;
-  if (els.heroAttention) els.heroAttention.textContent = attention;
-  if (els.heroOperational) els.heroOperational.textContent = operational;
-  if (els.heroClosed) els.heroClosed.textContent = closed;
-  if (els.deckSummary) {
-    const companyLead = countBy(state.garantias, x => x.empresa)[0]?.[0] || 'sin empresa líder aún';
-    els.deckSummary.textContent = `${total} reportes activos en lectura. Atención inmediata: ${attention}. Piso operativo: ${operational}. La empresa con más movimiento es ${companyLead}.`;
-  }
-}
-
-function setCompactMode(value) {
-  state.compactMode = !!value;
-  els.boardPanel?.classList.toggle('compact-mode', state.compactMode);
-  if (els.toggleCompactBtn) els.toggleCompactBtn.textContent = state.compactMode ? 'Vista detallada' : 'Vista compacta';
-}
-
 function fillSelect(select, options, placeholder = 'Selecciona') {
   if (!select) return;
   select.innerHTML = `<option value="">${placeholder}</option>` + options.map(o => `<option value="${escapeHtml(o.nombre)}">${escapeHtml(o.nombre)}</option>`).join('');
@@ -300,9 +259,6 @@ function switchPanel(panel) {
   els.historyPanel?.classList.toggle('hidden', panel !== 'history');
   const board = panel === 'board';
   els.filtersPanel?.classList.toggle('hidden', !board);
-  els.commandDeck?.classList.toggle('hidden', !board);
-  els.focusStrip?.classList.toggle('hidden', !board);
-  if (board && els.activeViewBadge && !els.activeViewBadge.textContent.trim()) els.activeViewBadge.textContent = 'Vista total';
   setActiveNav(
     panel === 'report' ? els.navNewReportBtn :
     panel === 'users' ? els.navUsersBtn :
@@ -325,7 +281,6 @@ function showDashboard() {
   updateHeaderForRole(); switchPanel('board');
 }
 function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); }
-setCompactMode(false);
 
 function filteredGarantias() {
   const search = els.searchInput?.value.trim().toLowerCase() || '';
@@ -341,8 +296,6 @@ function updateStats() {
   if (els.statNew) els.statNew.textContent = state.garantias.filter(g => g.estatusValidacion === 'nueva').length;
   if (els.statAccepted) els.statAccepted.textContent = state.garantias.filter(g => g.estatusValidacion === 'aceptada').length;
   if (els.statDone) els.statDone.textContent = state.garantias.filter(g => g.estatusOperativo === 'terminada').length;
-  updateDeckMetrics();
-  syncFocusPills();
 }
 function renderAnalytics() {
   const makeList = (arr, empty) => arr.length ? `<ul>${arr.slice(0,5).map(([name,count]) => `<li><span>${escapeHtml(name)}</span><strong>${count}</strong></li>`).join('')}</ul>` : empty;
@@ -650,24 +603,6 @@ els.cancelReportBtn?.addEventListener('click', () => { resetReportForm(); switch
 els.userCancelEditBtn?.addEventListener('click', resetUserForm);
 els.companyCancelEditBtn?.addEventListener('click', resetCompanyForm);
 els.unitHistoryBtn?.addEventListener('click', renderUnitHistory);
-
-els.quickAllBtn?.addEventListener('click', () => setQuickFilters({ label: 'Vista total' }));
-els.quickInProgressBtn?.addEventListener('click', () => setQuickFilters({ operational: 'en proceso', label: 'En proceso' }));
-els.quickWaitingBtn?.addEventListener('click', () => setQuickFilters({ operational: 'espera refacción', label: 'Espera refacción' }));
-els.quickDoneBtn?.addEventListener('click', () => setQuickFilters({ operational: 'terminada', label: 'Terminadas' }));
-els.quickReviewBtn?.addEventListener('click', () => setQuickFilters({ validation: 'pendiente de revisión', label: 'Pendientes de revisión' }));
-els.statCardTotal?.addEventListener('click', () => setQuickFilters({ label: 'Vista total' }));
-els.statCardAttention?.addEventListener('click', () => setQuickFilters({ validation: 'pendiente de revisión', label: 'Requieren atención' }));
-els.statCardOperational?.addEventListener('click', () => setQuickFilters({ operational: 'en proceso', label: 'En piso' }));
-els.statCardClosed?.addEventListener('click', () => setQuickFilters({ operational: 'terminada', label: 'Cerradas' }));
-document.querySelectorAll('.focus-pill').forEach(btn => btn.addEventListener('click', () => {
-  const validation = btn.dataset.validation || 'todos';
-  const operational = btn.dataset.operational || 'todos';
-  const label = btn.textContent.trim();
-  if (btn.dataset.filterType === 'all') return setQuickFilters({ label: 'Vista total' });
-  setQuickFilters({ validation, operational, label });
-}));
-els.toggleCompactBtn?.addEventListener('click', () => setCompactMode(!state.compactMode));
 
 els.reportForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
