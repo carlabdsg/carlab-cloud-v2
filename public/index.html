@@ -1,463 +1,317 @@
-<!doctype html>
-<html lang="es-MX">
+<!DOCTYPE html>
+<html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CARLAB CLOUD | Enterprise Control</title>
+  <title>CARLAB CLOUD V3 | Fase 3</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
-  <div id="toast" class="toast hidden"></div>
-
-  <section id="authView" class="auth-shell">
-    <div class="auth-hero">
-      <div class="hero-ribbon">CARLAB CLOUD · ENTERPRISE EDITION</div>
-      <h1>Plataforma empresarial para garantías, control operativo y trazabilidad real.</h1>
-      <p class="hero-copy">Sin ruido, sin pantallas saturadas y sin perder funciones. Diseñada para Render, con lectura clara, botones útiles y base lista para WhatsApp.</p>
-      <div class="hero-grid">
-        <article class="glass-card">
-          <span class="eyebrow">Operación</span>
-          <h3>Bandeja limpia</h3>
-          <p>Estados, filtros, PDF y decisiones operativas en una sola vista seria.</p>
-        </article>
-        <article class="glass-card">
-          <span class="eyebrow">Trazabilidad</span>
-          <h3>Historial vivo</h3>
-          <p>Unidad, obra, modelo y empresa con lectura rápida y reincidencias visibles.</p>
-        </article>
-        <article class="glass-card">
-          <span class="eyebrow">Escala</span>
-          <h3>Base lista para WhatsApp</h3>
-          <p>Estados sólidos para notificar, consultar estatus y empujar al portal del cliente.</p>
-        </article>
-      </div>
-    </div>
-
-    <div class="auth-panel">
-      <div class="brand-lockup">
-        <div class="brand-mark">C</div>
-        <div>
-          <div class="brand-title">CARLAB</div>
-          <div class="brand-subtitle">Enterprise Control</div>
-        </div>
-      </div>
-
-      <div class="segmented">
-        <button id="tabLoginBtn" class="segmented-btn active" type="button">Acceso interno</button>
-        <button id="tabRegisterBtn" class="segmented-btn" type="button">Solicitar acceso</button>
-      </div>
-
-      <form id="loginPane" class="stack auth-form">
-        <div>
-          <p class="section-label">INICIO DE SESIÓN</p>
-          <h2>Entrar al sistema</h2>
-          <p class="muted">Admin, supervisor, operativo y operadores aprobados.</p>
-        </div>
-        <label class="field">
-          <span>Correo</span>
-          <input id="loginEmail" type="email" placeholder="admin@carlab.local" required />
-        </label>
-        <label class="field">
-          <span>Contraseña</span>
-          <input id="loginPassword" type="password" placeholder="••••••••" required />
-        </label>
-        <button class="btn btn-primary btn-block" type="submit">Entrar</button>
-        <div id="loginError" class="inline-message error hidden"></div>
-      </form>
-
-      <form id="registerPane" class="stack auth-form hidden">
-        <div>
-          <p class="section-label">ALTA DE OPERADOR</p>
-          <h2>Solicitar acceso</h2>
-          <p class="muted">La solicitud entra a revisión de administrador antes de activarse.</p>
-        </div>
-        <div class="grid-2">
-          <label class="field"><span>Nombre completo</span><input id="regNombre" type="text" required /></label>
-          <label class="field"><span>Correo</span><input id="regEmail" type="email" required /></label>
-          <label class="field"><span>Teléfono</span><input id="regTelefono" type="text" required /></label>
-          <label class="field"><span>Empresa</span><select id="regEmpresa" required></select></label>
-          <label class="field"><span>Número económico</span><input id="regNumeroEconomico" type="text" /></label>
-          <label class="field"><span>Contraseña</span><input id="regPassword" type="password" required /></label>
-        </div>
-        <button class="btn btn-primary btn-block" type="submit">Enviar solicitud</button>
-        <div id="registerMessage" class="inline-message hidden"></div>
-      </form>
-    </div>
-  </section>
-
-  <section id="appShell" class="app-shell hidden">
-    <aside class="sidebar">
-      <div class="sidebar-head">
-        <div class="brand-lockup mini">
-          <div class="brand-mark">C</div>
-          <div>
-            <div class="brand-title">CARLAB</div>
-            <div class="brand-subtitle">Cloud Control</div>
+  <div id="app">
+    <section id="loginView" class="auth-shell">
+      <div class="auth-backdrop"></div>
+      <div class="auth-layout">
+        <div class="auth-brand">
+          <div class="pill">CARLAB CLOUD V3</div>
+          <h1>Garantías, operación y crecimiento comercial en una sola cabina.</h1>
+          <p>Acceso corporativo para el equipo interno y alta controlada para operadores. Menos llamadas, más trazabilidad y más argumentos para vender mantenimiento y refacciones.</p>
+          <div class="hero-grid">
+            <article><strong>Acceso controlado</strong><span>Tu equipo entra con credenciales. Los operadores nuevos solicitan acceso.</span></article>
+            <article><strong>Flujo real</strong><span>Operador reporta, operativo decide, supervisor observa y admin controla.</span></article>
+            <article><strong>Historial por unidad</strong><span>Detecta reincidencias y convierte fallas repetidas en oportunidad de venta.</span></article>
+            <article><strong>Imagen corporativa</strong><span>Más serio, más limpio y más vendible frente a cliente.</span></article>
           </div>
         </div>
-        <div class="user-chip">
-          <div id="avatarCircle" class="avatar-circle">A</div>
-          <div>
-            <strong id="currentUserName">Administrador</strong>
-            <span id="currentUserEmail" class="muted small">admin@carlab.local</span>
+
+        <div class="auth-card">
+          <div class="stack-inline auth-switcher">
+            <button id="tabLoginBtn" class="btn btn-primary" type="button">Iniciar sesión</button>
+            <button id="tabRegisterBtn" class="btn btn-ghost" type="button">Solicitar acceso</button>
           </div>
-        </div>
-      </div>
 
-      <nav class="nav-stack">
-        <button id="navBoardBtn" class="nav-btn active" type="button">Centro de mando</button>
-        <button id="navNewReportBtn" class="nav-btn" type="button">Nuevo reporte</button>
-        <button id="navAnalyticsBtn" class="nav-btn" type="button">Analítica</button>
-        <button id="navHistoryBtn" class="nav-btn" type="button">Historial por unidad</button>
-        <button id="navUsersBtn" class="nav-btn admin-only" type="button">Usuarios</button>
-        <button id="navRequestsBtn" class="nav-btn admin-only" type="button">Solicitudes</button>
-        <button id="navCompaniesBtn" class="nav-btn admin-only" type="button">Empresas</button>
-      </nav>
-
-      <div class="sidebar-foot">
-        <div class="role-panel">
-          <span id="currentRoleBadge" class="pill">Admin</span>
-          <h4 id="roleTitle">Cabina administrativa</h4>
-          <p id="roleSummaryText" class="muted">Control total, lectura comercial y trazabilidad.</p>
-        </div>
-        <button id="logoutBtn" class="btn btn-ghost btn-block" type="button">Cerrar sesión</button>
-      </div>
-    </aside>
-
-    <main class="main-shell">
-      <header class="topbar">
-        <div>
-          <p id="boardKicker" class="section-label">CENTRO DE MANDO</p>
-          <h1 id="pageTitle">Bandeja general del sistema</h1>
-          <p id="statusLegend" class="muted">Todo lo importante a la vista.</p>
-        </div>
-        <div class="topbar-actions">
-          <label class="search-wrap">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 21l-4.35-4.35"></path><circle cx="11" cy="11" r="6"></circle></svg>
-            <input id="searchInput" type="text" placeholder="Buscar por folio, unidad, obra, empresa o modelo..." />
-          </label>
-          <button id="quickCreateBtn" class="btn btn-primary" type="button">+ Nuevo reporte</button>
-        </div>
-      </header>
-
-      <section id="panelBoard" class="panel view-panel">
-        <div class="stats-grid">
-          <article class="stat-card"><span>Total</span><strong id="statTotal">0</strong><small>Garantías registradas</small></article>
-          <article class="stat-card"><span>Nuevas</span><strong id="statNew">0</strong><small>Pendientes de atención</small></article>
-          <article class="stat-card"><span>Aceptadas</span><strong id="statAccepted">0</strong><small>Listas para ejecución</small></article>
-          <article class="stat-card"><span>Terminadas</span><strong id="statDone">0</strong><small>Cerradas operativamente</small></article>
-        </div>
-
-        <div class="layout-grid">
-          <div class="surface span-8">
-            <div class="surface-head split wrap-gap">
+          <div id="loginPane">
+            <div class="card-eyebrow">ACCESO INTERNO</div>
+            <h2>Entrar al sistema</h2>
+            <p class="muted">Admin, supervisor, operativo y operadores aprobados.</p>
+            <form id="loginForm" class="stack gap-16" autocomplete="off">
               <div>
-                <p class="section-label">Bandeja</p>
-                <h3 id="listTitle">Operación, PDF y control de estatus sin perder claridad.</h3>
+                <label>Correo</label>
+                <input id="loginEmail" type="email" placeholder="Correo corporativo" autocomplete="off" required />
               </div>
-              <div class="filters-shell">
-                <div class="filters-row compact">
-                  <select id="validationFilter">
-                    <option value="">Todas las validaciones</option>
-                    <option value="nueva">Nueva</option>
-                    <option value="pendiente de revisión">Pendiente de revisión</option>
-                    <option value="aceptada">Aceptada</option>
-                    <option value="rechazada">Rechazada</option>
-                  </select>
-                  <select id="operationalFilter">
-                    <option value="">Todos los operativos</option>
-                    <option value="sin iniciar">Sin iniciar</option>
-                    <option value="en proceso">En proceso</option>
-                    <option value="espera refacción">Espera refacción</option>
-                    <option value="terminada">Terminada</option>
-                  </select>
-                </div>
-                <div id="quickFilterBar" class="quick-filter-bar"></div>
+              <div>
+                <label>Contraseña</label>
+                <input id="loginPassword" type="password" placeholder="Tu contraseña" autocomplete="new-password" required />
               </div>
-            </div>
-            <div id="emptyState" class="empty-state hidden">
-              <div class="empty-orb"></div>
-              <h4>No hay registros para esta vista.</h4>
-              <p>Cuando entren reportes o cambien los filtros, aquí aparecerán.</p>
-            </div>
-            <div id="garantiasList" class="card-list"></div>
+              <button class="btn btn-primary" type="submit">Entrar</button>
+            </form>
+            <div id="loginError" class="alert hidden"></div>
           </div>
 
-          <div class="surface span-4 stack-gap">
-            <div>
-              <p class="section-label">Lectura ejecutiva</p>
-              <h3>Radar empresarial</h3>
-            </div>
-            <div class="mini-analytics">
-              <article>
-                <h4>Top empresas</h4>
-                <ul id="topCompanies" class="mini-list"></ul>
-              </article>
-              <article>
-                <h4>Top modelos</h4>
-                <ul id="topModels" class="mini-list"></ul>
-              </article>
-              <article>
-                <h4>Tipos de incidencia</h4>
-                <ul id="topIncidentTypes" class="mini-list"></ul>
-              </article>
-              <article>
-                <h4>Unidades reincidentes</h4>
-                <ul id="repeatUnits" class="mini-list"></ul>
-              </article>
-            </div>
+          <div id="registerPane" class="hidden">
+            <div class="card-eyebrow">ALTA DE OPERADOR</div>
+            <h2>Solicitar acceso</h2>
+            <p class="muted">El operador llena el formato y el admin aprueba o rechaza la solicitud.</p>
+            <form id="registerForm" class="stack gap-16" autocomplete="off">
+              <div>
+                <label>Nombre completo</label>
+                <input id="regNombre" required />
+              </div>
+              <div>
+                <label>Correo</label>
+                <input id="regEmail" type="email" required />
+              </div>
+              <div>
+                <label>Teléfono</label>
+                <input id="regTelefono" required />
+              </div>
+              <div>
+                <label>Empresa</label>
+                <select id="regEmpresa" required></select>
+              </div>
+              <div>
+                <label>Número económico de unidad</label>
+                <input id="regNumeroEconomico" />
+              </div>
+              <div>
+                <label>Contraseña</label>
+                <input id="regPassword" type="password" required />
+              </div>
+              <button class="btn btn-primary" type="submit">Enviar solicitud</button>
+            </form>
+            <div id="registerMessage" class="alert hidden"></div>
           </div>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <section id="panelReport" class="panel view-panel hidden">
-        <div class="surface stack-gap">
-          <div class="surface-head">
-            <div>
-              <p class="section-label">Portal operador</p>
-              <h3>Nuevo reporte</h3>
-              <p class="muted">Mantiene captura rápida, datos útiles y opciones autocompletadas.</p>
-            </div>
+    <section id="dashboardView" class="hidden shell">
+      <aside class="sidebar">
+        <div class="sidebar-top">
+          <div class="brand-lockup">
+            <div class="pill">CARLAB</div>
+            <h2>Cloud</h2>
+            <p class="muted">Garantías, trazabilidad y lectura comercial.</p>
           </div>
-          <form id="reportForm" class="stack-gap">
-            <div class="grid-3">
-              <label class="field"><span>Número de obra</span><input id="numeroObra" list="numeroObraSuggestions" required /></label>
-              <label class="field"><span>Modelo</span><input id="modelo" list="modeloSuggestions" required /></label>
-              <label class="field"><span>Número económico</span><input id="numeroEconomico" list="numeroEconomicoSuggestions" required /></label>
-              <label class="field"><span>Empresa</span><select id="empresa" required></select></label>
-              <label class="field"><span>Kilometraje</span><input id="kilometraje" /></label>
-              <label class="field"><span>Nombre de contacto</span><input id="contactoNombre" /></label>
-              <label class="field"><span>Teléfono</span><input id="telefono" /></label>
-            </div>
-            <datalist id="numeroObraSuggestions"></datalist>
-            <datalist id="modeloSuggestions"></datalist>
-            <datalist id="numeroEconomicoSuggestions"></datalist>
 
-            <div class="surface soft nested">
-              <p class="section-label">Tipo de incidencia</p>
-              <div class="radio-row">
+          <div class="profile-panel">
+            <div class="avatar-circle" id="avatarCircle">A</div>
+            <div>
+              <strong id="currentUserName">Administrador</strong>
+              <div class="muted small" id="welcomeText"></div>
+            </div>
+            <span id="currentRoleBadge" class="badge badge-role"></span>
+          </div>
+
+          <nav class="nav-stack">
+            <div class="nav-group">
+              <div class="nav-group-label">Operación</div>
+              <button id="navBoardBtn" class="nav-btn active" type="button">Reportes</button>
+              <button id="navNewReportBtn" class="nav-btn hidden" type="button">Nuevo reporte</button>
+              <button id="navAnalyticsBtn" class="nav-btn hidden" type="button">Analítica</button>
+              <button id="navHistoryBtn" class="nav-btn hidden" type="button">Historial por unidad</button>
+            </div>
+            <div class="nav-group">
+              <div class="nav-group-label">Administración</div>
+              <button id="navUsersBtn" class="nav-btn hidden" type="button">Usuarios</button>
+              <button id="navRequestsBtn" class="nav-btn hidden" type="button">Solicitudes</button>
+              <button id="navCompaniesBtn" class="nav-btn hidden" type="button">Empresas</button>
+            </div>
+          </nav>
+        </div>
+
+        <div class="stats">
+          <div class="stat"><span>Total</span><strong id="statTotal">0</strong></div>
+          <div class="stat"><span>Nuevas</span><strong id="statNew">0</strong></div>
+          <div class="stat"><span>Aceptadas</span><strong id="statAccepted">0</strong></div>
+          <div class="stat"><span>Terminadas</span><strong id="statDone">0</strong></div>
+        </div>
+
+        <div class="sidebar-bottom">
+          <div class="system-note">
+            <strong>Modo actual</strong>
+            <p id="roleSummaryText">Todo lo importante a la vista.</p>
+          </div>
+          <button id="logoutBtn" class="btn btn-ghost">Cerrar sesión</button>
+        </div>
+      </aside>
+
+      <main class="main-area">
+        <header class="topbar panel">
+          <div>
+            <div class="topbar-kicker">CARLAB CLOUD V3 · FASE 3</div>
+            <h1 id="pageTitle">Bandeja general</h1>
+            <p id="statusLegend" class="muted">Operación más venta, con control y lectura por unidad.</p>
+          </div>
+          <div class="topbar-side">
+            <div class="topbar-chip"><span>Sesión</span><strong id="currentUserEmail">admin@carlab.local</strong></div>
+          </div>
+        </header>
+
+        <section id="roleBrief" class="panel role-brief"></section>
+
+        <section id="analyticsPanel" class="panel hidden">
+          <div class="panel-head">
+            <div>
+              <div class="topbar-kicker">FASE 3</div>
+              <h3>Lectura comercial y operativa</h3>
+            </div>
+            <span class="badge badge-info">Solo supervisión y dirección</span>
+          </div>
+          <div class="analytics-grid">
+            <article class="analytic-card">
+              <strong>Top empresas</strong>
+              <div id="topCompanies" class="list-plain muted">Sin datos todavía.</div>
+            </article>
+            <article class="analytic-card">
+              <strong>Top modelos</strong>
+              <div id="topModels" class="list-plain muted">Sin datos todavía.</div>
+            </article>
+            <article class="analytic-card">
+              <strong>Tipos de incidencia</strong>
+              <div id="topIncidentTypes" class="list-plain muted">Sin datos todavía.</div>
+            </article>
+            <article class="analytic-card highlight-card">
+              <strong>Unidades reincidentes</strong>
+              <div id="repeatUnits" class="list-plain muted">Cuando una unidad repita fallas, aparecerá aquí.</div>
+            </article>
+          </div>
+        </section>
+
+        <section id="historyPanel" class="panel hidden">
+          <div class="panel-head">
+            <div>
+              <div class="topbar-kicker">CONSULTA</div>
+              <h3>Historial por unidad</h3>
+            </div>
+            <span class="badge badge-info">Trazabilidad</span>
+          </div>
+          <div class="history-search-box history-panel-box">
+            <div>
+              <label>Número económico</label>
+              <input id="unitHistoryInput" placeholder="Ej. 1042" />
+            </div>
+            <button id="unitHistoryBtn" class="btn btn-secondary" type="button">Consultar historial</button>
+          </div>
+          <div id="unitHistoryResult" class="table-list compact-list"></div>
+        </section>
+
+        <section id="filtersPanel" class="toolbar panel">
+          <input id="searchInput" type="text" placeholder="Buscar por obra, económico, empresa, modelo o contacto" />
+          <select id="validationFilter">
+            <option value="todos">Todas las validaciones</option>
+            <option value="nueva">Nueva</option>
+            <option value="pendiente de revisión">Pendiente de revisión</option>
+            <option value="aceptada">Aceptada</option>
+            <option value="rechazada">Rechazada</option>
+          </select>
+          <select id="operationalFilter">
+            <option value="todos">Todos los operativos</option>
+            <option value="sin iniciar">Sin iniciar</option>
+            <option value="en proceso">En proceso</option>
+            <option value="espera refacción">Espera refacción</option>
+            <option value="terminada">Terminada</option>
+          </select>
+        </section>
+
+        <section id="reportFormPanel" class="panel hidden">
+          <div class="panel-head">
+            <div>
+              <div class="topbar-kicker">PORTAL OPERADOR</div>
+              <h3>Nuevo reporte</h3>
+            </div>
+            <span class="badge badge-info">Captura controlada</span>
+          </div>
+          <form id="reportForm" class="grid-form">
+            <div><label>Número de obra</label><input id="numeroObra" required /></div>
+            <div><label>Modelo</label><input id="modelo" required /></div>
+            <div><label>Número económico</label><input id="numeroEconomico" required /></div>
+            <div><label>Empresa</label><select id="empresa" required></select></div>
+            <div><label>Kilometraje</label><input id="kilometraje" inputmode="numeric" placeholder="Ej. 245000" /></div>
+            <div><label>Nombre de contacto</label><input id="contactoNombre" placeholder="Nombre del operador o responsable" /></div>
+            <div><label>Teléfono</label><input id="telefono" placeholder="Ej. 6671234567" /></div>
+            <div class="col-span-2">
+              <label>Tipo de incidencia</label>
+              <div class="radio-row role-radio-row">
                 <label><input type="radio" name="tipoIncidente" value="daño" checked /> Daño</label>
                 <label><input type="radio" name="tipoIncidente" value="falla" /> Falla</label>
                 <label><input type="radio" name="tipoIncidente" value="sin daño" /> Sin daño</label>
               </div>
             </div>
-
-            <label class="field">
-              <span>Descripción del fallo</span>
-              <textarea id="descripcionFallo" rows="4" required></textarea>
-            </label>
-
-            <div class="grid-2">
-              <div class="surface soft nested">
-                <div class="split-row">
-                  <div>
-                    <p class="section-label">Evidencias generales</p>
-                    <p class="muted small">Puedes agregar varias capturas.</p>
-                  </div>
-                  <label class="btn btn-secondary file-btn">Subir<input id="evidencias" type="file" accept="image/*" multiple hidden /></label>
-                </div>
-                <div id="previewEvidencias" class="preview-grid"></div>
-              </div>
-
-              <div class="surface soft nested">
-                <label class="toggle-row"><input id="solicitaRefaccion" type="checkbox" /> <span>Solicita refacción</span></label>
-                <div id="refaccionFields" class="stack-gap hidden">
-                  <label class="field"><span>Detalle de refacción</span><textarea id="detalleRefaccion" rows="3"></textarea></label>
-                  <div class="split-row">
-                    <div>
-                      <p class="section-label">Evidencia de refacción</p>
-                      <p class="muted small">También puedes agregar varias capturas.</p>
-                    </div>
-                    <label class="btn btn-secondary file-btn">Subir<input id="evidenciasRefaccion" type="file" accept="image/*" multiple hidden /></label>
-                  </div>
-                  <div id="previewRefaccion" class="preview-grid"></div>
-                </div>
-              </div>
+            <div class="col-span-2"><label>Descripción del fallo</label><textarea id="descripcionFallo" rows="4" required></textarea></div>
+            <div class="col-span-2"><label>Evidencias generales</label><input id="evidencias" type="file" accept="image/*" multiple /><div class="small muted">Puedes abrir la cámara varias veces. Cada captura nueva se agrega a las anteriores.</div><div id="previewEvidencias" class="preview-grid"></div></div>
+            <div class="col-span-2"><label class="checkbox-row"><input id="solicitaRefaccion" type="checkbox" /> Solicita refacción</label></div>
+            <div id="refaccionFields" class="col-span-2 hidden stack gap-12">
+              <div><label>Detalle de refacción solicitada</label><textarea id="detalleRefaccion" rows="3"></textarea></div>
+              <div><label>Evidencia de refacción</label><input id="evidenciasRefaccion" type="file" accept="image/*" multiple /><div class="small muted">También puedes agregar varias capturas una por una.</div><div id="previewRefaccion" class="preview-grid"></div></div>
             </div>
-
-            <div class="surface soft nested">
-              <div class="split-row align-start">
-                <div>
-                  <p class="section-label">Firma del operador</p>
-                  <p class="muted small">Firma con dedo o mouse.</p>
-                </div>
-                <button id="clearSignatureBtn" class="btn btn-ghost" type="button">Borrar firma</button>
-              </div>
-              <canvas id="firmaCanvas" class="signature-pad" width="980" height="220"></canvas>
+            <div class="col-span-2">
+              <label>Firma del operador</label>
+              <canvas id="firmaCanvas" width="900" height="240"></canvas>
+              <div class="stack-inline"><button id="clearSignatureBtn" class="btn btn-ghost" type="button">Borrar firma</button><span class="muted">Firma con dedo o mouse.</span></div>
             </div>
-
-            <div class="row-actions">
-              <button class="btn btn-primary" type="submit">Guardar reporte</button>
-              <button id="cancelReportBtn" class="btn btn-ghost" type="button">Cancelar</button>
-            </div>
+            <div class="col-span-2 stack-inline"><button class="btn btn-primary" type="submit">Enviar reporte</button><button id="cancelReportBtn" class="btn btn-secondary" type="button">Cancelar</button></div>
           </form>
-        </div>
-      </section>
+        </section>
 
-      <section id="panelAnalytics" class="panel view-panel hidden">
-        <div class="layout-grid compact">
-          <div class="surface span-6">
-            <p class="section-label">Analítica</p>
-            <h3>Lectura comercial y operativa</h3>
-            <div class="analytics-columns">
-              <div><h4>Top empresas</h4><ul id="analyticsCompanies" class="mini-list roomy"></ul></div>
-              <div><h4>Top modelos</h4><ul id="analyticsModels" class="mini-list roomy"></ul></div>
-            </div>
-          </div>
-          <div class="surface span-6">
-            <p class="section-label">Foco</p>
-            <h3>Reincidencias y oportunidad</h3>
-            <div class="analytics-columns">
-              <div><h4>Tipos de incidencia</h4><ul id="analyticsIncidents" class="mini-list roomy"></ul></div>
-              <div><h4>Unidades reincidentes</h4><ul id="analyticsRepeats" class="mini-list roomy"></ul></div>
-            </div>
-          </div>
-        </div>
-      </section>
+        <section id="usersPanel" class="panel hidden">
+          <div class="panel-head"><div><div class="topbar-kicker">ADMINISTRACIÓN</div><h3>Usuarios y accesos</h3></div><span class="badge badge-info">Solo admin</span></div>
+          <form id="userForm" class="grid-form compact">
+            <input id="userId" type="hidden" />
+            <div><label>Nombre</label><input id="userNombre" required /></div>
+            <div><label>Correo</label><input id="userEmail" type="email" required /></div>
+            <div><label>Rol</label><select id="userRole"><option value="operador">Operador</option><option value="operativo">Operativo</option><option value="supervisor">Supervisor</option><option value="admin">Admin</option></select></div>
+            <div><label>Empresa</label><select id="userEmpresa"></select></div>
+            <div><label>Teléfono</label><input id="userTelefono" /></div>
+            <div><label>Contraseña</label><input id="userPassword" type="text" required /></div>
+            <div class="col-span-2 stack-inline"><button id="userSubmitBtn" class="btn btn-primary" type="submit">Crear usuario</button><button id="userCancelEditBtn" class="btn btn-ghost hidden" type="button">Cancelar edición</button></div>
+          </form>
+          <div id="usersList" class="table-list"></div>
+        </section>
 
-      <section id="panelHistory" class="panel view-panel hidden">
-        <div class="surface stack-gap">
-          <div class="surface-head split">
-            <div>
-              <p class="section-label">Consulta</p>
-              <h3>Historial por unidad</h3>
-              <p class="muted">Trazabilidad para detectar patrones, garantías repetidas y seguimiento real.</p>
-            </div>
-            <div class="history-search">
-              <input id="unitHistoryInput" type="text" list="numeroEconomicoSuggestions" placeholder="Número económico" />
-              <button id="unitHistoryBtn" class="btn btn-primary" type="button">Consultar</button>
-            </div>
-          </div>
-          <div id="unitHistoryResult" class="timeline-shell empty">Escribe un número económico para consultar el historial.</div>
-        </div>
-      </section>
+        <section id="requestsPanel" class="panel hidden">
+          <div class="panel-head"><div><div class="topbar-kicker">ACCESO OPERADOR</div><h3>Solicitudes de registro</h3></div><span class="badge badge-info">Aprobación admin</span></div>
+          <div id="requestsList" class="table-list"></div>
+        </section>
 
-      <section id="panelUsers" class="panel view-panel hidden admin-only-panel">
-        <div class="layout-grid compact">
-          <div class="surface span-4 stack-gap">
-            <div>
-              <p class="section-label">Administración</p>
-              <h3>Usuarios y accesos</h3>
-            </div>
-            <form id="userForm" class="stack-gap">
-              <input id="userId" type="hidden" />
-              <label class="field"><span>Nombre</span><input id="userNombre" required /></label>
-              <label class="field"><span>Correo</span><input id="userEmail" type="email" required /></label>
-              <label class="field"><span>Rol</span>
-                <select id="userRole" required>
-                  <option value="operador">Operador</option>
-                  <option value="operativo">Operativo</option>
-                  <option value="supervisor">Supervisor</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </label>
-              <label class="field"><span>Empresa</span><select id="userEmpresa"></select></label>
-              <label class="field"><span>Teléfono</span><input id="userTelefono" /></label>
-              <label class="field"><span>Contraseña</span><input id="userPassword" type="password" required /></label>
-              <div class="row-actions">
-                <button id="userSubmitBtn" class="btn btn-primary" type="submit">Crear usuario</button>
-                <button id="userCancelEditBtn" class="btn btn-ghost hidden" type="button">Cancelar edición</button>
-              </div>
-            </form>
-          </div>
-          <div class="surface span-8">
-            <div class="surface-head"><h3>Usuarios registrados</h3></div>
-            <div id="usersList" class="table-shell"></div>
-          </div>
-        </div>
-      </section>
+        <section id="companiesPanel" class="panel hidden">
+          <div class="panel-head"><div><div class="topbar-kicker">CATÁLOGO</div><h3>Empresas habilitadas</h3></div><span class="badge badge-info">Base para registro</span></div>
+          <form id="companyForm" class="grid-form compact">
+            <input id="companyId" type="hidden" />
+            <div><label>Empresa</label><input id="companyNombre" placeholder="Nombre de empresa" /></div>
+            <div><label>Contacto</label><input id="companyContacto" placeholder="Nombre del contacto" /></div>
+            <div><label>Teléfono</label><input id="companyTelefono" placeholder="6671234567" /></div>
+            <div><label>Correo</label><input id="companyEmail" placeholder="correo@empresa.com" /></div>
+            <div class="col-span-2"><label>Notas</label><textarea id="companyNotas" rows="2" placeholder="Datos útiles para operación o registro"></textarea></div>
+            <div class="col-span-2 stack-inline"><button id="companySubmitBtn" class="btn btn-primary" type="submit">Guardar empresa</button><button id="companyCancelEditBtn" class="btn btn-ghost hidden" type="button">Cancelar edición</button></div>
+          </form>
+          <div id="companiesList" class="table-list"></div>
+        </section>
 
-      <section id="panelRequests" class="panel view-panel hidden admin-only-panel">
-        <div class="surface">
-          <div class="surface-head"><div><p class="section-label">Acceso operador</p><h3>Solicitudes de registro</h3></div></div>
-          <div id="requestsList" class="card-list"></div>
-        </div>
-      </section>
+        <section id="boardPanel" class="panel">
+          <div class="panel-head"><div><div class="topbar-kicker" id="boardKicker">CENTRAL</div><h3 id="listTitle">Bandeja de garantías</h3></div></div>
+          <div id="garantiasList" class="cards"></div>
+          <div id="emptyState" class="empty-state hidden"><strong>No hay registros para esta vista.</strong><span>Cuando entren reportes o cambien los filtros, aquí aparecerán.</span></div>
+        </section>
+      </main>
+    </section>
+  </div>
 
-      <section id="panelCompanies" class="panel view-panel hidden admin-only-panel">
-        <div class="layout-grid compact">
-          <div class="surface span-4 stack-gap">
-            <div>
-              <p class="section-label">Catálogo</p>
-              <h3>Empresas habilitadas</h3>
-            </div>
-            <form id="companyForm" class="stack-gap">
-              <input id="companyId" type="hidden" />
-              <label class="field"><span>Empresa</span><input id="companyNombre" required /></label>
-              <label class="field"><span>Contacto</span><input id="companyContacto" /></label>
-              <label class="field"><span>Teléfono</span><input id="companyTelefono" /></label>
-              <label class="field"><span>Correo</span><input id="companyEmail" type="email" /></label>
-              <label class="field"><span>Notas</span><textarea id="companyNotas" rows="4"></textarea></label>
-              <div class="row-actions">
-                <button id="companySubmitBtn" class="btn btn-primary" type="submit">Guardar empresa</button>
-                <button id="companyCancelEditBtn" class="btn btn-ghost hidden" type="button">Cancelar edición</button>
-              </div>
-            </form>
-          </div>
-          <div class="surface span-8">
-            <div class="surface-head"><h3>Empresas registradas</h3></div>
-            <div id="companiesList" class="table-shell"></div>
-          </div>
-        </div>
-      </section>
-    </main>
-  </section>
-
-  <dialog id="detailModal" class="detail-modal">
-    <div class="modal-shell">
-      <div class="surface-head split sticky-head wrap-gap">
-        <div>
-          <p class="section-label">Detalle</p>
-          <h3 id="detailTitle">Garantía</h3>
-          <p id="detailSubtitle" class="muted small"></p>
-        </div>
-        <div class="modal-actions">
-          <button id="reportPdfBtn" class="btn btn-secondary" type="button">PDF completo</button>
-          <button id="workshopPdfBtn" class="btn btn-ghost" type="button">PDF taller</button>
-          <button id="closeModalBtn" class="btn btn-ghost" type="button">Cerrar</button>
-        </div>
-      </div>
-      <div id="detailBody" class="modal-body"></div>
-    </div>
-  </dialog>
-
-  <dialog id="actionModal" class="detail-modal small-modal">
-    <div class="modal-shell compact-shell">
-      <div class="surface-head split sticky-head">
-        <div>
-          <p class="section-label">Estatus</p>
-          <h3 id="actionModalTitle">Actualizar</h3>
-        </div>
-        <button id="actionCancelBtn" class="btn btn-ghost" type="button">Cerrar</button>
-      </div>
-      <div class="stack-gap modal-body compact-body">
-        <label class="field"><span>Estatus</span><select id="actionStatusSelect"></select></label>
-        <label class="field"><span>Observación</span><textarea id="actionNotes" rows="4" placeholder="Motivo, observación o nota operativa"></textarea></label>
-        <div class="row-actions">
-          <button id="actionConfirmBtn" class="btn btn-primary" type="button">Guardar cambio</button>
-        </div>
-      </div>
-    </div>
-  </dialog>
+  <div id="toast" class="toast hidden"></div>
 
   <template id="garantiaCardTemplate">
-    <article class="ticket-card">
-      <div class="ticket-head">
-        <div>
-          <h4 class="title"></h4>
-          <p class="meta"></p>
-        </div>
-        <div class="badge-pair">
-          <span class="badge validation-badge"></span>
-          <span class="badge operational-badge"></span>
-        </div>
+    <article class="card">
+      <div class="card-top">
+        <div><h4 class="title"></h4><p class="meta"></p></div>
+        <div class="badge-stack"><span class="badge validation-badge"></span><span class="badge operational-badge"></span></div>
       </div>
       <p class="description"></p>
       <div class="mini-grid"></div>
-      <div class="ticket-actions"></div>
+      <div class="evidence-strip"></div>
+      <div class="action-area"></div>
     </article>
   </template>
 

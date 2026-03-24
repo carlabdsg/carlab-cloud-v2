@@ -10,9 +10,9 @@ const state = {
   drawing: false,
   hasSignature: false,
   activePanel: 'board',
-  editingGarantiaId: '',
   editingUserId: '',
   editingCompanyId: '',
+  editingGarantiaId: '',
 };
 
 const api = {
@@ -22,9 +22,8 @@ const api = {
     if (state.token) headers.Authorization = `Bearer ${state.token}`;
     const response = await fetch(url, { ...options, headers });
     const text = await response.text();
-    let data = null;
-    try { data = text ? JSON.parse(text) : null; } catch { data = text; }
-    if (!response.ok) throw new Error(data?.error || data?.message || 'Algo salió mal.');
+    const data = text ? JSON.parse(text) : null;
+    if (!response.ok) throw new Error(data?.error || 'Algo salió mal.');
     return data;
   },
   login(email, password) { return this.request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }); },
@@ -49,252 +48,136 @@ const api = {
   deleteCompany(id) { return this.request(`/api/companies/${id}`, { method: 'DELETE' }); },
   getRequests() { return this.request('/api/registration-requests'); },
   updateRequest(id, payload) { return this.request(`/api/registration-requests/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }); },
-  getUnitHistory(numeroEconomico) { return this.request(`/api/history/unit/${encodeURIComponent(numeroEconomico)}`); },
+  getUnitHistory(numeroEconomico) { return this.request(`/api/history/unit/${encodeURIComponent(numeroEconomico)}`); }
 };
 
 const els = {};
-[
-  'authView','appShell','tabLoginBtn','tabRegisterBtn','loginPane','registerPane','loginEmail','loginPassword','loginError','regNombre','regEmail','regTelefono','regEmpresa','regNumeroEconomico','regPassword','registerMessage',
-  'currentUserName','currentUserEmail','avatarCircle','currentRoleBadge','roleTitle','roleSummaryText','pageTitle','statusLegend','boardKicker','searchInput','logoutBtn','quickCreateBtn',
-  'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn',
-  'panelBoard','panelReport','panelAnalytics','panelHistory','panelUsers','panelRequests','panelCompanies',
-  'statTotal','statNew','statAccepted','statDone','listTitle','validationFilter','operationalFilter','garantiasList','emptyState','topCompanies','topModels','topIncidentTypes','repeatUnits',
-  'analyticsCompanies','analyticsModels','analyticsIncidents','analyticsRepeats',
-  'reportForm','numeroObra','modelo','numeroEconomico','empresa','kilometraje','contactoNombre','telefono','descripcionFallo','solicitaRefaccion','refaccionFields','detalleRefaccion','evidencias','evidenciasRefaccion','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn',
-  'unitHistoryInput','unitHistoryBtn','unitHistoryResult',
-  'userForm','userId','userNombre','userEmail','userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList',
-  'requestsList',
-  'companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn','companiesList',
-  'detailModal','detailTitle','detailSubtitle','detailBody','closeModalBtn','reportPdfBtn','workshopPdfBtn','actionModal','actionModalTitle','actionStatusSelect','actionNotes','actionConfirmBtn','actionCancelBtn','quickFilterBar','toast'
-].forEach(id => { els[id] = document.getElementById(id); });
+function bind() {
+  [
+    'loginView','dashboardView','loginForm','loginEmail','loginPassword','loginError','registerForm','registerMessage','regNombre','regEmail','regTelefono','regEmpresa','regNumeroEconomico','regPassword',
+    'tabLoginBtn','tabRegisterBtn','welcomeText','currentUserName','currentUserEmail','currentRoleBadge','avatarCircle','pageTitle','roleSummaryText','roleBrief','logoutBtn',
+    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','filtersPanel',
+    'reportForm','numeroObra','modelo','numeroEconomico','empresa','kilometraje','contactoNombre','telefono','descripcionFallo','solicitaRefaccion','refaccionFields','detalleRefaccion',
+    'evidencias','evidenciasRefaccion','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn','searchInput','validationFilter','operationalFilter',
+    'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
+    'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
+    'topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistoryBtn','unitHistoryResult'
+  ].forEach(id => els[id] = document.getElementById(id));
+}
+bind();
 
-const signatureCtx = els.firmaCanvas?.getContext('2d');
-if (signatureCtx) {
-  signatureCtx.lineWidth = 2.2;
-  signatureCtx.lineCap = 'round';
-  signatureCtx.strokeStyle = '#111827';
+const ctx = els.firmaCanvas?.getContext('2d');
+if (ctx) {
+  ctx.lineWidth = 2.2;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#111';
 }
 
+function roleName(role) { return ({ admin: 'Admin', operador: 'Operador', operativo: 'Operativo', supervisor: 'Supervisor' })[role] || role; }
+function isRole(...roles) { return state.user && roles.includes(state.user.role); }
+function selectedRadio(name) { return document.querySelector(`input[name="${name}"]:checked`)?.value || ''; }
+function fmtDate(value) { return value ? new Date(value).toLocaleString('es-MX') : '—'; }
+function escapeHtml(text='') { return String(text).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m])); }
 function notify(message, isError = false) {
   if (!els.toast) return alert(message);
   els.toast.textContent = message;
-  els.toast.style.background = isError ? 'rgba(127, 29, 29, .96)' : 'rgba(17,24,39,.92)';
   els.toast.classList.remove('hidden');
+  els.toast.style.background = isError ? 'rgba(219,104,104,.18)' : '';
   clearTimeout(notify._t);
-  notify._t = setTimeout(() => els.toast.classList.add('hidden'), 2600);
+  notify._t = setTimeout(() => { els.toast.classList.add('hidden'); els.toast.style.background = ''; }, 2800);
 }
-function fmtDate(value) { return value ? new Date(value).toLocaleString('es-MX') : '—'; }
-function roleName(role) { return ({ admin:'Admin', operador:'Operador', operativo:'Operativo', supervisor:'Supervisor' })[role] || role || '—'; }
-function isRole(...roles) { return !!state.user && roles.includes(state.user.role); }
-function selectedRadio(name) { return document.querySelector(`input[name="${name}"]:checked`)?.value || ''; }
-function esc(text='') { return String(text).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch])); }
-function initials(text='') { return String(text).split(' ').filter(Boolean).slice(0,2).map(x => x[0]?.toUpperCase() || '').join('') || 'C'; }
+function badgeClassValidation(status) { return ({ 'nueva':'badge-new','pendiente de revisión':'badge-review','aceptada':'badge-accepted','rechazada':'badge-rejected' })[status] || 'badge-info'; }
+function badgeClassOperational(status) { return ({ 'sin iniciar':'badge-info','en proceso':'badge-progress','espera refacción':'badge-waiting','terminada':'badge-done' })[status] || 'badge-info'; }
 function countBy(items, getter) {
-  const m = new Map();
+  const map = new Map();
   items.forEach(item => {
     const key = getter(item) || '—';
-    m.set(key, (m.get(key) || 0) + 1);
+    map.set(key, (map.get(key) || 0) + 1);
   });
-  return [...m.entries()].sort((a,b) => b[1] - a[1]);
+  return [...map.entries()].sort((a,b) => b[1] - a[1]);
 }
-function fillSelect(select, items, placeholder = 'Selecciona') {
+function fillSelect(select, options, placeholder = 'Selecciona') {
   if (!select) return;
-  const current = select.value;
-  select.innerHTML = `<option value="">${placeholder}</option>` + items.map(item => `<option value="${esc(item.nombre)}">${esc(item.nombre)}</option>`).join('');
-  if (current) select.value = current;
+  select.innerHTML = `<option value="">${placeholder}</option>` + options.map(o => `<option value="${escapeHtml(o.nombre)}">${escapeHtml(o.nombre)}</option>`).join('');
 }
-function fillDatalist(el, values) {
-  if (!el) return;
-  el.innerHTML = [...new Set(values.filter(Boolean).map(v => String(v).trim()).filter(Boolean))].sort().slice(0, 200).map(v => `<option value="${esc(v)}"></option>`).join('');
-}
-function setActiveNav(panel) {
-  state.activePanel = panel;
-  document.querySelectorAll('.view-panel').forEach(el => el.classList.add('hidden'));
-  document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
-  const panelMap = {
-    board: [els.panelBoard, els.navBoardBtn],
-    report: [els.panelReport, els.navNewReportBtn],
-    analytics: [els.panelAnalytics, els.navAnalyticsBtn],
-    history: [els.panelHistory, els.navHistoryBtn],
-    users: [els.panelUsers, els.navUsersBtn],
-    requests: [els.panelRequests, els.navRequestsBtn],
-    companies: [els.panelCompanies, els.navCompaniesBtn],
-  };
-  panelMap[panel]?.[0]?.classList.remove('hidden');
-  panelMap[panel]?.[1]?.classList.add('active');
-}
-function roleCopy(role) {
-  return {
-    admin: { title:'Cabina administrativa', summary:'Control total, lectura comercial y capacidad de actuación sobre toda la operación.', kicker:'ADMIN', page:'Bandeja general del sistema', legend:'Portal corporativo con control, solicitudes y lectura comercial.' },
-    operativo: { title:'Centro operativo', summary:'Valida, mueve estatus y sostiene el flujo de garantías en vivo.', kicker:'OPERATIVO', page:'Bandeja operativa', legend:'Toma decisiones, mueve estatus y libera cuellos de botella.' },
-    supervisor: { title:'Vista supervisora', summary:'Lectura limpia para revisión, seguimiento y control visual del taller.', kicker:'SUPERVISOR', page:'Vista de supervisión', legend:'Todo visible, sin saturación ni ruido.' },
-    operador: { title:'Portal del operador', summary:'Levantas reportes con evidencia y sigues su estatus sin depender de llamadas.', kicker:'OPERADOR', page:'Mis reportes', legend:'Captura clara, evidencia y seguimiento.' },
-  }[role] || { title:'Cabina', summary:'Operación visible.', kicker:'CARLAB', page:'Centro de mando', legend:'Todo lo importante a la vista.' };
-}
-function syncRoleUI() {
-  if (!state.user) return;
-  const copy = roleCopy(state.user.role);
-  els.currentUserName.textContent = state.user.nombre || 'Usuario';
-  els.currentUserEmail.textContent = state.user.email || '—';
-  els.avatarCircle.textContent = initials(state.user.nombre || state.user.email);
-  els.currentRoleBadge.textContent = roleName(state.user.role);
-  els.roleTitle.textContent = copy.title;
-  els.roleSummaryText.textContent = copy.summary;
-  els.boardKicker.textContent = copy.kicker;
-  els.pageTitle.textContent = copy.page;
-  els.statusLegend.textContent = copy.legend;
-  document.querySelectorAll('.admin-only, .admin-only-panel').forEach(el => el.classList.toggle('hidden', !isRole('admin')));
-}
-function showAuth() {
-  els.authView.classList.remove('hidden');
-  els.appShell.classList.add('hidden');
-}
-function showApp() {
-  els.authView.classList.add('hidden');
-  els.appShell.classList.remove('hidden');
-  syncRoleUI();
-}
+
 function resetSignature() {
-  if (!signatureCtx || !els.firmaCanvas) return;
-  signatureCtx.clearRect(0, 0, els.firmaCanvas.width, els.firmaCanvas.height);
-  signatureCtx.fillStyle = '#fff';
-  signatureCtx.fillRect(0, 0, els.firmaCanvas.width, els.firmaCanvas.height);
+  if (!ctx || !els.firmaCanvas) return;
+  ctx.clearRect(0, 0, els.firmaCanvas.width, els.firmaCanvas.height);
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, els.firmaCanvas.width, els.firmaCanvas.height);
   state.hasSignature = false;
 }
-function pointerPos(e) {
-  const rect = els.firmaCanvas.getBoundingClientRect();
-  const point = e.touches ? e.touches[0] : e;
-  return { x: (point.clientX - rect.left) * (els.firmaCanvas.width / rect.width), y: (point.clientY - rect.top) * (els.firmaCanvas.height / rect.height) };
-}
-function startDraw(e) { state.drawing = true; state.hasSignature = true; const {x,y} = pointerPos(e); signatureCtx.beginPath(); signatureCtx.moveTo(x,y); }
-function moveDraw(e) { if (!state.drawing) return; e.preventDefault(); const {x,y} = pointerPos(e); signatureCtx.lineTo(x,y); signatureCtx.stroke(); }
-function endDraw() { state.drawing = false; }
-['mousedown','touchstart'].forEach(evt => els.firmaCanvas?.addEventListener(evt, startDraw));
-['mousemove','touchmove'].forEach(evt => els.firmaCanvas?.addEventListener(evt, moveDraw, { passive: false }));
-['mouseup','mouseleave','touchend'].forEach(evt => els.firmaCanvas?.addEventListener(evt, endDraw));
-els.clearSignatureBtn?.addEventListener('click', resetSignature);
 resetSignature();
+function pointerPos(e) { const rect = els.firmaCanvas.getBoundingClientRect(); const point = e.touches ? e.touches[0] : e; return { x: (point.clientX - rect.left) * (els.firmaCanvas.width / rect.width), y: (point.clientY - rect.top) * (els.firmaCanvas.height / rect.height) }; }
+function startDraw(e) { state.drawing = true; state.hasSignature = true; const { x, y } = pointerPos(e); ctx.beginPath(); ctx.moveTo(x, y); }
+function moveDraw(e) { if (!state.drawing) return; e.preventDefault(); const { x, y } = pointerPos(e); ctx.lineTo(x, y); ctx.stroke(); }
+function endDraw() { state.drawing = false; }
+if (els.firmaCanvas) {
+  ['mousedown','touchstart'].forEach(evt => els.firmaCanvas.addEventListener(evt, startDraw));
+  ['mousemove','touchmove'].forEach(evt => els.firmaCanvas.addEventListener(evt, moveDraw, { passive: false }));
+  ['mouseup','mouseleave','touchend'].forEach(evt => els.firmaCanvas.addEventListener(evt, endDraw));
+}
+els.clearSignatureBtn?.addEventListener('click', resetSignature);
 
-async function fileToCompressedDataUrl(file, maxSide = 1600, quality = 0.8) {
-  const src = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-  const img = await new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = reject;
-    image.src = src;
-  });
+async function fileToCompressedDataUrl(file, maxSide = 1600, quality = 0.78) {
+  const src = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); });
+  const img = await new Promise((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = reject; image.src = src; });
   const ratio = Math.min(maxSide / img.width, maxSide / img.height, 1);
   const canvas = document.createElement('canvas');
-  canvas.width = Math.round(img.width * ratio);
-  canvas.height = Math.round(img.height * ratio);
-  const cx = canvas.getContext('2d');
-  cx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  canvas.width = Math.round(img.width * ratio); canvas.height = Math.round(img.height * ratio);
+  const cx = canvas.getContext('2d'); cx.drawImage(img, 0, 0, canvas.width, canvas.height);
   return canvas.toDataURL('image/jpeg', quality);
 }
-function drawPreviews(container, items) {
-  if (!container) return;
-  container.innerHTML = items.map(src => `<img src="${src}" alt="evidencia" />`).join('');
-}
+function drawPreviews(container, items) { if (!container) return; container.innerHTML = ''; items.forEach(src => { const img = document.createElement('img'); img.src = src; container.appendChild(img); }); }
 
 els.evidencias?.addEventListener('change', async e => {
-  const incoming = await Promise.all([...e.target.files].map(fileToCompressedDataUrl));
+  const incoming = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file)));
   state.currentEvidence = [...state.currentEvidence, ...incoming];
   drawPreviews(els.previewEvidencias, state.currentEvidence);
   e.target.value = '';
 });
 els.evidenciasRefaccion?.addEventListener('change', async e => {
-  const incoming = await Promise.all([...e.target.files].map(fileToCompressedDataUrl));
+  const incoming = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file)));
   state.currentRefEvidence = [...state.currentRefEvidence, ...incoming];
   drawPreviews(els.previewRefaccion, state.currentRefEvidence);
   e.target.value = '';
 });
-els.solicitaRefaccion?.addEventListener('change', () => els.refaccionFields.classList.toggle('hidden', !els.solicitaRefaccion.checked));
+els.solicitaRefaccion?.addEventListener('change', () => els.refaccionFields?.classList.toggle('hidden', !els.solicitaRefaccion.checked));
 
-function reportPayload() {
-  return {
-    numeroObra: els.numeroObra.value.trim(),
-    modelo: els.modelo.value.trim(),
-    numeroEconomico: els.numeroEconomico.value.trim(),
-    empresa: els.empresa.value.trim(),
-    kilometraje: els.kilometraje.value.trim(),
-    contactoNombre: els.contactoNombre.value.trim(),
-    telefono: els.telefono.value.trim(),
-    tipoIncidente: selectedRadio('tipoIncidente'),
-    descripcionFallo: els.descripcionFallo.value.trim(),
-    solicitaRefaccion: els.solicitaRefaccion.checked,
-    detalleRefaccion: els.detalleRefaccion.value.trim(),
-    evidencias: state.currentEvidence,
-    evidenciasRefaccion: state.currentRefEvidence,
-    firma: state.hasSignature ? els.firmaCanvas.toDataURL('image/png', .9) : '',
-  };
-}
 function resetReportForm() {
-  state.editingGarantiaId = '';
+  state.editGaratiaId = '';
   els.reportForm?.reset();
-  state.currentEvidence = [];
-  state.currentRefEvidence = [];
-  drawPreviews(els.previewEvidencias, []);
-  drawPreviews(els.previewRefaccion, []);
+  state.currentEvidence = []; state.currentRefEvidence = [];
+  drawPreviews(els.previewEvidencias, []); drawPreviews(els.previewRefaccion, []);
   els.refaccionFields?.classList.add('hidden');
-  const first = document.querySelector('input[name="tipoIncidente"][value="daño"]');
-  if (first) first.checked = true;
-  if (isRole('operador') && state.user?.empresa) els.empresa.value = state.user.empresa;
-  if (isRole('operador')) {
-    els.contactoNombre.value = state.user?.nombre || '';
-    els.telefono.value = state.user?.telefono || '';
-  }
+  const radio = document.querySelector('input[name="tipoIncidente"][value="daño"]');
+  if (radio) radio.checked = true;
+  if (isRole('operador') && state.user?.empresa && els.empresa) els.empresa.value = state.user.empresa;
+  if (isRole('operador') && els.contactoNombre) els.contactoNombre.value = state.user?.nombre || '';
+  if (isRole('operador') && els.telefono) els.telefono.value = state.user?.telefono || '';
   resetSignature();
 }
 function resetUserForm() {
   state.editingUserId = '';
-  els.userForm.reset();
-  els.userId.value = '';
-  els.userSubmitBtn.textContent = 'Crear usuario';
-  els.userPassword.required = true;
-  els.userPassword.placeholder = '';
-  els.userCancelEditBtn.classList.add('hidden');
+  els.userForm?.reset();
+  if (els.userId) els.userId.value = '';
+  if (els.userSubmitBtn) els.userSubmitBtn.textContent = 'Crear usuario';
+  if (els.userPassword) { els.userPassword.required = true; els.userPassword.placeholder = ''; }
+  els.userCancelEditBtn?.classList.add('hidden');
 }
 function resetCompanyForm() {
   state.editingCompanyId = '';
-  els.companyForm.reset();
-  els.companyId.value = '';
-  els.companySubmitBtn.textContent = 'Guardar empresa';
-  els.companyCancelEditBtn.classList.add('hidden');
+  els.companyForm?.reset();
+  if (els.companyId) els.companyId.value = '';
+  if (els.companySubmitBtn) els.companySubmitBtn.textContent = 'Guardar empresa';
+  els.companyCancelEditBtn?.classList.add('hidden');
 }
-function beginUserEdit(user) {
-  state.editingUserId = user.id;
-  els.userId.value = user.id;
-  els.userNombre.value = user.nombre || '';
-  els.userEmail.value = user.email || '';
-  els.userRole.value = user.role || 'operador';
-  els.userEmpresa.value = user.empresa || '';
-  els.userTelefono.value = user.telefono || '';
-  els.userPassword.required = false;
-  els.userPassword.placeholder = 'Déjala vacía para conservarla';
-  els.userPassword.value = '';
-  els.userSubmitBtn.textContent = 'Actualizar usuario';
-  els.userCancelEditBtn.classList.remove('hidden');
-  setActiveNav('users');
-}
-function beginCompanyEdit(company) {
-  state.editingCompanyId = company.id;
-  els.companyId.value = company.id;
-  els.companyNombre.value = company.nombre || '';
-  els.companyContacto.value = company.contacto || '';
-  els.companyTelefono.value = company.telefono || '';
-  els.companyEmail.value = company.email || '';
-  els.companyNotas.value = company.notas || '';
-  els.companySubmitBtn.textContent = 'Actualizar empresa';
-  els.companyCancelEditBtn.classList.remove('hidden');
-  setActiveNav('companies');
-}
+
 function beginGarantiaEdit(item) {
+  if (!item) return;
+
   state.editingGarantiaId = item.id;
+
   els.numeroObra.value = item.numeroObra || '';
   els.modelo.value = item.modelo || '';
   els.numeroEconomico.value = item.numeroEconomico || '';
@@ -304,565 +187,424 @@ function beginGarantiaEdit(item) {
   els.telefono.value = item.telefono || '';
   els.descripcionFallo.value = item.descripcionFallo || '';
   els.detalleRefaccion.value = item.detalleRefaccion || '';
+
   const radio = document.querySelector(`input[name="tipoIncidente"][value="${item.tipoIncidente}"]`);
   if (radio) radio.checked = true;
+
   els.solicitaRefaccion.checked = !!item.solicitaRefaccion;
   els.refaccionFields.classList.toggle('hidden', !item.solicitaRefaccion);
+
   state.currentEvidence = [...(item.evidencias || [])];
   state.currentRefEvidence = [...(item.evidenciasRefaccion || [])];
+
   drawPreviews(els.previewEvidencias, state.currentEvidence);
   drawPreviews(els.previewRefaccion, state.currentRefEvidence);
+
   resetSignature();
   if (item.firma) {
     const img = new Image();
-    img.onload = () => { signatureCtx.drawImage(img, 0, 0, els.firmaCanvas.width, els.firmaCanvas.height); state.hasSignature = true; };
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, els.firmaCanvas.width, els.firmaCanvas.height);
+      state.hasSignature = true;
+    };
     img.src = item.firma;
   }
-  setActiveNav('report');
+
+  switchPanel('report');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function filteredGarantias() {
-  const q = els.searchInput.value.trim().toLowerCase();
-  return state.garantias.filter(item => {
-    const byValidation = !els.validationFilter.value || item.estatusValidacion === els.validationFilter.value;
-    const byOperational = !els.operationalFilter.value || item.estatusOperativo === els.operationalFilter.value;
-    const searchable = [item.folio, item.numeroEconomico, item.numeroObra, item.empresa, item.modelo, item.contactoNombre, item.descripcionFallo].join(' ').toLowerCase();
-    const byQuery = !q || searchable.includes(q);
-    const onlyMine = state.user?.role === 'operador' ? item.reportadoPorEmail === state.user.email : true;
-    return byValidation && byOperational && byQuery && onlyMine;
-  }).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+function reportPayload() {
+  return {
+    numeroObra: els.numeroObra?.value.trim(), modelo: els.modelo?.value.trim(), numeroEconomico: els.numeroEconomico?.value.trim(), empresa: els.empresa?.value.trim(), kilometraje: els.kilometraje?.value.trim(),
+    contactoNombre: els.contactoNombre?.value.trim(), telefono: els.telefono?.value.trim(), tipoIncidente: selectedRadio('tipoIncidente'), descripcionFallo: els.descripcionFallo?.value.trim(), solicitaRefaccion: els.solicitaRefaccion?.checked,
+    detalleRefaccion: els.detalleRefaccion?.value.trim(), evidencias: state.currentEvidence, evidenciasRefaccion: state.currentRefEvidence, firma: state.hasSignature ? els.firmaCanvas.toDataURL('image/png', .9) : '',
+  };
 }
 
-function updateStats() {
-  const items = filteredGarantias();
-  els.statTotal.textContent = items.length;
-  els.statNew.textContent = items.filter(x => ['nueva','pendiente de revisión'].includes(x.estatusValidacion)).length;
-  els.statAccepted.textContent = items.filter(x => x.estatusValidacion === 'aceptada').length;
-  els.statDone.textContent = items.filter(x => x.estatusOperativo === 'terminada').length;
+function roleCopy(role) {
+  return {
+    admin: { title:'Cabina administrativa', summary:'Control total. Apruebas accesos, administras usuarios, ves analítica y conviertes reincidencias en acción.', panels:[['Gestión total','Usuarios, empresas y solicitudes en una sola vista.'],['Lectura comercial','Detecta patrones por empresa, modelo y unidad.'],['Control operativo','Puedes actuar igual que un operativo cuando haga falta.']], boardKicker:'ADMIN', listTitle:'Bandeja general del sistema', legend:'Portal corporativo con control total, solicitudes y lectura comercial.' },
+    operador: { title:'Portal de operador', summary:'Reportas fallas, subes evidencia y ves el estatus sin depender de llamadas.', panels:[['Levantar incidencia','Captura la falla con datos, fotos, refacción y firma.'],['Seguimiento','Consulta si fue aceptada, rechazada o quedó pendiente.'],['Sin cruces','Solo ves tus reportes. No puedes decidir ni alterar revisiones.']], boardKicker:'OPERADOR', listTitle:'Mis reportes de garantía', legend:'Aquí ves solo tus reportes y su estatus actual.' },
+    operativo: { title:'Mesa de validación operativa', summary:'Revisas reportes, decides si proceden y mueves el trabajo hasta terminar.', panels:[['Decisión','Acepta, rechaza o marca pendiente de revisión.'],['Flujo','Mueve el trabajo a en proceso, espera refacción o terminada.'],['Patrones','También ves unidades reincidentes para atacar la raíz.']], boardKicker:'OPERATIVO', listTitle:'Bandeja operativa', legend:'Aquí validas, autorizas y avanzas el trabajo.' },
+    supervisor: { title:'Portal de supervisor', summary:'Consulta únicamente la información de tu empresa en modo corporativo de solo lectura.', panels:[['Visibilidad','Revisa empresas, unidades, evidencias y avances.'],['Lectura ejecutiva','Historial por unidad y top de fallas sin tocar procesos.'],['Sin edición','No cambias decisiones ni alteras procesos.']], boardKicker:'SUPERVISOR', listTitle:'Bandeja supervisada', legend:'Monitoreo integral con lectura operativa y comercial.' },
+  }[role];
 }
-function renderMiniList(target, pairs, emptyText) {
-  target.innerHTML = pairs.length ? pairs.slice(0, 6).map(([name, value]) => `<li><span>${esc(name)}</span><strong>${value}</strong></li>`).join('') : `<li><em>${emptyText}</em></li>`;
+
+function updateHeaderForRole() {
+  const copy = roleCopy(state.user.role);
+  if (els.pageTitle) els.pageTitle.textContent = copy.title;
+  if (els.statusLegend) els.statusLegend.textContent = copy.legend;
+  if (els.roleSummaryText) els.roleSummaryText.textContent = copy.summary;
+  if (els.boardKicker) els.boardKicker.textContent = copy.boardKicker;
+  if (els.listTitle) els.listTitle.textContent = copy.listTitle;
+  if (els.currentUserName) els.currentUserName.textContent = state.user.nombre;
+  if (els.currentUserEmail) els.currentUserEmail.textContent = state.user.email;
+  if (els.currentRoleBadge) els.currentRoleBadge.textContent = roleName(state.user.role);
+  if (els.welcomeText) els.welcomeText.textContent = `${roleName(state.user.role)} · Sesión activa`;
+  if (els.avatarCircle) els.avatarCircle.textContent = state.user.nombre?.[0]?.toUpperCase() || 'C';
+  if (els.roleBrief) els.roleBrief.innerHTML = copy.panels.map(([title, desc]) => `<article><strong>${escapeHtml(title)}</strong><span>${escapeHtml(desc)}</span></article>`).join('');
 }
-function renderAnalytics() {
-  const source = filteredGarantias();
-  renderMiniList(els.topCompanies, countBy(source, x => x.empresa), 'Sin datos todavía.');
-  renderMiniList(els.topModels, countBy(source, x => x.modelo), 'Sin datos todavía.');
-  renderMiniList(els.topIncidentTypes, countBy(source, x => x.tipoIncidente), 'Sin datos todavía.');
-  renderMiniList(els.repeatUnits, countBy(source, x => x.numeroEconomico).filter(([,n]) => n > 1), 'Cuando una unidad repita fallas, aparecerá aquí.');
-  renderMiniList(els.analyticsCompanies, countBy(source, x => x.empresa), 'Sin datos todavía.');
-  renderMiniList(els.analyticsModels, countBy(source, x => x.modelo), 'Sin datos todavía.');
-  renderMiniList(els.analyticsIncidents, countBy(source, x => x.tipoIncidente), 'Sin datos todavía.');
-  renderMiniList(els.analyticsRepeats, countBy(source, x => x.numeroEconomico).filter(([,n]) => n > 1), 'Sin unidades reincidentes todavía.');
+function setActiveNav(activeBtn) {
+  [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
+  if (activeBtn && !activeBtn.classList.contains('hidden')) activeBtn.classList.add('active');
 }
-function renderQuickFilters() {
-  if (!els.quickFilterBar) return;
-  const val = els.validationFilter.value;
-  const op = els.operationalFilter.value;
-  const chips = [
-    { type:'validation', value:'', label:'Todo' },
-    { type:'validation', value:'nueva', label:'Nueva' },
-    { type:'validation', value:'pendiente de revisión', label:'Pendiente' },
-    { type:'validation', value:'aceptada', label:'Aceptada' },
-    { type:'operational', value:'en proceso', label:'En proceso' },
-    { type:'operational', value:'espera refacción', label:'Espera refacción' },
-    { type:'operational', value:'terminada', label:'Terminada' },
-  ];
-  els.quickFilterBar.innerHTML = chips.map(ch => {
-    const active = ch.type === 'validation' ? val === ch.value && !op : op === ch.value;
-    return `<button class="quick-chip ${active ? 'active' : ''}" data-chip-type="${ch.type}" data-chip-value="${esc(ch.value)}" type="button">${esc(ch.label)}</button>`;
-  }).join('');
+function switchPanel(panel) {
+  state.activePanel = panel;
+  els.reportFormPanel?.classList.toggle('hidden', panel !== 'report');
+  els.usersPanel?.classList.toggle('hidden', panel !== 'users');
+  els.requestsPanel?.classList.toggle('hidden', panel !== 'requests');
+  els.companiesPanel?.classList.toggle('hidden', panel !== 'companies');
+  els.analyticsPanel?.classList.toggle('hidden', panel !== 'analytics');
+  els.historyPanel?.classList.toggle('hidden', panel !== 'history');
+  const board = panel === 'board';
+  els.filtersPanel?.classList.toggle('hidden', !board);
+  setActiveNav(
+    panel === 'report' ? els.navNewReportBtn :
+    panel === 'users' ? els.navUsersBtn :
+    panel === 'requests' ? els.navRequestsBtn :
+    panel === 'companies' ? els.navCompaniesBtn :
+    panel === 'analytics' ? els.navAnalyticsBtn :
+    panel === 'history' ? els.navHistoryBtn :
+    els.navBoardBtn
+  );
 }
-function refreshAutocompleteSources() {
-  fillDatalist(document.getElementById('numeroObraSuggestions'), state.garantias.map(x => x.numeroObra));
-  fillDatalist(document.getElementById('modeloSuggestions'), state.garantias.map(x => x.modelo));
-  fillDatalist(document.getElementById('numeroEconomicoSuggestions'), state.garantias.map(x => x.numeroEconomico));
+
+function showDashboard() {
+  els.loginView?.classList.add('hidden'); els.dashboardView?.classList.remove('hidden');
+  els.navNewReportBtn?.classList.toggle('hidden', !isRole('operador','admin'));
+  els.navUsersBtn?.classList.toggle('hidden', !isRole('admin'));
+  els.navRequestsBtn?.classList.toggle('hidden', !isRole('admin'));
+  els.navCompaniesBtn?.classList.toggle('hidden', !isRole('admin'));
+  els.navAnalyticsBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo'));
+  els.navHistoryBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo'));
+  updateHeaderForRole(); switchPanel('board');
 }
-function miniData(label, value) { return `<div class="mini-data"><strong>${esc(label)}</strong><span>${esc(value || '—')}</span></div>`; }
-function ticketActions(item) {
-  const actions = [`<button class="btn btn-secondary" data-action="detail" data-id="${item.id}">Ver detalle</button>`, `<button class="btn btn-ghost" data-action="pdf" data-id="${item.id}">PDF</button>`, `<button class="btn btn-ghost" data-action="pdf-taller" data-id="${item.id}">PDF taller</button>`];
-  if (state.user?.role !== 'supervisor') actions.push(`<button class="btn btn-ghost" data-action="edit" data-id="${item.id}">Editar</button>`);
-  if (isRole('admin','operativo') && ['nueva','pendiente de revisión'].includes(item.estatusValidacion)) actions.push(`<button class="btn btn-ghost" data-action="review" data-id="${item.id}">Validar</button>`);
-  if (isRole('admin','operativo') && item.estatusValidacion === 'aceptada') actions.push(`<button class="btn btn-ghost" data-action="operational" data-id="${item.id}">Mover operativo</button>`);
-  if (isRole('admin')) actions.push(`<button class="btn btn-ghost" data-action="delete" data-id="${item.id}">Eliminar</button>`);
-  return actions.join('');
-}
-function renderGarantias() {
-  updateStats();
-  renderAnalytics();
-  renderQuickFilters();
-  refreshAutocompleteSources();
-  const items = filteredGarantias();
-  els.garantiasList.innerHTML = '';
-  els.emptyState.classList.toggle('hidden', items.length > 0);
-  items.forEach(item => {
-    const frag = els.garantiasList.ownerDocument.importNode(document.getElementById('garantiaCardTemplate').content, true);
-    frag.querySelector('.title').textContent = `${item.folio || 'GAR-—'} · Unidad ${item.numeroEconomico} · Obra ${item.numeroObra}`;
-    frag.querySelector('.meta').textContent = `${item.empresa || '—'} · ${item.modelo || '—'} · Reportó ${item.reportadoPorNombre || '—'} · ${fmtDate(item.createdAt)}`;
-    frag.querySelector('.description').textContent = item.descripcionFallo || 'Sin descripción';
-    const vb = frag.querySelector('.validation-badge');
-    vb.textContent = item.estatusValidacion;
-    vb.classList.add(badgeValidation(item.estatusValidacion));
-    const ob = frag.querySelector('.operational-badge');
-    ob.textContent = item.estatusOperativo;
-    ob.classList.add(badgeOperational(item.estatusOperativo));
-    frag.querySelector('.mini-grid').innerHTML = [
-      miniData('Incidencia', item.tipoIncidente),
-      miniData('KM', item.kilometraje),
-      miniData('Solicita refacción', item.solicitaRefaccion ? 'Sí' : 'No'),
-      miniData('Contacto', item.contactoNombre || item.telefono || '—'),
-    ].join('');
-    frag.querySelector('.ticket-actions').innerHTML = ticketActions(item);
-    els.garantiasList.appendChild(frag);
+function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); }
+
+function filteredGarantias() {
+  const search = els.searchInput?.value.trim().toLowerCase() || '';
+  const validation = els.validationFilter?.value || 'todos';
+  const operational = els.operationalFilter?.value || 'todos';
+  return state.garantias.filter(item => {
+    const blob = `${item.folio || ''} ${item.numeroObra} ${item.numeroEconomico} ${item.empresa} ${item.modelo} ${item.descripcionFallo} ${item.contactoNombre || ''} ${item.telefono || ''} ${item.kilometraje || ''}`.toLowerCase();
+    return (!search || blob.includes(search)) && (validation === 'todos' || item.estatusValidacion === validation) && (operational === 'todos' || item.estatusOperativo === operational);
   });
 }
-function badgeValidation(status) { return ({ 'nueva':'badge-new','pendiente de revisión':'badge-review','aceptada':'badge-accepted','rechazada':'badge-rejected' })[status] || 'badge-info'; }
-function badgeOperational(status) { return ({ 'sin iniciar':'badge-info','en proceso':'badge-progress','espera refacción':'badge-waiting','terminada':'badge-done' })[status] || 'badge-info'; }
+function updateStats() {
+  if (els.statTotal) els.statTotal.textContent = state.garantias.length;
+  if (els.statNew) els.statNew.textContent = state.garantias.filter(g => g.estatusValidacion === 'nueva').length;
+  if (els.statAccepted) els.statAccepted.textContent = state.garantias.filter(g => g.estatusValidacion === 'aceptada').length;
+  if (els.statDone) els.statDone.textContent = state.garantias.filter(g => g.estatusOperativo === 'terminada').length;
+}
+function renderAnalytics() {
+  const makeList = (arr, empty) => arr.length ? `<ul>${arr.slice(0,5).map(([name,count]) => `<li><span>${escapeHtml(name)}</span><strong>${count}</strong></li>`).join('')}</ul>` : empty;
+  if (els.topCompanies) els.topCompanies.innerHTML = makeList(countBy(state.garantias, x => x.empresa), 'Sin datos todavía.');
+  if (els.topModels) els.topModels.innerHTML = makeList(countBy(state.garantias, x => x.modelo), 'Sin datos todavía.');
+  if (els.topIncidentTypes) els.topIncidentTypes.innerHTML = makeList(countBy(state.garantias, x => x.tipoIncidente), 'Sin datos todavía.');
+  const repeated = countBy(state.garantias, x => x.numeroEconomico).filter(([,count]) => count > 1);
+  if (els.repeatUnits) els.repeatUnits.innerHTML = repeated.length ? `<ul>${repeated.slice(0,6).map(([unit,count]) => `<li><span>Unidad ${escapeHtml(unit)}</span><strong>${count} reportes</strong></li>`).join('')}</ul>` : 'Sin reincidencias fuertes por ahora.';
+}
+
+function ensurePdfSpace(doc, y, needed = 20) { if (y + needed > 275) { doc.addPage(); return 18; } return y; }
+async function getImageData(src) {
+  if (!src) return null;
+  if (src.startsWith('data:image/')) return src;
+  try {
+    const response = await fetch(src);
+    const blob = await response.blob();
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch { return null; }
+}
+async function addPdfImage(doc, imgSrc, x, y, w, h) {
+  const data = await getImageData(imgSrc);
+  if (!data) return;
+  try { doc.addImage(data, 'JPEG', x, y, w, h); } catch { try { doc.addImage(data, 'PNG', x, y, w, h); } catch {} }
+}
+async function exportPdf(item) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const logo = await getImageData('/logo.jpg');
+  let y = 20;
+  const textLine = (text, gap = 7, x = 14) => { doc.text(String(text), x, y); y += gap; };
+
+  doc.setFillColor(250, 250, 252); doc.rect(0, 0, 210, 297, 'F');
+  if (logo) await addPdfImage(doc, logo, 14, 12, 42, 42);
+  doc.setTextColor(30, 30, 30);
+  doc.setFontSize(18); doc.text('REPORTE DE GARANTÍA', 62, 24);
+  doc.setFontSize(10); doc.setTextColor(100, 100, 100); doc.text('CARLAB SERVICIOS INTEGRALES', 62, 31);
+  doc.setFontSize(10); doc.setTextColor(120, 120, 120); doc.text(`Folio: ${item.folio || '—'}`, 196, 20, { align: 'right' });
+  doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 196, 27, { align: 'right' });
+
+  y = 50;
+  doc.setFontSize(11); doc.setTextColor(40, 40, 40);
+  doc.text(`Empresa: ${item.empresa || '—'}`, 18, 54);
+  doc.text(`Unidad: ${item.numeroEconomico || '—'}`, 18, 62);
+  doc.text(`Modelo: ${item.modelo || '—'}`, 18, 70);
+  doc.text(`Obra: ${item.numeroObra || '—'}`, 105, 54);
+  doc.text(`KM: ${item.kilometraje || '—'}`, 105, 62);
+  doc.text(`Estatus: ${item.estatusValidacion || '—'} / ${item.estatusOperativo || '—'}`, 105, 70);
+
+  y = 92;
+  doc.text(`Nombre: ${item.contactoNombre || '—'}`, 18, 96);
+  doc.text(`Teléfono: ${item.telefono || '—'}`, 105, 96);
+  doc.text(`Reportó: ${item.reportadoPorNombre || '—'}`, 18, 104);
+  doc.text(`Revisó: ${item.revisadoPorNombre || '—'}`, 105, 104);
+
+  y = 122;
+  doc.setFontSize(12); doc.setTextColor(20, 20, 20); textLine('Descripción de la falla', 8);
+  doc.setFontSize(10); doc.setTextColor(55,55,55);
+  let split = doc.splitTextToSize(item.descripcionFallo || '—', 178);
+  doc.text(split, 14, y); y += split.length * 6 + 6;
+
+  if (item.detalleRefaccion) {
+    y = ensurePdfSpace(doc, y, 24); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Detalle de refacción', 8);
+    doc.setFontSize(10); doc.setTextColor(55,55,55); split = doc.splitTextToSize(item.detalleRefaccion, 178); doc.text(split, 14, y); y += split.length * 6 + 6;
+  }
+  if (item.observacionesOperativo) {
+    y = ensurePdfSpace(doc, y, 24); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Observaciones del operativo', 8);
+    doc.setFontSize(10); doc.setTextColor(55,55,55); split = doc.splitTextToSize(item.observacionesOperativo, 178); doc.text(split, 14, y); y += split.length * 6 + 6;
+  }
+
+  const images = [ ...(item.evidencias || []), ...(item.evidenciasRefaccion || []) ];
+  if (images.length) {
+    y = ensurePdfSpace(doc, y, 52); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Evidencias fotográficas', 8);
+    let x = 14; let rowHeight = 0;
+    for (const src of images.slice(0, 6)) {
+      if (x > 136) { x = 14; y += rowHeight + 8; rowHeight = 0; }
+      y = ensurePdfSpace(doc, y, 48);
+      await addPdfImage(doc, src, x + 1, y + 1, 54, 40);
+      x += 60; rowHeight = Math.max(rowHeight, 42);
+    }
+    y += rowHeight + 8;
+  }
+  if (item.firma) {
+    y = ensurePdfSpace(doc, y, 42); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Firma', 8);
+    await addPdfImage(doc, item.firma, 16, y + 2, 86, 24); y += 34;
+  }
+  if (item.estatusValidacion === 'rechazada' && item.observacionesOperativo) {
+    y = ensurePdfSpace(doc, y, 24); doc.setFontSize(12); doc.setTextColor(170, 35, 35); textLine('Motivo de rechazo', 8);
+    doc.setFontSize(10); doc.setTextColor(80,80,80); split = doc.splitTextToSize(item.observacionesOperativo, 178); doc.text(split, 14, y); y += split.length * 6 + 6;
+  }
+
+  doc.save(`${item.folio || 'garantia'}_${item.numeroEconomico}_${item.numeroObra}.pdf`);
+}
+
+async function showAudit(item) {
+  try {
+    const logs = await api.getAudit(item.id);
+    const text = logs.length ? logs.map(l => `${fmtDate(l.created_at)} · ${l.user_nombre || 'Sistema'} · ${l.accion} · ${l.detalle || ''}`).join('\n\n') : 'Sin movimientos aún.';
+    window.alert(text);
+  } catch (error) { notify(error.message, true); }
+}
+function beginUserEdit(user) {
+  state.editingUserId = user.id; els.userId.value = user.id; els.userNombre.value = user.nombre; els.userEmail.value = user.email; els.userRole.value = user.role; els.userEmpresa.value = user.empresa || ''; els.userTelefono.value = user.telefono || ''; els.userPassword.value = ''; els.userPassword.required = false; els.userPassword.placeholder = 'Déjala vacía para conservarla'; els.userSubmitBtn.textContent = 'Guardar cambios'; els.userCancelEditBtn.classList.remove('hidden');
+}
+function button(text, className, onClick) { const btn = document.createElement('button'); btn.type = 'button'; btn.className = className; btn.textContent = text; btn.addEventListener('click', onClick); return btn; }
 
 function renderUsers() {
-  els.usersList.innerHTML = state.users.length ? '' : `<div class="empty-state"><div><h4>Sin usuarios todavía.</h4><p>Cuando des de alta usuarios aparecerán aquí.</p></div></div>`;
+  if (!els.usersList) return;
+  els.usersList.innerHTML = '';
   state.users.forEach(user => {
-    const row = document.createElement('article');
-    row.className = 'data-row';
+    const row = document.createElement('div'); row.className = 'table-row';
     row.innerHTML = `
-      <div class="data-head">
-        <div>
-          <h4>${esc(user.nombre)}</h4>
-          <p class="muted small">${esc(user.email)}</p>
-        </div>
-        <div class="row-actions">
-          <button class="btn btn-secondary" data-user-action="edit" data-id="${user.id}">Editar</button>
-          ${user.role !== 'admin' ? `<button class="btn btn-ghost" data-user-action="delete" data-id="${user.id}">Borrar</button>` : ''}
-        </div>
-      </div>
-      <div class="data-meta">
-        <div><strong>Rol</strong><span>${esc(roleName(user.role))}</span></div>
-        <div><strong>Empresa</strong><span>${esc(user.empresa || 'Sin empresa')}</span></div>
-        <div><strong>Teléfono</strong><span>${esc(user.telefono || '—')}</span></div>
-        <div><strong>Activo</strong><span>${user.activo ? 'Sí' : 'No'}</span></div>
-        <div><strong>Alta</strong><span>${fmtDate(user.createdAt)}</span></div>
-      </div>`;
+      <div><strong>${escapeHtml(user.nombre)}</strong><div class="small muted">${escapeHtml(user.email)}</div><div class="small muted">${escapeHtml(user.empresa || 'Sin empresa')}</div></div>
+      <div>${roleName(user.role)}</div>
+      <div>${escapeHtml(user.telefono || '—')}</div>
+      <div><div>${fmtDate(user.createdAt)}</div><div class="action-row" style="margin-top:8px;"></div></div>`;
+    const actions = row.querySelector('.action-row');
+    actions.appendChild(button('Editar', 'btn btn-ghost', () => beginUserEdit(user)));
+    if (user.role !== 'admin') actions.appendChild(button('Borrar', 'btn btn-ghost', async () => { if (!confirm(`¿Borrar a ${user.nombre}?`)) return; try { await api.deleteUser(user.id); notify('Usuario eliminado.'); await loadUsers(); } catch (error) { notify(error.message, true); } }));
     els.usersList.appendChild(row);
   });
 }
-function renderCompanies() {
-  els.companiesList.innerHTML = state.companies.length ? '' : `<div class="empty-state"><div><h4>Sin empresas todavía.</h4><p>Agrega empresas para controlar registros y reportes.</p></div></div>`;
-  state.companies.forEach(company => {
-    const row = document.createElement('article');
-    row.className = 'data-row';
+function renderRequests() {
+  if (!els.requestsList) return;
+  els.requestsList.innerHTML = '';
+  if (!state.registrationRequests.length) { els.requestsList.innerHTML = '<div class="empty-state"><strong>Sin solicitudes.</strong><span>Cuando un operador solicite acceso, aparecerá aquí.</span></div>'; return; }
+  state.registrationRequests.forEach(item => {
+    const row = document.createElement('div'); row.className = 'table-row';
     row.innerHTML = `
-      <div class="data-head">
-        <div>
-          <h4>${esc(company.nombre)}</h4>
-          <p class="muted small">${esc(company.email || 'Sin correo')}</p>
-        </div>
-        <div class="row-actions">
-          <button class="btn btn-secondary" data-company-action="edit" data-id="${company.id}">Editar</button>
-          <button class="btn btn-ghost" data-company-action="toggle" data-id="${company.id}">${company.activo ? 'Desactivar' : 'Activar'}</button>
-          <button class="btn btn-ghost" data-company-action="delete" data-id="${company.id}">Eliminar</button>
-        </div>
-      </div>
-      <div class="data-meta">
-        <div><strong>Contacto</strong><span>${esc(company.contacto || '—')}</span></div>
-        <div><strong>Teléfono</strong><span>${esc(company.telefono || '—')}</span></div>
-        <div><strong>Correo</strong><span>${esc(company.email || '—')}</span></div>
-        <div><strong>Estado</strong><span>${company.activo ? 'Activa' : 'Inactiva'}</span></div>
-        <div><strong>Notas</strong><span>${esc(company.notas || '—')}</span></div>
-      </div>`;
+      <div><strong>${escapeHtml(item.nombre)}</strong><div class="small muted">${escapeHtml(item.email)}</div></div>
+      <div>${escapeHtml(item.empresa)}</div>
+      <div>${escapeHtml(item.telefono || '—')}<div class="small muted">Unidad ${escapeHtml(item.numeroEconomico || '—')}</div></div>
+      <div><span class="badge ${item.status === 'pendiente' ? 'badge-review' : item.status === 'aprobada' ? 'badge-accepted' : 'badge-rejected'}">${escapeHtml(item.status)}</span><div class="small muted">${fmtDate(item.createdAt)}</div></div>
+      <div class="action-row"></div>`;
+    const actions = row.querySelector('.action-row');
+    if (item.status === 'pendiente') {
+      actions.appendChild(button('Aprobar', 'btn btn-primary', async () => { try { await api.updateRequest(item.id, { status: 'aprobada', motivo: '' }); notify('Solicitud aprobada.'); await loadRequests(); await loadUsers(); } catch (error) { notify(error.message, true); } }));
+      actions.appendChild(button('Rechazar', 'btn btn-ghost', async () => { const motivo = prompt('Motivo del rechazo:') || 'No autorizado'; try { await api.updateRequest(item.id, { status: 'rechazada', motivo }); notify('Solicitud rechazada.'); await loadRequests(); } catch (error) { notify(error.message, true); } }));
+    } else {
+      actions.innerHTML = `<span class="small muted">${escapeHtml(item.motivo || 'Procesada')}</span>`;
+    }
+    els.requestsList.appendChild(row);
+  });
+}
+function beginCompanyEdit(company) {
+  state.editingCompanyId = company.id;
+  els.companyId.value = company.id;
+  els.companyNombre.value = company.nombre || '';
+  els.companyContacto.value = company.contacto || '';
+  els.companyTelefono.value = company.telefono || '';
+  els.companyEmail.value = company.email || '';
+  els.companyNotas.value = company.notas || '';
+  els.companySubmitBtn.textContent = 'Guardar cambios';
+  els.companyCancelEditBtn.classList.remove('hidden');
+}
+
+function renderCompanies() {
+  if (!els.companiesList) return;
+  els.companiesList.innerHTML = '';
+  state.companies.forEach(item => {
+    const row = document.createElement('div'); row.className = 'table-row';
+    row.innerHTML = `<div><strong>${escapeHtml(item.nombre)}</strong><div class="small muted">${escapeHtml(item.contacto || 'Sin contacto')} · ${escapeHtml(item.telefono || 'Sin teléfono')}</div><div class="small muted">${escapeHtml(item.email || 'Sin correo')}</div></div><div>${item.activo ? 'Activa' : 'Inactiva'}</div><div>${escapeHtml(item.notas || '—')}</div><div class="action-row"></div>`;
+    const actions = row.querySelector('.action-row');
+    if (isRole('admin')) {
+      actions.appendChild(button('Editar', 'btn btn-secondary', () => beginCompanyEdit(item)));
+      actions.appendChild(button(item.activo ? 'Desactivar' : 'Activar', 'btn btn-ghost', async () => {
+        try {
+          if (item.activo) {
+            if (!confirm(`¿Desactivar ${item.nombre}?`)) return;
+            await api.deactivateCompany(item.id);
+            notify('Empresa desactivada.');
+          } else {
+            await api.updateCompany(item.id, { ...item, activo: true });
+            notify('Empresa activada.');
+          }
+          await loadCompanies();
+        } catch (error) { notify(error.message, true); }
+      }));
+      actions.appendChild(button('Eliminar', 'btn btn-ghost', async () => {
+        if (!confirm(`¿Eliminar ${item.nombre}? Solo funciona si no tiene historial.`)) return;
+        try { await api.deleteCompany(item.id); notify('Empresa eliminada.'); await loadCompanies(); }
+        catch (error) { notify(error.message, true); }
+      }));
+    }
     els.companiesList.appendChild(row);
   });
   fillSelect(els.empresa, state.companies.filter(x => x.activo), 'Selecciona empresa');
   fillSelect(els.userEmpresa, state.companies.filter(x => x.activo), 'Sin empresa');
   fillSelect(els.regEmpresa, state.companies.filter(x => x.activo), 'Selecciona empresa');
 }
-function renderRequests() {
-  els.requestsList.innerHTML = state.registrationRequests.length ? '' : `<div class="empty-state"><div><h4>Sin solicitudes pendientes.</h4><p>Cuando entren nuevas solicitudes aparecerán aquí.</p></div></div>`;
-  state.registrationRequests.forEach(item => {
-    const card = document.createElement('article');
-    card.className = 'ticket-card';
-    card.innerHTML = `
-      <div class="ticket-head">
-        <div>
-          <h4>${esc(item.nombre)}</h4>
-          <p class="meta">${esc(item.email)} · ${esc(item.telefono || 'Sin teléfono')} · ${esc(item.empresa || 'Sin empresa')}</p>
-        </div>
-        <span class="badge ${item.status === 'pendiente' ? 'badge-review' : item.status === 'aprobada' ? 'badge-accepted' : 'badge-rejected'}">${esc(item.status)}</span>
-      </div>
-      <div class="mini-grid">
-        ${miniData('Número económico', item.numeroEconomico)}
-        ${miniData('Creada', fmtDate(item.createdAt))}
-        ${miniData('Revisada', fmtDate(item.reviewedAt))}
-        ${miniData('Motivo', item.motivo || '—')}
-      </div>
-      ${item.status === 'pendiente' ? `<div class="ticket-actions"><button class="btn btn-primary" data-request-action="approve" data-id="${item.id}">Aprobar</button><button class="btn btn-ghost" data-request-action="reject" data-id="${item.id}">Rechazar</button></div>` : ''}
-    `;
-    els.requestsList.appendChild(card);
+
+function renderGarantias() {
+  updateStats(); renderAnalytics();
+  const items = filteredGarantias();
+  if (els.garantiasList) els.garantiasList.innerHTML = '';
+  els.emptyState?.classList.toggle('hidden', items.length > 0);
+  items.forEach(item => {
+    const node = els.garantiaCardTemplate.content.cloneNode(true);
+    node.querySelector('.title').textContent = `${item.folio || 'GAR-—'} · Unidad ${item.numeroEconomico} · Obra ${item.numeroObra}`;
+    node.querySelector('.meta').textContent = `${item.empresa} · ${item.modelo} · Reportó ${item.reportadoPorNombre || '—'} · ${fmtDate(item.createdAt)}`;
+    node.querySelector('.description').textContent = item.descripcionFallo;
+    const validationBadge = node.querySelector('.validation-badge'); validationBadge.textContent = item.estatusValidacion; validationBadge.classList.add(badgeClassValidation(item.estatusValidacion));
+    const operationalBadge = node.querySelector('.operational-badge'); operationalBadge.textContent = item.estatusOperativo; operationalBadge.classList.add(badgeClassOperational(item.estatusOperativo));
+    const miniGrid = node.querySelector('.mini-grid');
+    [ ['Incidencia', item.tipoIncidente], ['Solicita refacción', item.solicitaRefaccion ? 'Sí' : 'No'], ['KM', item.kilometraje || '—'], ['Contacto', item.contactoNombre || '—'], ['Teléfono', item.telefono || '—'], ['Revisó', item.revisadoPorNombre || 'Pendiente'], ['Último cambio', fmtDate(item.updatedAt)], ['Obs. operativo', item.observacionesOperativo || '—'], ['Motivo decisión', item.motivoDecision || '—'] ].forEach(([label, value]) => {
+      const div = document.createElement('div'); div.innerHTML = `<strong>${escapeHtml(label)}</strong>${escapeHtml(String(value || '—'))}`; miniGrid.appendChild(div);
+    });
+    const strip = node.querySelector('.evidence-strip'); [...(item.evidencias || []), ...(item.evidenciasRefaccion || [])].slice(0,6).forEach(src => { const img = document.createElement('img'); img.src = src; strip.appendChild(img); }); if (item.firma) { const img = document.createElement('img'); img.src = item.firma; strip.appendChild(img); }
+    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; if (isRole('admin')) baseRow.appendChild(button('Editar', 'btn btn-secondary', () => beginGarantiaEdit(item))); baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
+    if (isRole('operativo','admin')) {
+      const reviewBox = document.createElement('div'); reviewBox.innerHTML = `
+        <label>Decisión operativa</label>
+        <div class="action-row">
+          <select class="reviewStatus"><option value="pendiente de revisión">Pendiente de revisión</option><option value="aceptada">Aceptada</option><option value="rechazada">Rechazada</option></select>
+          <input class="reviewReason" placeholder="Motivo o comentario" />
+          <button class="btn btn-primary reviewBtn" type="button">Guardar decisión</button>
+        </div>`;
+      reviewBox.querySelector('.reviewStatus').value = item.estatusValidacion === 'nueva' ? 'pendiente de revisión' : item.estatusValidacion;
+      reviewBox.querySelector('.reviewReason').value = item.estatusValidacion === 'rechazada' ? item.motivoDecision : item.observacionesOperativo;
+      reviewBox.querySelector('.reviewBtn').addEventListener('click', async () => {
+        try {
+          const status = reviewBox.querySelector('.reviewStatus').value; const text = reviewBox.querySelector('.reviewReason').value.trim();
+          await api.reviewGarantia(item.id, { estatusValidacion: status, observacionesOperativo: status !== 'rechazada' ? text : '', motivoDecision: status === 'rechazada' ? text : '' });
+          notify('Decisión guardada.'); await loadGarantias();
+        } catch (error) { notify(error.message, true); }
+      });
+      area.appendChild(reviewBox);
+      if (item.estatusValidacion === 'aceptada') {
+        const operationalBox = document.createElement('div'); operationalBox.innerHTML = `
+          <label>Flujo del trabajo</label>
+          <div class="action-row">
+            <select class="opStatus"><option value="sin iniciar">Sin iniciar</option><option value="en proceso">En proceso</option><option value="espera refacción">Espera refacción</option><option value="terminada">Terminada</option></select>
+            <input class="opNotes" placeholder="Observación operativa" value="${escapeHtml(item.observacionesOperativo || '')}" />
+            <button class="btn btn-secondary opBtn" type="button">Actualizar trabajo</button>
+          </div>`;
+        operationalBox.querySelector('.opStatus').value = item.estatusOperativo;
+        operationalBox.querySelector('.opBtn').addEventListener('click', async () => {
+          try { await api.updateOperational(item.id, { estatusOperativo: operationalBox.querySelector('.opStatus').value, observacionesOperativo: operationalBox.querySelector('.opNotes').value.trim() }); notify('Flujo actualizado.'); await loadGarantias(); }
+          catch (error) { notify(error.message, true); }
+        });
+        area.appendChild(operationalBox);
+      }
+    }
+    els.garantiasList?.appendChild(node);
   });
 }
 
-async function openDetail(item) {
-  state.currentDetailId = item.id;
-  els.detailTitle.textContent = `${item.folio || 'GAR-—'} · Unidad ${item.numeroEconomico}`;
-  els.detailSubtitle.textContent = `${item.empresa || '—'} · ${item.modelo || '—'} · ${fmtDate(item.createdAt)}`;
-  let auditHtml = '<li>No disponible.</li>';
-  try {
-    const audit = await api.getAudit(item.id);
-    const entries = Array.isArray(audit) ? audit : audit?.logs || [];
-    auditHtml = entries.length ? entries.map(log => `<li><strong>${esc(log.accion || 'Movimiento')}</strong><br><span class="muted small">${fmtDate(log.createdAt || log.created_at)}</span><br>${esc(log.detalle || '—')}</li>`).join('') : '<li>Sin movimientos todavía.</li>';
-  } catch {}
-  els.detailBody.innerHTML = `
-    <div class="modal-grid">
-      <div class="surface soft nested stack-gap">
-        <div><p class="section-label">Datos base</p><h4>Resumen técnico</h4></div>
-        <div class="data-meta">
-          <div><strong>Obra</strong><span>${esc(item.numeroObra)}</span></div>
-          <div><strong>Modelo</strong><span>${esc(item.modelo)}</span></div>
-          <div><strong>Unidad</strong><span>${esc(item.numeroEconomico)}</span></div>
-          <div><strong>Empresa</strong><span>${esc(item.empresa)}</span></div>
-          <div><strong>KM</strong><span>${esc(item.kilometraje || '—')}</span></div>
-        </div>
-        <div class="data-meta">
-          <div><strong>Incidencia</strong><span>${esc(item.tipoIncidente)}</span></div>
-          <div><strong>Validación</strong><span>${esc(item.estatusValidacion)}</span></div>
-          <div><strong>Operativo</strong><span>${esc(item.estatusOperativo)}</span></div>
-          <div><strong>Contacto</strong><span>${esc(item.contactoNombre || '—')}</span></div>
-          <div><strong>Teléfono</strong><span>${esc(item.telefono || '—')}</span></div>
-        </div>
-        <div><strong>Descripción</strong><p>${esc(item.descripcionFallo || 'Sin descripción')}</p></div>
-        <div><strong>Refacción</strong><p>${item.solicitaRefaccion ? esc(item.detalleRefaccion || 'Solicitada sin detalle') : 'No solicita refacción'}</p></div>
-      </div>
-      <div class="surface soft nested stack-gap">
-        <div><p class="section-label">Trazabilidad</p><h4>Historial y evidencia</h4></div>
-        <ul class="audit-list">${auditHtml}</ul>
-      </div>
-    </div>
-    ${(item.evidencias?.length || item.evidenciasRefaccion?.length || item.firma) ? `
-      <div class="surface soft nested stack-gap">
-        <div><p class="section-label">Multimedia</p><h4>Evidencias</h4></div>
-        ${item.evidencias?.length ? `<div><strong>Generales</strong><div class="preview-grid">${item.evidencias.map(src => `<img src="${src}" alt="evidencia" />`).join('')}</div></div>` : ''}
-        ${item.evidenciasRefaccion?.length ? `<div><strong>Refacción</strong><div class="preview-grid">${item.evidenciasRefaccion.map(src => `<img src="${src}" alt="evidencia refacción" />`).join('')}</div></div>` : ''}
-        ${item.firma ? `<div><strong>Firma</strong><div class="preview-grid"><img src="${item.firma}" alt="firma" /></div></div>` : ''}
-      </div>
-    ` : ''}
-  `;
-  els.detailModal.showModal();
-}
-
-function pdfStyles() {
-  return `
-    <style>
-      body{font-family:Inter,Arial,sans-serif;color:#111827;padding:28px;line-height:1.45}
-      .head{display:flex;justify-content:space-between;gap:12px;align-items:start;border-bottom:2px solid #111827;padding-bottom:14px;margin-bottom:18px}
-      .brand{font-size:22px;font-weight:800;letter-spacing:.08em}.sub{color:#5f6b7a;font-size:12px;text-transform:uppercase;letter-spacing:.14em}
-      .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0}
-      .box{border:1px solid #cdd5df;border-radius:14px;padding:12px}.box strong{display:block;font-size:11px;text-transform:uppercase;color:#647283;margin-bottom:5px}
-      .title{font-size:18px;font-weight:800;margin:10px 0 8px}.desc{border:1px solid #d8dee6;border-radius:14px;padding:14px;background:#f8fafc}
-      .imggrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px}.imggrid img{width:100%;height:180px;object-fit:cover;border:1px solid #d8dee6;border-radius:12px}
-      .badge{display:inline-block;padding:7px 10px;border-radius:999px;border:1px solid #cdd5df;background:#f4f6f8;font-weight:700;font-size:12px;margin-right:8px}
-      h3{margin:22px 0 10px}.muted{color:#5f6b7a}.audit{padding-left:18px}.signature{max-width:320px;border:1px solid #d8dee6;border-radius:12px}
-      @media print { body{padding:0} .noprint{display:none} }
-    </style>`;
-}
-function buildPdfHtml(item, mode = 'full') {
-  const compact = mode === 'taller';
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(item.folio || 'Reporte')}</title>${pdfStyles()}</head><body>
-    <div class="head">
-      <div><div class="brand">CARLAB</div><div class="sub">Reporte ${compact ? 'taller' : 'completo'} · Garantías</div></div>
-      <div style="text-align:right"><div><strong>${esc(item.folio || 'GAR-—')}</strong></div><div class="muted">${esc(item.empresa || '—')}</div><div class="muted">${fmtDate(item.createdAt)}</div></div>
-    </div>
-    <div class="title">Unidad ${esc(item.numeroEconomico || '—')} · Obra ${esc(item.numeroObra || '—')}</div>
-    <div><span class="badge">${esc(item.estatusValidacion || 'nueva')}</span><span class="badge">${esc(item.estatusOperativo || 'sin iniciar')}</span></div>
-    <div class="grid">
-      <div class="box"><strong>Modelo</strong>${esc(item.modelo || '—')}</div>
-      <div class="box"><strong>Empresa</strong>${esc(item.empresa || '—')}</div>
-      <div class="box"><strong>Contacto</strong>${esc(item.contactoNombre || '—')}</div>
-      <div class="box"><strong>Teléfono</strong>${esc(item.telefono || '—')}</div>
-      <div class="box"><strong>Kilometraje</strong>${esc(item.kilometraje || '—')}</div>
-      <div class="box"><strong>Tipo de incidencia</strong>${esc(item.tipoIncidente || '—')}</div>
-    </div>
-    <h3>Descripción del fallo</h3>
-    <div class="desc">${esc(item.descripcionFallo || 'Sin descripción').replace(/\n/g, '<br>')}</div>
-    <h3>Refacción</h3>
-    <div class="desc">${item.solicitaRefaccion ? esc(item.detalleRefaccion || 'Solicitada sin detalle').replace(/\n/g, '<br>') : 'No solicita refacción'}</div>
-    ${compact ? '' : `
-      <h3>Trazabilidad</h3>
-      <div class="grid">
-        <div class="box"><strong>Reportó</strong>${esc(item.reportadoPorNombre || item.reportadoPorEmail || '—')}</div>
-        <div class="box"><strong>Revisó</strong>${esc(item.revisadoPorNombre || '—')}</div>
-        <div class="box"><strong>Motivo decisión</strong>${esc(item.motivoDecision || '—')}</div>
-        <div class="box"><strong>Observaciones operativo</strong>${esc(item.observacionesOperativo || '—')}</div>
-      </div>`}
-    ${item.evidencias?.length ? `<h3>Evidencias generales</h3><div class="imggrid">${item.evidencias.map(src => `<img src="${src}" />`).join('')}</div>` : ''}
-    ${item.evidenciasRefaccion?.length && !compact ? `<h3>Evidencias de refacción</h3><div class="imggrid">${item.evidenciasRefaccion.map(src => `<img src="${src}" />`).join('')}</div>` : ''}
-    ${item.firma && !compact ? `<h3>Firma</h3><img class="signature" src="${item.firma}" />` : ''}
-    <script>window.onload=()=>setTimeout(()=>window.print(),180)</script>
-  </body></html>`;
-}
-function exportReportPdf(item, mode = 'full') {
-  const win = window.open('', '_blank', 'width=1100,height=900');
-  if (!win) return notify('Tu navegador bloqueó la ventana del PDF.', true);
-  win.document.open();
-  win.document.write(buildPdfHtml(item, mode));
-  win.document.close();
-}
-async function openActionModal(kind, item) {
-  state.currentAction = { kind, itemId: item.id };
-  els.actionNotes.value = kind === 'review' ? (item.motivoDecision || '') : (item.observacionesOperativo || '');
-  const options = kind === 'review'
-    ? ['pendiente de revisión', 'aceptada', 'rechazada']
-    : ['sin iniciar', 'en proceso', 'espera refacción', 'terminada'];
-  els.actionModalTitle.textContent = kind === 'review' ? `Validar ${item.folio || item.numeroEconomico}` : `Mover operativo ${item.folio || item.numeroEconomico}`;
-  els.actionStatusSelect.innerHTML = options.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
-  els.actionStatusSelect.value = kind === 'review'
-    ? (item.estatusValidacion === 'nueva' ? 'aceptada' : item.estatusValidacion)
-    : (item.estatusOperativo || 'en proceso');
-  els.actionModal.showModal();
-}
-async function commitActionModal() {
-  if (!state.currentAction) return;
-  const item = state.garantias.find(x => x.id === state.currentAction.itemId);
-  if (!item) return;
-  const status = els.actionStatusSelect.value;
-  const notes = els.actionNotes.value.trim();
-  if (state.currentAction.kind === 'review') {
-    await api.reviewGarantia(item.id, { estatusValidacion: status, motivoDecision: notes });
-    notify('Validación actualizada.');
-  } else {
-    await api.updateOperational(item.id, { estatusOperativo: status, observacionesOperativo: notes });
-    notify('Estatus operativo actualizado.');
-  }
-  els.actionModal.close();
-  state.currentAction = null;
-  await loadGarantias();
-}
-async function promptReview(item) {
-  return openActionModal('review', item);
-}
-async function promptOperational(item) {
-  return openActionModal('operational', item);
-}
+async function loadGarantias() { state.garantias = await api.getGarantias(); renderGarantias(); }
+async function loadUsers() { if (!isRole('admin')) return; state.users = await api.getUsers(); renderUsers(); }
+async function loadCompanies() { state.companies = isRole('admin') ? await api.getCompanies() : await api.getPublicCompanies(); renderCompanies(); }
+async function loadRequests() { if (!isRole('admin')) return; state.registrationRequests = await api.getRequests(); renderRequests(); }
 
 async function renderUnitHistory() {
-  const numero = els.unitHistoryInput.value.trim();
-  if (!numero) return notify('Escribe un número económico.', true);
-  els.unitHistoryResult.classList.remove('empty');
-  els.unitHistoryResult.innerHTML = 'Cargando historial...';
+  const numero = els.unitHistoryInput?.value.trim();
+  if (!numero) return notify('Escribe un número económico.');
   try {
-    const data = await api.getUnitHistory(numero);
-    const rows = Array.isArray(data) ? data : data?.items || data?.historial || [];
-    if (!rows.length) {
-      els.unitHistoryResult.classList.add('empty');
-      els.unitHistoryResult.textContent = 'Sin historial. No hay reportes para esa unidad.';
-      return;
-    }
-    els.unitHistoryResult.innerHTML = rows.map(item => `
-      <article class="timeline-item">
-        <h4>${esc(item.folio || 'GAR-—')} · ${esc(item.estatusValidacion || 'nueva')} · ${esc(item.estatusOperativo || 'sin iniciar')}</h4>
-        <p class="muted small">${fmtDate(item.createdAt || item.created_at)}</p>
-        <p>${esc(item.descripcionFallo || 'Sin descripción')}</p>
-        <p class="muted small">${esc(item.modelo || '—')} · ${esc(item.empresa || '—')} · Obra ${esc(item.numeroObra || item.numero_obra || '—')}</p>
-      </article>
-    `).join('');
-  } catch (error) {
-    els.unitHistoryResult.classList.add('empty');
-    els.unitHistoryResult.textContent = error.message;
-  }
-}
-
-async function loadCompanies(publicOnly = false) {
-  const data = publicOnly ? await api.getPublicCompanies() : await api.getCompanies();
-  state.companies = Array.isArray(data) ? data : data?.items || [];
-  renderCompanies();
-}
-async function loadUsers() {
-  if (!isRole('admin')) return;
-  const data = await api.getUsers();
-  state.users = Array.isArray(data) ? data : data?.items || [];
-  renderUsers();
-}
-async function loadRequests() {
-  if (!isRole('admin')) return;
-  const data = await api.getRequests();
-  state.registrationRequests = Array.isArray(data) ? data : data?.items || [];
-  renderRequests();
-}
-async function loadGarantias() {
-  const data = await api.getGarantias();
-  state.garantias = Array.isArray(data) ? data : data?.items || [];
-  renderGarantias();
-}
-
-async function hydrateApp() {
-  showApp();
-  setActiveNav('board');
-  resetReportForm();
-  resetUserForm();
-  resetCompanyForm();
-  await Promise.all([
-    loadCompanies(isRole('admin') ? false : true),
-    loadGarantias(),
-    isRole('admin') ? loadUsers() : Promise.resolve(),
-    isRole('admin') ? loadRequests() : Promise.resolve(),
-  ]);
-}
-
-els.garantiasList?.addEventListener('click', async e => {
-  const btn = e.target.closest('button[data-action]');
-  if (!btn) return;
-  const item = state.garantias.find(x => x.id === btn.dataset.id);
-  if (!item) return;
-  try {
-    if (btn.dataset.action === 'detail') return openDetail(item);
-    if (btn.dataset.action === 'pdf') return exportReportPdf(item, 'full');
-    if (btn.dataset.action === 'pdf-taller') return exportReportPdf(item, 'taller');
-    if (btn.dataset.action === 'edit') return beginGarantiaEdit(item);
-    if (btn.dataset.action === 'review') return promptReview(item);
-    if (btn.dataset.action === 'operational') return promptOperational(item);
-    if (btn.dataset.action === 'delete') {
-      if (!confirm(`¿Eliminar ${item.folio || item.numeroEconomico}?`)) return;
-      await api.deleteGarantia(item.id);
-      notify('Garantía eliminada.');
-      await loadGarantias();
-    }
-  } catch (error) {
-    notify(error.message, true);
-  }
-});
-els.usersList?.addEventListener('click', async e => {
-  const btn = e.target.closest('button[data-user-action]');
-  if (!btn) return;
-  const item = state.users.find(x => x.id === btn.dataset.id);
-  if (!item) return;
-  if (btn.dataset.userAction === 'edit') return beginUserEdit(item);
-  if (btn.dataset.userAction === 'delete') {
-    if (!confirm(`¿Borrar a ${item.nombre}?`)) return;
-    try { await api.deleteUser(item.id); notify('Usuario eliminado.'); await loadUsers(); } catch (error) { notify(error.message, true); }
-  }
-});
-els.companiesList?.addEventListener('click', async e => {
-  const btn = e.target.closest('button[data-company-action]');
-  if (!btn) return;
-  const item = state.companies.find(x => x.id === btn.dataset.id);
-  if (!item) return;
-  try {
-    if (btn.dataset.companyAction === 'edit') return beginCompanyEdit(item);
-    if (btn.dataset.companyAction === 'toggle') {
-      if (item.activo) { if (!confirm(`¿Desactivar ${item.nombre}?`)) return; await api.deactivateCompany(item.id); }
-      else await api.updateCompany(item.id, { ...item, activo: true });
-      notify('Empresa actualizada.');
-      await loadCompanies(false);
-    }
-    if (btn.dataset.companyAction === 'delete') {
-      if (!confirm(`¿Eliminar ${item.nombre}? Solo funciona si no tiene historial.`)) return;
-      await api.deleteCompany(item.id);
-      notify('Empresa eliminada.');
-      await loadCompanies(false);
-    }
+    const history = await api.getUnitHistory(numero);
+    els.unitHistoryResult.innerHTML = history.length ? history.map(item => `<div class="table-row"><div><strong>Obra ${escapeHtml(item.numeroObra)}</strong><div class="small muted">${escapeHtml(item.modelo)} · ${escapeHtml(item.empresa)}</div></div><div>${escapeHtml(item.tipoIncidente)}</div><div><span class="badge ${badgeClassValidation(item.estatusValidacion)}">${escapeHtml(item.estatusValidacion)}</span></div><div>${fmtDate(item.createdAt)}</div></div>`).join('') : '<div class="empty-state"><strong>Sin historial.</strong><span>No hay reportes para esa unidad.</span></div>';
   } catch (error) { notify(error.message, true); }
-});
-els.requestsList?.addEventListener('click', async e => {
-  const btn = e.target.closest('button[data-request-action]');
-  if (!btn) return;
-  const id = btn.dataset.id;
-  try {
-    if (btn.dataset.requestAction === 'approve') {
-      await api.updateRequest(id, { status: 'aprobada' });
-      notify('Solicitud aprobada.');
-    }
-    if (btn.dataset.requestAction === 'reject') {
-      const motivo = prompt('Motivo de rechazo') || '';
-      await api.updateRequest(id, { status: 'rechazada', motivo });
-      notify('Solicitud rechazada.');
-    }
-    await loadRequests();
-    await loadUsers();
-  } catch (error) { notify(error.message, true); }
-});
+}
 
 els.tabLoginBtn?.addEventListener('click', () => {
-  els.tabLoginBtn.classList.add('active');
-  els.tabRegisterBtn.classList.remove('active');
-  els.loginPane.classList.remove('hidden');
-  els.registerPane.classList.add('hidden');
+  document.getElementById('loginPane')?.classList.remove('hidden');
+  document.getElementById('registerPane')?.classList.add('hidden');
+  els.tabLoginBtn.className = 'btn btn-primary'; if (els.tabRegisterBtn) els.tabRegisterBtn.className = 'btn btn-ghost';
 });
 els.tabRegisterBtn?.addEventListener('click', () => {
-  els.tabRegisterBtn.classList.add('active');
-  els.tabLoginBtn.classList.remove('active');
-  els.registerPane.classList.remove('hidden');
-  els.loginPane.classList.add('hidden');
+  document.getElementById('loginPane')?.classList.add('hidden');
+  document.getElementById('registerPane')?.classList.remove('hidden');
+  els.tabLoginBtn.className = 'btn btn-ghost'; els.tabRegisterBtn.className = 'btn btn-primary';
 });
-els.logoutBtn?.addEventListener('click', () => {
-  localStorage.removeItem('carlabToken');
-  state.token = '';
-  state.user = null;
-  showAuth();
-});
-els.quickCreateBtn?.addEventListener('click', () => { resetReportForm(); setActiveNav('report'); });
 
-els.loginPane?.addEventListener('submit', async e => {
-  e.preventDefault();
-  els.loginError.classList.add('hidden');
+els.loginForm?.addEventListener('submit', async (e) => {
+  e.preventDefault(); els.loginError?.classList.add('hidden');
   try {
     const data = await api.login(els.loginEmail.value.trim(), els.loginPassword.value);
-    state.token = data.token;
-    localStorage.setItem('carlabToken', state.token);
-    state.user = data.user;
-    await hydrateApp();
-    notify(`Bienvenido, ${state.user.nombre}.`);
-  } catch (error) {
-    els.loginError.textContent = error.message;
-    els.loginError.classList.remove('hidden');
-  }
+    state.token = data.token; localStorage.setItem('carlabToken', state.token); state.user = data.user; showDashboard();
+    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); resetReportForm(); resetCompanyForm(); notify(`Bienvenido, ${state.user.nombre}.`);
+  } catch (error) { if (els.loginError) { els.loginError.textContent = error.message; els.loginError.classList.remove('hidden'); } else notify(error.message,true); }
 });
 
-document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', async () => {
-  const map = {
-    navBoardBtn: 'board', navNewReportBtn: 'report', navAnalyticsBtn: 'analytics', navHistoryBtn: 'history', navUsersBtn: 'users', navRequestsBtn: 'requests', navCompaniesBtn: 'companies'
-  };
-  const panel = map[btn.id];
-  if (!panel) return;
-  setActiveNav(panel);
-  if (panel === 'users') await loadUsers();
-  if (panel === 'requests') await loadRequests();
-  if (panel === 'companies') await loadCompanies(false);
-}));
+els.registerForm?.addEventListener('submit', async (e) => {
+  e.preventDefault(); els.registerMessage?.classList.add('hidden');
+  try {
+    const data = await api.registerOperator({ nombre: els.regNombre.value.trim(), email: els.regEmail.value.trim(), telefono: els.regTelefono.value.trim(), empresa: els.regEmpresa.value.trim(), numeroEconomico: els.regNumeroEconomico.value.trim(), password: els.regPassword.value });
+    if (els.registerMessage) { els.registerMessage.textContent = data.message; els.registerMessage.classList.remove('hidden'); }
+    els.registerForm.reset();
+  } catch (error) { if (els.registerMessage) { els.registerMessage.textContent = error.message; els.registerMessage.classList.remove('hidden'); } else notify(error.message,true); }
+});
 
-els.validationFilter?.addEventListener('change', renderGarantias);
-els.operationalFilter?.addEventListener('change', renderGarantias);
-els.searchInput?.addEventListener('input', renderGarantias);
-els.unitHistoryBtn?.addEventListener('click', renderUnitHistory);
-els.unitHistoryInput?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); renderUnitHistory(); } });
-els.cancelReportBtn?.addEventListener('click', () => { resetReportForm(); setActiveNav('board'); });
+els.logoutBtn?.addEventListener('click', () => { localStorage.removeItem('carlabToken'); state.token = ''; state.user = null; showLogin(); });
+els.navBoardBtn?.addEventListener('click', () => switchPanel('board'));
+els.navNewReportBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); });
+els.navAnalyticsBtn?.addEventListener('click', () => switchPanel('analytics'));
+els.navHistoryBtn?.addEventListener('click', () => switchPanel('history'));
+els.navUsersBtn?.addEventListener('click', async () => { switchPanel('users'); await loadUsers(); });
+els.navRequestsBtn?.addEventListener('click', async () => { switchPanel('requests'); await loadRequests(); });
+els.navCompaniesBtn?.addEventListener('click', async () => { switchPanel('companies'); await loadCompanies(); });
+els.cancelReportBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('board'); });
 els.userCancelEditBtn?.addEventListener('click', resetUserForm);
 els.companyCancelEditBtn?.addEventListener('click', resetCompanyForm);
-els.closeModalBtn?.addEventListener('click', () => els.detailModal.close());
-els.reportPdfBtn?.addEventListener('click', () => { const item = state.garantias.find(x => x.id === state.currentDetailId); if (item) exportReportPdf(item, 'full'); });
-els.workshopPdfBtn?.addEventListener('click', () => { const item = state.garantias.find(x => x.id === state.currentDetailId); if (item) exportReportPdf(item, 'taller'); });
-els.actionCancelBtn?.addEventListener('click', () => { state.currentAction = null; els.actionModal.close(); });
-els.actionConfirmBtn?.addEventListener('click', async () => { try { await commitActionModal(); } catch (error) { notify(error.message, true); } });
-els.quickFilterBar?.addEventListener('click', e => { const btn = e.target.closest('button[data-chip-type]'); if (!btn) return; const type = btn.dataset.chipType; const value = btn.dataset.chipValue || ''; if (type === 'validation') { els.validationFilter.value = value; if (value) els.operationalFilter.value = ''; } if (type === 'operational') { els.operationalFilter.value = value; if (value) els.validationFilter.value = ''; } renderGarantias(); });
+els.unitHistoryBtn?.addEventListener('click', renderUnitHistory);
 
-els.registerPane?.addEventListener('submit', async e => {
-  e.preventDefault();
-  try {
-    const data = await api.registerOperator({
-      nombre: els.regNombre.value.trim(),
-      email: els.regEmail.value.trim(),
-      telefono: els.regTelefono.value.trim(),
-      empresa: els.regEmpresa.value.trim(),
-      numeroEconomico: els.regNumeroEconomico.value.trim(),
-      password: els.regPassword.value,
-    });
-    els.registerMessage.textContent = data.message || 'Solicitud enviada.';
-    els.registerMessage.classList.remove('hidden');
-    els.registerPane.reset();
-  } catch (error) {
-    els.registerMessage.textContent = error.message;
-    els.registerMessage.classList.remove('hidden');
-  }
-});
-
-els.reportForm?.addEventListener('submit', async e => {
+els.reportForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
   try {
     if (state.editingGarantiaId) {
@@ -870,70 +612,44 @@ els.reportForm?.addEventListener('submit', async e => {
       notify('Reporte actualizado.');
     } else {
       await api.createGarantia(reportPayload());
-      notify('Reporte enviado.');
+      notify('Reporte enviado. Ya cayó al sistema.');
     }
-    resetReportForm();
-    setActiveNav('board');
-    await loadGarantias();
-  } catch (error) { notify(error.message, true); }
+    resetReportForm(); switchPanel('board'); await loadGarantias();
+  }
+  catch (error) { notify(error.message, true); }
 });
-els.userForm?.addEventListener('submit', async e => {
+
+els.userForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
   try {
-    const payload = {
-      nombre: els.userNombre.value.trim(),
-      email: els.userEmail.value.trim(),
-      role: els.userRole.value,
-      empresa: els.userEmpresa.value.trim(),
-      telefono: els.userTelefono.value.trim(),
-      password: els.userPassword.value,
-    };
-    if (state.editingUserId) {
-      if (!payload.password) delete payload.password;
-      await api.updateUser(state.editingUserId, payload);
-      notify('Usuario actualizado.');
-    } else {
-      await api.createUser(payload);
-      notify('Usuario creado.');
-    }
-    resetUserForm();
-    await loadUsers();
-  } catch (error) { notify(error.message, true); }
-});
-els.companyForm?.addEventListener('submit', async e => {
-  e.preventDefault();
-  try {
-    const payload = {
-      nombre: els.companyNombre.value.trim(),
-      contacto: els.companyContacto.value.trim(),
-      telefono: els.companyTelefono.value.trim(),
-      email: els.companyEmail.value.trim(),
-      notas: els.companyNotas.value.trim(),
-    };
-    if (state.editingCompanyId) {
-      await api.updateCompany(state.editingCompanyId, payload);
-      notify('Empresa actualizada.');
-    } else {
-      await api.createCompany(payload);
-      notify('Empresa guardada.');
-    }
-    resetCompanyForm();
-    await loadCompanies(false);
+    const payload = { nombre: els.userNombre.value.trim(), email: els.userEmail.value.trim(), role: els.userRole.value, empresa: els.userEmpresa.value.trim(), telefono: els.userTelefono.value.trim(), password: els.userPassword.value };
+    if (state.editingUserId) { await api.updateUser(state.editingUserId, payload); notify('Usuario actualizado.'); }
+    else { await api.createUser(payload); notify('Usuario creado.'); }
+    resetUserForm(); await loadUsers();
   } catch (error) { notify(error.message, true); }
 });
 
-(async function boot() {
+els.companyForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const payload = { nombre: els.companyNombre.value.trim(), contacto: els.companyContacto.value.trim(), telefono: els.companyTelefono.value.trim(), email: els.companyEmail.value.trim(), notas: els.companyNotas.value.trim(), activo: true };
   try {
-    await loadCompanies(true);
-  } catch {}
-  if (!state.token) return showAuth();
+    if (state.editingCompanyId) { await api.updateCompany(state.editingCompanyId, payload); notify('Empresa actualizada.'); }
+    else { await api.createCompany(payload); notify('Empresa guardada.'); }
+    resetCompanyForm();
+    await loadCompanies();
+  }
+  catch (error) { notify(error.message, true); }
+});
+
+['input','change'].forEach(evt => { els.searchInput?.addEventListener(evt, renderGarantias); els.validationFilter?.addEventListener(evt, renderGarantias); els.operationalFilter?.addEventListener(evt, renderGarantias); });
+
+(async function init() {
+  try { state.companies = await api.getPublicCompanies(); renderCompanies(); } catch {}
+  if (!state.token) return showLogin();
   try {
-    const me = await api.me();
-    state.user = me.user || me;
-    await hydrateApp();
+    const data = await api.me(); state.user = data.user; showDashboard();
+    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); resetReportForm(); resetCompanyForm();
   } catch {
-    localStorage.removeItem('carlabToken');
-    state.token = '';
-    showAuth();
+    localStorage.removeItem('carlabToken'); state.token = ''; showLogin();
   }
 })();
