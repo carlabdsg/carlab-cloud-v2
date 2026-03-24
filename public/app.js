@@ -12,10 +12,6 @@ const state = {
   activePanel: 'board',
   editingUserId: '',
   editingCompanyId: '',
-  refacciones: [],
-  costosTrabajo: [],
-  editingPartId: '',
-  editingCostId: '',
 };
 
 const api = {
@@ -50,15 +46,7 @@ const api = {
   deleteCompany(id) { return this.request(`/api/companies/${id}`, { method: 'DELETE' }); },
   getRequests() { return this.request('/api/registration-requests'); },
   updateRequest(id, payload) { return this.request(`/api/registration-requests/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }); },
-  getUnitHistory(numeroEconomico) { return this.request(`/api/history/unit/${encodeURIComponent(numeroEconomico)}`); },
-  getParts() { return this.request('/api/refacciones'); },
-  createPart(payload) { return this.request('/api/refacciones', { method: 'POST', body: JSON.stringify(payload) }); },
-  updatePart(id, payload) { return this.request(`/api/refacciones/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }); },
-  deletePart(id) { return this.request(`/api/refacciones/${id}`, { method: 'DELETE' }); },
-  getCosts() { return this.request('/api/costos-trabajo'); },
-  createCost(payload) { return this.request('/api/costos-trabajo', { method: 'POST', body: JSON.stringify(payload) }); },
-  updateCost(id, payload) { return this.request(`/api/costos-trabajo/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }); },
-  deleteCost(id) { return this.request(`/api/costos-trabajo/${id}`, { method: 'DELETE' }); }
+  getUnitHistory(numeroEconomico) { return this.request(`/api/history/unit/${encodeURIComponent(numeroEconomico)}`); }
 };
 
 const els = {};
@@ -66,12 +54,12 @@ function bind() {
   [
     'loginView','dashboardView','loginForm','loginEmail','loginPassword','loginError','registerForm','registerMessage','regNombre','regEmail','regTelefono','regEmpresa','regNumeroEconomico','regPassword',
     'tabLoginBtn','tabRegisterBtn','welcomeText','currentUserName','currentUserEmail','currentRoleBadge','avatarCircle','pageTitle','roleSummaryText','roleBrief','logoutBtn',
-    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','navPartsBtn','navCostsBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','partsPanel','costsPanel','analyticsPanel','historyPanel','filtersPanel',
+    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','filtersPanel',
     'reportForm','numeroObra','modelo','numeroEconomico','empresa','kilometraje','contactoNombre','telefono','descripcionFallo','solicitaRefaccion','refaccionFields','detalleRefaccion',
     'evidencias','evidenciasRefaccion','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn','searchInput','validationFilter','operationalFilter',
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
-    'topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistoryBtn','unitHistoryResult','partForm','partId','partNombre','partNumeroParte','partProveedor','partStock','partStockMinimo','partCostoCompra','partPrecioVenta','partSubmitBtn','partCancelEditBtn','partsList','costForm','costId','costNombre','costCategoria','costCostoBase','costPrecioSugerido','costNotas','costSubmitBtn','costCancelEditBtn','costsList'
+    'topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistoryBtn','unitHistoryResult'
   ].forEach(id => els[id] = document.getElementById(id));
 }
 bind();
@@ -181,7 +169,7 @@ function reportPayload() {
 
 function roleCopy(role) {
   return {
-    admin: { title:'Cabina administrativa', summary:'Control total. Apruebas accesos, administras usuarios, ves analítica y conviertes reincidencias en acción.', panels:[['Gestión total','Usuarios, empresas, refacciones y costos en una sola cabina.'],['Lectura comercial','Detecta patrones por empresa, modelo y unidad.'],['Control operativo','Puedes actuar igual que un operativo cuando haga falta.']], boardKicker:'ADMIN', listTitle:'Bandeja general del sistema', legend:'Portal corporativo con control total, solicitudes y lectura comercial.' },
+    admin: { title:'Cabina administrativa', summary:'Control total. Apruebas accesos, administras usuarios, ves analítica y conviertes reincidencias en acción.', panels:[['Gestión total','Usuarios, empresas y solicitudes en una sola vista.'],['Lectura comercial','Detecta patrones por empresa, modelo y unidad.'],['Control operativo','Puedes actuar igual que un operativo cuando haga falta.']], boardKicker:'ADMIN', listTitle:'Bandeja general del sistema', legend:'Portal corporativo con control total, solicitudes y lectura comercial.' },
     operador: { title:'Portal de operador', summary:'Reportas fallas, subes evidencia y ves el estatus sin depender de llamadas.', panels:[['Levantar incidencia','Captura la falla con datos, fotos, refacción y firma.'],['Seguimiento','Consulta si fue aceptada, rechazada o quedó pendiente.'],['Sin cruces','Solo ves tus reportes. No puedes decidir ni alterar revisiones.']], boardKicker:'OPERADOR', listTitle:'Mis reportes de garantía', legend:'Aquí ves solo tus reportes y su estatus actual.' },
     operativo: { title:'Mesa de validación operativa', summary:'Revisas reportes, decides si proceden y mueves el trabajo hasta terminar.', panels:[['Decisión','Acepta, rechaza o marca pendiente de revisión.'],['Flujo','Mueve el trabajo a en proceso, espera refacción o terminada.'],['Patrones','También ves unidades reincidentes para atacar la raíz.']], boardKicker:'OPERATIVO', listTitle:'Bandeja operativa', legend:'Aquí validas, autorizas y avanzas el trabajo.' },
     supervisor: { title:'Portal de supervisor', summary:'Consulta únicamente la información de tu empresa en modo corporativo de solo lectura.', panels:[['Visibilidad','Revisa empresas, unidades, evidencias y avances.'],['Lectura ejecutiva','Historial por unidad y top de fallas sin tocar procesos.'],['Sin edición','No cambias decisiones ni alteras procesos.']], boardKicker:'SUPERVISOR', listTitle:'Bandeja supervisada', legend:'Monitoreo integral con lectura operativa y comercial.' },
@@ -203,7 +191,7 @@ function updateHeaderForRole() {
   if (els.roleBrief) els.roleBrief.innerHTML = copy.panels.map(([title, desc]) => `<article><strong>${escapeHtml(title)}</strong><span>${escapeHtml(desc)}</span></article>`).join('');
 }
 function setActiveNav(activeBtn) {
-  [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn,els.navPartsBtn,els.navCostsBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
+  [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
   if (activeBtn && !activeBtn.classList.contains('hidden')) activeBtn.classList.add('active');
 }
 function switchPanel(panel) {
@@ -212,8 +200,6 @@ function switchPanel(panel) {
   els.usersPanel?.classList.toggle('hidden', panel !== 'users');
   els.requestsPanel?.classList.toggle('hidden', panel !== 'requests');
   els.companiesPanel?.classList.toggle('hidden', panel !== 'companies');
-  els.partsPanel?.classList.toggle('hidden', panel !== 'parts');
-  els.costsPanel?.classList.toggle('hidden', panel !== 'costs');
   els.analyticsPanel?.classList.toggle('hidden', panel !== 'analytics');
   els.historyPanel?.classList.toggle('hidden', panel !== 'history');
   const board = panel === 'board';
@@ -223,8 +209,6 @@ function switchPanel(panel) {
     panel === 'users' ? els.navUsersBtn :
     panel === 'requests' ? els.navRequestsBtn :
     panel === 'companies' ? els.navCompaniesBtn :
-    panel === 'parts' ? els.navPartsBtn :
-    panel === 'costs' ? els.navCostsBtn :
     panel === 'analytics' ? els.navAnalyticsBtn :
     panel === 'history' ? els.navHistoryBtn :
     els.navBoardBtn
@@ -237,8 +221,6 @@ function showDashboard() {
   els.navUsersBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navRequestsBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navCompaniesBtn?.classList.toggle('hidden', !isRole('admin'));
-  els.navPartsBtn?.classList.toggle('hidden', !isRole('admin'));
-  els.navCostsBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navAnalyticsBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo'));
   els.navHistoryBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo'));
   updateHeaderForRole(); switchPanel('board');
@@ -422,30 +404,6 @@ function beginCompanyEdit(company) {
   els.companySubmitBtn.textContent = 'Guardar cambios';
   els.companyCancelEditBtn.classList.remove('hidden');
 }
-function beginPartEdit(item) {
-  state.editingPartId = item.id;
-  els.partId.value = item.id;
-  els.partNombre.value = item.nombre || '';
-  els.partNumeroParte.value = item.numeroParte || '';
-  els.partProveedor.value = item.proveedor || '';
-  els.partStock.value = item.stock || 0;
-  els.partStockMinimo.value = item.stockMinimo || 0;
-  els.partCostoCompra.value = item.costoCompra || '';
-  els.partPrecioVenta.value = item.precioVenta || '';
-  els.partSubmitBtn.textContent = 'Guardar cambios';
-  els.partCancelEditBtn.classList.remove('hidden');
-}
-function beginCostEdit(item) {
-  state.editingCostId = item.id;
-  els.costId.value = item.id;
-  els.costNombre.value = item.nombre || '';
-  els.costCategoria.value = item.categoria || '';
-  els.costCostoBase.value = item.costoBase || '';
-  els.costPrecioSugerido.value = item.precioSugerido || '';
-  els.costNotas.value = item.notas || '';
-  els.costSubmitBtn.textContent = 'Guardar cambios';
-  els.costCancelEditBtn.classList.remove('hidden');
-}
 
 function renderCompanies() {
   if (!els.companiesList) return;
@@ -480,39 +438,6 @@ function renderCompanies() {
   fillSelect(els.empresa, state.companies.filter(x => x.activo), 'Selecciona empresa');
   fillSelect(els.userEmpresa, state.companies.filter(x => x.activo), 'Sin empresa');
   fillSelect(els.regEmpresa, state.companies.filter(x => x.activo), 'Selecciona empresa');
-}
-
-
-function renderParts() {
-  if (!els.partsList) return;
-  els.partsList.innerHTML = '';
-  const low = state.refacciones.filter(x => Number(x.stock || 0) <= Number(x.stockMinimo || 0));
-  if (low.length) {
-    const alert = document.createElement('div');
-    alert.className = 'empty-state';
-    alert.innerHTML = `<strong>Refacciones con stock bajo.</strong><span>${low.map(x => escapeHtml(x.nombre)).slice(0,4).join(', ')}</span>`;
-    els.partsList.appendChild(alert);
-  }
-  state.refacciones.forEach(item => {
-    const row = document.createElement('div'); row.className = 'table-row';
-    row.innerHTML = `<div><strong>${escapeHtml(item.nombre)}</strong><div class="small muted">${escapeHtml(item.numeroParte || 'Sin número de parte')} · ${escapeHtml(item.proveedor || 'Sin proveedor')}</div></div><div><span class="${Number(item.stock||0) <= Number(item.stockMinimo||0) ? 'low-stock' : ''}">${escapeHtml(String(item.stock ?? 0))}</span><div class="small muted">mín. ${escapeHtml(String(item.stockMinimo ?? 0))}</div></div><div>${money(item.costoCompra)}<div class="small muted">venta ${money(item.precioVenta)}</div></div><div class="action-row"></div>`;
-    const actions = row.querySelector('.action-row');
-    actions.appendChild(button('Editar', 'btn btn-secondary', () => beginPartEdit(item)));
-    actions.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar ${item.nombre}?`)) return; try { await api.deletePart(item.id); notify('Refacción eliminada.'); await loadParts(); } catch (error) { notify(error.message, true); } }));
-    els.partsList.appendChild(row);
-  });
-}
-function renderCosts() {
-  if (!els.costsList) return;
-  els.costsList.innerHTML = '';
-  state.costosTrabajo.forEach(item => {
-    const row = document.createElement('div'); row.className = 'table-row';
-    row.innerHTML = `<div><strong>${escapeHtml(item.nombre)}</strong><div class="small muted">${escapeHtml(item.categoria || 'Sin categoría')}</div></div><div>${money(item.costoBase)}</div><div>${money(item.precioSugerido)}</div><div><div class="small muted">${escapeHtml(item.notas || 'Sin notas')}</div><div class="action-row"></div></div>`;
-    const actions = row.querySelector('.action-row');
-    actions.appendChild(button('Editar', 'btn btn-secondary', () => beginCostEdit(item)));
-    actions.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar ${item.nombre}?`)) return; try { await api.deleteCost(item.id); notify('Costo eliminado.'); await loadCosts(); } catch (error) { notify(error.message, true); } }));
-    els.costsList.appendChild(row);
-  });
 }
 
 function renderGarantias() {
@@ -575,8 +500,6 @@ async function loadGarantias() { state.garantias = await api.getGarantias(); ren
 async function loadUsers() { if (!isRole('admin')) return; state.users = await api.getUsers(); renderUsers(); }
 async function loadCompanies() { state.companies = isRole('admin') ? await api.getCompanies() : await api.getPublicCompanies(); renderCompanies(); }
 async function loadRequests() { if (!isRole('admin')) return; state.registrationRequests = await api.getRequests(); renderRequests(); }
-async function loadParts() { if (!isRole('admin')) return; state.refacciones = await api.getParts(); renderParts(); }
-async function loadCosts() { if (!isRole('admin')) return; state.costosTrabajo = await api.getCosts(); renderCosts(); }
 
 async function renderUnitHistory() {
   const numero = els.unitHistoryInput?.value.trim();
@@ -603,7 +526,7 @@ els.loginForm?.addEventListener('submit', async (e) => {
   try {
     const data = await api.login(els.loginEmail.value.trim(), els.loginPassword.value);
     state.token = data.token; localStorage.setItem('carlabToken', state.token); state.user = data.user; showDashboard();
-    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); await loadParts(); await loadCosts(); resetReportForm(); resetCompanyForm(); resetPartForm(); resetCostForm(); notify(`Bienvenido, ${state.user.nombre}.`);
+    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); resetReportForm(); resetCompanyForm(); notify(`Bienvenido, ${state.user.nombre}.`);
   } catch (error) { if (els.loginError) { els.loginError.textContent = error.message; els.loginError.classList.remove('hidden'); } else notify(error.message,true); }
 });
 
@@ -624,13 +547,9 @@ els.navHistoryBtn?.addEventListener('click', () => switchPanel('history'));
 els.navUsersBtn?.addEventListener('click', async () => { switchPanel('users'); await loadUsers(); });
 els.navRequestsBtn?.addEventListener('click', async () => { switchPanel('requests'); await loadRequests(); });
 els.navCompaniesBtn?.addEventListener('click', async () => { switchPanel('companies'); await loadCompanies(); });
-els.navPartsBtn?.addEventListener('click', async () => { switchPanel('parts'); await loadParts(); });
-els.navCostsBtn?.addEventListener('click', async () => { switchPanel('costs'); await loadCosts(); });
 els.cancelReportBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('board'); });
 els.userCancelEditBtn?.addEventListener('click', resetUserForm);
 els.companyCancelEditBtn?.addEventListener('click', resetCompanyForm);
-els.partCancelEditBtn?.addEventListener('click', resetPartForm);
-els.costCancelEditBtn?.addEventListener('click', resetCostForm);
 els.unitHistoryBtn?.addEventListener('click', renderUnitHistory);
 
 els.reportForm?.addEventListener('submit', async (e) => {
@@ -661,24 +580,6 @@ els.companyForm?.addEventListener('submit', async (e) => {
   catch (error) { notify(error.message, true); }
 });
 
-els.partForm?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const payload = { nombre: els.partNombre.value.trim(), numeroParte: els.partNumeroParte.value.trim(), proveedor: els.partProveedor.value.trim(), stock: Number(els.partStock.value || 0), stockMinimo: Number(els.partStockMinimo.value || 0), costoCompra: Number(els.partCostoCompra.value || 0), precioVenta: Number(els.partPrecioVenta.value || 0) };
-  try {
-    if (state.editingPartId) { await api.updatePart(state.editingPartId, payload); notify('Refacción actualizada.'); }
-    else { await api.createPart(payload); notify('Refacción guardada.'); }
-    resetPartForm(); await loadParts();
-  } catch (error) { notify(error.message, true); }
-});
-els.costForm?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const payload = { nombre: els.costNombre.value.trim(), categoria: els.costCategoria.value.trim(), costoBase: Number(els.costCostoBase.value || 0), precioSugerido: Number(els.costPrecioSugerido.value || 0), notas: els.costNotas.value.trim() };
-  try {
-    if (state.editingCostId) { await api.updateCost(state.editingCostId, payload); notify('Costo actualizado.'); }
-    else { await api.createCost(payload); notify('Costo guardado.'); }
-    resetCostForm(); await loadCosts();
-  } catch (error) { notify(error.message, true); }
-});
 ['input','change'].forEach(evt => { els.searchInput?.addEventListener(evt, renderGarantias); els.validationFilter?.addEventListener(evt, renderGarantias); els.operationalFilter?.addEventListener(evt, renderGarantias); });
 
 (async function init() {
@@ -686,7 +587,7 @@ els.costForm?.addEventListener('submit', async (e) => {
   if (!state.token) return showLogin();
   try {
     const data = await api.me(); state.user = data.user; showDashboard();
-    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); await loadParts(); await loadCosts(); resetReportForm(); resetCompanyForm(); resetPartForm(); resetCostForm();
+    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); resetReportForm(); resetCompanyForm();
   } catch {
     localStorage.removeItem('carlabToken'); state.token = ''; showLogin();
   }
