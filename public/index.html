@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CARLAB CLOUD V3 | Fase 3</title>
+  <title>CARLAB CLOUD | Command Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -142,9 +142,9 @@
       <main class="main-area">
         <header class="topbar panel">
           <div>
-            <div class="topbar-kicker">CARLAB CLOUD V3 · FASE 3</div>
+            <div class="topbar-kicker">CARLAB CLOUD · COMMAND DASHBOARD</div>
             <h1 id="pageTitle">Bandeja general</h1>
-            <p id="statusLegend" class="muted">Operación más venta, con control y lectura por unidad.</p>
+            <p id="statusLegend" class="muted">Tablero vivo de unidades, reportes y trazabilidad con enfoque corporativo.</p>
           </div>
           <div class="topbar-side">
             <div class="topbar-chip"><span>Sesión</span><strong id="currentUserEmail">admin@carlab.local</strong></div>
@@ -153,6 +153,54 @@
 
         <section id="roleBrief" class="panel role-brief"></section>
 
+
+        <section id="commandDeck" class="panel command-deck">
+          <div class="command-main">
+            <div class="card-eyebrow">CENTRO DE CONTROL</div>
+            <h2>Tablero dinámico de operación</h2>
+            <p id="deckSummary" class="muted">Cada acción mueve la vista, enfoca la operación y te acerca directo a lo importante.</p>
+            <div class="command-actions">
+              <button id="quickAllBtn" class="btn btn-primary" type="button">Vista total</button>
+              <button id="quickInProgressBtn" class="btn btn-secondary" type="button">En proceso</button>
+              <button id="quickWaitingBtn" class="btn btn-secondary" type="button">Espera refacción</button>
+              <button id="quickDoneBtn" class="btn btn-secondary" type="button">Terminadas</button>
+              <button id="quickReviewBtn" class="btn btn-secondary" type="button">Pendientes de revisión</button>
+            </div>
+          </div>
+          <div class="command-side">
+            <button id="statCardTotal" class="metric-card metric-dark" type="button">
+              <span>Reportes en sistema</span>
+              <strong id="heroTotal">0</strong>
+              <small>Lectura total</small>
+            </button>
+            <button id="statCardAttention" class="metric-card" type="button">
+              <span>Requieren atención</span>
+              <strong id="heroAttention">0</strong>
+              <small>Nuevas + revisión</small>
+            </button>
+            <button id="statCardOperational" class="metric-card" type="button">
+              <span>En piso</span>
+              <strong id="heroOperational">0</strong>
+              <small>Proceso + espera</small>
+            </button>
+            <button id="statCardClosed" class="metric-card" type="button">
+              <span>Cerradas</span>
+              <strong id="heroClosed">0</strong>
+              <small>Terminadas</small>
+            </button>
+          </div>
+        </section>
+
+        <section id="focusStrip" class="panel focus-strip">
+          <button class="focus-pill active" data-filter-type="all" type="button">Todo</button>
+          <button class="focus-pill" data-validation="nueva" type="button">Nuevas</button>
+          <button class="focus-pill" data-validation="pendiente de revisión" type="button">Por decidir</button>
+          <button class="focus-pill" data-validation="aceptada" type="button">Aceptadas</button>
+          <button class="focus-pill" data-operational="en proceso" type="button">En proceso</button>
+          <button class="focus-pill" data-operational="espera refacción" type="button">Espera refacción</button>
+          <button class="focus-pill" data-operational="terminada" type="button">Terminadas</button>
+          <div id="activeViewBadge" class="active-view-badge">Vista total</div>
+        </section>
         <section id="analyticsPanel" class="panel hidden">
           <div class="panel-head">
             <div>
@@ -292,7 +340,7 @@
         </section>
 
         <section id="boardPanel" class="panel">
-          <div class="panel-head"><div><div class="topbar-kicker" id="boardKicker">CENTRAL</div><h3 id="listTitle">Bandeja de garantías</h3></div></div>
+          <div class="panel-head board-head"><div><div class="topbar-kicker" id="boardKicker">CENTRAL</div><h3 id="listTitle">Bandeja de garantías</h3></div><div class="board-tools"><button id="toggleCompactBtn" class="btn btn-ghost" type="button">Vista compacta</button></div></div>
           <div id="garantiasList" class="cards"></div>
           <div id="emptyState" class="empty-state hidden"><strong>No hay registros para esta vista.</strong><span>Cuando entren reportes o cambien los filtros, aquí aparecerán.</span></div>
         </section>
