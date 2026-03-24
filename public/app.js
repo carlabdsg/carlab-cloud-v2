@@ -65,7 +65,7 @@ const els = {};
   'userForm','userId','userNombre','userEmail','userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList',
   'requestsList',
   'companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn','companiesList',
-  'detailModal','detailTitle','detailSubtitle','detailBody','closeModalBtn','toast'
+  'detailModal','detailTitle','detailSubtitle','detailBody','closeModalBtn','reportPdfBtn','workshopPdfBtn','actionModal','actionModalTitle','actionStatusSelect','actionNotes','actionConfirmBtn','actionCancelBtn','quickFilterBar','toast'
 ].forEach(id => { els[id] = document.getElementById(id); });
 
 const signatureCtx = els.firmaCanvas?.getContext('2d');
@@ -102,6 +102,10 @@ function fillSelect(select, items, placeholder = 'Selecciona') {
   const current = select.value;
   select.innerHTML = `<option value="">${placeholder}</option>` + items.map(item => `<option value="${esc(item.nombre)}">${esc(item.nombre)}</option>`).join('');
   if (current) select.value = current;
+}
+function fillDatalist(el, values) {
+  if (!el) return;
+  el.innerHTML = [...new Set(values.filter(Boolean).map(v => String(v).trim()).filter(Boolean))].sort().slice(0, 200).map(v => `<option value="${esc(v)}"></option>`).join('');
 }
 function setActiveNav(panel) {
   state.activePanel = panel;
@@ -351,9 +355,32 @@ function renderAnalytics() {
   renderMiniList(els.analyticsIncidents, countBy(source, x => x.tipoIncidente), 'Sin datos todavía.');
   renderMiniList(els.analyticsRepeats, countBy(source, x => x.numeroEconomico).filter(([,n]) => n > 1), 'Sin unidades reincidentes todavía.');
 }
+function renderQuickFilters() {
+  if (!els.quickFilterBar) return;
+  const val = els.validationFilter.value;
+  const op = els.operationalFilter.value;
+  const chips = [
+    { type:'validation', value:'', label:'Todo' },
+    { type:'validation', value:'nueva', label:'Nueva' },
+    { type:'validation', value:'pendiente de revisión', label:'Pendiente' },
+    { type:'validation', value:'aceptada', label:'Aceptada' },
+    { type:'operational', value:'en proceso', label:'En proceso' },
+    { type:'operational', value:'espera refacción', label:'Espera refacción' },
+    { type:'operational', value:'terminada', label:'Terminada' },
+  ];
+  els.quickFilterBar.innerHTML = chips.map(ch => {
+    const active = ch.type === 'validation' ? val === ch.value && !op : op === ch.value;
+    return `<button class="quick-chip ${active ? 'active' : ''}" data-chip-type="${ch.type}" data-chip-value="${esc(ch.value)}" type="button">${esc(ch.label)}</button>`;
+  }).join('');
+}
+function refreshAutocompleteSources() {
+  fillDatalist(document.getElementById('numeroObraSuggestions'), state.garantias.map(x => x.numeroObra));
+  fillDatalist(document.getElementById('modeloSuggestions'), state.garantias.map(x => x.modelo));
+  fillDatalist(document.getElementById('numeroEconomicoSuggestions'), state.garantias.map(x => x.numeroEconomico));
+}
 function miniData(label, value) { return `<div class="mini-data"><strong>${esc(label)}</strong><span>${esc(value || '—')}</span></div>`; }
 function ticketActions(item) {
-  const actions = [`<button class="btn btn-secondary" data-action="detail" data-id="${item.id}">Ver detalle</button>`];
+  const actions = [`<button class="btn btn-secondary" data-action="detail" data-id="${item.id}">Ver detalle</button>`, `<button class="btn btn-ghost" data-action="pdf" data-id="${item.id}">PDF</button>`, `<button class="btn btn-ghost" data-action="pdf-taller" data-id="${item.id}">PDF taller</button>`];
   if (state.user?.role !== 'supervisor') actions.push(`<button class="btn btn-ghost" data-action="edit" data-id="${item.id}">Editar</button>`);
   if (isRole('admin','operativo') && ['nueva','pendiente de revisión'].includes(item.estatusValidacion)) actions.push(`<button class="btn btn-ghost" data-action="review" data-id="${item.id}">Validar</button>`);
   if (isRole('admin','operativo') && item.estatusValidacion === 'aceptada') actions.push(`<button class="btn btn-ghost" data-action="operational" data-id="${item.id}">Mover operativo</button>`);
@@ -363,6 +390,8 @@ function ticketActions(item) {
 function renderGarantias() {
   updateStats();
   renderAnalytics();
+  renderQuickFilters();
+  refreshAutocompleteSources();
   const items = filteredGarantias();
   els.garantiasList.innerHTML = '';
   els.emptyState.classList.toggle('hidden', items.length > 0);
@@ -472,6 +501,7 @@ function renderRequests() {
 }
 
 async function openDetail(item) {
+  state.currentDetailId = item.id;
   els.detailTitle.textContent = `${item.folio || 'GAR-—'} · Unidad ${item.numeroEconomico}`;
   els.detailSubtitle.textContent = `${item.empresa || '—'} · ${item.modelo || '—'} · ${fmtDate(item.createdAt)}`;
   let auditHtml = '<li>No disponible.</li>';
@@ -518,21 +548,98 @@ async function openDetail(item) {
   els.detailModal.showModal();
 }
 
-async function promptReview(item) {
-  const status = prompt('Escribe: aceptada, rechazada o pendiente de revisión', item.estatusValidacion === 'nueva' ? 'aceptada' : item.estatusValidacion);
-  if (!status) return;
-  const motivo = prompt('Motivo / observación de decisión', item.motivoDecision || '') || '';
-  await api.reviewGarantia(item.id, { estatusValidacion: status, motivoDecision: motivo });
-  notify('Validación actualizada.');
+function pdfStyles() {
+  return `
+    <style>
+      body{font-family:Inter,Arial,sans-serif;color:#111827;padding:28px;line-height:1.45}
+      .head{display:flex;justify-content:space-between;gap:12px;align-items:start;border-bottom:2px solid #111827;padding-bottom:14px;margin-bottom:18px}
+      .brand{font-size:22px;font-weight:800;letter-spacing:.08em}.sub{color:#5f6b7a;font-size:12px;text-transform:uppercase;letter-spacing:.14em}
+      .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0}
+      .box{border:1px solid #cdd5df;border-radius:14px;padding:12px}.box strong{display:block;font-size:11px;text-transform:uppercase;color:#647283;margin-bottom:5px}
+      .title{font-size:18px;font-weight:800;margin:10px 0 8px}.desc{border:1px solid #d8dee6;border-radius:14px;padding:14px;background:#f8fafc}
+      .imggrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px}.imggrid img{width:100%;height:180px;object-fit:cover;border:1px solid #d8dee6;border-radius:12px}
+      .badge{display:inline-block;padding:7px 10px;border-radius:999px;border:1px solid #cdd5df;background:#f4f6f8;font-weight:700;font-size:12px;margin-right:8px}
+      h3{margin:22px 0 10px}.muted{color:#5f6b7a}.audit{padding-left:18px}.signature{max-width:320px;border:1px solid #d8dee6;border-radius:12px}
+      @media print { body{padding:0} .noprint{display:none} }
+    </style>`;
+}
+function buildPdfHtml(item, mode = 'full') {
+  const compact = mode === 'taller';
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(item.folio || 'Reporte')}</title>${pdfStyles()}</head><body>
+    <div class="head">
+      <div><div class="brand">CARLAB</div><div class="sub">Reporte ${compact ? 'taller' : 'completo'} · Garantías</div></div>
+      <div style="text-align:right"><div><strong>${esc(item.folio || 'GAR-—')}</strong></div><div class="muted">${esc(item.empresa || '—')}</div><div class="muted">${fmtDate(item.createdAt)}</div></div>
+    </div>
+    <div class="title">Unidad ${esc(item.numeroEconomico || '—')} · Obra ${esc(item.numeroObra || '—')}</div>
+    <div><span class="badge">${esc(item.estatusValidacion || 'nueva')}</span><span class="badge">${esc(item.estatusOperativo || 'sin iniciar')}</span></div>
+    <div class="grid">
+      <div class="box"><strong>Modelo</strong>${esc(item.modelo || '—')}</div>
+      <div class="box"><strong>Empresa</strong>${esc(item.empresa || '—')}</div>
+      <div class="box"><strong>Contacto</strong>${esc(item.contactoNombre || '—')}</div>
+      <div class="box"><strong>Teléfono</strong>${esc(item.telefono || '—')}</div>
+      <div class="box"><strong>Kilometraje</strong>${esc(item.kilometraje || '—')}</div>
+      <div class="box"><strong>Tipo de incidencia</strong>${esc(item.tipoIncidente || '—')}</div>
+    </div>
+    <h3>Descripción del fallo</h3>
+    <div class="desc">${esc(item.descripcionFallo || 'Sin descripción').replace(/\n/g, '<br>')}</div>
+    <h3>Refacción</h3>
+    <div class="desc">${item.solicitaRefaccion ? esc(item.detalleRefaccion || 'Solicitada sin detalle').replace(/\n/g, '<br>') : 'No solicita refacción'}</div>
+    ${compact ? '' : `
+      <h3>Trazabilidad</h3>
+      <div class="grid">
+        <div class="box"><strong>Reportó</strong>${esc(item.reportadoPorNombre || item.reportadoPorEmail || '—')}</div>
+        <div class="box"><strong>Revisó</strong>${esc(item.revisadoPorNombre || '—')}</div>
+        <div class="box"><strong>Motivo decisión</strong>${esc(item.motivoDecision || '—')}</div>
+        <div class="box"><strong>Observaciones operativo</strong>${esc(item.observacionesOperativo || '—')}</div>
+      </div>`}
+    ${item.evidencias?.length ? `<h3>Evidencias generales</h3><div class="imggrid">${item.evidencias.map(src => `<img src="${src}" />`).join('')}</div>` : ''}
+    ${item.evidenciasRefaccion?.length && !compact ? `<h3>Evidencias de refacción</h3><div class="imggrid">${item.evidenciasRefaccion.map(src => `<img src="${src}" />`).join('')}</div>` : ''}
+    ${item.firma && !compact ? `<h3>Firma</h3><img class="signature" src="${item.firma}" />` : ''}
+    <script>window.onload=()=>setTimeout(()=>window.print(),180)</script>
+  </body></html>`;
+}
+function exportReportPdf(item, mode = 'full') {
+  const win = window.open('', '_blank', 'width=1100,height=900');
+  if (!win) return notify('Tu navegador bloqueó la ventana del PDF.', true);
+  win.document.open();
+  win.document.write(buildPdfHtml(item, mode));
+  win.document.close();
+}
+async function openActionModal(kind, item) {
+  state.currentAction = { kind, itemId: item.id };
+  els.actionNotes.value = kind === 'review' ? (item.motivoDecision || '') : (item.observacionesOperativo || '');
+  const options = kind === 'review'
+    ? ['pendiente de revisión', 'aceptada', 'rechazada']
+    : ['sin iniciar', 'en proceso', 'espera refacción', 'terminada'];
+  els.actionModalTitle.textContent = kind === 'review' ? `Validar ${item.folio || item.numeroEconomico}` : `Mover operativo ${item.folio || item.numeroEconomico}`;
+  els.actionStatusSelect.innerHTML = options.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  els.actionStatusSelect.value = kind === 'review'
+    ? (item.estatusValidacion === 'nueva' ? 'aceptada' : item.estatusValidacion)
+    : (item.estatusOperativo || 'en proceso');
+  els.actionModal.showModal();
+}
+async function commitActionModal() {
+  if (!state.currentAction) return;
+  const item = state.garantias.find(x => x.id === state.currentAction.itemId);
+  if (!item) return;
+  const status = els.actionStatusSelect.value;
+  const notes = els.actionNotes.value.trim();
+  if (state.currentAction.kind === 'review') {
+    await api.reviewGarantia(item.id, { estatusValidacion: status, motivoDecision: notes });
+    notify('Validación actualizada.');
+  } else {
+    await api.updateOperational(item.id, { estatusOperativo: status, observacionesOperativo: notes });
+    notify('Estatus operativo actualizado.');
+  }
+  els.actionModal.close();
+  state.currentAction = null;
   await loadGarantias();
 }
+async function promptReview(item) {
+  return openActionModal('review', item);
+}
 async function promptOperational(item) {
-  const status = prompt('Escribe: sin iniciar, en proceso, espera refacción o terminada', item.estatusOperativo || 'en proceso');
-  if (!status) return;
-  const observaciones = prompt('Observaciones operativas', item.observacionesOperativo || '') || '';
-  await api.updateOperational(item.id, { estatusOperativo: status, observacionesOperativo: observaciones });
-  notify('Estatus operativo actualizado.');
-  await loadGarantias();
+  return openActionModal('operational', item);
 }
 
 async function renderUnitHistory() {
@@ -606,6 +713,8 @@ els.garantiasList?.addEventListener('click', async e => {
   if (!item) return;
   try {
     if (btn.dataset.action === 'detail') return openDetail(item);
+    if (btn.dataset.action === 'pdf') return exportReportPdf(item, 'full');
+    if (btn.dataset.action === 'pdf-taller') return exportReportPdf(item, 'taller');
     if (btn.dataset.action === 'edit') return beginGarantiaEdit(item);
     if (btn.dataset.action === 'review') return promptReview(item);
     if (btn.dataset.action === 'operational') return promptOperational(item);
@@ -722,10 +831,16 @@ els.validationFilter?.addEventListener('change', renderGarantias);
 els.operationalFilter?.addEventListener('change', renderGarantias);
 els.searchInput?.addEventListener('input', renderGarantias);
 els.unitHistoryBtn?.addEventListener('click', renderUnitHistory);
+els.unitHistoryInput?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); renderUnitHistory(); } });
 els.cancelReportBtn?.addEventListener('click', () => { resetReportForm(); setActiveNav('board'); });
 els.userCancelEditBtn?.addEventListener('click', resetUserForm);
 els.companyCancelEditBtn?.addEventListener('click', resetCompanyForm);
 els.closeModalBtn?.addEventListener('click', () => els.detailModal.close());
+els.reportPdfBtn?.addEventListener('click', () => { const item = state.garantias.find(x => x.id === state.currentDetailId); if (item) exportReportPdf(item, 'full'); });
+els.workshopPdfBtn?.addEventListener('click', () => { const item = state.garantias.find(x => x.id === state.currentDetailId); if (item) exportReportPdf(item, 'taller'); });
+els.actionCancelBtn?.addEventListener('click', () => { state.currentAction = null; els.actionModal.close(); });
+els.actionConfirmBtn?.addEventListener('click', async () => { try { await commitActionModal(); } catch (error) { notify(error.message, true); } });
+els.quickFilterBar?.addEventListener('click', e => { const btn = e.target.closest('button[data-chip-type]'); if (!btn) return; const type = btn.dataset.chipType; const value = btn.dataset.chipValue || ''; if (type === 'validation') { els.validationFilter.value = value; if (value) els.operationalFilter.value = ''; } if (type === 'operational') { els.operationalFilter.value = value; if (value) els.validationFilter.value = ''; } renderGarantias(); });
 
 els.registerPane?.addEventListener('submit', async e => {
   e.preventDefault();

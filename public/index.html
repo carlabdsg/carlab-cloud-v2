@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CARLAB CLOUD | Command Center</title>
+  <title>CARLAB CLOUD | Enterprise Control</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -14,24 +14,24 @@
 
   <section id="authView" class="auth-shell">
     <div class="auth-hero">
-      <div class="hero-ribbon">CARLAB CLOUD · RENDER EDITION</div>
-      <h1>Cabina de control para garantías, operación y crecimiento comercial.</h1>
-      <p class="hero-copy">Una interfaz limpia, rápida y seria. Menos saturación, más mando. Diseñada para verse premium en Render y comportarse como plataforma real.</p>
+      <div class="hero-ribbon">CARLAB CLOUD · ENTERPRISE EDITION</div>
+      <h1>Plataforma empresarial para garantías, control operativo y trazabilidad real.</h1>
+      <p class="hero-copy">Sin ruido, sin pantallas saturadas y sin perder funciones. Diseñada para Render, con lectura clara, botones útiles y base lista para WhatsApp.</p>
       <div class="hero-grid">
         <article class="glass-card">
-          <span class="eyebrow">Control</span>
-          <h3>Vista operativa viva</h3>
-          <p>Alertas, estados, reincidencias y lectura comercial en una misma cabina.</p>
+          <span class="eyebrow">Operación</span>
+          <h3>Bandeja limpia</h3>
+          <p>Estados, filtros, PDF y decisiones operativas en una sola vista seria.</p>
         </article>
         <article class="glass-card">
           <span class="eyebrow">Trazabilidad</span>
-          <h3>Historial por unidad</h3>
-          <p>Consulta rápida para detectar patrones, garantías repetidas y oportunidades.</p>
+          <h3>Historial vivo</h3>
+          <p>Unidad, obra, modelo y empresa con lectura rápida y reincidencias visibles.</p>
         </article>
         <article class="glass-card">
           <span class="eyebrow">Escala</span>
           <h3>Base lista para WhatsApp</h3>
-          <p>Estados claros, portal elegante y estructura para automatizar mensajes.</p>
+          <p>Estados sólidos para notificar, consultar estatus y empujar al portal del cliente.</p>
         </article>
       </div>
     </div>
@@ -41,7 +41,7 @@
         <div class="brand-mark">C</div>
         <div>
           <div class="brand-title">CARLAB</div>
-          <div class="brand-subtitle">Command Center</div>
+          <div class="brand-subtitle">Enterprise Control</div>
         </div>
       </div>
 
@@ -137,7 +137,7 @@
         <div class="topbar-actions">
           <label class="search-wrap">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 21l-4.35-4.35"></path><circle cx="11" cy="11" r="6"></circle></svg>
-            <input id="searchInput" type="text" placeholder="Buscar por folio, unidad, obra, empresa..." />
+            <input id="searchInput" type="text" placeholder="Buscar por folio, unidad, obra, empresa o modelo..." />
           </label>
           <button id="quickCreateBtn" class="btn btn-primary" type="button">+ Nuevo reporte</button>
         </div>
@@ -145,34 +145,37 @@
 
       <section id="panelBoard" class="panel view-panel">
         <div class="stats-grid">
-          <article class="stat-card accent-blue"><span>Total</span><strong id="statTotal">0</strong><small>Garantías registradas</small></article>
-          <article class="stat-card accent-amber"><span>Nuevas</span><strong id="statNew">0</strong><small>Pendientes de atención</small></article>
-          <article class="stat-card accent-violet"><span>Aceptadas</span><strong id="statAccepted">0</strong><small>Listas para ejecución</small></article>
-          <article class="stat-card accent-green"><span>Terminadas</span><strong id="statDone">0</strong><small>Cerradas operativamente</small></article>
+          <article class="stat-card"><span>Total</span><strong id="statTotal">0</strong><small>Garantías registradas</small></article>
+          <article class="stat-card"><span>Nuevas</span><strong id="statNew">0</strong><small>Pendientes de atención</small></article>
+          <article class="stat-card"><span>Aceptadas</span><strong id="statAccepted">0</strong><small>Listas para ejecución</small></article>
+          <article class="stat-card"><span>Terminadas</span><strong id="statDone">0</strong><small>Cerradas operativamente</small></article>
         </div>
 
         <div class="layout-grid">
           <div class="surface span-8">
-            <div class="surface-head split">
+            <div class="surface-head split wrap-gap">
               <div>
                 <p class="section-label">Bandeja</p>
-                <h3 id="listTitle">Operación más venta, con control y lectura por unidad.</h3>
+                <h3 id="listTitle">Operación, PDF y control de estatus sin perder claridad.</h3>
               </div>
-              <div class="filters-row">
-                <select id="validationFilter">
-                  <option value="">Todas las validaciones</option>
-                  <option value="nueva">Nueva</option>
-                  <option value="pendiente de revisión">Pendiente de revisión</option>
-                  <option value="aceptada">Aceptada</option>
-                  <option value="rechazada">Rechazada</option>
-                </select>
-                <select id="operationalFilter">
-                  <option value="">Todos los operativos</option>
-                  <option value="sin iniciar">Sin iniciar</option>
-                  <option value="en proceso">En proceso</option>
-                  <option value="espera refacción">Espera refacción</option>
-                  <option value="terminada">Terminada</option>
-                </select>
+              <div class="filters-shell">
+                <div class="filters-row compact">
+                  <select id="validationFilter">
+                    <option value="">Todas las validaciones</option>
+                    <option value="nueva">Nueva</option>
+                    <option value="pendiente de revisión">Pendiente de revisión</option>
+                    <option value="aceptada">Aceptada</option>
+                    <option value="rechazada">Rechazada</option>
+                  </select>
+                  <select id="operationalFilter">
+                    <option value="">Todos los operativos</option>
+                    <option value="sin iniciar">Sin iniciar</option>
+                    <option value="en proceso">En proceso</option>
+                    <option value="espera refacción">Espera refacción</option>
+                    <option value="terminada">Terminada</option>
+                  </select>
+                </div>
+                <div id="quickFilterBar" class="quick-filter-bar"></div>
               </div>
             </div>
             <div id="emptyState" class="empty-state hidden">
@@ -185,8 +188,8 @@
 
           <div class="surface span-4 stack-gap">
             <div>
-              <p class="section-label">Lectura comercial</p>
-              <h3>Radar premium</h3>
+              <p class="section-label">Lectura ejecutiva</p>
+              <h3>Radar empresarial</h3>
             </div>
             <div class="mini-analytics">
               <article>
@@ -216,19 +219,22 @@
             <div>
               <p class="section-label">Portal operador</p>
               <h3>Nuevo reporte</h3>
-              <p class="muted">Captura controlada con evidencia, firma y datos claros.</p>
+              <p class="muted">Mantiene captura rápida, datos útiles y opciones autocompletadas.</p>
             </div>
           </div>
           <form id="reportForm" class="stack-gap">
             <div class="grid-3">
-              <label class="field"><span>Número de obra</span><input id="numeroObra" required /></label>
-              <label class="field"><span>Modelo</span><input id="modelo" required /></label>
-              <label class="field"><span>Número económico</span><input id="numeroEconomico" required /></label>
+              <label class="field"><span>Número de obra</span><input id="numeroObra" list="numeroObraSuggestions" required /></label>
+              <label class="field"><span>Modelo</span><input id="modelo" list="modeloSuggestions" required /></label>
+              <label class="field"><span>Número económico</span><input id="numeroEconomico" list="numeroEconomicoSuggestions" required /></label>
               <label class="field"><span>Empresa</span><select id="empresa" required></select></label>
               <label class="field"><span>Kilometraje</span><input id="kilometraje" /></label>
               <label class="field"><span>Nombre de contacto</span><input id="contactoNombre" /></label>
               <label class="field"><span>Teléfono</span><input id="telefono" /></label>
             </div>
+            <datalist id="numeroObraSuggestions"></datalist>
+            <datalist id="modeloSuggestions"></datalist>
+            <datalist id="numeroEconomicoSuggestions"></datalist>
 
             <div class="surface soft nested">
               <p class="section-label">Tipo de incidencia</p>
@@ -321,7 +327,7 @@
               <p class="muted">Trazabilidad para detectar patrones, garantías repetidas y seguimiento real.</p>
             </div>
             <div class="history-search">
-              <input id="unitHistoryInput" type="text" placeholder="Número económico" />
+              <input id="unitHistoryInput" type="text" list="numeroEconomicoSuggestions" placeholder="Número económico" />
               <button id="unitHistoryBtn" class="btn btn-primary" type="button">Consultar</button>
             </div>
           </div>
@@ -402,15 +408,38 @@
 
   <dialog id="detailModal" class="detail-modal">
     <div class="modal-shell">
-      <div class="surface-head split sticky-head">
+      <div class="surface-head split sticky-head wrap-gap">
         <div>
           <p class="section-label">Detalle</p>
           <h3 id="detailTitle">Garantía</h3>
           <p id="detailSubtitle" class="muted small"></p>
         </div>
-        <button id="closeModalBtn" class="btn btn-ghost" type="button">Cerrar</button>
+        <div class="modal-actions">
+          <button id="reportPdfBtn" class="btn btn-secondary" type="button">PDF completo</button>
+          <button id="workshopPdfBtn" class="btn btn-ghost" type="button">PDF taller</button>
+          <button id="closeModalBtn" class="btn btn-ghost" type="button">Cerrar</button>
+        </div>
       </div>
       <div id="detailBody" class="modal-body"></div>
+    </div>
+  </dialog>
+
+  <dialog id="actionModal" class="detail-modal small-modal">
+    <div class="modal-shell compact-shell">
+      <div class="surface-head split sticky-head">
+        <div>
+          <p class="section-label">Estatus</p>
+          <h3 id="actionModalTitle">Actualizar</h3>
+        </div>
+        <button id="actionCancelBtn" class="btn btn-ghost" type="button">Cerrar</button>
+      </div>
+      <div class="stack-gap modal-body compact-body">
+        <label class="field"><span>Estatus</span><select id="actionStatusSelect"></select></label>
+        <label class="field"><span>Observación</span><textarea id="actionNotes" rows="4" placeholder="Motivo, observación o nota operativa"></textarea></label>
+        <div class="row-actions">
+          <button id="actionConfirmBtn" class="btn btn-primary" type="button">Guardar cambio</button>
+        </div>
+      </div>
     </div>
   </dialog>
 
