@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 const DATABASE_URL = process.env.DATABASE_URL;
 const JWT_SECRET = process.env.JWT_SECRET || 'carlab-dev-secret';
 const ADMIN_NAME = process.env.ADMIN_NAME || 'Administrador Carlab';
@@ -38,7 +38,7 @@ function signToken(user) {
       email: user.email,
       role: user.role,
       nombre: user.nombre,
-      empresa: user.empresa || ''
+      empresa: user.empresa || '',
     },
     JWT_SECRET,
     { expiresIn: '7d' }
@@ -104,6 +104,34 @@ function mapCompany(row) {
   };
 }
 
+function mapPart(row) {
+  return {
+    id: row.id,
+    nombre: row.nombre,
+    numeroParte: row.numero_parte || '',
+    proveedor: row.proveedor || '',
+    stock: row.stock || 0,
+    stockMinimo: row.stock_minimo || 0,
+    costoCompra: Number(row.costo_compra || 0),
+    precioVenta: Number(row.precio_venta || 0),
+    activo: row.activo,
+    createdAt: row.created_at,
+  };
+}
+
+function mapCost(row) {
+  return {
+    id: row.id,
+    nombre: row.nombre,
+    categoria: row.categoria || '',
+    costoBase: Number(row.costo_base || 0),
+    precioSugerido: Number(row.precio_sugerido || 0),
+    notas: row.notas || '',
+    activo: row.activo,
+    createdAt: row.created_at,
+  };
+}
+
 function mapRegistrationRequest(row) {
   return {
     id: row.id,
@@ -149,7 +177,7 @@ async function addAuditLog(garantiaId, userId, accion, detalle) {
 }
 
 async function nextGarantiaFolio() {
-  const result = await pool.query('SELECT COALESCE(MAX(CAST(SUBSTRING(folio FROM 5) AS INTEGER)), 0) + 1 AS next FROM garantias');
+  const result = await pool.query(`SELECT COALESCE(MAX(CAST(SUBSTRING(folio FROM 5) AS INTEGER)), 0) + 1 AS next FROM garantias`);
   const next = result.rows[0]?.next || 1;
   return `GAR-${String(next).padStart(5, '0')}`;
 }
@@ -198,6 +226,7 @@ async function initDb() {
 
     CREATE TABLE IF NOT EXISTS garantias (
       id TEXT PRIMARY KEY,
+      folio TEXT,
       numero_obra TEXT NOT NULL,
       modelo TEXT NOT NULL,
       numero_economico TEXT NOT NULL,
@@ -237,6 +266,30 @@ async function initDb() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS refacciones (
+      id TEXT PRIMARY KEY,
+      nombre TEXT NOT NULL,
+      numero_parte TEXT,
+      proveedor TEXT,
+      stock INTEGER NOT NULL DEFAULT 0,
+      stock_minimo INTEGER NOT NULL DEFAULT 0,
+      costo_compra NUMERIC(12,2) NOT NULL DEFAULT 0,
+      precio_venta NUMERIC(12,2) NOT NULL DEFAULT 0,
+      activo BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS costos_trabajo (
+      id TEXT PRIMARY KEY,
+      nombre TEXT NOT NULL,
+      categoria TEXT,
+      costo_base NUMERIC(12,2) NOT NULL DEFAULT 0,
+      precio_sugerido NUMERIC(12,2) NOT NULL DEFAULT 0,
+      notas TEXT,
+      activo BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
     ALTER TABLE users ADD COLUMN IF NOT EXISTS empresa TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS telefono TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
@@ -255,6 +308,8 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_garantias_estatus_operativo ON garantias(estatus_operativo);
     CREATE INDEX IF NOT EXISTS idx_garantias_reportado_por_id ON garantias(reportado_por_id);
     CREATE INDEX IF NOT EXISTS idx_garantias_numero_economico ON garantias(numero_economico);
+    CREATE INDEX IF NOT EXISTS idx_refacciones_nombre ON refacciones(nombre);
+    CREATE INDEX IF NOT EXISTS idx_costos_trabajo_nombre ON costos_trabajo(nombre);
   `);
 
   for (const name of DEFAULT_COMPANIES) {
@@ -279,14 +334,16 @@ async function initDb() {
   }
 }
 
-app.get('/api/health', async (_req, res) => {
-  try {
-    const result = await pool.query('SELECT NOW() AS now');
-    res.json({ ok: true, db: result.rows[0].now });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ ok: false, error: 'No hubo conexión con la base.' });
-  }
+let dbReady = false;
+let dbInitError = null;
+
+app.get('/api/health', (_req, res) => {
+  res.json({
+    ok: true,
+    service: 'carlab-cloud-v2',
+    dbReady,
+    dbInitError: dbInitError ? 'db_init_failed' : null
+  });
 });
 
 app.get('/api/public/companies', async (_req, res) => {
@@ -411,22 +468,102 @@ app.patch('/api/companies/:id', authRequired, requireRoles('admin'), async (req,
   res.json(mapCompany(result.rows[0]));
 });
 
+app.delete('/api/companies/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  const company = await pool.query('SELECT * FROM companies WHERE id = $1', [req.params.id]);
+  if (!company.rowCount) return res.status(404).json({ error: 'Empresa no encontrada.' });
+
+  const name = company.rows[0].nombre;
+  const linkedGarantias = await pool.query('SELECT COUNT(*)::int AS total FROM garantias WHERE empresa = $1', [name]);
+  const linkedUsers = await pool.query('SELECT COUNT(*)::int AS total FROM users WHERE empresa = $1 AND deleted_at IS NULL', [name]);
+  const linkedRequests = await pool.query("SELECT COUNT(*)::int AS total FROM registration_requests WHERE empresa = $1 AND status = 'pendiente'", [name]);
+  const totalLinks = (linkedGarantias.rows[0]?.total || 0) + (linkedUsers.rows[0]?.total || 0) + (linkedRequests.rows[0]?.total || 0);
+
+  if (totalLinks > 0) {
+    return res.status(400).json({ error: 'No se puede borrar porque la empresa tiene historial, usuarios o solicitudes activas. Desactívala.' });
+  }
+
+  await pool.query('DELETE FROM companies WHERE id = $1', [req.params.id]);
+  res.json({ ok: true });
+});
+
 app.patch('/api/companies/:id/deactivate', authRequired, requireRoles('admin'), async (req, res) => {
   const result = await pool.query('UPDATE companies SET activo = FALSE WHERE id = $1 RETURNING *', [req.params.id]);
   if (!result.rowCount) return res.status(404).json({ error: 'Empresa no encontrada.' });
   res.json(mapCompany(result.rows[0]));
 });
 
-app.delete('/api/companies/:id', authRequired, requireRoles('admin'), async (req, res) => {
-  const current = await pool.query('SELECT * FROM companies WHERE id = $1', [req.params.id]);
-  if (!current.rowCount) return res.status(404).json({ error: 'Empresa no encontrada.' });
 
-  const linked = await pool.query('SELECT COUNT(*)::int AS total FROM garantias WHERE empresa = $1', [current.rows[0].nombre]);
-  if ((linked.rows[0]?.total || 0) > 0) {
-    return res.status(400).json({ error: 'Esta empresa tiene historial. Mejor desactívala.' });
-  }
+app.get('/api/refacciones', authRequired, requireRoles('admin'), async (_req, res) => {
+  const result = await pool.query('SELECT * FROM refacciones ORDER BY nombre ASC');
+  res.json(result.rows.map(mapPart));
+});
 
-  await pool.query('DELETE FROM companies WHERE id = $1', [req.params.id]);
+app.post('/api/refacciones', authRequired, requireRoles('admin'), async (req, res) => {
+  const nombre = String(req.body.nombre || '').trim();
+  if (!nombre) return res.status(400).json({ error: 'El nombre de la refacción es obligatorio.' });
+  const result = await pool.query(
+    `INSERT INTO refacciones (id, nombre, numero_parte, proveedor, stock, stock_minimo, costo_compra, precio_venta, activo)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,TRUE)
+     RETURNING *`,
+    [cryptoRandomId(), nombre, String(req.body.numeroParte || '').trim(), String(req.body.proveedor || '').trim(), Number(req.body.stock || 0), Number(req.body.stockMinimo || 0), Number(req.body.costoCompra || 0), Number(req.body.precioVenta || 0)]
+  );
+  res.status(201).json(mapPart(result.rows[0]));
+});
+
+app.patch('/api/refacciones/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  const nombre = String(req.body.nombre || '').trim();
+  if (!nombre) return res.status(400).json({ error: 'El nombre de la refacción es obligatorio.' });
+  const result = await pool.query(
+    `UPDATE refacciones
+     SET nombre = $2, numero_parte = $3, proveedor = $4, stock = $5, stock_minimo = $6, costo_compra = $7, precio_venta = $8, activo = TRUE
+     WHERE id = $1
+     RETURNING *`,
+    [req.params.id, nombre, String(req.body.numeroParte || '').trim(), String(req.body.proveedor || '').trim(), Number(req.body.stock || 0), Number(req.body.stockMinimo || 0), Number(req.body.costoCompra || 0), Number(req.body.precioVenta || 0)]
+  );
+  if (!result.rowCount) return res.status(404).json({ error: 'Refacción no encontrada.' });
+  res.json(mapPart(result.rows[0]));
+});
+
+app.delete('/api/refacciones/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  const result = await pool.query('DELETE FROM refacciones WHERE id = $1 RETURNING id', [req.params.id]);
+  if (!result.rowCount) return res.status(404).json({ error: 'Refacción no encontrada.' });
+  res.json({ ok: true });
+});
+
+app.get('/api/costos-trabajo', authRequired, requireRoles('admin'), async (_req, res) => {
+  const result = await pool.query('SELECT * FROM costos_trabajo ORDER BY nombre ASC');
+  res.json(result.rows.map(mapCost));
+});
+
+app.post('/api/costos-trabajo', authRequired, requireRoles('admin'), async (req, res) => {
+  const nombre = String(req.body.nombre || '').trim();
+  if (!nombre) return res.status(400).json({ error: 'El nombre del trabajo es obligatorio.' });
+  const result = await pool.query(
+    `INSERT INTO costos_trabajo (id, nombre, categoria, costo_base, precio_sugerido, notas, activo)
+     VALUES ($1,$2,$3,$4,$5,$6,TRUE)
+     RETURNING *`,
+    [cryptoRandomId(), nombre, String(req.body.categoria || '').trim(), Number(req.body.costoBase || 0), Number(req.body.precioSugerido || 0), String(req.body.notas || '').trim()]
+  );
+  res.status(201).json(mapCost(result.rows[0]));
+});
+
+app.patch('/api/costos-trabajo/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  const nombre = String(req.body.nombre || '').trim();
+  if (!nombre) return res.status(400).json({ error: 'El nombre del trabajo es obligatorio.' });
+  const result = await pool.query(
+    `UPDATE costos_trabajo
+     SET nombre = $2, categoria = $3, costo_base = $4, precio_sugerido = $5, notas = $6, activo = TRUE
+     WHERE id = $1
+     RETURNING *`,
+    [req.params.id, nombre, String(req.body.categoria || '').trim(), Number(req.body.costoBase || 0), Number(req.body.precioSugerido || 0), String(req.body.notas || '').trim()]
+  );
+  if (!result.rowCount) return res.status(404).json({ error: 'Costo no encontrado.' });
+  res.json(mapCost(result.rows[0]));
+});
+
+app.delete('/api/costos-trabajo/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  const result = await pool.query('DELETE FROM costos_trabajo WHERE id = $1 RETURNING id', [req.params.id]);
+  if (!result.rowCount) return res.status(404).json({ error: 'Costo no encontrado.' });
   res.json({ ok: true });
 });
 
@@ -446,7 +583,6 @@ app.patch('/api/registration-requests/:id', authRequired, requireRoles('admin'),
   const current = await pool.query('SELECT * FROM registration_requests WHERE id = $1', [req.params.id]);
   if (!current.rowCount) return res.status(404).json({ error: 'Solicitud no encontrada.' });
   const row = current.rows[0];
-
   if (row.status !== 'pendiente') {
     return res.status(400).json({ error: 'La solicitud ya fue procesada.' });
   }
@@ -564,16 +700,16 @@ app.delete('/api/users/:id', authRequired, requireRoles('admin'), async (req, re
 app.get('/api/garantias', authRequired, async (req, res) => {
   let query = 'SELECT * FROM garantias';
   const params = [];
-
   if (req.user.role === 'operador') {
     query += ' WHERE reportado_por_id = $1';
     params.push(req.user.id);
   } else if (req.user.role === 'supervisor') {
-    if (!req.user.empresa) return res.json([]);
+    if (!req.user.empresa) {
+      return res.status(400).json({ error: 'El supervisor no tiene empresa asignada.' });
+    }
     query += ' WHERE empresa = $1';
     params.push(req.user.empresa);
   }
-
   query += ' ORDER BY created_at DESC';
   const result = await pool.query(query, params);
   res.json(result.rows.map(mapGarantia));
@@ -625,36 +761,22 @@ app.post('/api/garantias', authRequired, requireRoles('operador', 'admin'), asyn
   await addAuditLog(id, req.user.id, 'crear_reporte', `Reporte creado por ${req.user.nombre}`);
   res.status(201).json(mapGarantia(result.rows[0]));
 });
+
 app.patch('/api/garantias/:id', authRequired, requireRoles('admin'), async (req, res) => {
   const body = req.body;
   const required = [body.numeroObra, body.modelo, body.numeroEconomico, body.empresa, body.tipoIncidente, body.descripcionFallo];
-
   if (required.some(v => !String(v || '').trim())) {
     return res.status(400).json({ error: 'Faltan campos obligatorios del reporte.' });
   }
-
   const current = await pool.query('SELECT * FROM garantias WHERE id = $1', [req.params.id]);
-  if (!current.rowCount) {
-    return res.status(404).json({ error: 'Garantía no encontrada.' });
-  }
+  if (!current.rowCount) return res.status(404).json({ error: 'Garantía no encontrada.' });
 
   const result = await pool.query(
     `UPDATE garantias SET
-      numero_obra = $2,
-      modelo = $3,
-      numero_economico = $4,
-      empresa = $5,
-      kilometraje = $6,
-      contacto_nombre = $7,
-      telefono = $8,
-      tipo_incidente = $9,
-      descripcion_fallo = $10,
-      solicita_refaccion = $11,
-      detalle_refaccion = $12,
-      evidencias = $13::jsonb,
-      evidencias_refaccion = $14::jsonb,
-      firma = $15,
-      updated_at = NOW()
+      numero_obra = $2, modelo = $3, numero_economico = $4, empresa = $5, kilometraje = $6,
+      contacto_nombre = $7, telefono = $8, tipo_incidente = $9, descripcion_fallo = $10,
+      solicita_refaccion = $11, detalle_refaccion = $12, evidencias = $13::jsonb, evidencias_refaccion = $14::jsonb,
+      firma = $15, updated_at = NOW()
      WHERE id = $1
      RETURNING *`,
     [
@@ -672,13 +794,14 @@ app.patch('/api/garantias/:id', authRequired, requireRoles('admin'), async (req,
       body.detalleRefaccion || '',
       JSON.stringify(body.evidencias || []),
       JSON.stringify(body.evidenciasRefaccion || []),
-      body.firma || ''
+      body.firma || '',
     ]
   );
 
   await addAuditLog(req.params.id, req.user.id, 'editar_reporte', `Admin ${req.user.nombre} editó el reporte`);
   res.json(mapGarantia(result.rows[0]));
 });
+
 app.patch('/api/garantias/:id/review', authRequired, requireRoles('operativo', 'admin'), async (req, res) => {
   const estatusValidacion = String(req.body.estatusValidacion || '').trim();
   const observacionesOperativo = String(req.body.observacionesOperativo || '').trim();
@@ -722,7 +845,6 @@ app.patch('/api/garantias/:id/review', authRequired, requireRoles('operativo', '
 app.patch('/api/garantias/:id/operational', authRequired, requireRoles('operativo', 'admin'), async (req, res) => {
   const estatusOperativo = String(req.body.estatusOperativo || '').trim();
   const observacionesOperativo = String(req.body.observacionesOperativo || '').trim();
-
   if (!['sin iniciar', 'en proceso', 'espera refacción', 'terminada'].includes(estatusOperativo)) {
     return res.status(400).json({ error: 'Estatus operativo inválido.' });
   }
@@ -751,7 +873,6 @@ app.patch('/api/garantias/:id/operational', authRequired, requireRoles('operativ
 app.delete('/api/garantias/:id', authRequired, requireRoles('admin'), async (req, res) => {
   const current = await pool.query('SELECT * FROM garantias WHERE id = $1', [req.params.id]);
   if (!current.rowCount) return res.status(404).json({ error: 'Garantía no encontrada.' });
-
   await addAuditLog(req.params.id, req.user.id, 'eliminar_reporte', `Admin ${req.user.nombre} eliminó el reporte`);
   await pool.query('DELETE FROM garantias WHERE id = $1', [req.params.id]);
   res.json({ ok: true });
@@ -759,15 +880,9 @@ app.delete('/api/garantias/:id', authRequired, requireRoles('admin'), async (req
 
 app.get('/api/audit/:garantiaId', authRequired, requireRoles('admin', 'operativo', 'supervisor'), async (req, res) => {
   if (req.user.role === 'supervisor') {
-    if (!req.user.empresa) return res.json([]);
-
-    const allowed = await pool.query(
-      'SELECT id FROM garantias WHERE id = $1 AND empresa = $2',
-      [req.params.garantiaId, req.user.empresa]
-    );
-    if (!allowed.rowCount) return res.json([]);
+    const allowed = await pool.query('SELECT id FROM garantias WHERE id = $1 AND empresa = $2', [req.params.garantiaId, req.user.empresa || '']);
+    if (!allowed.rowCount) return res.status(403).json({ error: 'No tienes acceso a esta garantía.' });
   }
-
   const result = await pool.query(
     `SELECT a.*, u.nombre AS user_nombre, u.email AS user_email
      FROM audit_logs a
@@ -780,18 +895,17 @@ app.get('/api/audit/:garantiaId', authRequired, requireRoles('admin', 'operativo
 });
 
 app.get('/api/history/unit/:numeroEconomico', authRequired, requireRoles('admin', 'operativo', 'supervisor'), async (req, res) => {
-  let query = `SELECT * FROM garantias WHERE numero_economico = $1`;
+  let sql = 'SELECT * FROM garantias WHERE numero_economico = $1';
   const params = [req.params.numeroEconomico];
-
   if (req.user.role === 'supervisor') {
-    if (!req.user.empresa) return res.json([]);
-    query += ` AND empresa = $2`;
+    if (!req.user.empresa) {
+      return res.status(400).json({ error: 'El supervisor no tiene empresa asignada.' });
+    }
+    sql += ' AND empresa = $2';
     params.push(req.user.empresa);
   }
-
-  query += ` ORDER BY created_at DESC`;
-
-  const result = await pool.query(query, params);
+  sql += ' ORDER BY created_at DESC';
+  const result = await pool.query(sql, params);
   res.json(result.rows.map(mapGarantia));
 });
 
@@ -799,11 +913,15 @@ app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-initDb()
-  .then(() => {
-    app.listen(PORT, () => console.log(`CARLAB CLOUD corriendo en puerto ${PORT}`));
-  })
-  .catch((error) => {
-    console.error('No se pudo inicializar la base:', error);
-    process.exit(1);
-  });
+app.listen(PORT, () => {
+  console.log(`CARLAB CLOUD V3 Fase 3 corriendo en puerto ${PORT}`);
+  initDb()
+    .then(() => {
+      dbReady = true;
+      console.log('Base de datos inicializada.');
+    })
+    .catch((error) => {
+      dbInitError = error;
+      console.error('No se pudo inicializar la base:', error);
+    });
+});

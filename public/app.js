@@ -12,7 +12,10 @@ const state = {
   activePanel: 'board',
   editingUserId: '',
   editingCompanyId: '',
-  editingGarantiaId: '',
+  refacciones: [],
+  costosTrabajo: [],
+  editingPartId: '',
+  editingCostId: '',
 };
 
 const api = {
@@ -32,7 +35,6 @@ const api = {
   registerOperator(payload) { return this.request('/api/public/register-operator', { method: 'POST', body: JSON.stringify(payload) }); },
   getGarantias() { return this.request('/api/garantias'); },
   createGarantia(payload) { return this.request('/api/garantias', { method: 'POST', body: JSON.stringify(payload) }); },
-  updateGarantia(id, payload) { return this.request(`/api/garantias/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }); },
   deleteGarantia(id) { return this.request(`/api/garantias/${id}`, { method: 'DELETE' }); },
   reviewGarantia(id, payload) { return this.request(`/api/garantias/${id}/review`, { method: 'PATCH', body: JSON.stringify(payload) }); },
   updateOperational(id, payload) { return this.request(`/api/garantias/${id}/operational`, { method: 'PATCH', body: JSON.stringify(payload) }); },
@@ -48,7 +50,15 @@ const api = {
   deleteCompany(id) { return this.request(`/api/companies/${id}`, { method: 'DELETE' }); },
   getRequests() { return this.request('/api/registration-requests'); },
   updateRequest(id, payload) { return this.request(`/api/registration-requests/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }); },
-  getUnitHistory(numeroEconomico) { return this.request(`/api/history/unit/${encodeURIComponent(numeroEconomico)}`); }
+  getUnitHistory(numeroEconomico) { return this.request(`/api/history/unit/${encodeURIComponent(numeroEconomico)}`); },
+  getParts() { return this.request('/api/refacciones'); },
+  createPart(payload) { return this.request('/api/refacciones', { method: 'POST', body: JSON.stringify(payload) }); },
+  updatePart(id, payload) { return this.request(`/api/refacciones/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }); },
+  deletePart(id) { return this.request(`/api/refacciones/${id}`, { method: 'DELETE' }); },
+  getCosts() { return this.request('/api/costos-trabajo'); },
+  createCost(payload) { return this.request('/api/costos-trabajo', { method: 'POST', body: JSON.stringify(payload) }); },
+  updateCost(id, payload) { return this.request(`/api/costos-trabajo/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }); },
+  deleteCost(id) { return this.request(`/api/costos-trabajo/${id}`, { method: 'DELETE' }); }
 };
 
 const els = {};
@@ -56,12 +66,12 @@ function bind() {
   [
     'loginView','dashboardView','loginForm','loginEmail','loginPassword','loginError','registerForm','registerMessage','regNombre','regEmail','regTelefono','regEmpresa','regNumeroEconomico','regPassword',
     'tabLoginBtn','tabRegisterBtn','welcomeText','currentUserName','currentUserEmail','currentRoleBadge','avatarCircle','pageTitle','roleSummaryText','roleBrief','logoutBtn',
-    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','filtersPanel',
+    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','navPartsBtn','navCostsBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','partsPanel','costsPanel','analyticsPanel','historyPanel','filtersPanel',
     'reportForm','numeroObra','modelo','numeroEconomico','empresa','kilometraje','contactoNombre','telefono','descripcionFallo','solicitaRefaccion','refaccionFields','detalleRefaccion',
     'evidencias','evidenciasRefaccion','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn','searchInput','validationFilter','operationalFilter',
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
-    'topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistoryBtn','unitHistoryResult'
+    'topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistoryBtn','unitHistoryResult','partForm','partId','partNombre','partNumeroParte','partProveedor','partStock','partStockMinimo','partCostoCompra','partPrecioVenta','partSubmitBtn','partCancelEditBtn','partsList','costForm','costId','costNombre','costCategoria','costCostoBase','costPrecioSugerido','costNotas','costSubmitBtn','costCancelEditBtn','costsList'
   ].forEach(id => els[id] = document.getElementById(id));
 }
 bind();
@@ -130,22 +140,11 @@ async function fileToCompressedDataUrl(file, maxSide = 1600, quality = 0.78) {
 }
 function drawPreviews(container, items) { if (!container) return; container.innerHTML = ''; items.forEach(src => { const img = document.createElement('img'); img.src = src; container.appendChild(img); }); }
 
-els.evidencias?.addEventListener('change', async e => {
-  const incoming = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file)));
-  state.currentEvidence = [...state.currentEvidence, ...incoming];
-  drawPreviews(els.previewEvidencias, state.currentEvidence);
-  e.target.value = '';
-});
-els.evidenciasRefaccion?.addEventListener('change', async e => {
-  const incoming = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file)));
-  state.currentRefEvidence = [...state.currentRefEvidence, ...incoming];
-  drawPreviews(els.previewRefaccion, state.currentRefEvidence);
-  e.target.value = '';
-});
+els.evidencias?.addEventListener('change', async e => { state.currentEvidence = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file))); drawPreviews(els.previewEvidencias, state.currentEvidence); });
+els.evidenciasRefaccion?.addEventListener('change', async e => { state.currentRefEvidence = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file))); drawPreviews(els.previewRefaccion, state.currentRefEvidence); });
 els.solicitaRefaccion?.addEventListener('change', () => els.refaccionFields?.classList.toggle('hidden', !els.solicitaRefaccion.checked));
 
 function resetReportForm() {
-  state.editGaratiaId = '';
   els.reportForm?.reset();
   state.currentEvidence = []; state.currentRefEvidence = [];
   drawPreviews(els.previewEvidencias, []); drawPreviews(els.previewRefaccion, []);
@@ -172,48 +171,6 @@ function resetCompanyForm() {
   if (els.companySubmitBtn) els.companySubmitBtn.textContent = 'Guardar empresa';
   els.companyCancelEditBtn?.classList.add('hidden');
 }
-
-function beginGarantiaEdit(item) {
-  if (!item) return;
-
-  state.editingGarantiaId = item.id;
-
-  els.numeroObra.value = item.numeroObra || '';
-  els.modelo.value = item.modelo || '';
-  els.numeroEconomico.value = item.numeroEconomico || '';
-  els.empresa.value = item.empresa || '';
-  els.kilometraje.value = item.kilometraje || '';
-  els.contactoNombre.value = item.contactoNombre || '';
-  els.telefono.value = item.telefono || '';
-  els.descripcionFallo.value = item.descripcionFallo || '';
-  els.detalleRefaccion.value = item.detalleRefaccion || '';
-
-  const radio = document.querySelector(`input[name="tipoIncidente"][value="${item.tipoIncidente}"]`);
-  if (radio) radio.checked = true;
-
-  els.solicitaRefaccion.checked = !!item.solicitaRefaccion;
-  els.refaccionFields.classList.toggle('hidden', !item.solicitaRefaccion);
-
-  state.currentEvidence = [...(item.evidencias || [])];
-  state.currentRefEvidence = [...(item.evidenciasRefaccion || [])];
-
-  drawPreviews(els.previewEvidencias, state.currentEvidence);
-  drawPreviews(els.previewRefaccion, state.currentRefEvidence);
-
-  resetSignature();
-  if (item.firma) {
-    const img = new Image();
-    img.onload = () => {
-      ctx.drawImage(img, 0, 0, els.firmaCanvas.width, els.firmaCanvas.height);
-      state.hasSignature = true;
-    };
-    img.src = item.firma;
-  }
-
-  switchPanel('report');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
 function reportPayload() {
   return {
     numeroObra: els.numeroObra?.value.trim(), modelo: els.modelo?.value.trim(), numeroEconomico: els.numeroEconomico?.value.trim(), empresa: els.empresa?.value.trim(), kilometraje: els.kilometraje?.value.trim(),
@@ -224,7 +181,7 @@ function reportPayload() {
 
 function roleCopy(role) {
   return {
-    admin: { title:'Cabina administrativa', summary:'Control total. Apruebas accesos, administras usuarios, ves analítica y conviertes reincidencias en acción.', panels:[['Gestión total','Usuarios, empresas y solicitudes en una sola vista.'],['Lectura comercial','Detecta patrones por empresa, modelo y unidad.'],['Control operativo','Puedes actuar igual que un operativo cuando haga falta.']], boardKicker:'ADMIN', listTitle:'Bandeja general del sistema', legend:'Portal corporativo con control total, solicitudes y lectura comercial.' },
+    admin: { title:'Cabina administrativa', summary:'Control total. Apruebas accesos, administras usuarios, ves analítica y conviertes reincidencias en acción.', panels:[['Gestión total','Usuarios, empresas, refacciones y costos en una sola cabina.'],['Lectura comercial','Detecta patrones por empresa, modelo y unidad.'],['Control operativo','Puedes actuar igual que un operativo cuando haga falta.']], boardKicker:'ADMIN', listTitle:'Bandeja general del sistema', legend:'Portal corporativo con control total, solicitudes y lectura comercial.' },
     operador: { title:'Portal de operador', summary:'Reportas fallas, subes evidencia y ves el estatus sin depender de llamadas.', panels:[['Levantar incidencia','Captura la falla con datos, fotos, refacción y firma.'],['Seguimiento','Consulta si fue aceptada, rechazada o quedó pendiente.'],['Sin cruces','Solo ves tus reportes. No puedes decidir ni alterar revisiones.']], boardKicker:'OPERADOR', listTitle:'Mis reportes de garantía', legend:'Aquí ves solo tus reportes y su estatus actual.' },
     operativo: { title:'Mesa de validación operativa', summary:'Revisas reportes, decides si proceden y mueves el trabajo hasta terminar.', panels:[['Decisión','Acepta, rechaza o marca pendiente de revisión.'],['Flujo','Mueve el trabajo a en proceso, espera refacción o terminada.'],['Patrones','También ves unidades reincidentes para atacar la raíz.']], boardKicker:'OPERATIVO', listTitle:'Bandeja operativa', legend:'Aquí validas, autorizas y avanzas el trabajo.' },
     supervisor: { title:'Portal de supervisor', summary:'Consulta únicamente la información de tu empresa en modo corporativo de solo lectura.', panels:[['Visibilidad','Revisa empresas, unidades, evidencias y avances.'],['Lectura ejecutiva','Historial por unidad y top de fallas sin tocar procesos.'],['Sin edición','No cambias decisiones ni alteras procesos.']], boardKicker:'SUPERVISOR', listTitle:'Bandeja supervisada', legend:'Monitoreo integral con lectura operativa y comercial.' },
@@ -246,7 +203,7 @@ function updateHeaderForRole() {
   if (els.roleBrief) els.roleBrief.innerHTML = copy.panels.map(([title, desc]) => `<article><strong>${escapeHtml(title)}</strong><span>${escapeHtml(desc)}</span></article>`).join('');
 }
 function setActiveNav(activeBtn) {
-  [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
+  [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn,els.navPartsBtn,els.navCostsBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
   if (activeBtn && !activeBtn.classList.contains('hidden')) activeBtn.classList.add('active');
 }
 function switchPanel(panel) {
@@ -255,6 +212,8 @@ function switchPanel(panel) {
   els.usersPanel?.classList.toggle('hidden', panel !== 'users');
   els.requestsPanel?.classList.toggle('hidden', panel !== 'requests');
   els.companiesPanel?.classList.toggle('hidden', panel !== 'companies');
+  els.partsPanel?.classList.toggle('hidden', panel !== 'parts');
+  els.costsPanel?.classList.toggle('hidden', panel !== 'costs');
   els.analyticsPanel?.classList.toggle('hidden', panel !== 'analytics');
   els.historyPanel?.classList.toggle('hidden', panel !== 'history');
   const board = panel === 'board';
@@ -264,6 +223,8 @@ function switchPanel(panel) {
     panel === 'users' ? els.navUsersBtn :
     panel === 'requests' ? els.navRequestsBtn :
     panel === 'companies' ? els.navCompaniesBtn :
+    panel === 'parts' ? els.navPartsBtn :
+    panel === 'costs' ? els.navCostsBtn :
     panel === 'analytics' ? els.navAnalyticsBtn :
     panel === 'history' ? els.navHistoryBtn :
     els.navBoardBtn
@@ -276,6 +237,8 @@ function showDashboard() {
   els.navUsersBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navRequestsBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navCompaniesBtn?.classList.toggle('hidden', !isRole('admin'));
+  els.navPartsBtn?.classList.toggle('hidden', !isRole('admin'));
+  els.navCostsBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navAnalyticsBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo'));
   els.navHistoryBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo'));
   updateHeaderForRole(); switchPanel('board');
@@ -343,6 +306,7 @@ async function exportPdf(item) {
 
   y = 50;
   doc.setFontSize(11); doc.setTextColor(40, 40, 40);
+  doc.setFillColor(255,255,255); doc.roundedRect(14, 44, 182, 38, 4, 4, 'F');
   doc.text(`Empresa: ${item.empresa || '—'}`, 18, 54);
   doc.text(`Unidad: ${item.numeroEconomico || '—'}`, 18, 62);
   doc.text(`Modelo: ${item.modelo || '—'}`, 18, 70);
@@ -351,6 +315,7 @@ async function exportPdf(item) {
   doc.text(`Estatus: ${item.estatusValidacion || '—'} / ${item.estatusOperativo || '—'}`, 105, 70);
 
   y = 92;
+  doc.roundedRect(14, 86, 182, 24, 4, 4, 'F');
   doc.text(`Nombre: ${item.contactoNombre || '—'}`, 18, 96);
   doc.text(`Teléfono: ${item.telefono || '—'}`, 105, 96);
   doc.text(`Reportó: ${item.reportadoPorNombre || '—'}`, 18, 104);
@@ -378,6 +343,7 @@ async function exportPdf(item) {
     for (const src of images.slice(0, 6)) {
       if (x > 136) { x = 14; y += rowHeight + 8; rowHeight = 0; }
       y = ensurePdfSpace(doc, y, 48);
+      doc.setDrawColor(225,225,230); doc.roundedRect(x, y, 56, 42, 3, 3);
       await addPdfImage(doc, src, x + 1, y + 1, 54, 40);
       x += 60; rowHeight = Math.max(rowHeight, 42);
     }
@@ -385,7 +351,7 @@ async function exportPdf(item) {
   }
   if (item.firma) {
     y = ensurePdfSpace(doc, y, 42); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Firma', 8);
-    await addPdfImage(doc, item.firma, 16, y + 2, 86, 24); y += 34;
+    doc.setDrawColor(225,225,230); doc.roundedRect(14, y, 90, 28, 3, 3); await addPdfImage(doc, item.firma, 16, y + 2, 86, 24); y += 34;
   }
   if (item.estatusValidacion === 'rechazada' && item.observacionesOperativo) {
     y = ensurePdfSpace(doc, y, 24); doc.setFontSize(12); doc.setTextColor(170, 35, 35); textLine('Motivo de rechazo', 8);
@@ -456,6 +422,30 @@ function beginCompanyEdit(company) {
   els.companySubmitBtn.textContent = 'Guardar cambios';
   els.companyCancelEditBtn.classList.remove('hidden');
 }
+function beginPartEdit(item) {
+  state.editingPartId = item.id;
+  els.partId.value = item.id;
+  els.partNombre.value = item.nombre || '';
+  els.partNumeroParte.value = item.numeroParte || '';
+  els.partProveedor.value = item.proveedor || '';
+  els.partStock.value = item.stock || 0;
+  els.partStockMinimo.value = item.stockMinimo || 0;
+  els.partCostoCompra.value = item.costoCompra || '';
+  els.partPrecioVenta.value = item.precioVenta || '';
+  els.partSubmitBtn.textContent = 'Guardar cambios';
+  els.partCancelEditBtn.classList.remove('hidden');
+}
+function beginCostEdit(item) {
+  state.editingCostId = item.id;
+  els.costId.value = item.id;
+  els.costNombre.value = item.nombre || '';
+  els.costCategoria.value = item.categoria || '';
+  els.costCostoBase.value = item.costoBase || '';
+  els.costPrecioSugerido.value = item.precioSugerido || '';
+  els.costNotas.value = item.notas || '';
+  els.costSubmitBtn.textContent = 'Guardar cambios';
+  els.costCancelEditBtn.classList.remove('hidden');
+}
 
 function renderCompanies() {
   if (!els.companiesList) return;
@@ -492,6 +482,39 @@ function renderCompanies() {
   fillSelect(els.regEmpresa, state.companies.filter(x => x.activo), 'Selecciona empresa');
 }
 
+
+function renderParts() {
+  if (!els.partsList) return;
+  els.partsList.innerHTML = '';
+  const low = state.refacciones.filter(x => Number(x.stock || 0) <= Number(x.stockMinimo || 0));
+  if (low.length) {
+    const alert = document.createElement('div');
+    alert.className = 'empty-state';
+    alert.innerHTML = `<strong>Refacciones con stock bajo.</strong><span>${low.map(x => escapeHtml(x.nombre)).slice(0,4).join(', ')}</span>`;
+    els.partsList.appendChild(alert);
+  }
+  state.refacciones.forEach(item => {
+    const row = document.createElement('div'); row.className = 'table-row';
+    row.innerHTML = `<div><strong>${escapeHtml(item.nombre)}</strong><div class="small muted">${escapeHtml(item.numeroParte || 'Sin número de parte')} · ${escapeHtml(item.proveedor || 'Sin proveedor')}</div></div><div><span class="${Number(item.stock||0) <= Number(item.stockMinimo||0) ? 'low-stock' : ''}">${escapeHtml(String(item.stock ?? 0))}</span><div class="small muted">mín. ${escapeHtml(String(item.stockMinimo ?? 0))}</div></div><div>${money(item.costoCompra)}<div class="small muted">venta ${money(item.precioVenta)}</div></div><div class="action-row"></div>`;
+    const actions = row.querySelector('.action-row');
+    actions.appendChild(button('Editar', 'btn btn-secondary', () => beginPartEdit(item)));
+    actions.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar ${item.nombre}?`)) return; try { await api.deletePart(item.id); notify('Refacción eliminada.'); await loadParts(); } catch (error) { notify(error.message, true); } }));
+    els.partsList.appendChild(row);
+  });
+}
+function renderCosts() {
+  if (!els.costsList) return;
+  els.costsList.innerHTML = '';
+  state.costosTrabajo.forEach(item => {
+    const row = document.createElement('div'); row.className = 'table-row';
+    row.innerHTML = `<div><strong>${escapeHtml(item.nombre)}</strong><div class="small muted">${escapeHtml(item.categoria || 'Sin categoría')}</div></div><div>${money(item.costoBase)}</div><div>${money(item.precioSugerido)}</div><div><div class="small muted">${escapeHtml(item.notas || 'Sin notas')}</div><div class="action-row"></div></div>`;
+    const actions = row.querySelector('.action-row');
+    actions.appendChild(button('Editar', 'btn btn-secondary', () => beginCostEdit(item)));
+    actions.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar ${item.nombre}?`)) return; try { await api.deleteCost(item.id); notify('Costo eliminado.'); await loadCosts(); } catch (error) { notify(error.message, true); } }));
+    els.costsList.appendChild(row);
+  });
+}
+
 function renderGarantias() {
   updateStats(); renderAnalytics();
   const items = filteredGarantias();
@@ -509,7 +532,7 @@ function renderGarantias() {
       const div = document.createElement('div'); div.innerHTML = `<strong>${escapeHtml(label)}</strong>${escapeHtml(String(value || '—'))}`; miniGrid.appendChild(div);
     });
     const strip = node.querySelector('.evidence-strip'); [...(item.evidencias || []), ...(item.evidenciasRefaccion || [])].slice(0,6).forEach(src => { const img = document.createElement('img'); img.src = src; strip.appendChild(img); }); if (item.firma) { const img = document.createElement('img'); img.src = item.firma; strip.appendChild(img); }
-    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; if (isRole('admin')) baseRow.appendChild(button('Editar', 'btn btn-secondary', () => beginGarantiaEdit(item))); baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
+    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
     if (isRole('operativo','admin')) {
       const reviewBox = document.createElement('div'); reviewBox.innerHTML = `
         <label>Decisión operativa</label>
@@ -552,6 +575,8 @@ async function loadGarantias() { state.garantias = await api.getGarantias(); ren
 async function loadUsers() { if (!isRole('admin')) return; state.users = await api.getUsers(); renderUsers(); }
 async function loadCompanies() { state.companies = isRole('admin') ? await api.getCompanies() : await api.getPublicCompanies(); renderCompanies(); }
 async function loadRequests() { if (!isRole('admin')) return; state.registrationRequests = await api.getRequests(); renderRequests(); }
+async function loadParts() { if (!isRole('admin')) return; state.refacciones = await api.getParts(); renderParts(); }
+async function loadCosts() { if (!isRole('admin')) return; state.costosTrabajo = await api.getCosts(); renderCosts(); }
 
 async function renderUnitHistory() {
   const numero = els.unitHistoryInput?.value.trim();
@@ -578,7 +603,7 @@ els.loginForm?.addEventListener('submit', async (e) => {
   try {
     const data = await api.login(els.loginEmail.value.trim(), els.loginPassword.value);
     state.token = data.token; localStorage.setItem('carlabToken', state.token); state.user = data.user; showDashboard();
-    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); resetReportForm(); resetCompanyForm(); notify(`Bienvenido, ${state.user.nombre}.`);
+    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); await loadParts(); await loadCosts(); resetReportForm(); resetCompanyForm(); resetPartForm(); resetCostForm(); notify(`Bienvenido, ${state.user.nombre}.`);
   } catch (error) { if (els.loginError) { els.loginError.textContent = error.message; els.loginError.classList.remove('hidden'); } else notify(error.message,true); }
 });
 
@@ -599,23 +624,18 @@ els.navHistoryBtn?.addEventListener('click', () => switchPanel('history'));
 els.navUsersBtn?.addEventListener('click', async () => { switchPanel('users'); await loadUsers(); });
 els.navRequestsBtn?.addEventListener('click', async () => { switchPanel('requests'); await loadRequests(); });
 els.navCompaniesBtn?.addEventListener('click', async () => { switchPanel('companies'); await loadCompanies(); });
+els.navPartsBtn?.addEventListener('click', async () => { switchPanel('parts'); await loadParts(); });
+els.navCostsBtn?.addEventListener('click', async () => { switchPanel('costs'); await loadCosts(); });
 els.cancelReportBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('board'); });
 els.userCancelEditBtn?.addEventListener('click', resetUserForm);
 els.companyCancelEditBtn?.addEventListener('click', resetCompanyForm);
+els.partCancelEditBtn?.addEventListener('click', resetPartForm);
+els.costCancelEditBtn?.addEventListener('click', resetCostForm);
 els.unitHistoryBtn?.addEventListener('click', renderUnitHistory);
 
 els.reportForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
-  try {
-    if (state.editingGarantiaId) {
-      await api.updateGarantia(state.editingGarantiaId, reportPayload());
-      notify('Reporte actualizado.');
-    } else {
-      await api.createGarantia(reportPayload());
-      notify('Reporte enviado. Ya cayó al sistema.');
-    }
-    resetReportForm(); switchPanel('board'); await loadGarantias();
-  }
+  try { await api.createGarantia(reportPayload()); notify('Reporte enviado. Ya cayó al sistema.'); resetReportForm(); switchPanel('board'); await loadGarantias(); }
   catch (error) { notify(error.message, true); }
 });
 
@@ -641,6 +661,24 @@ els.companyForm?.addEventListener('submit', async (e) => {
   catch (error) { notify(error.message, true); }
 });
 
+els.partForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const payload = { nombre: els.partNombre.value.trim(), numeroParte: els.partNumeroParte.value.trim(), proveedor: els.partProveedor.value.trim(), stock: Number(els.partStock.value || 0), stockMinimo: Number(els.partStockMinimo.value || 0), costoCompra: Number(els.partCostoCompra.value || 0), precioVenta: Number(els.partPrecioVenta.value || 0) };
+  try {
+    if (state.editingPartId) { await api.updatePart(state.editingPartId, payload); notify('Refacción actualizada.'); }
+    else { await api.createPart(payload); notify('Refacción guardada.'); }
+    resetPartForm(); await loadParts();
+  } catch (error) { notify(error.message, true); }
+});
+els.costForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const payload = { nombre: els.costNombre.value.trim(), categoria: els.costCategoria.value.trim(), costoBase: Number(els.costCostoBase.value || 0), precioSugerido: Number(els.costPrecioSugerido.value || 0), notas: els.costNotas.value.trim() };
+  try {
+    if (state.editingCostId) { await api.updateCost(state.editingCostId, payload); notify('Costo actualizado.'); }
+    else { await api.createCost(payload); notify('Costo guardado.'); }
+    resetCostForm(); await loadCosts();
+  } catch (error) { notify(error.message, true); }
+});
 ['input','change'].forEach(evt => { els.searchInput?.addEventListener(evt, renderGarantias); els.validationFilter?.addEventListener(evt, renderGarantias); els.operationalFilter?.addEventListener(evt, renderGarantias); });
 
 (async function init() {
@@ -648,7 +686,7 @@ els.companyForm?.addEventListener('submit', async (e) => {
   if (!state.token) return showLogin();
   try {
     const data = await api.me(); state.user = data.user; showDashboard();
-    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); resetReportForm(); resetCompanyForm();
+    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); await loadParts(); await loadCosts(); resetReportForm(); resetCompanyForm(); resetPartForm(); resetCostForm();
   } catch {
     localStorage.removeItem('carlabToken'); state.token = ''; showLogin();
   }

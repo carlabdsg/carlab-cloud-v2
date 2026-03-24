@@ -1,7 +1,7 @@
 {
-  "name": "carlab-cloud-v3-stable",
-  "version": "3.4.1",
-  "description": "CARLAB CLOUD V3 stable reviewed build",
+  "name": "carlab-cloud-v6",
+  "version": "6.0.0",
+  "description": "CARLAB CLOUD V6 - UI premium + refacciones + costos admin",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
