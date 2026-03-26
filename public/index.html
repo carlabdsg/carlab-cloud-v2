@@ -215,7 +215,7 @@
             </div>
             <button id="scheduleRefreshBtn" class="btn btn-secondary" type="button">Ver agenda</button>
           </div>
-          <div id="scheduleList" class="table-list compact-list"></div>
+          <div id="scheduleSummaryCards" class="stats-grid compact-stats"></div><div id="scheduleList" class="table-list compact-list"></div>
         </section>
 
         <section id="filtersPanel" class="toolbar panel">
@@ -261,11 +261,11 @@
               </div>
             </div>
             <div class="col-span-2"><label>Descripción del fallo</label><textarea id="descripcionFallo" rows="4" required></textarea></div>
-            <div class="col-span-2"><label>Evidencias generales</label><input id="evidencias" type="file" accept="image/*" multiple /><div class="small muted">Para cargar varias fotos en iPhone, elige fotos desde la galería o vuelve a abrir la cámara varias veces.</div><div id="previewEvidencias" class="preview-grid"></div></div>
+            <div class="col-span-2"><label>Evidencias generales</label><input id="evidencias" type="file" accept="image/*" multiple /><small class="field-note">En iPhone, para agregar varias fotos puedes elegirlas desde la fototeca o seleccionarlas por tandas. El sistema las acumula.</small><div id="previewEvidencias" class="preview-grid"></div></div>
             <div class="col-span-2"><label class="checkbox-row"><input id="solicitaRefaccion" type="checkbox" /> Solicita refacción</label></div>
             <div id="refaccionFields" class="col-span-2 hidden stack gap-12">
               <div><label>Detalle de refacción solicitada</label><textarea id="detalleRefaccion" rows="3"></textarea></div>
-              <div><label>Evidencia de refacción</label><input id="evidenciasRefaccion" type="file" accept="image/*" multiple /><div class="small muted">Puedes agregar varias imágenes.</div><div id="previewRefaccion" class="preview-grid"></div></div>
+              <div><label>Evidencia de refacción</label><input id="evidenciasRefaccion" type="file" accept="image/*" multiple /><div id="previewRefaccion" class="preview-grid"></div></div>
             </div>
             <div class="col-span-2">
               <label>Firma del operador</label>

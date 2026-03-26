@@ -22,7 +22,8 @@ const TWILIO_TEMPLATE_REPORTE_RECHAZADO = process.env.TWILIO_TEMPLATE_REPORTE_RE
 const TWILIO_TEMPLATE_REPORTE_EN_PROCESO = process.env.TWILIO_TEMPLATE_REPORTE_EN_PROCESO || 'HX04df965e5751508b211392f600b44305';
 const TWILIO_TEMPLATE_REPORTE_ESPERA_REFACCION = process.env.TWILIO_TEMPLATE_REPORTE_ESPERA_REFACCION || 'HXa41b065576aaf1140087bb2b5e34775d';
 const TWILIO_TEMPLATE_REPORTE_TERMINADO = process.env.TWILIO_TEMPLATE_REPORTE_TERMINADO || 'HX3dc80afa6862fd5f0479410f92742278';
-const TWILIO_TEMPLATE_SCHEDULE_REQUEST = process.env.TWILIO_TEMPLATE_SCHEDULE_REQUEST || process.env.TWILIO_TEMPLATE_PROGRAMAR || '';
+const TWILIO_TEMPLATE_SCHEDULE_REQUEST = process.env.TWILIO_TEMPLATE_SCHEDULE_REQUEST || '';
+const TWILIO_TEMPLATE_PROGRAMAR = process.env.TWILIO_TEMPLATE_PROGRAMAR || TWILIO_TEMPLATE_SCHEDULE_REQUEST;
 
 if (!DATABASE_URL) {
   console.error('Falta DATABASE_URL');
@@ -126,31 +127,6 @@ function scheduleSummary(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
-}
-
-
-async function handleIncomingWhatsAppSchedule(req, res) {
-  const from = String(req.body.From || '').replace(/^whatsapp:/i, '').replace(/\D/g, '');
-  const body = String(req.body.Body || '').trim();
-  if (!from || !body) return res.type('text/xml').send('<Response></Response>');
-  const pending = await pool.query(`
-    SELECT sr.*, g.id AS garantia_id, g.folio, g.numero_economico, g.empresa, g.contacto_nombre, g.telefono
-    FROM schedule_requests sr
-    JOIN garantias g ON g.id = sr.garantia_id
-    WHERE sr.telefono = $1 AND sr.status IN ('waiting_operator','rejected')
-    ORDER BY sr.updated_at DESC LIMIT 1
-  `, [normalizeMxPhone(from)]);
-  if (!pending.rowCount) return res.type('text/xml').send('<Response></Response>');
-  const parsed = parseScheduleText(body);
-  if (!parsed) {
-    try { await sendWhatsAppText({ telefono: from, body: 'CARLAB GARANTIAS\n\nNo pude leer la fecha. Envia por favor DD/MM/AAAA HH:MM, por ejemplo 28/03/2026 09:30.' }); } catch {}
-    return res.type('text/xml').send('<Response></Response>');
-  }
-  const schedule = pending.rows[0];
-  await pool.query(`UPDATE schedule_requests SET status = 'proposed', proposed_at = $2, scheduled_for = $2, notes = $3, updated_at = NOW() WHERE id = $1`, [schedule.id, parsed.iso, `Propuesta recibida por WhatsApp: ${parsed.text}`]);
-  await addAuditLog(schedule.garantia_id, null, 'propuesta_programacion', `Operador propuso ${parsed.text} por WhatsApp`);
-  try { await sendWhatsAppText({ telefono: from, body: `CARLAB GARANTIAS\n\nRecibimos tu propuesta para la unidad ${schedule.numero_economico}: ${parsed.text}. En cuanto la confirme operaciones, te avisamos por aqui.` }); } catch {}
-  return res.type('text/xml').send('<Response></Response>');
 }
 
 async function notifyGarantiaWhatsApp(eventName, garantia) {
@@ -377,21 +353,6 @@ async function initDb() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
-
-CREATE TABLE IF NOT EXISTS schedule_requests (
-  id TEXT PRIMARY KEY,
-  garantia_id TEXT REFERENCES garantias(id) ON DELETE CASCADE,
-  telefono TEXT,
-  status TEXT NOT NULL DEFAULT 'waiting_operator' CHECK (status IN ('waiting_operator','proposed','confirmed','rejected','occupied','arrived','no_show')),
-  requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  proposed_at TIMESTAMPTZ,
-  scheduled_for TIMESTAMPTZ,
-  confirmed_at TIMESTAMPTZ,
-  notes TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
     CREATE TABLE IF NOT EXISTS audit_logs (
       id BIGSERIAL PRIMARY KEY,
       garantia_id TEXT REFERENCES garantias(id) ON DELETE CASCADE,
@@ -400,6 +361,25 @@ CREATE TABLE IF NOT EXISTS schedule_requests (
       detalle TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+
+    CREATE TABLE IF NOT EXISTS schedule_requests (
+      id TEXT PRIMARY KEY,
+      garantia_id TEXT REFERENCES garantias(id) ON DELETE CASCADE,
+      telefono TEXT,
+      status TEXT NOT NULL DEFAULT 'waiting_operator' CHECK (status IN ('waiting_operator','proposed','confirmed','rejected','missed')),
+      requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      proposed_at TIMESTAMPTZ,
+      confirmed_at TIMESTAMPTZ,
+      scheduled_for TIMESTAMPTZ,
+      notes TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_schedule_requests_garantia_id ON schedule_requests(garantia_id);
+    CREATE INDEX IF NOT EXISTS idx_schedule_requests_status ON schedule_requests(status);
+    CREATE INDEX IF NOT EXISTS idx_schedule_requests_scheduled_for ON schedule_requests(scheduled_for);
 
     ALTER TABLE users ADD COLUMN IF NOT EXISTS empresa TEXT;
     ALTER TABLE companies ADD COLUMN IF NOT EXISTS contacto TEXT;
@@ -419,9 +399,6 @@ CREATE TABLE IF NOT EXISTS schedule_requests (
     CREATE INDEX IF NOT EXISTS idx_garantias_estatus_operativo ON garantias(estatus_operativo);
     CREATE INDEX IF NOT EXISTS idx_garantias_reportado_por_id ON garantias(reportado_por_id);
     CREATE INDEX IF NOT EXISTS idx_garantias_numero_economico ON garantias(numero_economico);
-    CREATE INDEX IF NOT EXISTS idx_schedule_requests_garantia_id ON schedule_requests(garantia_id);
-    CREATE INDEX IF NOT EXISTS idx_schedule_requests_status ON schedule_requests(status);
-    CREATE INDEX IF NOT EXISTS idx_schedule_requests_scheduled_for ON schedule_requests(scheduled_for);
   `);
 
   for (const name of DEFAULT_COMPANIES) {
@@ -916,10 +893,10 @@ app.post('/api/garantias/:id/request-schedule', authRequired, requireRoles('admi
     schedule = created.rows[0];
   }
   try {
-    if (TWILIO_TEMPLATE_SCHEDULE_REQUEST) {
+    if (TWILIO_TEMPLATE_PROGRAMAR) {
       await sendWhatsAppTemplate({
         telefono: garantia.telefono,
-        contentSid: TWILIO_TEMPLATE_SCHEDULE_REQUEST,
+        contentSid: TWILIO_TEMPLATE_PROGRAMAR,
         variables: { "1": garantia.folio || '' }
       });
     } else {
@@ -958,23 +935,40 @@ app.patch('/api/schedules/:id/confirm', authRequired, requireRoles('admin', 'ope
   res.json(scheduleSummary(joined.rows[0]));
 });
 
-app.post('/api/whatsapp/incoming', handleIncomingWhatsAppSchedule);
-app.post('/webhook/whatsapp', handleIncomingWhatsAppSchedule);
 
-app.post('/api/whatsapp/status', async (req, res) => {
-  console.log('WhatsApp status callback:', { sid: req.body.MessageSid, status: req.body.MessageStatus, to: req.body.To });
-  res.json({ ok: true });
-});
+async function handleIncomingWhatsapp(req, res) {
+  const from = String(req.body.From || '').replace(/^whatsapp:/i, '').replace(/\D/g, '');
+  const body = String(req.body.Body || '').trim();
+  if (!from || !body) return res.type('text/xml').send('<Response></Response>');
+  const pending = await pool.query(`
+    SELECT sr.*, g.id AS garantia_id, g.folio, g.numero_economico, g.empresa, g.contacto_nombre, g.telefono
+    FROM schedule_requests sr
+    JOIN garantias g ON g.id = sr.garantia_id
+    WHERE sr.telefono = $1 AND sr.status IN ('waiting_operator','rejected')
+    ORDER BY sr.updated_at DESC LIMIT 1
+  `, [normalizeMxPhone(from)]);
+  if (!pending.rowCount) return res.type('text/xml').send('<Response></Response>');
+  const parsed = parseScheduleText(body);
+  if (!parsed) {
+    try { await sendWhatsAppText({ telefono: from, body: 'CARLAB GARANTIAS\n\nNo pude leer la fecha. Envia por favor DD/MM/AAAA HH:MM, por ejemplo 28/03/2026 09:30.' }); } catch {}
+    return res.type('text/xml').send('<Response></Response>');
+  }
+  const schedule = pending.rows[0];
+  await pool.query(`UPDATE schedule_requests SET status = 'proposed', proposed_at = $2, scheduled_for = $2, notes = $3, updated_at = NOW() WHERE id = $1`, [schedule.id, parsed.iso, `Propuesta recibida por WhatsApp: ${parsed.text}`]);
+  await addAuditLog(
+    schedule.garantia_id,
+    null,
+    'propuesta_programacion',
+    `Operador propuso por WhatsApp ${parsed.text}`
+  );
+  try {
+    await sendWhatsAppText({ telefono: from, body: `CARLAB GARANTIAS\n\nRecibimos tu fecha: ${parsed.text}. Queda pendiente de confirmacion.` });
+  } catch {}
+  return res.type('text/xml').send('<Response></Response>');
+}
 
-app.get('*', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+app.post('/api/whatsapp/incoming', handleIncomingWhatsapp);
+app.post('/webhook/whatsapp', handleIncomingWhatsapp);
 
-initDb()
-  .then(() => {
-    app.listen(PORT, () => console.log(`CARLAB CLOUD V3 Fase 3 corriendo en puerto ${PORT}`));
-  })
-  .catch((error) => {
-    console.error('No se pudo inicializar la base:', error);
-    process.exit(1);
-  });
+
+
