@@ -5,6 +5,7 @@ const state = {
   users: [],
   companies: [],
   registrationRequests: [],
+  schedules: [],
   currentEvidence: [],
   currentRefEvidence: [],
   drawing: false,
@@ -12,7 +13,6 @@ const state = {
   activePanel: 'board',
   editingUserId: '',
   editingCompanyId: '',
-  schedules: [],
 };
 
 const api = {
@@ -58,7 +58,7 @@ function bind() {
   [
     'loginView','dashboardView','loginForm','loginEmail','loginPassword','loginError','registerForm','registerMessage','regNombre','regEmail','regTelefono','regEmpresa','regNumeroEconomico','regPassword',
     'tabLoginBtn','tabRegisterBtn','welcomeText','currentUserName','currentUserEmail','currentRoleBadge','avatarCircle','pageTitle','roleSummaryText','roleBrief','logoutBtn',
-    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel','boardPanel','scheduleSummaryCards',
+    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel',
     'reportForm','numeroObra','modelo','numeroEconomico','empresa','kilometraje','contactoNombre','telefono','descripcionFallo','solicitaRefaccion','refaccionFields','detalleRefaccion',
     'evidencias','evidenciasRefaccion','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn','searchInput','validationFilter','operationalFilter',
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
@@ -132,8 +132,8 @@ async function fileToCompressedDataUrl(file, maxSide = 1600, quality = 0.78) {
 }
 function drawPreviews(container, items) { if (!container) return; container.innerHTML = ''; items.forEach(src => { const img = document.createElement('img'); img.src = src; container.appendChild(img); }); }
 
-els.evidencias?.addEventListener('change', async e => { const next = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file))); state.currentEvidence = [...state.currentEvidence, ...next]; drawPreviews(els.previewEvidencias, state.currentEvidence); e.target.value=''; });
-els.evidenciasRefaccion?.addEventListener('change', async e => { const next = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file))); state.currentRefEvidence = [...state.currentRefEvidence, ...next]; drawPreviews(els.previewRefaccion, state.currentRefEvidence); e.target.value=''; });
+els.evidencias?.addEventListener('change', async e => { const incoming = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file))); state.currentEvidence = [...state.currentEvidence, ...incoming]; drawPreviews(els.previewEvidencias, state.currentEvidence); e.target.value=''; });
+els.evidenciasRefaccion?.addEventListener('change', async e => { const incoming = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file))); state.currentRefEvidence = [...state.currentRefEvidence, ...incoming]; drawPreviews(els.previewRefaccion, state.currentRefEvidence); e.target.value=''; });
 els.solicitaRefaccion?.addEventListener('change', () => els.refaccionFields?.classList.toggle('hidden', !els.solicitaRefaccion.checked));
 
 function resetReportForm() {
@@ -200,6 +200,7 @@ function setActiveNav(activeBtn) {
 }
 function switchPanel(panel) {
   state.activePanel = panel;
+  document.getElementById('boardPanel')?.classList.toggle('hidden', panel !== 'board');
   els.reportFormPanel?.classList.toggle('hidden', panel !== 'report');
   els.usersPanel?.classList.toggle('hidden', panel !== 'users');
   els.requestsPanel?.classList.toggle('hidden', panel !== 'requests');
@@ -207,9 +208,9 @@ function switchPanel(panel) {
   els.analyticsPanel?.classList.toggle('hidden', panel !== 'analytics');
   els.historyPanel?.classList.toggle('hidden', panel !== 'history');
   els.schedulePanel?.classList.toggle('hidden', panel !== 'schedule');
-  els.boardPanel?.classList.toggle('hidden', panel !== 'board');
   const board = panel === 'board';
   els.filtersPanel?.classList.toggle('hidden', !board);
+  if (panel === 'schedule') loadSchedules(els.scheduleDateInput?.value || '');
   setActiveNav(
     panel === 'report' ? els.navNewReportBtn :
     panel === 'users' ? els.navUsersBtn :
@@ -232,7 +233,7 @@ function showDashboard() {
   els.navAnalyticsBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo'));
   els.navHistoryBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo'));
   els.navScheduleBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo','operador'));
-  updateHeaderForRole(); switchPanel(isRole('operador') ? 'report' : 'board');
+  updateHeaderForRole(); switchPanel('board');
 }
 function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); }
 
@@ -278,28 +279,7 @@ async function getImageData(src) {
 async function addPdfImage(doc, imgSrc, x, y, w, h) {
   const data = await getImageData(imgSrc);
   if (!data) return;
-  const isPng = /^data:image\/png/i.test(data);
-  try { doc.addImage(data, isPng ? 'PNG' : 'JPEG', x, y, w, h); } catch { try { doc.addImage(data, isPng ? 'JPEG' : 'PNG', x, y, w, h); } catch {} }
-}
-function scheduleDisplayText(item){
-  const noteMatch = String(item.notes || '').match(/(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?[\s,.-]+\d{1,2}:\d{2}(?:\s*[ap]m)?)/i);
-  if (noteMatch) return noteMatch[1];
-  const raw = item.scheduledFor || item.proposedAt || item.requestedAt;
-  return raw ? fmtDate(raw) : '—';
-}
-function renderScheduleSummary(){
-  if (!els.scheduleSummaryCards) return;
-  const total = state.schedules.length;
-  const pending = state.schedules.filter(i => i.status === 'proposed').length;
-  const confirmed = state.schedules.filter(i => i.status === 'confirmed').length;
-  const requested = state.schedules.filter(i => i.status === 'waiting_operator').length;
-  const cards = [
-    ['Total', total],
-    ['Propuestas', pending],
-    ['Confirmadas', confirmed],
-    ['Por responder', requested]
-  ];
-  els.scheduleSummaryCards.innerHTML = cards.map(([label, value]) => `<article class="stat-card"><span>${label}</span><strong>${value}</strong></article>`).join('');
+  try { doc.addImage(data, 'PNG', x, y, w, h); } catch { try { doc.addImage(data, 'JPEG', x, y, w, h); } catch {} }
 }
 async function exportPdf(item) {
   const { jsPDF } = window.jspdf;
@@ -318,8 +298,7 @@ async function exportPdf(item) {
 
   y = 50;
   doc.setFontSize(11); doc.setTextColor(40, 40, 40);
-  doc.setDrawColor(255,255,255); doc.setLineWidth(0.1);
-  doc.setFillColor(255,255,255); doc.roundedRect(14, 44, 182, 38, 4, 4, 'F');
+  doc.setFillColor(255,255,255); doc.setDrawColor(248,248,250); doc.roundedRect(14, 44, 182, 38, 4, 4, 'FD');
   doc.text(`Empresa: ${item.empresa || '—'}`, 18, 54);
   doc.text(`Unidad: ${item.numeroEconomico || '—'}`, 18, 62);
   doc.text(`Modelo: ${item.modelo || '—'}`, 18, 70);
@@ -328,7 +307,7 @@ async function exportPdf(item) {
   doc.text(`Estatus: ${item.estatusValidacion || '—'} / ${item.estatusOperativo || '—'}`, 105, 70);
 
   y = 92;
-  doc.setDrawColor(255,255,255); doc.roundedRect(14, 86, 182, 24, 4, 4, 'F');
+  doc.setDrawColor(248,248,250); doc.roundedRect(14, 86, 182, 24, 4, 4, 'FD');
   doc.text(`Nombre: ${item.contactoNombre || '—'}`, 18, 96);
   doc.text(`Teléfono: ${item.telefono || '—'}`, 105, 96);
   doc.text(`Reportó: ${item.reportadoPorNombre || '—'}`, 18, 104);
@@ -364,7 +343,7 @@ async function exportPdf(item) {
   }
   if (item.firma) {
     y = ensurePdfSpace(doc, y, 42); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Firma', 8);
-    doc.setFillColor(255,255,255); doc.setDrawColor(225,225,230); doc.roundedRect(14, y, 90, 28, 3, 3, 'FD'); await addPdfImage(doc, item.firma, 16, y + 2, 86, 24); y += 34;
+    doc.setFillColor(255,255,255); doc.setDrawColor(235,238,244); doc.roundedRect(14, y, 90, 28, 3, 3, 'FD'); await addPdfImage(doc, item.firma, 16, y + 2, 86, 24); y += 34;
   }
   if (item.estatusValidacion === 'rechazada' && item.observacionesOperativo) {
     y = ensurePdfSpace(doc, y, 24); doc.setFontSize(12); doc.setTextColor(170, 35, 35); textLine('Motivo de rechazo', 8);
@@ -444,13 +423,25 @@ async function loadSchedules(date = '') {
 
 function renderSchedules() {
   if (!els.scheduleList) return;
-  renderScheduleSummary();
   els.scheduleList.innerHTML = '';
-  if (!state.schedules.length) { els.scheduleList.innerHTML = '<div class="empty-state"><strong>Sin unidades programadas.</strong><span>Cuando entren propuestas o citas confirmadas, aparecerán aquí.</span></div>'; return; }
+  const total = state.schedules.length;
+  const proposed = state.schedules.filter(item => item.status === 'proposed').length;
+  const confirmed = state.schedules.filter(item => item.status === 'confirmed').length;
+  const waiting = state.schedules.filter(item => item.status === 'waiting_operator').length;
+  const summary = document.createElement('div');
+  summary.className = 'schedule-summary';
+  summary.innerHTML = `
+    <div class="stat"><span>Total</span><strong>${total}</strong></div>
+    <div class="stat"><span>Propuestas</span><strong>${proposed}</strong></div>
+    <div class="stat"><span>Confirmadas</span><strong>${confirmed}</strong></div>
+    <div class="stat"><span>Por responder</span><strong>${waiting}</strong></div>
+  `;
+  els.scheduleList.appendChild(summary);
+  if (!state.schedules.length) { els.scheduleList.innerHTML += '<div class="empty-state"><strong>Sin unidades programadas.</strong><span>Cuando entren propuestas o citas confirmadas, aparecerán aquí.</span></div>'; return; }
   state.schedules.forEach(item => {
     const row = document.createElement('div'); row.className = 'table-row schedule-row';
-    const whenText = scheduleDisplayText(item);
-    row.innerHTML = `<div><strong>${escapeHtml(item.folio || '—')} · Unidad ${escapeHtml(item.unidad || '—')}</strong><div class="small muted">${escapeHtml(item.empresa || '—')} · ${escapeHtml(item.contactoNombre || '—')}</div></div><div><span class="status-pill status-${escapeHtml(item.status)}">${escapeHtml(item.status)}</span></div><div>${escapeHtml(whenText)}</div><div class="action-row"></div>`;
+    const whenText = item.originalText || fmtDate(item.scheduledFor || item.proposedAt || item.requestedAt);
+    row.innerHTML = `<div><strong>${escapeHtml(item.folio || '—')} · Unidad ${escapeHtml(item.unidad || '—')}</strong><div class="small muted">${escapeHtml(item.empresa || '—')} · ${escapeHtml(item.contactoNombre || '—')}</div></div><div>${escapeHtml(item.status)}</div><div>${escapeHtml(whenText)}</div><div class="action-row"></div>`;
     const actions = row.querySelector('.action-row');
     if (isRole('admin','operativo') && item.status === 'proposed') {
       actions.appendChild(button('Confirmar', 'btn btn-primary', async () => { try { await api.confirmSchedule(item.id, { status:'confirmed', scheduledFor: item.scheduledFor || item.proposedAt }); notify('Cita confirmada.'); await loadSchedules(); } catch (error) { notify(error.message, true); } }));
@@ -603,6 +594,7 @@ els.navBoardBtn?.addEventListener('click', () => switchPanel('board'));
 els.navNewReportBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); });
 els.navAnalyticsBtn?.addEventListener('click', () => switchPanel('analytics'));
 els.navHistoryBtn?.addEventListener('click', () => switchPanel('history'));
+els.navScheduleBtn?.addEventListener('click', async () => { await loadSchedules(els.scheduleDateInput?.value || ''); switchPanel('schedule'); });
 els.navUsersBtn?.addEventListener('click', async () => { switchPanel('users'); await loadUsers(); });
 els.navRequestsBtn?.addEventListener('click', async () => { switchPanel('requests'); await loadRequests(); });
 els.navCompaniesBtn?.addEventListener('click', async () => { switchPanel('companies'); await loadCompanies(); });
@@ -610,6 +602,7 @@ els.cancelReportBtn?.addEventListener('click', () => { resetReportForm(); switch
 els.userCancelEditBtn?.addEventListener('click', resetUserForm);
 els.companyCancelEditBtn?.addEventListener('click', resetCompanyForm);
 els.unitHistoryBtn?.addEventListener('click', renderUnitHistory);
+els.scheduleRefreshBtn?.addEventListener('click', async () => { await loadSchedules(els.scheduleDateInput?.value || ''); switchPanel('schedule'); });
 
 els.reportForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
