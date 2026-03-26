@@ -22,7 +22,7 @@ const TWILIO_TEMPLATE_REPORTE_RECHAZADO = process.env.TWILIO_TEMPLATE_REPORTE_RE
 const TWILIO_TEMPLATE_REPORTE_EN_PROCESO = process.env.TWILIO_TEMPLATE_REPORTE_EN_PROCESO || 'HX04df965e5751508b211392f600b44305';
 const TWILIO_TEMPLATE_REPORTE_ESPERA_REFACCION = process.env.TWILIO_TEMPLATE_REPORTE_ESPERA_REFACCION || 'HXa41b065576aaf1140087bb2b5e34775d';
 const TWILIO_TEMPLATE_REPORTE_TERMINADO = process.env.TWILIO_TEMPLATE_REPORTE_TERMINADO || 'HX3dc80afa6862fd5f0479410f92742278';
-const TWILIO_TEMPLATE_SCHEDULE_REQUEST = process.env.TWILIO_TEMPLATE_SCHEDULE_REQUEST || process.env.TWILIO_TEMPLATE_PROGRAMAR || '';
+const TWILIO_TEMPLATE_SCHEDULE_REQUEST = process.env.TWILIO_TEMPLATE_SCHEDULE_REQUEST || '';
 
 if (!DATABASE_URL) {
   console.error('Falta DATABASE_URL');
@@ -109,9 +109,6 @@ function parseScheduleText(raw) {
 }
 
 function scheduleSummary(row) {
-  const noteText = String(row.notes || '');
-  const originalMatch = noteText.match(/(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?[\s,.-]+\d{1,2}:\d{2}\s*(?:am|pm)?)/i);
-  const originalText = originalMatch ? originalMatch[1] : '';
   return {
     id: row.id,
     garantiaId: row.garantia_id,
@@ -125,7 +122,6 @@ function scheduleSummary(row) {
     proposedAt: row.proposed_at,
     confirmedAt: row.confirmed_at,
     scheduledFor: row.scheduled_for,
-    originalText,
     notes: row.notes || '',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -876,17 +872,9 @@ app.post('/api/garantias/:id/request-schedule', authRequired, requireRoles('admi
     const created = await pool.query(`INSERT INTO schedule_requests (id, garantia_id, telefono, status, notes) VALUES ($1,$2,$3,'waiting_operator',$4) RETURNING *`, [cryptoRandomId(), req.params.id, garantia.telefono || '', `Solicitud enviada por ${req.user.nombre}`]);
     schedule = created.rows[0];
   }
+  const bodyText = `CARLAB GARANTIAS\n\nTu reporte ${garantia.folio} fue aceptado. Responde con la fecha propuesta para ingresar la unidad al taller en formato DD/MM/AAAA HH:MM.\n\nEjemplo: 28/03/2026 09:30`;
   try {
-    if (TWILIO_TEMPLATE_SCHEDULE_REQUEST) {
-      await sendWhatsAppTemplate({
-        telefono: garantia.telefono,
-        contentSid: TWILIO_TEMPLATE_SCHEDULE_REQUEST,
-        variables: { 1: garantia.folio || '' }
-      });
-    } else {
-      const bodyText = `CARLAB GARANTIAS\n\nTu reporte ${garantia.folio} fue aceptado. Responde con la fecha propuesta para ingresar la unidad al taller en formato DD/MM/AAAA HH:MM.\n\nEjemplo: 28/03/2026 09:30`;
-      await sendWhatsAppText({ telefono: garantia.telefono, body: bodyText });
-    }
+    const msg = await sendWhatsAppText({ telefono: garantia.telefono, body: bodyText });
   } catch (error) {
     console.error('Error solicitando programacion WhatsApp:', error.message);
   }
@@ -897,7 +885,7 @@ app.post('/api/garantias/:id/request-schedule', authRequired, requireRoles('admi
 
 app.patch('/api/schedules/:id/confirm', authRequired, requireRoles('admin', 'operativo'), async (req, res) => {
   const status = String(req.body.status || 'confirmed').trim();
-  const scheduledFor = req.body.scheduledFor ? new Date(req.body.scheduledFor) : (found.rows[0]?.scheduled_for ? new Date(found.rows[0].scheduled_for) : null);
+  const scheduledFor = req.body.scheduledFor ? new Date(req.body.scheduledFor) : null;
   const notes = String(req.body.notes || '').trim();
   const found = await pool.query(`SELECT sr.*, g.folio, g.numero_economico, g.empresa, g.telefono FROM schedule_requests sr JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id = $1`, [req.params.id]);
   if (!found.rowCount) return res.status(404).json({ error: 'Programación no encontrada.' });
@@ -906,7 +894,7 @@ app.patch('/api/schedules/:id/confirm', authRequired, requireRoles('admin', 'ope
   const finalDate = scheduledFor || current.scheduled_for || current.proposed_at;
   if (status === 'confirmed' && finalDate) {
     try {
-      const when = current.notes && /\d/.test(current.notes) ? (String(current.notes).split(': ').slice(1).join(': ') || new Date(finalDate).toLocaleString('es-MX')) : new Date(finalDate).toLocaleString('es-MX');
+      const when = new Date(finalDate).toLocaleString('es-MX');
       await sendWhatsAppText({ telefono: current.telefono, body: `CARLAB GARANTIAS\n\nQuedo confirmada la cita para la unidad ${current.numero_economico} el ${when}. Te esperamos en taller.` });
     } catch (error) { console.error('Error confirmando cita por WhatsApp:', error.message); }
   }
@@ -941,11 +929,6 @@ app.post('/api/whatsapp/incoming', async (req, res) => {
   await addAuditLog(schedule.garantia_id, null, 'propuesta_programacion', `Operador propuso ${parsed.text} por WhatsApp`);
   try { await sendWhatsAppText({ telefono: from, body: `CARLAB GARANTIAS\n\nRecibimos tu propuesta para la unidad ${schedule.numero_economico}: ${parsed.text}. En cuanto la confirme operaciones, te avisamos por aqui.` }); } catch {}
   res.type('text/xml').send('<Response></Response>');
-});
-
-app.post('/webhook/whatsapp', async (req, res) => {
-  req.url = '/api/whatsapp/incoming';
-  return app._router.handle(req, res, () => {});
 });
 
 app.post('/api/whatsapp/status', async (req, res) => {

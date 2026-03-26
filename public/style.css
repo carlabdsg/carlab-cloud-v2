@@ -467,27 +467,3 @@ strong, h1, h2, h3, h4 { color: var(--title); }
 .schedule-row { grid-template-columns: 2fr 1fr 1.2fr auto; }
 #reportFormPanel { scroll-margin-top: 12px; }
 @media (max-width: 980px) { .sidebar { height: auto; position: relative; } .sidebar-top, .sidebar-bottom { position: static; } .schedule-row, .mini-grid, .role-brief { grid-template-columns: 1fr; } }
-
-.schedule-summary {
-  display:grid;
-  grid-template-columns: repeat(4,minmax(0,1fr));
-  gap:10px;
-  margin-bottom:14px;
-}
-.schedule-summary .stat {
-  padding:12px 14px;
-  border:1px solid var(--line);
-  background:#fff;
-  border-radius:12px;
-}
-.schedule-summary .stat span {
-  display:block;
-  color:var(--muted);
-  font-size:12px;
-  margin-bottom:4px;
-}
-.schedule-summary .stat strong {
-  font-size:22px;
-  letter-spacing:-.02em;
-}
-#boardPanel.hidden { display:none !important; }
