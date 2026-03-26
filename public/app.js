@@ -626,3 +626,24 @@ els.companyForm?.addEventListener('submit', async (e) => {
     localStorage.removeItem('carlabToken'); state.token = ''; showLogin();
   }
 })();
+
+
+// ===== PROGRAMAR UNIDAD =====
+async function programarUnidad(r){
+  await fetch('/api/programar',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      telefono:r.telefono,
+      folio:r.folio
+    })
+  });
+  alert('Solicitud enviada por WhatsApp');
+}
+
+// ===== CARGAR AGENDA =====
+async function cargarAgenda(){
+  const res = await fetch('/api/schedules');
+  const data = await res.json();
+  console.log('AGENDA:', data);
+}

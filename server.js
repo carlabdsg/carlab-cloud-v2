@@ -942,7 +942,70 @@ app.get('*', (_req, res) => {
 
 initDb()
   .then(() => {
-    app.listen(PORT, () => console.log(`CARLAB CLOUD V3 Fase 3 corriendo en puerto ${PORT}`));
+    
+// ===== AGENDA SYSTEM START =====
+(async ()=>{
+  try{
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS schedule_requests (
+        id SERIAL PRIMARY KEY,
+        telefono TEXT,
+        folio TEXT,
+        fecha DATE,
+        hora TEXT,
+        status TEXT DEFAULT 'pendiente',
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+  }catch(e){ console.log(e); }
+})();
+
+app.post('/api/programar', async (req,res)=>{
+  const {telefono, folio} = req.body;
+
+  await pool.query(
+    'INSERT INTO schedule_requests (telefono, folio) VALUES ($1,$2)',
+    [telefono, folio]
+  );
+
+  await client.messages.create({
+    from: process.env.TWILIO_WHATSAPP_NUMBER,
+    to: 'whatsapp:'+telefono,
+    contentSid: process.env.TWILIO_TEMPLATE_PROGRAMAR,
+    contentVariables: JSON.stringify({"1":folio})
+  });
+
+  res.json({ok:true});
+});
+
+app.post('/webhook/whatsapp', async (req,res)=>{
+  const msg = req.body.Body;
+  const from = req.body.From.replace('whatsapp:','');
+
+  const m = msg.match(/(\d{2})\/(\d{2})\s(\d{2}:\d{2})/);
+
+  if(m){
+    const fecha = `2026-${m[2]}-${m[1]}`;
+    const hora = m[3];
+
+    await pool.query(
+      `UPDATE schedule_requests SET fecha=$1, hora=$2, status='confirmado'
+       WHERE telefono=$3 ORDER BY id DESC LIMIT 1`,
+      [fecha, hora, from]
+    );
+  }
+
+  res.sendStatus(200);
+});
+
+app.get('/api/schedules', async (req,res)=>{
+  const r = await pool.query('SELECT * FROM schedule_requests ORDER BY created_at DESC');
+  res.json(r.rows);
+});
+// ===== AGENDA SYSTEM END =====
+
+
+app.listen(PORT, () => console.log(`CARLAB CLOUD V3 Fase 3 corriendo en puerto ${PORT}`));
   })
   .catch((error) => {
     console.error('No se pudo inicializar la base:', error);
