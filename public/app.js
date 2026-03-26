@@ -615,6 +615,54 @@ function renderGarantias() {
   });
 }
 
+
+function renderCompanies() {
+  if (els.companiesList) els.companiesList.innerHTML = '';
+  const all = Array.isArray(state.companies) ? state.companies : [];
+  const activeCompanies = all.filter(item => item.activo !== false);
+
+  if (els.companiesList) {
+    all.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'table-row';
+      row.innerHTML = `<div><strong>${escapeHtml(item.nombre)}</strong><div class="small muted">${escapeHtml(item.contacto || 'Sin contacto')} · ${escapeHtml(item.telefono || 'Sin teléfono')}</div><div class="small muted">${escapeHtml(item.email || 'Sin correo')}</div></div><div>${item.activo ? 'Activa' : 'Inactiva'}</div><div>${escapeHtml(item.notas || '—')}</div><div class="action-row"></div>`;
+      const actions = row.querySelector('.action-row');
+      if (isRole('admin')) {
+        actions.appendChild(button('Editar', 'btn btn-secondary', () => beginCompanyEdit(item)));
+        actions.appendChild(button(item.activo ? 'Desactivar' : 'Activar', 'btn btn-ghost', async () => {
+          try {
+            if (item.activo) {
+              if (!confirm(`¿Desactivar ${item.nombre}?`)) return;
+              await api.deactivateCompany(item.id);
+              notify('Empresa desactivada.');
+            } else {
+              await api.updateCompany(item.id, { ...item, activo: true });
+              notify('Empresa activada.');
+            }
+            await loadCompanies();
+          } catch (error) { notify(error.message, true); }
+        }));
+        actions.appendChild(button('Eliminar', 'btn btn-ghost', async () => {
+          if (!confirm(`¿Eliminar ${item.nombre}? Solo funciona si no tiene historial.`)) return;
+          try { await api.deleteCompany(item.id); notify('Empresa eliminada.'); await loadCompanies(); }
+          catch (error) { notify(error.message, true); }
+        }));
+      }
+      els.companiesList.appendChild(row);
+    });
+  }
+
+  fillSelect(els.empresa, activeCompanies, 'Selecciona empresa');
+  fillSelect(els.regEmpresa, activeCompanies, 'Selecciona empresa');
+  fillSelect(els.userEmpresa, activeCompanies, 'Sin empresa');
+
+  // conservar selección del operador si ya tiene empresa
+  if (isRole('operador') && state.user?.empresa && els.empresa && !els.empresa.value) {
+    els.empresa.value = state.user.empresa;
+  }
+}
+
+
 async function loadGarantias() { state.garantias = await api.getGarantias(); renderGarantias(); await loadNotifications(); }
 async function loadUsers() { if (!isRole('admin')) return; state.users = await api.getUsers(); renderUsers(); }
 async function loadCompanies() { state.companies = isRole('admin') ? await api.getCompanies() : await api.getPublicCompanies(); renderCompanies(); }
