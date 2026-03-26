@@ -17,11 +17,12 @@ const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || '';
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
 const TWILIO_WHATSAPP_NUMBER = process.env.TWILIO_WHATSAPP_NUMBER || '';
 const TWILIO_TEMPLATE_REPORTE_RECIBIDO = process.env.TWILIO_TEMPLATE_REPORTE_RECIBIDO || 'HXf82c1dd49abe680d58751a33d5958231';
-const TWILIO_TEMPLATE_REPORTE_ACEPTADO = process.env.TWILIO_TEMPLATE_REPORTE_ACEPTADO || '';
-const TWILIO_TEMPLATE_REPORTE_RECHAZADO = process.env.TWILIO_TEMPLATE_REPORTE_RECHAZADO || '';
-const TWILIO_TEMPLATE_REPORTE_EN_PROCESO = process.env.TWILIO_TEMPLATE_REPORTE_EN_PROCESO || '';
-const TWILIO_TEMPLATE_REPORTE_ESPERA_REFACCION = process.env.TWILIO_TEMPLATE_REPORTE_ESPERA_REFACCION || '';
-const TWILIO_TEMPLATE_REPORTE_TERMINADO = process.env.TWILIO_TEMPLATE_REPORTE_TERMINADO || '';
+const TWILIO_TEMPLATE_REPORTE_ACEPTADO = process.env.TWILIO_TEMPLATE_REPORTE_ACEPTADO || 'HX0f3a3bb0752a83fbe3da0b28b9f5e845';
+const TWILIO_TEMPLATE_REPORTE_RECHAZADO = process.env.TWILIO_TEMPLATE_REPORTE_RECHAZADO || 'HX4efb59223fc5c0c0db7a74c048a3ea56';
+const TWILIO_TEMPLATE_REPORTE_EN_PROCESO = process.env.TWILIO_TEMPLATE_REPORTE_EN_PROCESO || 'HX04df965e5751508b211392f600b44305';
+const TWILIO_TEMPLATE_REPORTE_ESPERA_REFACCION = process.env.TWILIO_TEMPLATE_REPORTE_ESPERA_REFACCION || 'HXa41b065576aaf1140087bb2b5e34775d';
+const TWILIO_TEMPLATE_REPORTE_TERMINADO = process.env.TWILIO_TEMPLATE_REPORTE_TERMINADO || 'HX3dc80afa6862fd5f0479410f92742278';
+const TWILIO_TEMPLATE_SCHEDULE_REQUEST = process.env.TWILIO_TEMPLATE_SCHEDULE_REQUEST || '';
 
 if (!DATABASE_URL) {
   console.error('Falta DATABASE_URL');
@@ -78,6 +79,53 @@ async function sendWhatsAppTemplate({ telefono, contentSid, variables }) {
     contentSid,
     contentVariables: JSON.stringify(variables || {}),
   });
+}
+
+async function sendWhatsAppText({ telefono, body }) {
+  const from = buildWhatsappFrom(TWILIO_WHATSAPP_NUMBER);
+  if (!twilioClient || !from || !body) return;
+  const to = buildWhatsappTo(telefono);
+  if (!to) return;
+  await twilioClient.messages.create({ from, to, body });
+}
+
+function parseScheduleText(raw) {
+  const text = String(raw || '').trim();
+  const match = text.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?[\s,.-]+(\d{1,2}):(\d{2})\s*(am|pm)?/i);
+  if (!match) return null;
+  let [, dd, mm, yy, hh, min, mer] = match;
+  const now = new Date();
+  let year = yy ? Number(yy.length === 2 ? `20${yy}` : yy) : now.getFullYear();
+  let hour = Number(hh);
+  const minute = Number(min);
+  if (mer) {
+    mer = mer.toLowerCase();
+    if (mer === 'pm' && hour < 12) hour += 12;
+    if (mer === 'am' && hour === 12) hour = 0;
+  }
+  const date = new Date(year, Number(mm) - 1, Number(dd), hour, minute);
+  if (Number.isNaN(date.getTime())) return null;
+  return { iso: date.toISOString(), text };
+}
+
+function scheduleSummary(row) {
+  return {
+    id: row.id,
+    garantiaId: row.garantia_id,
+    folio: row.folio || '',
+    unidad: row.numero_economico || '',
+    empresa: row.empresa || '',
+    contactoNombre: row.contacto_nombre || '',
+    telefono: row.telefono || '',
+    status: row.status,
+    requestedAt: row.requested_at,
+    proposedAt: row.proposed_at,
+    confirmedAt: row.confirmed_at,
+    scheduledFor: row.scheduled_for,
+    notes: row.notes || '',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 async function notifyGarantiaWhatsApp(eventName, garantia) {
@@ -170,6 +218,10 @@ function mapCompany(row) {
     id: row.id,
     folio: row.folio || '',
     nombre: row.nombre,
+    contacto: row.contacto || '',
+    telefono: row.telefono || '',
+    email: row.email || '',
+    notas: row.notas || '',
     activo: row.activo,
     createdAt: row.created_at,
   };
@@ -778,6 +830,110 @@ app.get('/api/history/unit/:numeroEconomico', authRequired, requireRoles('admin'
     [req.params.numeroEconomico]
   );
   res.json(result.rows.map(mapGarantia));
+});
+
+
+app.get('/api/schedules', authRequired, requireRoles('admin', 'operativo', 'supervisor', 'operador'), async (req, res) => {
+  const date = String(req.query.date || '').trim();
+  const params = [];
+  let where = [];
+  if (date) {
+    params.push(date);
+    where.push(`DATE(sr.scheduled_for AT TIME ZONE 'UTC') = $${params.length}`);
+  }
+  if (req.user.role === 'supervisor') {
+    params.push(req.user.empresa || '');
+    where.push(`g.empresa = $${params.length}`);
+  }
+  if (req.user.role === 'operador') {
+    params.push(req.user.id);
+    where.push(`g.reportado_por_id = $${params.length}`);
+  }
+  const result = await pool.query(`
+    SELECT sr.*, g.folio, g.numero_economico, g.empresa, g.contacto_nombre
+    FROM schedule_requests sr
+    JOIN garantias g ON g.id = sr.garantia_id
+    ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+    ORDER BY COALESCE(sr.scheduled_for, sr.proposed_at, sr.requested_at) ASC
+  `, params);
+  res.json(result.rows.map(scheduleSummary));
+});
+
+app.post('/api/garantias/:id/request-schedule', authRequired, requireRoles('admin', 'operativo'), async (req, res) => {
+  const current = await pool.query('SELECT * FROM garantias WHERE id = $1', [req.params.id]);
+  if (!current.rowCount) return res.status(404).json({ error: 'Garantía no encontrada.' });
+  const garantia = current.rows[0];
+  if (garantia.estatus_validacion !== 'aceptada') return res.status(400).json({ error: 'Solo las garantías aceptadas pueden programarse.' });
+  const scheduleExisting = await pool.query(`SELECT * FROM schedule_requests WHERE garantia_id = $1 AND status IN ('waiting_operator','proposed','confirmed') ORDER BY created_at DESC LIMIT 1`, [req.params.id]);
+  let schedule;
+  if (scheduleExisting.rowCount) {
+    schedule = scheduleExisting.rows[0];
+  } else {
+    const created = await pool.query(`INSERT INTO schedule_requests (id, garantia_id, telefono, status, notes) VALUES ($1,$2,$3,'waiting_operator',$4) RETURNING *`, [cryptoRandomId(), req.params.id, garantia.telefono || '', `Solicitud enviada por ${req.user.nombre}`]);
+    schedule = created.rows[0];
+  }
+  const bodyText = `CARLAB GARANTIAS\n\nTu reporte ${garantia.folio} fue aceptado. Responde con la fecha propuesta para ingresar la unidad al taller en formato DD/MM/AAAA HH:MM.\n\nEjemplo: 28/03/2026 09:30`;
+  try {
+    const msg = await sendWhatsAppText({ telefono: garantia.telefono, body: bodyText });
+  } catch (error) {
+    console.error('Error solicitando programacion WhatsApp:', error.message);
+  }
+  await addAuditLog(req.params.id, req.user.id, 'solicitar_programacion', `${req.user.nombre} solicitó fecha de ingreso por WhatsApp`);
+  const joined = await pool.query(`SELECT sr.*, g.folio, g.numero_economico, g.empresa, g.contacto_nombre FROM schedule_requests sr JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id = $1`, [schedule.id]);
+  res.status(201).json(scheduleSummary(joined.rows[0]));
+});
+
+app.patch('/api/schedules/:id/confirm', authRequired, requireRoles('admin', 'operativo'), async (req, res) => {
+  const status = String(req.body.status || 'confirmed').trim();
+  const scheduledFor = req.body.scheduledFor ? new Date(req.body.scheduledFor) : null;
+  const notes = String(req.body.notes || '').trim();
+  const found = await pool.query(`SELECT sr.*, g.folio, g.numero_economico, g.empresa, g.telefono FROM schedule_requests sr JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id = $1`, [req.params.id]);
+  if (!found.rowCount) return res.status(404).json({ error: 'Programación no encontrada.' });
+  const current = found.rows[0];
+  const result = await pool.query(`UPDATE schedule_requests SET status = $2, scheduled_for = $3, confirmed_at = CASE WHEN $2 = 'confirmed' THEN NOW() ELSE confirmed_at END, notes = COALESCE(NULLIF($4,''), notes), updated_at = NOW() WHERE id = $1 RETURNING *`, [req.params.id, status, scheduledFor, notes]);
+  const finalDate = scheduledFor || current.scheduled_for || current.proposed_at;
+  if (status === 'confirmed' && finalDate) {
+    try {
+      const when = new Date(finalDate).toLocaleString('es-MX');
+      await sendWhatsAppText({ telefono: current.telefono, body: `CARLAB GARANTIAS\n\nQuedo confirmada la cita para la unidad ${current.numero_economico} el ${when}. Te esperamos en taller.` });
+    } catch (error) { console.error('Error confirmando cita por WhatsApp:', error.message); }
+  }
+  if (status === 'rejected') {
+    try {
+      await sendWhatsAppText({ telefono: current.telefono, body: `CARLAB GARANTIAS\n\nLa fecha propuesta para la unidad ${current.numero_economico} no quedo disponible. Responde con otra opcion en formato DD/MM/AAAA HH:MM.` });
+    } catch (error) { console.error('Error rechazando cita por WhatsApp:', error.message); }
+  }
+  const joined = await pool.query(`SELECT sr.*, g.folio, g.numero_economico, g.empresa, g.contacto_nombre, g.telefono FROM schedule_requests sr JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id = $1`, [req.params.id]);
+  res.json(scheduleSummary(joined.rows[0]));
+});
+
+app.post('/api/whatsapp/incoming', async (req, res) => {
+  const from = String(req.body.From || '').replace(/^whatsapp:/i, '').replace(/\D/g, '');
+  const body = String(req.body.Body || '').trim();
+  if (!from || !body) return res.type('text/xml').send('<Response></Response>');
+  const pending = await pool.query(`
+    SELECT sr.*, g.id AS garantia_id, g.folio, g.numero_economico, g.empresa, g.contacto_nombre, g.telefono
+    FROM schedule_requests sr
+    JOIN garantias g ON g.id = sr.garantia_id
+    WHERE sr.telefono = $1 AND sr.status IN ('waiting_operator','rejected')
+    ORDER BY sr.updated_at DESC LIMIT 1
+  `, [normalizeMxPhone(from)]);
+  if (!pending.rowCount) return res.type('text/xml').send('<Response></Response>');
+  const parsed = parseScheduleText(body);
+  if (!parsed) {
+    try { await sendWhatsAppText({ telefono: from, body: 'CARLAB GARANTIAS\n\nNo pude leer la fecha. Envia por favor DD/MM/AAAA HH:MM, por ejemplo 28/03/2026 09:30.' }); } catch {}
+    return res.type('text/xml').send('<Response></Response>');
+  }
+  const schedule = pending.rows[0];
+  await pool.query(`UPDATE schedule_requests SET status = 'proposed', proposed_at = $2, scheduled_for = $2, notes = $3, updated_at = NOW() WHERE id = $1`, [schedule.id, parsed.iso, `Propuesta recibida por WhatsApp: ${parsed.text}`]);
+  await addAuditLog(schedule.garantia_id, null, 'propuesta_programacion', `Operador propuso ${parsed.text} por WhatsApp`);
+  try { await sendWhatsAppText({ telefono: from, body: `CARLAB GARANTIAS\n\nRecibimos tu propuesta para la unidad ${schedule.numero_economico}: ${parsed.text}. En cuanto la confirme operaciones, te avisamos por aqui.` }); } catch {}
+  res.type('text/xml').send('<Response></Response>');
+});
+
+app.post('/api/whatsapp/status', async (req, res) => {
+  console.log('WhatsApp status callback:', { sid: req.body.MessageSid, status: req.body.MessageStatus, to: req.body.To });
+  res.json({ ok: true });
 });
 
 app.get('*', (_req, res) => {

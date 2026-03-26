@@ -113,6 +113,7 @@
               <button id="navNewReportBtn" class="nav-btn hidden" type="button">Nuevo reporte</button>
               <button id="navAnalyticsBtn" class="nav-btn hidden" type="button">Analítica</button>
               <button id="navHistoryBtn" class="nav-btn hidden" type="button">Historial por unidad</button>
+              <button id="navScheduleBtn" class="nav-btn hidden" type="button">Agenda</button>
             </div>
             <div class="nav-group">
               <div class="nav-group-label">Administración</div>
@@ -197,6 +198,24 @@
             <button id="unitHistoryBtn" class="btn btn-secondary" type="button">Consultar historial</button>
           </div>
           <div id="unitHistoryResult" class="table-list compact-list"></div>
+        </section>
+
+        <section id="schedulePanel" class="panel hidden">
+          <div class="panel-head">
+            <div>
+              <div class="topbar-kicker">AGENDA</div>
+              <h3>Programación de unidades</h3>
+            </div>
+            <span class="badge badge-info">Ingresos a taller</span>
+          </div>
+          <div class="history-search-box history-panel-box">
+            <div>
+              <label>Fecha</label>
+              <input id="scheduleDateInput" type="date" />
+            </div>
+            <button id="scheduleRefreshBtn" class="btn btn-secondary" type="button">Ver agenda</button>
+          </div>
+          <div id="scheduleList" class="table-list compact-list"></div>
         </section>
 
         <section id="filtersPanel" class="toolbar panel">

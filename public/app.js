@@ -46,7 +46,10 @@ const api = {
   deleteCompany(id) { return this.request(`/api/companies/${id}`, { method: 'DELETE' }); },
   getRequests() { return this.request('/api/registration-requests'); },
   updateRequest(id, payload) { return this.request(`/api/registration-requests/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }); },
-  getUnitHistory(numeroEconomico) { return this.request(`/api/history/unit/${encodeURIComponent(numeroEconomico)}`); }
+  getUnitHistory(numeroEconomico) { return this.request(`/api/history/unit/${encodeURIComponent(numeroEconomico)}`); },
+  getSchedules(date='') { return this.request(`/api/schedules${date ? `?date=${encodeURIComponent(date)}` : ''}`); },
+  requestSchedule(id) { return this.request(`/api/garantias/${id}/request-schedule`, { method: 'POST' }); },
+  confirmSchedule(id, payload) { return this.request(`/api/schedules/${id}/confirm`, { method: 'PATCH', body: JSON.stringify(payload) }); }
 };
 
 const els = {};
@@ -54,12 +57,12 @@ function bind() {
   [
     'loginView','dashboardView','loginForm','loginEmail','loginPassword','loginError','registerForm','registerMessage','regNombre','regEmail','regTelefono','regEmpresa','regNumeroEconomico','regPassword',
     'tabLoginBtn','tabRegisterBtn','welcomeText','currentUserName','currentUserEmail','currentRoleBadge','avatarCircle','pageTitle','roleSummaryText','roleBrief','logoutBtn',
-    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','filtersPanel',
+    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel',
     'reportForm','numeroObra','modelo','numeroEconomico','empresa','kilometraje','contactoNombre','telefono','descripcionFallo','solicitaRefaccion','refaccionFields','detalleRefaccion',
     'evidencias','evidenciasRefaccion','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn','searchInput','validationFilter','operationalFilter',
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
-    'topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistoryBtn','unitHistoryResult'
+    'topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList'
   ].forEach(id => els[id] = document.getElementById(id));
 }
 bind();
@@ -202,6 +205,7 @@ function switchPanel(panel) {
   els.companiesPanel?.classList.toggle('hidden', panel !== 'companies');
   els.analyticsPanel?.classList.toggle('hidden', panel !== 'analytics');
   els.historyPanel?.classList.toggle('hidden', panel !== 'history');
+  els.schedulePanel?.classList.toggle('hidden', panel !== 'schedule');
   const board = panel === 'board';
   els.filtersPanel?.classList.toggle('hidden', !board);
   setActiveNav(
@@ -211,8 +215,10 @@ function switchPanel(panel) {
     panel === 'companies' ? els.navCompaniesBtn :
     panel === 'analytics' ? els.navAnalyticsBtn :
     panel === 'history' ? els.navHistoryBtn :
+    panel === 'schedule' ? els.navScheduleBtn :
     els.navBoardBtn
   );
+  if (panel === 'report') window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function showDashboard() {
@@ -223,6 +229,7 @@ function showDashboard() {
   els.navCompaniesBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navAnalyticsBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo'));
   els.navHistoryBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo'));
+  els.navScheduleBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo','operador'));
   updateHeaderForRole(); switchPanel('board');
 }
 function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); }
@@ -405,6 +412,29 @@ function beginCompanyEdit(company) {
   els.companyCancelEditBtn.classList.remove('hidden');
 }
 
+async function loadSchedules(date = '') {
+  if (!isRole('admin','operativo','supervisor','operador')) return;
+  state.schedules = await api.getSchedules(date || els.scheduleDateInput?.value || '');
+  renderSchedules();
+}
+
+function renderSchedules() {
+  if (!els.scheduleList) return;
+  els.scheduleList.innerHTML = '';
+  if (!state.schedules.length) { els.scheduleList.innerHTML = '<div class="empty-state"><strong>Sin unidades programadas.</strong><span>Cuando entren propuestas o citas confirmadas, aparecerán aquí.</span></div>'; return; }
+  state.schedules.forEach(item => {
+    const row = document.createElement('div'); row.className = 'table-row schedule-row';
+    const when = item.scheduledFor || item.proposedAt || item.requestedAt;
+    row.innerHTML = `<div><strong>${escapeHtml(item.folio || '—')} · Unidad ${escapeHtml(item.unidad || '—')}</strong><div class="small muted">${escapeHtml(item.empresa || '—')} · ${escapeHtml(item.contactoNombre || '—')}</div></div><div>${escapeHtml(item.status)}</div><div>${escapeHtml(fmtDate(when))}</div><div class="action-row"></div>`;
+    const actions = row.querySelector('.action-row');
+    if (isRole('admin','operativo') && item.status === 'proposed') {
+      actions.appendChild(button('Confirmar', 'btn btn-primary', async () => { try { await api.confirmSchedule(item.id, { status:'confirmed', scheduledFor: item.scheduledFor || item.proposedAt }); notify('Cita confirmada.'); await loadSchedules(); } catch (error) { notify(error.message, true); } }));
+      actions.appendChild(button('Pedir otra fecha', 'btn btn-ghost', async () => { try { await api.confirmSchedule(item.id, { status:'rejected' }); notify('Se pidió nueva fecha.'); await loadSchedules(); } catch (error) { notify(error.message, true); } }));
+    }
+    els.scheduleList.appendChild(row);
+  });
+}
+
 function renderCompanies() {
   if (!els.companiesList) return;
   els.companiesList.innerHTML = '';
@@ -477,6 +507,10 @@ function renderGarantias() {
       });
       area.appendChild(reviewBox);
       if (item.estatusValidacion === 'aceptada') {
+        const scheduleRow = document.createElement('div'); scheduleRow.className = 'action-row';
+        if (isRole('admin','operativo')) scheduleRow.appendChild(button('Programar unidad', 'btn btn-primary', async () => { try { await api.requestSchedule(item.id); notify('Solicitud enviada por WhatsApp.'); await loadSchedules(); switchPanel('schedule'); } catch (error) { notify(error.message, true); } }));
+        if (isRole('operador')) scheduleRow.appendChild(button('Ver mi agenda', 'btn btn-secondary', async () => { await loadSchedules(); switchPanel('schedule'); }));
+        if (scheduleRow.children.length) area.appendChild(scheduleRow);
         const operationalBox = document.createElement('div'); operationalBox.innerHTML = `
           <label>Flujo del trabajo</label>
           <div class="action-row">
@@ -526,7 +560,7 @@ els.loginForm?.addEventListener('submit', async (e) => {
   try {
     const data = await api.login(els.loginEmail.value.trim(), els.loginPassword.value);
     state.token = data.token; localStorage.setItem('carlabToken', state.token); state.user = data.user; showDashboard();
-    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); resetReportForm(); resetCompanyForm(); notify(`Bienvenido, ${state.user.nombre}.`);
+    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); await loadSchedules(); resetReportForm(); resetCompanyForm(); if (els.scheduleDateInput && !els.scheduleDateInput.value) els.scheduleDateInput.value = new Date().toISOString().slice(0,10); notify(`Bienvenido, ${state.user.nombre}.`);
   } catch (error) { if (els.loginError) { els.loginError.textContent = error.message; els.loginError.classList.remove('hidden'); } else notify(error.message,true); }
 });
 
@@ -587,7 +621,7 @@ els.companyForm?.addEventListener('submit', async (e) => {
   if (!state.token) return showLogin();
   try {
     const data = await api.me(); state.user = data.user; showDashboard();
-    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); resetReportForm(); resetCompanyForm();
+    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); await loadSchedules(); resetReportForm(); resetCompanyForm(); if (els.scheduleDateInput && !els.scheduleDateInput.value) els.scheduleDateInput.value = new Date().toISOString().slice(0,10);
   } catch {
     localStorage.removeItem('carlabToken'); state.token = ''; showLogin();
   }
