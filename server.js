@@ -365,12 +365,11 @@ async function initDb() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
-
     CREATE TABLE IF NOT EXISTS schedule_requests (
       id TEXT PRIMARY KEY,
       garantia_id TEXT REFERENCES garantias(id) ON DELETE CASCADE,
       telefono TEXT,
-      status TEXT NOT NULL DEFAULT 'waiting_operator' CHECK (status IN ('waiting_operator','proposed','confirmed','rejected','arrived','no_show')),
+      status TEXT NOT NULL DEFAULT 'waiting_operator' CHECK (status IN ('waiting_operator','proposed','confirmed','rejected','cancelled')),
       notes TEXT,
       requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       proposed_at TIMESTAMPTZ,
@@ -380,10 +379,10 @@ async function initDb() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
-    CREATE INDEX IF NOT EXISTS idx_schedule_garantia ON schedule_requests(garantia_id);
-    CREATE INDEX IF NOT EXISTS idx_schedule_phone ON schedule_requests(telefono);
-    CREATE INDEX IF NOT EXISTS idx_schedule_status ON schedule_requests(status);
-    CREATE INDEX IF NOT EXISTS idx_schedule_when ON schedule_requests(scheduled_for);
+    CREATE INDEX IF NOT EXISTS idx_schedule_requests_garantia_id ON schedule_requests(garantia_id);
+    CREATE INDEX IF NOT EXISTS idx_schedule_requests_telefono ON schedule_requests(telefono);
+    CREATE INDEX IF NOT EXISTS idx_schedule_requests_status ON schedule_requests(status);
+    CREATE INDEX IF NOT EXISTS idx_schedule_requests_scheduled_for ON schedule_requests(scheduled_for);
 
     ALTER TABLE users ADD COLUMN IF NOT EXISTS empresa TEXT;
     ALTER TABLE companies ADD COLUMN IF NOT EXISTS contacto TEXT;
@@ -921,18 +920,51 @@ app.patch('/api/schedules/:id/confirm', authRequired, requireRoles('admin', 'ope
   const found = await pool.query(`SELECT sr.*, g.folio, g.numero_economico, g.empresa, g.telefono FROM schedule_requests sr JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id = $1`, [req.params.id]);
   if (!found.rowCount) return res.status(404).json({ error: 'Programación no encontrada.' });
   const current = found.rows[0];
-  const scheduledFor = req.body.scheduledFor ? new Date(req.body.scheduledFor) : (current.scheduled_for ? new Date(current.scheduled_for) : (current.proposed_at ? new Date(current.proposed_at) : null));
-  const result = await pool.query(`UPDATE schedule_requests SET status = $2, scheduled_for = $3, confirmed_at = CASE WHEN $2 = 'confirmed' THEN NOW() ELSE confirmed_at END, notes = COALESCE(NULLIF($4,''), notes), updated_at = NOW() WHERE id = $1 RETURNING *`, [req.params.id, status, scheduledFor, notes]);
+  const scheduledFor = req.body.scheduledFor ? new Date(req.body.scheduledFor) : (current.scheduled_for ? new Date(current.scheduled_for) : null);
+
+  if (status === 'confirmed' && scheduledFor) {
+    const busy = await pool.query(
+      `SELECT sr.id FROM schedule_requests sr
+       WHERE sr.id <> $1
+         AND sr.status = 'confirmed'
+         AND DATE(sr.scheduled_for AT TIME ZONE 'UTC') = DATE($2::timestamptz AT TIME ZONE 'UTC')
+         AND TO_CHAR(sr.scheduled_for AT TIME ZONE 'UTC','HH24:MI') = TO_CHAR($2::timestamptz AT TIME ZONE 'UTC','HH24:MI')
+       LIMIT 1`,
+      [req.params.id, scheduledFor.toISOString()]
+    );
+    if (busy.rowCount) {
+      const recommended = new Date(scheduledFor.getTime() + 60*60*1000);
+      return res.status(409).json({
+        error: 'Ese horario ya está ocupado.',
+        recommended: recommended.toISOString()
+      });
+    }
+  }
+
+  const result = await pool.query(
+    `UPDATE schedule_requests
+     SET status = $2,
+         scheduled_for = $3,
+         confirmed_at = CASE WHEN $2 = 'confirmed' THEN NOW() ELSE confirmed_at END,
+         notes = COALESCE(NULLIF($4,''), notes),
+         updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [req.params.id, status, scheduledFor, notes]
+  );
+
   const finalDate = scheduledFor || current.scheduled_for || current.proposed_at;
   if (status === 'confirmed' && finalDate) {
     try {
-      const when = current.notes && /\d/.test(current.notes) ? (String(current.notes).split(': ').slice(1).join(': ') || new Date(finalDate).toLocaleString('es-MX')) : new Date(finalDate).toLocaleString('es-MX');
+      const when = current.notes && /\d/.test(current.notes)
+        ? (String(current.notes).split(': ').slice(1).join(': ') || new Date(finalDate).toLocaleString('es-MX'))
+        : new Date(finalDate).toLocaleString('es-MX');
       await sendWhatsAppText({ telefono: current.telefono, body: `CARLAB GARANTIAS\n\nQuedo confirmada la cita para la unidad ${current.numero_economico} el ${when}. Te esperamos en taller.` });
     } catch (error) { console.error('Error confirmando cita por WhatsApp:', error.message); }
   }
   if (status === 'rejected') {
     try {
-      await sendWhatsAppText({ telefono: current.telefono, body: `CARLAB GARANTIAS\n\nLa fecha propuesta para la unidad ${current.numero_economico} no quedo disponible. Responde con otra opcion en formato DD/MM/AAAA HH:MM.` });
+      await sendWhatsAppText({ telefono: current.telefono, body: `CARLAB GARANTIAS\n\nLa fecha propuesta para la unidad ${current.numero_economico} no quedó disponible. Responde con otra opción en formato DD/MM/AAAA HH:MM.` });
     } catch (error) { console.error('Error rechazando cita por WhatsApp:', error.message); }
   }
   const joined = await pool.query(`SELECT sr.*, g.folio, g.numero_economico, g.empresa, g.contacto_nombre, g.telefono FROM schedule_requests sr JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id = $1`, [req.params.id]);
@@ -971,6 +1003,45 @@ app.post('/webhook/whatsapp', async (req, res) => {
 app.post('/api/whatsapp/status', async (req, res) => {
   console.log('WhatsApp status callback:', { sid: req.body.MessageSid, status: req.body.MessageStatus, to: req.body.To });
   res.json({ ok: true });
+});
+
+
+app.get('/api/notifications', authRequired, requireRoles('admin','operativo','supervisor','operador'), async (req, res) => {
+  const params = [];
+  let whereGarantias = [];
+  let whereSchedules = [];
+  if (req.user.role === 'supervisor') {
+    params.push(req.user.empresa || '');
+    whereGarantias.push(`g.empresa = $${params.length}`);
+    whereSchedules.push(`g.empresa = $${params.length}`);
+  }
+  if (req.user.role === 'operador') {
+    params.push(req.user.id);
+    whereGarantias.push(`g.reportado_por_id = $${params.length}`);
+    whereSchedules.push(`g.reportado_por_id = $${params.length}`);
+  }
+  const newReports = await pool.query(`
+    SELECT COUNT(*)::int AS count
+    FROM garantias g
+    ${whereGarantias.length ? `WHERE ${whereGarantias.join(' AND ')} AND g.estatus_validacion = 'nueva'` : `WHERE g.estatus_validacion = 'nueva'`}
+  `, params);
+  const pendingSchedules = await pool.query(`
+    SELECT COUNT(*)::int AS count
+    FROM schedule_requests sr
+    JOIN garantias g ON g.id = sr.garantia_id
+    ${whereSchedules.length ? `WHERE ${whereSchedules.join(' AND ')} AND sr.status IN ('waiting_operator','proposed')` : `WHERE sr.status IN ('waiting_operator','proposed')`}
+  `, params);
+  const todaySchedules = await pool.query(`
+    SELECT COUNT(*)::int AS count
+    FROM schedule_requests sr
+    JOIN garantias g ON g.id = sr.garantia_id
+    ${whereSchedules.length ? `WHERE ${whereSchedules.join(' AND ')} AND DATE(sr.scheduled_for AT TIME ZONE 'UTC') = CURRENT_DATE` : `WHERE DATE(sr.scheduled_for AT TIME ZONE 'UTC') = CURRENT_DATE`}
+  `, params);
+  res.json({
+    newReports: newReports.rows[0]?.count || 0,
+    pendingSchedules: pendingSchedules.rows[0]?.count || 0,
+    todaySchedules: todaySchedules.rows[0]?.count || 0
+  });
 });
 
 app.get('*', (_req, res) => {

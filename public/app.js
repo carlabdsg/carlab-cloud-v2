@@ -50,7 +50,8 @@ const api = {
   getUnitHistory(numeroEconomico) { return this.request(`/api/history/unit/${encodeURIComponent(numeroEconomico)}`); },
   getSchedules(date='') { return this.request(`/api/schedules${date ? `?date=${encodeURIComponent(date)}` : ''}`); },
   requestSchedule(id) { return this.request(`/api/garantias/${id}/request-schedule`, { method: 'POST' }); },
-  confirmSchedule(id, payload) { return this.request(`/api/schedules/${id}/confirm`, { method: 'PATCH', body: JSON.stringify(payload) }); }
+  confirmSchedule(id, payload) { return this.request(`/api/schedules/${id}/confirm`, { method: 'PATCH', body: JSON.stringify(payload) }); },
+  getNotifications() { return this.request('/api/notifications'); }
 };
 
 const els = {};
@@ -63,7 +64,7 @@ function bind() {
     'evidencias','evidenciasRefaccion','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn','searchInput','validationFilter','operationalFilter',
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
-    'topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','refreshAllBtn','alertsBar','evidenciasCamara','evidenciasRefaccionCamara','operatorBottomNav','mobileHomeBtn','mobileNewBtn','mobileAgendaBtn','mobileReportsBtn'
+    'topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn'
   ].forEach(id => els[id] = document.getElementById(id));
 }
 bind();
@@ -78,9 +79,7 @@ if (ctx) {
 function roleName(role) { return ({ admin: 'Admin', operador: 'Operador', operativo: 'Operativo', supervisor: 'Supervisor' })[role] || role; }
 function isRole(...roles) { return state.user && roles.includes(state.user.role); }
 function selectedRadio(name) { return document.querySelector(`input[name="${name}"]:checked`)?.value || ''; }
-function fmtDate(value) { return value ? new Date(value).toLocaleString('es-MX', { timeZone: 'America/Mazatlan' }) : '—'; }
-function fmtDateOnly(value) { return value ? new Date(value).toLocaleDateString('es-MX', { timeZone: 'America/Mazatlan' }) : '—'; }
-function fmtTimeOnly(value) { return value ? new Date(value).toLocaleTimeString('es-MX', { timeZone: 'America/Mazatlan', hour:'2-digit', minute:'2-digit' }) : '—'; }
+function fmtDate(value) { return value ? new Date(value).toLocaleString('es-MX') : '—'; }
 function escapeHtml(text='') { return String(text).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m])); }
 function notify(message, isError = false) {
   if (!els.toast) return alert(message);
@@ -132,7 +131,7 @@ async function fileToCompressedDataUrl(file, maxSide = 1600, quality = 0.78) {
   const cx = canvas.getContext('2d'); cx.drawImage(img, 0, 0, canvas.width, canvas.height);
   return canvas.toDataURL('image/jpeg', quality);
 }
-function drawPreviews(container, items, onRemove) {
+function drawPreviews(container, items, target = 'evidence') {
   if (!container) return;
   container.innerHTML = '';
   items.forEach((src, index) => {
@@ -140,63 +139,29 @@ function drawPreviews(container, items, onRemove) {
     wrap.className = 'preview-item';
     const img = document.createElement('img');
     img.src = src;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'preview-remove';
+    remove.textContent = '×';
+    remove.addEventListener('click', () => {
+      if (target === 'ref') state.currentRefEvidence.splice(index, 1);
+      else state.currentEvidence.splice(index, 1);
+      drawPreviews(container, target === 'ref' ? state.currentRefEvidence : state.currentEvidence, target);
+    });
     wrap.appendChild(img);
-    if (typeof onRemove === 'function') {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'preview-remove';
-      btn.textContent = '×';
-      btn.addEventListener('click', () => onRemove(index));
-      wrap.appendChild(btn);
-    }
+    wrap.appendChild(remove);
     container.appendChild(wrap);
   });
 }
 
-els.evidencias?.addEventListener('change', async e => {
-  const incoming = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file)));
-  state.currentEvidence = [...state.currentEvidence, ...incoming];
-  drawPreviews(els.previewEvidencias, state.currentEvidence, index => {
-    state.currentEvidence.splice(index,1);
-    drawPreviews(els.previewEvidencias, state.currentEvidence, index => {
-      state.currentEvidence.splice(index,1); drawPreviews(els.previewEvidencias, state.currentEvidence);
-    });
-  });
-  e.target.value='';
-});
-els.evidenciasRefaccion?.addEventListener('change', async e => {
-  const incoming = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file)));
-  state.currentRefEvidence = [...state.currentRefEvidence, ...incoming];
-  drawPreviews(els.previewRefaccion, state.currentRefEvidence, index => {
-    state.currentRefEvidence.splice(index,1);
-    drawPreviews(els.previewRefaccion, state.currentRefEvidence);
-  });
-  e.target.value='';
-});
-els.evidenciasCamara?.addEventListener('change', async e => {
-  const incoming = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file)));
-  state.currentEvidence = [...state.currentEvidence, ...incoming];
-  drawPreviews(els.previewEvidencias, state.currentEvidence, index => {
-    state.currentEvidence.splice(index,1);
-    drawPreviews(els.previewEvidencias, state.currentEvidence);
-  });
-  e.target.value='';
-});
-els.evidenciasRefaccionCamara?.addEventListener('change', async e => {
-  const incoming = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file)));
-  state.currentRefEvidence = [...state.currentRefEvidence, ...incoming];
-  drawPreviews(els.previewRefaccion, state.currentRefEvidence, index => {
-    state.currentRefEvidence.splice(index,1);
-    drawPreviews(els.previewRefaccion, state.currentRefEvidence);
-  });
-  e.target.value='';
-});
+els.evidencias?.addEventListener('change', async e => { const incoming = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file))); state.currentEvidence = [...state.currentEvidence, ...incoming]; drawPreviews(els.previewEvidencias, state.currentEvidence, 'evidence'); e.target.value=''; });
+els.evidenciasRefaccion?.addEventListener('change', async e => { const incoming = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file))); state.currentRefEvidence = [...state.currentRefEvidence, ...incoming]; drawPreviews(els.previewRefaccion, state.currentRefEvidence, 'ref'); e.target.value=''; });
 els.solicitaRefaccion?.addEventListener('change', () => els.refaccionFields?.classList.toggle('hidden', !els.solicitaRefaccion.checked));
 
 function resetReportForm() {
   els.reportForm?.reset();
   state.currentEvidence = []; state.currentRefEvidence = [];
-  drawPreviews(els.previewEvidencias, [], null); drawPreviews(els.previewRefaccion, [], null);
+  drawPreviews(els.previewEvidencias, [], 'evidence'); drawPreviews(els.previewRefaccion, [], 'ref');
   els.refaccionFields?.classList.add('hidden');
   const radio = document.querySelector('input[name="tipoIncidente"][value="daño"]');
   if (radio) radio.checked = true;
@@ -224,7 +189,7 @@ function reportPayload() {
   return {
     numeroObra: els.numeroObra?.value.trim(), modelo: els.modelo?.value.trim(), numeroEconomico: els.numeroEconomico?.value.trim(), empresa: els.empresa?.value.trim(), kilometraje: els.kilometraje?.value.trim(),
     contactoNombre: els.contactoNombre?.value.trim(), telefono: els.telefono?.value.trim(), tipoIncidente: selectedRadio('tipoIncidente'), descripcionFallo: els.descripcionFallo?.value.trim(), solicitaRefaccion: els.solicitaRefaccion?.checked,
-    detalleRefaccion: els.detalleRefaccion?.value.trim(), evidencias: state.currentEvidence, evidenciasRefaccion: state.currentRefEvidence, firma: state.hasSignature ? els.firmaCanvas.toDataURL('image/png', 0.95) : '',
+    detalleRefaccion: els.detalleRefaccion?.value.trim(), evidencias: state.currentEvidence, evidenciasRefaccion: state.currentRefEvidence, firma: state.hasSignature ? els.firmaCanvas.toDataURL('image/jpeg', 0.95) : '',
   };
 }
 
@@ -252,8 +217,19 @@ function updateHeaderForRole() {
   if (els.roleBrief) els.roleBrief.innerHTML = copy.panels.map(([title, desc]) => `<article><strong>${escapeHtml(title)}</strong><span>${escapeHtml(desc)}</span></article>`).join('');
 }
 function setActiveNav(activeBtn) {
-  [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
+  [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navScheduleBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
   if (activeBtn && !activeBtn.classList.contains('hidden')) activeBtn.classList.add('active');
+}
+
+function updateOperatorAppNav(panel) {
+  const operatorMode = state.user?.role === 'operador';
+  document.body.classList.toggle('operator-mode', !!operatorMode);
+  els.operatorAppNav?.classList.toggle('hidden', !operatorMode);
+  if (!operatorMode) return;
+  [els.opNavHomeBtn, els.opNavNewBtn, els.opNavScheduleBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
+  if (panel === 'board') els.opNavHomeBtn?.classList.add('active');
+  if (panel === 'report') els.opNavNewBtn?.classList.add('active');
+  if (panel === 'schedule') els.opNavScheduleBtn?.classList.add('active');
 }
 function switchPanel(panel) {
   state.activePanel = panel;
@@ -267,8 +243,8 @@ function switchPanel(panel) {
   els.schedulePanel?.classList.toggle('hidden', panel !== 'schedule');
   const board = panel === 'board';
   els.filtersPanel?.classList.toggle('hidden', !board);
-  if (panel === 'schedule') loadSchedules(els.scheduleDateInput?.value || new Date().toLocaleDateString('en-CA', { timeZone:'America/Mazatlan' }));
-  if (isRole('operador') && panel === 'board') { document.getElementById('boardPanel')?.classList.remove('hidden'); }
+  if (panel === 'schedule') loadSchedules(els.scheduleDateInput?.value || '');
+  updateOperatorAppNav(panel);
   setActiveNav(
     panel === 'report' ? els.navNewReportBtn :
     panel === 'users' ? els.navUsersBtn :
@@ -280,11 +256,6 @@ function switchPanel(panel) {
     els.navBoardBtn
   );
   if (panel === 'report') window.scrollTo({ top: 0, behavior: 'smooth' });
-  if (isRole('operador')) {
-    document.getElementById('boardPanel')?.classList.toggle('hidden', panel !== 'board');
-    els.filtersPanel?.classList.add('hidden');
-    document.getElementById('roleBrief')?.classList.add('hidden');
-  }
 }
 
 function showDashboard() {
@@ -296,7 +267,7 @@ function showDashboard() {
   els.navAnalyticsBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo'));
   els.navHistoryBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo'));
   els.navScheduleBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo','operador'));
-  updateHeaderForRole(); applyOperatorMode(); if (els.scheduleDateInput && !els.scheduleDateInput.value) els.scheduleDateInput.value = new Date().toLocaleDateString('en-CA', { timeZone:'America/Mazatlan' }); switchPanel(isRole('operador') ? 'report' : 'board');
+  updateHeaderForRole(); switchPanel(state.user?.role === 'operador' ? 'report' : 'board');
 }
 function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); }
 
@@ -398,7 +369,7 @@ async function exportPdf(item) {
     for (const src of images.slice(0, 6)) {
       if (x > 136) { x = 14; y += rowHeight + 8; rowHeight = 0; }
       y = ensurePdfSpace(doc, y, 48);
-      doc.setDrawColor(225,225,230); doc.roundedRect(x, y, 56, 42, 3, 3);
+      doc.setDrawColor(255,255,255); doc.roundedRect(x, y, 56, 42, 3, 3);
       await addPdfImage(doc, src, x + 1, y + 1, 54, 40);
       x += 60; rowHeight = Math.max(rowHeight, 42);
     }
@@ -406,7 +377,7 @@ async function exportPdf(item) {
   }
   if (item.firma) {
     y = ensurePdfSpace(doc, y, 42); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Firma', 8);
-    doc.setFillColor(255,255,255); doc.setDrawColor(255,255,255); doc.roundedRect(14, y, 90, 28, 3, 3, 'F'); await addPdfImage(doc, item.firma, 16, y + 2, 86, 24); y += 34;
+    doc.setFillColor(255,255,255); doc.setDrawColor(235,238,244); doc.roundedRect(14, y, 90, 28, 3, 3, 'FD'); await addPdfImage(doc, item.firma, 16, y + 2, 86, 24); y += 34;
   }
   if (item.estatusValidacion === 'rechazada' && item.observacionesOperativo) {
     y = ensurePdfSpace(doc, y, 24); doc.setFontSize(12); doc.setTextColor(170, 35, 35); textLine('Motivo de rechazo', 8);
@@ -478,113 +449,110 @@ function beginCompanyEdit(company) {
   els.companyCancelEditBtn.classList.remove('hidden');
 }
 
+async function loadNotifications() {
+  try {
+    const data = await api.getNotifications();
+    if (els.notifSummary) els.notifSummary.textContent = `${data.pendingSchedules || 0} agenda · ${data.todaySchedules || 0} hoy`;
+    if (els.scheduleAlerts && state.activePanel === 'schedule') {
+      const bits = [];
+      if (data.pendingSchedules) bits.push(`<div class="alert-card warn">Tienes <strong>${data.pendingSchedules}</strong> propuestas pendientes por confirmar.</div>`);
+      if (data.todaySchedules) bits.push(`<div class="alert-card info">Hay <strong>${data.todaySchedules}</strong> citas para hoy.</div>`);
+      if (data.newReports) bits.push(`<div class="alert-card soft"><strong>${data.newReports}</strong> reportes nuevos esperando acción.</div>`);
+      els.scheduleAlerts.innerHTML = bits.join('');
+    }
+  } catch {}
+}
+
 async function loadSchedules(date = '') {
   if (!isRole('admin','operativo','supervisor','operador')) return;
   state.schedules = await api.getSchedules(date || els.scheduleDateInput?.value || '');
   renderSchedules();
 }
 
-
 function renderSchedules() {
   if (!els.scheduleList) return;
-  els.scheduleList.innerHTML = '';
-  renderScheduleCalendar();
-  renderAlerts();
+  const selectedDate = els.scheduleDateInput?.value || new Date().toISOString().slice(0,10);
+  if (els.scheduleDateInput && !els.scheduleDateInput.value) els.scheduleDateInput.value = selectedDate;
+
   const total = state.schedules.length;
   const proposed = state.schedules.filter(item => item.status === 'proposed').length;
   const confirmed = state.schedules.filter(item => item.status === 'confirmed').length;
   const waiting = state.schedules.filter(item => item.status === 'waiting_operator').length;
-  const summary = document.createElement('div');
-  summary.className = 'schedule-summary';
-  summary.innerHTML = `
-    <div class="stat"><span>Total</span><strong>${total}</strong></div>
-    <div class="stat"><span>Propuestas</span><strong>${proposed}</strong></div>
-    <div class="stat"><span>Confirmadas</span><strong>${confirmed}</strong></div>
-    <div class="stat"><span>Por responder</span><strong>${waiting}</strong></div>
-  `;
-  els.scheduleList.appendChild(summary);
-  if (!state.schedules.length) {
-    els.scheduleList.innerHTML += '<div class="empty-state"><strong>Sin unidades programadas.</strong><span>Cuando entren propuestas o citas confirmadas, aparecerán aquí automáticamente.</span></div>';
+
+  const schedulesForDay = state.schedules.filter(item => {
+    const raw = item.scheduledFor || item.proposedAt || item.requestedAt;
+    if (!raw) return false;
+    return String(raw).slice(0,10) === selectedDate;
+  });
+
+  if (els.scheduleCalendar) {
+    const current = new Date(`${selectedDate}T00:00:00`);
+    const year = current.getFullYear();
+    const month = current.getMonth();
+    const first = new Date(year, month, 1);
+    const last = new Date(year, month + 1, 0);
+    const startWeek = (first.getDay() + 6) % 7;
+    const days = [];
+    for (let i = 0; i < startWeek; i++) days.push('<div class="calendar-cell empty"></div>');
+    for (let d = 1; d <= last.getDate(); d++) {
+      const iso = new Date(year, month, d).toISOString().slice(0,10);
+      const count = state.schedules.filter(item => {
+        const raw = item.scheduledFor || item.proposedAt || item.requestedAt;
+        return raw && String(raw).slice(0,10) === iso;
+      }).length;
+      const cls = iso === selectedDate ? 'calendar-cell active' : 'calendar-cell';
+      days.push(`<button type="button" class="${cls}" data-date="${iso}"><span>${d}</span>${count ? `<strong>${count}</strong>` : '<em>·</em>'}</button>`);
+    }
+    els.scheduleCalendar.innerHTML = `
+      <div class="schedule-summary">
+        <div class="stat"><span>Total</span><strong>${total}</strong></div>
+        <div class="stat"><span>Propuestas</span><strong>${proposed}</strong></div>
+        <div class="stat"><span>Confirmadas</span><strong>${confirmed}</strong></div>
+        <div class="stat"><span>Por responder</span><strong>${waiting}</strong></div>
+      </div>
+      <div class="calendar-head">${['L','M','M','J','V','S','D'].map(d=>`<span>${d}</span>`).join('')}</div>
+      <div class="calendar-grid">${days.join('')}</div>
+    `;
+    els.scheduleCalendar.querySelectorAll('[data-date]').forEach(btn => btn.addEventListener('click', async () => {
+      if (els.scheduleDateInput) els.scheduleDateInput.value = btn.dataset.date;
+      renderSchedules();
+    }));
+  }
+
+  els.scheduleList.innerHTML = '';
+  if (!schedulesForDay.length) {
+    els.scheduleList.innerHTML = '<div class="empty-state"><strong>Sin unidades programadas para esta fecha.</strong><span>Las propuestas y citas aparecerán automáticamente aquí.</span></div>';
     return;
   }
-  state.schedules.forEach(item => {
+
+  schedulesForDay.forEach(item => {
     const row = document.createElement('div');
-    const usedKeys = state.schedules.filter(x => x.id !== item.id && ['confirmed','arrived'].includes(x.status)).map(x => `${scheduleDateKey(x)}|${(x.originalText || '').match(/(\d{1,2}:\d{2}\s*(?:am|pm)?)/i)?.[1] || fmtTimeOnly(x.scheduledFor || x.proposedAt)}`);
-    const slotLabel = (item.originalText || fmtDate(item.scheduledFor || item.proposedAt || item.requestedAt));
-    const conflict = item.status === 'proposed' && usedKeys.includes(`${scheduleDateKey(item)}|${(item.originalText || '').match(/(\d{1,2}:\d{2}\s*(?:am|pm)?)/i)?.[1] || fmtTimeOnly(item.scheduledFor || item.proposedAt)}`);
-    row.className = `table-row schedule-row ${conflict ? 'conflict' : ''}`;
-    row.innerHTML = `<div><strong>${escapeHtml(item.folio || '—')} · Unidad ${escapeHtml(item.unidad || '—')}</strong><div class="small muted">${escapeHtml(item.empresa || '—')} · ${escapeHtml(item.contactoNombre || '—')}</div><div class="schedule-hint">${escapeHtml(slotLabel)}</div>${conflict ? '<div class="schedule-hint" style="color:#b42318;">Horario ocupado. Recomendamos otra opción.</div>' : ''}</div><div><span class="status-chip ${escapeHtml(item.status)}">${escapeHtml(item.status)}</span></div><div>${escapeHtml(fmtDateOnly(item.scheduledFor || item.proposedAt || item.requestedAt))}<br><strong>${escapeHtml(item.originalText || fmtTimeOnly(item.scheduledFor || item.proposedAt || item.requestedAt))}</strong></div><div class="action-row"></div>`;
+    row.className = 'table-row schedule-row';
+    const whenText = item.originalText || fmtDate(item.scheduledFor || item.proposedAt || item.requestedAt);
+    row.innerHTML = `<div><strong>${escapeHtml(item.folio || '—')} · Unidad ${escapeHtml(item.unidad || '—')}</strong><div class="small muted">${escapeHtml(item.empresa || '—')} · ${escapeHtml(item.contactoNombre || '—')}</div></div><div><span class="badge ${item.status === 'confirmed' ? 'badge-accepted' : item.status === 'proposed' ? 'badge-review' : 'badge-info'}">${escapeHtml(item.status)}</span></div><div>${escapeHtml(whenText)}</div><div class="action-row"></div>`;
     const actions = row.querySelector('.action-row');
     if (isRole('admin','operativo') && item.status === 'proposed') {
       actions.appendChild(button('Confirmar', 'btn btn-primary', async () => {
         try {
-          const chosen = item.scheduledFor || item.proposedAt;
-          await api.confirmSchedule(item.id, { status:'confirmed', scheduledFor: chosen });
-          notify('Cita confirmada.');
-          await loadSchedules(els.scheduleDateInput?.value || '');
-        } catch (error) { notify(error.message, true); }
+          await api.confirmSchedule(item.id, { status:'confirmed', scheduledFor: item.scheduledFor || item.proposedAt, notes: item.notes || '' });
+          notify('Cita confirmada.'); await loadSchedules(selectedDate); await loadNotifications();
+        } catch (error) {
+          if (String(error.message || '').includes('ocupado')) {
+            notify(error.message, true);
+          } else notify(error.message, true);
+        }
       }));
-      actions.appendChild(button('Pedir otra fecha', 'btn btn-ghost', async () => {
+      actions.appendChild(button('Recomendar +1h', 'btn btn-secondary', async () => {
+        const base = new Date(item.scheduledFor || item.proposedAt || item.requestedAt);
+        const recommended = new Date(base.getTime() + 60*60*1000);
         try {
-          await api.confirmSchedule(item.id, { status:'rejected' });
-          notify('Se pidió nueva fecha.');
-          await loadSchedules(els.scheduleDateInput?.value || '');
+          await api.confirmSchedule(item.id, { status:'confirmed', scheduledFor: recommended.toISOString(), notes: `Horario recomendado por admin: ${recommended.toLocaleString('es-MX')}` });
+          notify('Se confirmó con horario recomendado.'); await loadSchedules(selectedDate); await loadNotifications();
         } catch (error) { notify(error.message, true); }
       }));
-      const rec = buildRecommendedSlots(item);
-      if (rec.length) {
-        const recWrap = document.createElement('div');
-        recWrap.className = 'schedule-recommend';
-        rec.forEach(hhmm => {
-          recWrap.appendChild(button(hhmm, 'btn btn-secondary', async () => {
-            try {
-              const key = scheduleDateKey(item);
-              const iso = `${key}T${hhmm}:00`;
-              await api.confirmSchedule(item.id, { status:'confirmed', scheduledFor: iso, notes:`Horario recomendado confirmado: ${key} ${hhmm}` });
-              notify(`Cita confirmada a las ${hhmm}.`);
-              await loadSchedules(els.scheduleDateInput?.value || '');
-            } catch (error) { notify(error.message, true); }
-          }));
-        });
-        actions.appendChild(recWrap);
-      }
     }
     els.scheduleList.appendChild(row);
   });
-}
-function renderCompanies() {
-  if (!els.companiesList) return;
-  els.companiesList.innerHTML = '';
-  state.companies.forEach(item => {
-    const row = document.createElement('div'); row.className = 'table-row';
-    row.innerHTML = `<div><strong>${escapeHtml(item.nombre)}</strong><div class="small muted">${escapeHtml(item.contacto || 'Sin contacto')} · ${escapeHtml(item.telefono || 'Sin teléfono')}</div><div class="small muted">${escapeHtml(item.email || 'Sin correo')}</div></div><div>${item.activo ? 'Activa' : 'Inactiva'}</div><div>${escapeHtml(item.notas || '—')}</div><div class="action-row"></div>`;
-    const actions = row.querySelector('.action-row');
-    if (isRole('admin')) {
-      actions.appendChild(button('Editar', 'btn btn-secondary', () => beginCompanyEdit(item)));
-      actions.appendChild(button(item.activo ? 'Desactivar' : 'Activar', 'btn btn-ghost', async () => {
-        try {
-          if (item.activo) {
-            if (!confirm(`¿Desactivar ${item.nombre}?`)) return;
-            await api.deactivateCompany(item.id);
-            notify('Empresa desactivada.');
-          } else {
-            await api.updateCompany(item.id, { ...item, activo: true });
-            notify('Empresa activada.');
-          }
-          await loadCompanies();
-        } catch (error) { notify(error.message, true); }
-      }));
-      actions.appendChild(button('Eliminar', 'btn btn-ghost', async () => {
-        if (!confirm(`¿Eliminar ${item.nombre}? Solo funciona si no tiene historial.`)) return;
-        try { await api.deleteCompany(item.id); notify('Empresa eliminada.'); await loadCompanies(); }
-        catch (error) { notify(error.message, true); }
-      }));
-    }
-    els.companiesList.appendChild(row);
-  });
-  fillSelect(els.empresa, state.companies.filter(x => x.activo), 'Selecciona empresa');
-  fillSelect(els.userEmpresa, state.companies.filter(x => x.activo), 'Sin empresa');
-  fillSelect(els.regEmpresa, state.companies.filter(x => x.activo), 'Selecciona empresa');
 }
 
 function renderGarantias() {
@@ -647,7 +615,7 @@ function renderGarantias() {
   });
 }
 
-async function loadGarantias() { state.garantias = await api.getGarantias(); renderGarantias(); }
+async function loadGarantias() { state.garantias = await api.getGarantias(); renderGarantias(); await loadNotifications(); }
 async function loadUsers() { if (!isRole('admin')) return; state.users = await api.getUsers(); renderUsers(); }
 async function loadCompanies() { state.companies = isRole('admin') ? await api.getCompanies() : await api.getPublicCompanies(); renderCompanies(); }
 async function loadRequests() { if (!isRole('admin')) return; state.registrationRequests = await api.getRequests(); renderRequests(); }
@@ -677,7 +645,7 @@ els.loginForm?.addEventListener('submit', async (e) => {
   try {
     const data = await api.login(els.loginEmail.value.trim(), els.loginPassword.value);
     state.token = data.token; localStorage.setItem('carlabToken', state.token); state.user = data.user; showDashboard();
-    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); if (els.scheduleDateInput && !els.scheduleDateInput.value) els.scheduleDateInput.value = new Date().toLocaleDateString('en-CA', { timeZone:'America/Mazatlan' }); await loadSchedules(els.scheduleDateInput?.value || ''); resetReportForm(); resetCompanyForm(); notify(`Bienvenido, ${state.user.nombre}.`);
+    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); await loadSchedules(); await loadNotifications(); resetReportForm(); resetCompanyForm(); if (els.scheduleDateInput && !els.scheduleDateInput.value) els.scheduleDateInput.value = new Date().toISOString().slice(0,10); notify(`Bienvenido, ${state.user.nombre}.`);
   } catch (error) { if (els.loginError) { els.loginError.textContent = error.message; els.loginError.classList.remove('hidden'); } else notify(error.message,true); }
 });
 
@@ -691,6 +659,10 @@ els.registerForm?.addEventListener('submit', async (e) => {
 });
 
 els.logoutBtn?.addEventListener('click', () => { localStorage.removeItem('carlabToken'); state.token = ''; state.user = null; showLogin(); });
+els.globalRefreshBtn?.addEventListener('click', async () => { await Promise.all([loadGarantias(), loadSchedules(els.scheduleDateInput?.value || ''), loadNotifications()]); notify('Datos actualizados.'); });
+els.opNavHomeBtn?.addEventListener('click', () => switchPanel('board'));
+els.opNavNewBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); });
+els.opNavScheduleBtn?.addEventListener('click', async () => { await loadSchedules(els.scheduleDateInput?.value || ''); switchPanel('schedule'); });
 els.navBoardBtn?.addEventListener('click', () => switchPanel('board'));
 els.navNewReportBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); });
 els.navAnalyticsBtn?.addEventListener('click', () => switchPanel('analytics'));
@@ -704,21 +676,10 @@ els.userCancelEditBtn?.addEventListener('click', resetUserForm);
 els.companyCancelEditBtn?.addEventListener('click', resetCompanyForm);
 els.unitHistoryBtn?.addEventListener('click', renderUnitHistory);
 els.scheduleRefreshBtn?.addEventListener('click', async () => { await loadSchedules(els.scheduleDateInput?.value || ''); switchPanel('schedule'); });
-els.refreshAllBtn?.addEventListener('click', async () => {
-  try {
-    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); await loadSchedules(els.scheduleDateInput?.value || '');
-    notify('Datos actualizados.');
-  } catch (error) { notify(error.message, true); }
-});
-els.mobileHomeBtn?.addEventListener('click', () => switchPanel('board'));
-els.mobileNewBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); els.mobileNewBtn?.classList.add('active'); });
-els.mobileAgendaBtn?.addEventListener('click', async () => { await loadSchedules(els.scheduleDateInput?.value || ''); switchPanel('schedule'); });
-els.mobileReportsBtn?.addEventListener('click', () => switchPanel('board'));
-
 
 els.reportForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
-  try { await api.createGarantia(reportPayload()); notify('Reporte enviado. Ya cayó al sistema.'); resetReportForm(); await loadGarantias(); switchPanel(isRole('operador') ? 'board' : 'board'); }
+  try { await api.createGarantia(reportPayload()); notify('Reporte enviado. Ya cayó al sistema.'); resetReportForm(); switchPanel('board'); await loadGarantias(); }
   catch (error) { notify(error.message, true); }
 });
 
@@ -751,16 +712,17 @@ els.companyForm?.addEventListener('submit', async (e) => {
   if (!state.token) return showLogin();
   try {
     const data = await api.me(); state.user = data.user; showDashboard();
-    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); if (els.scheduleDateInput && !els.scheduleDateInput.value) els.scheduleDateInput.value = new Date().toLocaleDateString('en-CA', { timeZone:'America/Mazatlan' }); await loadSchedules(els.scheduleDateInput?.value || ''); resetReportForm(); resetCompanyForm(); applyOperatorMode();
+    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); await loadSchedules(); await loadNotifications(); resetReportForm(); resetCompanyForm(); if (els.scheduleDateInput && !els.scheduleDateInput.value) els.scheduleDateInput.value = new Date().toISOString().slice(0,10);
   } catch {
     localStorage.removeItem('carlabToken'); state.token = ''; showLogin();
   }
 })();
 
+
 setInterval(async () => {
   if (!state.token || !state.user) return;
   try {
-    await loadSchedules(els.scheduleDateInput?.value || '');
-    renderAlerts();
+    await loadNotifications();
+    if (state.activePanel === 'schedule') await loadSchedules(els.scheduleDateInput?.value || '');
   } catch {}
 }, 30000);
