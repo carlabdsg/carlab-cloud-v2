@@ -5,6 +5,7 @@ const state = {
   users: [],
   companies: [],
   registrationRequests: [],
+  schedules: [],
   currentEvidence: [],
   currentRefEvidence: [],
   drawing: false,
@@ -131,8 +132,8 @@ async function fileToCompressedDataUrl(file, maxSide = 1600, quality = 0.78) {
 }
 function drawPreviews(container, items) { if (!container) return; container.innerHTML = ''; items.forEach(src => { const img = document.createElement('img'); img.src = src; container.appendChild(img); }); }
 
-els.evidencias?.addEventListener('change', async e => { state.currentEvidence = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file))); drawPreviews(els.previewEvidencias, state.currentEvidence); });
-els.evidenciasRefaccion?.addEventListener('change', async e => { state.currentRefEvidence = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file))); drawPreviews(els.previewRefaccion, state.currentRefEvidence); });
+els.evidencias?.addEventListener('change', async e => { const added = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file))); state.currentEvidence = [...state.currentEvidence, ...added]; drawPreviews(els.previewEvidencias, state.currentEvidence); e.target.value=''; });
+els.evidenciasRefaccion?.addEventListener('change', async e => { const added = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file))); state.currentRefEvidence = [...state.currentRefEvidence, ...added]; drawPreviews(els.previewRefaccion, state.currentRefEvidence); e.target.value=''; });
 els.solicitaRefaccion?.addEventListener('change', () => els.refaccionFields?.classList.toggle('hidden', !els.solicitaRefaccion.checked));
 
 function resetReportForm() {
@@ -194,11 +195,12 @@ function updateHeaderForRole() {
   if (els.roleBrief) els.roleBrief.innerHTML = copy.panels.map(([title, desc]) => `<article><strong>${escapeHtml(title)}</strong><span>${escapeHtml(desc)}</span></article>`).join('');
 }
 function setActiveNav(activeBtn) {
-  [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
+  [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navScheduleBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
   if (activeBtn && !activeBtn.classList.contains('hidden')) activeBtn.classList.add('active');
 }
 function switchPanel(panel) {
   state.activePanel = panel;
+  document.getElementById('boardPanel')?.classList.toggle('hidden', panel !== 'board');
   els.reportFormPanel?.classList.toggle('hidden', panel !== 'report');
   els.usersPanel?.classList.toggle('hidden', panel !== 'users');
   els.requestsPanel?.classList.toggle('hidden', panel !== 'requests');
@@ -578,6 +580,7 @@ els.navBoardBtn?.addEventListener('click', () => switchPanel('board'));
 els.navNewReportBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); });
 els.navAnalyticsBtn?.addEventListener('click', () => switchPanel('analytics'));
 els.navHistoryBtn?.addEventListener('click', () => switchPanel('history'));
+els.navScheduleBtn?.addEventListener('click', async () => { switchPanel('schedule'); await loadSchedules(); });
 els.navUsersBtn?.addEventListener('click', async () => { switchPanel('users'); await loadUsers(); });
 els.navRequestsBtn?.addEventListener('click', async () => { switchPanel('requests'); await loadRequests(); });
 els.navCompaniesBtn?.addEventListener('click', async () => { switchPanel('companies'); await loadCompanies(); });
@@ -585,6 +588,7 @@ els.cancelReportBtn?.addEventListener('click', () => { resetReportForm(); switch
 els.userCancelEditBtn?.addEventListener('click', resetUserForm);
 els.companyCancelEditBtn?.addEventListener('click', resetCompanyForm);
 els.unitHistoryBtn?.addEventListener('click', renderUnitHistory);
+els.scheduleRefreshBtn?.addEventListener('click', async () => { await loadSchedules(); });
 
 els.reportForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -626,24 +630,3 @@ els.companyForm?.addEventListener('submit', async (e) => {
     localStorage.removeItem('carlabToken'); state.token = ''; showLogin();
   }
 })();
-
-
-// ===== PROGRAMAR UNIDAD =====
-async function programarUnidad(r){
-  await fetch('/api/programar',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      telefono:r.telefono,
-      folio:r.folio
-    })
-  });
-  alert('Solicitud enviada por WhatsApp');
-}
-
-// ===== CARGAR AGENDA =====
-async function cargarAgenda(){
-  const res = await fetch('/api/schedules');
-  const data = await res.json();
-  console.log('AGENDA:', data);
-}
