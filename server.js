@@ -3,6 +3,7 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
+const twilio = require('twilio');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,6 +13,10 @@ const ADMIN_NAME = process.env.ADMIN_NAME || 'Administrador Carlab';
 const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'admin@carlab.local').toLowerCase();
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin123*';
 const DEFAULT_COMPANIES = (process.env.DEFAULT_COMPANIES || 'Autobuses Norte de Sinaloa,Carlab Demo,Transportes del Pacífico').split(',').map(s => s.trim()).filter(Boolean);
+const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || '';
+const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
+const TWILIO_WHATSAPP_NUMBER = process.env.TWILIO_WHATSAPP_NUMBER || '';
+const APP_BASE_URL = (process.env.APP_BASE_URL || '').replace(/\/$/, '');
 
 if (!DATABASE_URL) {
   console.error('Falta DATABASE_URL');
@@ -42,6 +47,7 @@ function signToken(user) {
 function sanitizeUser(row) {
   return {
     id: row.id,
+    folio: row.folio || '',
     nombre: row.nombre,
     email: row.email,
     role: row.role,
@@ -88,11 +94,8 @@ function mapGarantia(row) {
 function mapCompany(row) {
   return {
     id: row.id,
+    folio: row.folio || '',
     nombre: row.nombre,
-    contacto: row.contacto || '',
-    telefono: row.telefono || '',
-    email: row.email || '',
-    notas: row.notas || '',
     activo: row.activo,
     createdAt: row.created_at,
   };
@@ -101,6 +104,7 @@ function mapCompany(row) {
 function mapRegistrationRequest(row) {
   return {
     id: row.id,
+    folio: row.folio || '',
     nombre: row.nombre,
     email: row.email,
     telefono: row.telefono || '',
@@ -111,6 +115,83 @@ function mapRegistrationRequest(row) {
     createdAt: row.created_at,
     reviewedAt: row.reviewed_at,
   };
+}
+
+
+const twilioClient = (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) ? twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN) : null;
+
+function normalizeWhatsAppNumber(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+  if (value.startsWith('whatsapp:')) return value;
+  let digits = value.replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.length === 10) {
+    digits = '52' + digits;
+  } else if (digits.startsWith('1') && digits.length === 11) {
+    digits = '52' + digits.slice(1);
+  } else if (digits.startsWith('521') && digits.length === 13) {
+    digits = digits;
+  } else if (digits.startsWith('52') && digits.length === 12) {
+    digits = digits;
+  } else if (digits.length < 12) {
+    digits = '52' + digits;
+  }
+  return 'whatsapp:+' + digits
+}
+
+function reportLink(item) {
+  if (!APP_BASE_URL) return '';
+  const unit = encodeURIComponent(item.numero_economico || item.numeroEconomico || '');
+  return `${APP_BASE_URL}/?folio=${encodeURIComponent(item.folio || '')}&unidad=${unit}`;
+}
+
+async function sendWhatsAppMessage(to, body) {
+  if (!twilioClient || !TWILIO_WHATSAPP_NUMBER) return { skipped: true, reason: 'twilio_not_configured' };
+  const target = normalizeWhatsAppNumber(to);
+  if (!target) return { skipped: true, reason: 'no_phone' };
+  try {
+    const msg = await twilioClient.messages.create({
+      from: TWILIO_WHATSAPP_NUMBER,
+      to: target,
+      body,
+    });
+    return { sid: msg.sid };
+  } catch (error) {
+    console.error('WhatsApp Twilio error:', error?.message || error);
+    return { skipped: true, reason: error?.message || 'send_failed' };
+  }
+}
+
+async function notifyGarantiaWhatsApp(eventKey, garantiaLike) {
+  const item = garantiaLike;
+  const phone = item.telefono || item.contacto_telefono || '';
+  const link = reportLink(item);
+  let body = '';
+  const fallo = item.descripcion_fallo || item.descripcionFallo || 'Sin descripción';
+  const unidad = item.numero_economico || item.numeroEconomico || '—';
+  const empresa = item.empresa || '—';
+  const folio = item.folio || '—';
+  const motivo = item.motivo_decision || item.motivoDecision || item.observaciones_operativo || item.observacionesOperativo || '';
+  const refa = item.detalle_refaccion || item.detalleRefaccion || '';
+  if (eventKey === 'created') {
+    body = `🛠️ *CARLAB GARANTÍAS*\n\nTu reporte fue recibido correctamente.\n\n*Folio:* ${folio}\n*Unidad:* ${unidad}\n*Empresa:* ${empresa}\n*Falla:* ${fallo}\n*Estatus:* Nueva`;
+  } else if (eventKey === 'accepted') {
+    body = `✅ *CARLAB GARANTÍAS*\n\nTu reporte *${folio}* fue *ACEPTADO*.\n\n*Unidad:* ${unidad}\n*Empresa:* ${empresa}\n*Estatus actual:* ${item.estatus_operativo || item.estatusOperativo || 'en proceso'}`;
+  } else if (eventKey === 'rejected') {
+    body = `⚠️ *CARLAB GARANTÍAS*\n\nTu reporte *${folio}* fue *RECHAZADO*.\n\n*Unidad:* ${unidad}\n*Motivo:* ${motivo || 'No especificado'}`;
+  } else if (eventKey === 'pending_review') {
+    body = `🕓 *CARLAB GARANTÍAS*\n\nTu reporte *${folio}* está *PENDIENTE DE REVISIÓN*.\n\n*Unidad:* ${unidad}`;
+  } else if (eventKey === 'in_progress') {
+    body = `🔧 *CARLAB GARANTÍAS*\n\nTu reporte *${folio}* ya está *EN PROCESO*.\n\n*Unidad:* ${unidad}`;
+  } else if (eventKey === 'waiting_parts') {
+    body = `📦 *CARLAB GARANTÍAS*\n\nTu reporte *${folio}* está en *ESPERA DE REFACCIÓN*.\n\n*Unidad:* ${unidad}` + (refa ? `\n*Detalle:* ${refa}` : '');
+  } else if (eventKey === 'finished') {
+    body = `🎉 *CARLAB GARANTÍAS*\n\nTu reporte *${folio}* ya fue *TERMINADO*.\n\n*Unidad:* ${unidad}\n*Empresa:* ${empresa}`;
+  }
+  if (!body) return { skipped: true, reason: 'no_template' };
+  if (link) body += `\n\nVer sistema: ${link}`;
+  return sendWhatsAppMessage(phone, body);
 }
 
 function authRequired(req, res, next) {
@@ -143,8 +224,8 @@ async function addAuditLog(garantiaId, userId, accion, detalle) {
 }
 
 async function nextGarantiaFolio() {
-  const result = await pool.query('SELECT COALESCE(MAX(CAST(SUBSTRING(folio FROM 5) AS INTEGER)), 0) + 1 AS next FROM garantias');
-  const next = result.rows[0]?.next || 1;
+  const result = await pool.query("SELECT COUNT(*)::int AS total FROM garantias");
+  const next = (result.rows[0]?.total || 0) + 1;
   return `GAR-${String(next).padStart(5, '0')}`;
 }
 
@@ -232,13 +313,13 @@ async function initDb() {
     );
 
     ALTER TABLE users ADD COLUMN IF NOT EXISTS empresa TEXT;
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS telefono TEXT;
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
     ALTER TABLE companies ADD COLUMN IF NOT EXISTS contacto TEXT;
     ALTER TABLE companies ADD COLUMN IF NOT EXISTS telefono TEXT;
     ALTER TABLE companies ADD COLUMN IF NOT EXISTS email TEXT;
     ALTER TABLE companies ADD COLUMN IF NOT EXISTS notas TEXT;
     ALTER TABLE garantias ADD COLUMN IF NOT EXISTS folio TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS telefono TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
     ALTER TABLE garantias ADD COLUMN IF NOT EXISTS kilometraje TEXT;
     ALTER TABLE garantias ADD COLUMN IF NOT EXISTS contacto_nombre TEXT;
     ALTER TABLE garantias ADD COLUMN IF NOT EXISTS telefono TEXT;
@@ -273,14 +354,16 @@ async function initDb() {
   }
 }
 
-app.get('/api/health', async (_req, res) => {
-  try {
-    const result = await pool.query('SELECT NOW() AS now');
-    res.json({ ok: true, db: result.rows[0].now });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ ok: false, error: 'No hubo conexión con la base.' });
-  }
+let dbReady = false;
+let dbInitError = null;
+
+app.get('/api/health', (_req, res) => {
+  res.json({
+    ok: true,
+    service: 'carlab-cloud-v2',
+    dbReady,
+    dbInitError: dbInitError ? 'db_init_failed' : null
+  });
 });
 
 app.get('/api/public/companies', async (_req, res) => {
@@ -370,12 +453,7 @@ app.post('/api/companies', authRequired, requireRoles('admin'), async (req, res)
   const result = await pool.query(
     `INSERT INTO companies (id, nombre, contacto, telefono, email, notas, activo)
      VALUES ($1,$2,$3,$4,$5,$6,TRUE)
-     ON CONFLICT (nombre) DO UPDATE SET
-       contacto = EXCLUDED.contacto,
-       telefono = EXCLUDED.telefono,
-       email = EXCLUDED.email,
-       notas = EXCLUDED.notas,
-       activo = TRUE
+     ON CONFLICT (nombre) DO UPDATE SET contacto = EXCLUDED.contacto, telefono = EXCLUDED.telefono, email = EXCLUDED.email, notas = EXCLUDED.notas, activo = TRUE
      RETURNING *`,
     [cryptoRandomId(), nombre, contacto, telefono, email, notas]
   );
@@ -393,31 +471,29 @@ app.patch('/api/companies/:id', authRequired, requireRoles('admin'), async (req,
   const exists = await pool.query('SELECT id FROM companies WHERE nombre = $1 AND id <> $2', [nombre, req.params.id]);
   if (exists.rowCount) return res.status(400).json({ error: 'Ya existe otra empresa con ese nombre.' });
   const result = await pool.query(
-    `UPDATE companies
-     SET nombre = $2, contacto = $3, telefono = $4, email = $5, notas = $6, activo = $7
-     WHERE id = $1
-     RETURNING *`,
+    `UPDATE companies SET nombre = $2, contacto = $3, telefono = $4, email = $5, notas = $6, activo = $7
+     WHERE id = $1 RETURNING *`,
     [req.params.id, nombre, contacto, telefono, email, notas, activo]
   );
   if (!result.rowCount) return res.status(404).json({ error: 'Empresa no encontrada.' });
   res.json(mapCompany(result.rows[0]));
 });
 
+app.delete('/api/companies/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  const company = await pool.query('SELECT * FROM companies WHERE id = $1', [req.params.id]);
+  if (!company.rowCount) return res.status(404).json({ error: 'Empresa no encontrada.' });
+  const linked = await pool.query('SELECT COUNT(*)::int AS total FROM garantias WHERE empresa = $1', [company.rows[0].nombre]);
+  if ((linked.rows[0]?.total || 0) > 0) {
+    return res.status(400).json({ error: 'Esta empresa ya tiene historial. Mejor desactívala.' });
+  }
+  await pool.query('DELETE FROM companies WHERE id = $1', [req.params.id]);
+  res.json({ ok: true });
+});
+
 app.patch('/api/companies/:id/deactivate', authRequired, requireRoles('admin'), async (req, res) => {
   const result = await pool.query('UPDATE companies SET activo = FALSE WHERE id = $1 RETURNING *', [req.params.id]);
   if (!result.rowCount) return res.status(404).json({ error: 'Empresa no encontrada.' });
   res.json(mapCompany(result.rows[0]));
-});
-
-app.delete('/api/companies/:id', authRequired, requireRoles('admin'), async (req, res) => {
-  const current = await pool.query('SELECT * FROM companies WHERE id = $1', [req.params.id]);
-  if (!current.rowCount) return res.status(404).json({ error: 'Empresa no encontrada.' });
-  const linked = await pool.query('SELECT COUNT(*)::int AS total FROM garantias WHERE empresa = $1', [current.rows[0].nombre]);
-  if ((linked.rows[0]?.total || 0) > 0) {
-    return res.status(400).json({ error: 'Esta empresa tiene historial. Mejor desactívala.' });
-  }
-  await pool.query('DELETE FROM companies WHERE id = $1', [req.params.id]);
-  res.json({ ok: true });
 });
 
 app.get('/api/registration-requests', authRequired, requireRoles('admin'), async (_req, res) => {
@@ -557,10 +633,8 @@ app.get('/api/garantias', authRequired, async (req, res) => {
     query += ' WHERE reportado_por_id = $1';
     params.push(req.user.id);
   } else if (req.user.role === 'supervisor') {
-    const me = await pool.query('SELECT empresa FROM users WHERE id = $1 AND deleted_at IS NULL', [req.user.id]);
-    const empresa = me.rows[0]?.empresa || '';
     query += ' WHERE empresa = $1';
-    params.push(empresa);
+    params.push(req.user.empresa || '');
   }
   query += ' ORDER BY created_at DESC';
   const result = await pool.query(query, params);
@@ -611,6 +685,7 @@ app.post('/api/garantias', authRequired, requireRoles('operador', 'admin'), asyn
   );
 
   await addAuditLog(id, req.user.id, 'crear_reporte', `Reporte creado por ${req.user.nombre}`);
+  notifyGarantiaWhatsApp('created', result.rows[0]).catch(() => {});
   res.status(201).json(mapGarantia(result.rows[0]));
 });
 
@@ -649,6 +724,9 @@ app.patch('/api/garantias/:id/review', authRequired, requireRoles('operativo', '
   );
 
   await addAuditLog(req.params.id, req.user.id, 'revision', `${req.user.nombre} cambió a ${estatusValidacion}`);
+  if (estatusValidacion === 'aceptada') notifyGarantiaWhatsApp('accepted', result.rows[0]).catch(() => {});
+  if (estatusValidacion === 'rechazada') notifyGarantiaWhatsApp('rejected', result.rows[0]).catch(() => {});
+  if (estatusValidacion === 'pendiente de revisión') notifyGarantiaWhatsApp('pending_review', result.rows[0]).catch(() => {});
   res.json(mapGarantia(result.rows[0]));
 });
 
@@ -677,6 +755,9 @@ app.patch('/api/garantias/:id/operational', authRequired, requireRoles('operativ
   );
 
   await addAuditLog(req.params.id, req.user.id, 'estatus_operativo', `${req.user.nombre} cambió operativo a ${estatusOperativo}`);
+  if (estatusOperativo === 'en proceso') notifyGarantiaWhatsApp('in_progress', result.rows[0]).catch(() => {});
+  if (estatusOperativo === 'espera refacción') notifyGarantiaWhatsApp('waiting_parts', result.rows[0]).catch(() => {});
+  if (estatusOperativo === 'terminada') notifyGarantiaWhatsApp('finished', result.rows[0]).catch(() => {});
   res.json(mapGarantia(result.rows[0]));
 });
 
@@ -689,6 +770,10 @@ app.delete('/api/garantias/:id', authRequired, requireRoles('admin'), async (req
 });
 
 app.get('/api/audit/:garantiaId', authRequired, requireRoles('admin', 'operativo', 'supervisor'), async (req, res) => {
+  if (req.user.role === 'supervisor') {
+    const allowed = await pool.query('SELECT id FROM garantias WHERE id = $1 AND empresa = $2', [req.params.garantiaId, req.user.empresa || '']);
+    if (!allowed.rowCount) return res.status(403).json({ error: 'No tienes acceso a esta garantía.' });
+  }
   const result = await pool.query(
     `SELECT a.*, u.nombre AS user_nombre, u.email AS user_email
      FROM audit_logs a
@@ -701,16 +786,14 @@ app.get('/api/audit/:garantiaId', authRequired, requireRoles('admin', 'operativo
 });
 
 app.get('/api/history/unit/:numeroEconomico', authRequired, requireRoles('admin', 'operativo', 'supervisor'), async (req, res) => {
-  let query = `SELECT * FROM garantias WHERE numero_economico = $1`;
+  let sql = 'SELECT * FROM garantias WHERE numero_economico = $1';
   const params = [req.params.numeroEconomico];
   if (req.user.role === 'supervisor') {
-    const me = await pool.query('SELECT empresa FROM users WHERE id = $1 AND deleted_at IS NULL', [req.user.id]);
-    const empresa = me.rows[0]?.empresa || '';
-    query += ' AND empresa = $2';
-    params.push(empresa);
+    sql += ' AND empresa = $2';
+    params.push(req.user.empresa || '');
   }
-  query += ' ORDER BY created_at DESC';
-  const result = await pool.query(query, params);
+  sql += ' ORDER BY created_at DESC';
+  const result = await pool.query(sql, params);
   res.json(result.rows.map(mapGarantia));
 });
 
@@ -718,11 +801,15 @@ app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-initDb()
-  .then(() => {
-    app.listen(PORT, () => console.log(`CARLAB CLOUD V3 Fase 3 corriendo en puerto ${PORT}`));
-  })
-  .catch((error) => {
-    console.error('No se pudo inicializar la base:', error);
-    process.exit(1);
-  });
+app.listen(PORT, () => {
+  console.log(`CARLAB CLOUD V3.6 corriendo en puerto ${PORT}`);
+  initDb()
+    .then(() => {
+      dbReady = true;
+      console.log('Base de datos inicializada.');
+    })
+    .catch((error) => {
+      dbInitError = error;
+      console.error('No se pudo inicializar la base:', error);
+    });
+});

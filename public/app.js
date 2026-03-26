@@ -126,16 +126,26 @@ async function fileToCompressedDataUrl(file, maxSide = 1600, quality = 0.78) {
   const cx = canvas.getContext('2d'); cx.drawImage(img, 0, 0, canvas.width, canvas.height);
   return canvas.toDataURL('image/jpeg', quality);
 }
-function drawPreviews(container, items) { if (!container) return; container.innerHTML = ''; items.forEach(src => { const img = document.createElement('img'); img.src = src; container.appendChild(img); }); }
+function drawPreviews(container, items, type = 'general') { if (!container) return; container.innerHTML = ''; items.forEach((src, index) => { const wrap = document.createElement('div'); wrap.className = 'preview-item'; const img = document.createElement('img'); img.src = src; const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'preview-remove'; remove.textContent = '×'; remove.title = 'Quitar foto'; remove.addEventListener('click', () => { if (type === 'refaccion') { state.currentRefEvidence = state.currentRefEvidence.filter((_, i) => i !== index); drawPreviews(container, state.currentRefEvidence, 'refaccion'); } else { state.currentEvidence = state.currentEvidence.filter((_, i) => i !== index); drawPreviews(container, state.currentEvidence, 'general'); } }); wrap.appendChild(img); wrap.appendChild(remove); container.appendChild(wrap); }); }
 
-els.evidencias?.addEventListener('change', async e => { state.currentEvidence = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file))); drawPreviews(els.previewEvidencias, state.currentEvidence); });
-els.evidenciasRefaccion?.addEventListener('change', async e => { state.currentRefEvidence = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file))); drawPreviews(els.previewRefaccion, state.currentRefEvidence); });
+els.evidencias?.addEventListener('change', async e => {
+  const nuevos = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file)));
+  state.currentEvidence = [...state.currentEvidence, ...nuevos].slice(0, 20);
+  drawPreviews(els.previewEvidencias, state.currentEvidence, 'general');
+  e.target.value = '';
+});
+els.evidenciasRefaccion?.addEventListener('change', async e => {
+  const nuevos = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file)));
+  state.currentRefEvidence = [...state.currentRefEvidence, ...nuevos].slice(0, 20);
+  drawPreviews(els.previewRefaccion, state.currentRefEvidence, 'refaccion');
+  e.target.value = '';
+});
 els.solicitaRefaccion?.addEventListener('change', () => els.refaccionFields?.classList.toggle('hidden', !els.solicitaRefaccion.checked));
 
 function resetReportForm() {
   els.reportForm?.reset();
   state.currentEvidence = []; state.currentRefEvidence = [];
-  drawPreviews(els.previewEvidencias, []); drawPreviews(els.previewRefaccion, []);
+  drawPreviews(els.previewEvidencias, [], 'general'); drawPreviews(els.previewRefaccion, [], 'refaccion');
   els.refaccionFields?.classList.add('hidden');
   const radio = document.querySelector('input[name="tipoIncidente"][value="daño"]');
   if (radio) radio.checked = true;
@@ -288,7 +298,6 @@ async function exportPdf(item) {
 
   y = 50;
   doc.setFontSize(11); doc.setTextColor(40, 40, 40);
-  doc.setFillColor(255,255,255); doc.roundedRect(14, 44, 182, 38, 4, 4, 'F');
   doc.text(`Empresa: ${item.empresa || '—'}`, 18, 54);
   doc.text(`Unidad: ${item.numeroEconomico || '—'}`, 18, 62);
   doc.text(`Modelo: ${item.modelo || '—'}`, 18, 70);
@@ -297,7 +306,6 @@ async function exportPdf(item) {
   doc.text(`Estatus: ${item.estatusValidacion || '—'} / ${item.estatusOperativo || '—'}`, 105, 70);
 
   y = 92;
-  doc.roundedRect(14, 86, 182, 24, 4, 4, 'F');
   doc.text(`Nombre: ${item.contactoNombre || '—'}`, 18, 96);
   doc.text(`Teléfono: ${item.telefono || '—'}`, 105, 96);
   doc.text(`Reportó: ${item.reportadoPorNombre || '—'}`, 18, 104);
@@ -325,7 +333,6 @@ async function exportPdf(item) {
     for (const src of images.slice(0, 6)) {
       if (x > 136) { x = 14; y += rowHeight + 8; rowHeight = 0; }
       y = ensurePdfSpace(doc, y, 48);
-      doc.setDrawColor(225,225,230); doc.roundedRect(x, y, 56, 42, 3, 3);
       await addPdfImage(doc, src, x + 1, y + 1, 54, 40);
       x += 60; rowHeight = Math.max(rowHeight, 42);
     }
@@ -333,7 +340,7 @@ async function exportPdf(item) {
   }
   if (item.firma) {
     y = ensurePdfSpace(doc, y, 42); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Firma', 8);
-    doc.setDrawColor(225,225,230); doc.roundedRect(14, y, 90, 28, 3, 3); await addPdfImage(doc, item.firma, 16, y + 2, 86, 24); y += 34;
+    await addPdfImage(doc, item.firma, 16, y + 2, 86, 24); y += 34;
   }
   if (item.estatusValidacion === 'rechazada' && item.observacionesOperativo) {
     y = ensurePdfSpace(doc, y, 24); doc.setFontSize(12); doc.setTextColor(170, 35, 35); textLine('Motivo de rechazo', 8);

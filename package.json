@@ -1,7 +1,7 @@
 {
-  "name": "carlab-cloud-v3-stable",
-  "version": "3.4.1",
-  "description": "CARLAB CLOUD V3 stable reviewed build",
+  "name": "carlab-cloud-v3-6",
+  "version": "3.6.0",
+  "description": "CARLAB CLOUD V3.6 - multi fotos + WhatsApp Twilio",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -14,6 +14,7 @@
     "bcryptjs": "^2.4.3",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
-    "pg": "^8.13.3"
+    "pg": "^8.13.3",
+    "twilio": "^5.4.0"
   }
 }
