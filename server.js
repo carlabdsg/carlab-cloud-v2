@@ -16,13 +16,12 @@ const DEFAULT_COMPANIES = (process.env.DEFAULT_COMPANIES || 'Autobuses Norte de 
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || '';
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
 const TWILIO_WHATSAPP_NUMBER = process.env.TWILIO_WHATSAPP_NUMBER || '';
-const APP_BASE_URL = (process.env.APP_BASE_URL || '').replace(/\/$/, '');
-const WA_TEMPLATE_CREATED_SID = process.env.WA_TEMPLATE_CREATED_SID || 'HXf82c1dd49abe680d58751a33d5958231';
-const WA_TEMPLATE_ACCEPTED_SID = process.env.WA_TEMPLATE_ACCEPTED_SID || '';
-const WA_TEMPLATE_REJECTED_SID = process.env.WA_TEMPLATE_REJECTED_SID || '';
-const WA_TEMPLATE_IN_PROGRESS_SID = process.env.WA_TEMPLATE_IN_PROGRESS_SID || '';
-const WA_TEMPLATE_WAITING_PARTS_SID = process.env.WA_TEMPLATE_WAITING_PARTS_SID || '';
-const WA_TEMPLATE_FINISHED_SID = process.env.WA_TEMPLATE_FINISHED_SID || '';
+const TWILIO_TEMPLATE_REPORTE_RECIBIDO = process.env.TWILIO_TEMPLATE_REPORTE_RECIBIDO || 'HXf82c1dd49abe680d58751a33d5958231';
+const TWILIO_TEMPLATE_REPORTE_ACEPTADO = process.env.TWILIO_TEMPLATE_REPORTE_ACEPTADO || '';
+const TWILIO_TEMPLATE_REPORTE_RECHAZADO = process.env.TWILIO_TEMPLATE_REPORTE_RECHAZADO || '';
+const TWILIO_TEMPLATE_REPORTE_EN_PROCESO = process.env.TWILIO_TEMPLATE_REPORTE_EN_PROCESO || '';
+const TWILIO_TEMPLATE_REPORTE_ESPERA_REFACCION = process.env.TWILIO_TEMPLATE_REPORTE_ESPERA_REFACCION || '';
+const TWILIO_TEMPLATE_REPORTE_TERMINADO = process.env.TWILIO_TEMPLATE_REPORTE_TERMINADO || '';
 
 if (!DATABASE_URL) {
   console.error('Falta DATABASE_URL');
@@ -42,9 +41,78 @@ function cryptoRandomId() {
   return global.crypto?.randomUUID?.() || `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 }
 
+const twilioClient = TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN ? twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN) : null;
+
+function normalizeMxPhone(raw) {
+  const digits = String(raw || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('521') && digits.length >= 13) return digits;
+  if (digits.startsWith('52') && digits.length === 12) return `521${digits.slice(2)}`;
+  if (digits.length === 10) return `521${digits}`;
+    return digits;
+}
+
+function buildWhatsappTo(raw) {
+  const normalized = normalizeMxPhone(raw);
+  return normalized ? `whatsapp:+${normalized}` : '';
+}
+
+function buildWhatsappFrom(raw) {
+  const value = String(raw || '').trim().replace(/\s+/g, '');
+  if (!value) return '';
+  if (value.startsWith('whatsapp:')) {
+    const body = value.slice('whatsapp:'.length).replace(/\s+/g, '');
+    return body.startsWith('+') ? `whatsapp:${body}` : `whatsapp:+${body.replace(/^\+?/, '')}`;
+  }
+  return value.startsWith('+') ? `whatsapp:${value}` : `whatsapp:+${value.replace(/^\+?/, '')}`;
+}
+
+async function sendWhatsAppTemplate({ telefono, contentSid, variables }) {
+  const from = buildWhatsappFrom(TWILIO_WHATSAPP_NUMBER);
+  if (!twilioClient || !from || !contentSid) return;
+  const to = buildWhatsappTo(telefono);
+  if (!to) return;
+  await twilioClient.messages.create({
+    from,
+    to,
+    contentSid,
+    contentVariables: JSON.stringify(variables || {}),
+  });
+}
+
+async function notifyGarantiaWhatsApp(eventName, garantia) {
+  if (!garantia || !garantia.telefono) return;
+  const eventMap = {
+    created: TWILIO_TEMPLATE_REPORTE_RECIBIDO,
+    accepted: TWILIO_TEMPLATE_REPORTE_ACEPTADO,
+    rejected: TWILIO_TEMPLATE_REPORTE_RECHAZADO,
+    in_process: TWILIO_TEMPLATE_REPORTE_EN_PROCESO,
+    waiting_parts: TWILIO_TEMPLATE_REPORTE_ESPERA_REFACCION,
+    finished: TWILIO_TEMPLATE_REPORTE_TERMINADO,
+  };
+  const contentSid = eventMap[eventName];
+  if (!contentSid) return;
+  try {
+    await sendWhatsAppTemplate({
+      telefono: garantia.telefono,
+      contentSid,
+      variables: {
+        folio: garantia.folio || '',
+        unidad: garantia.numero_economico || garantia.numeroEconomico || '',
+        empresa: garantia.empresa || '',
+        falla: garantia.descripcion_fallo || garantia.descripcionFallo || '',
+        motivo: garantia.motivo_decision || garantia.motivoDecision || '',
+        refaccion: garantia.detalle_refaccion || garantia.detalleRefaccion || '',
+      },
+    });
+  } catch (error) {
+    console.error(`Error enviando WhatsApp (${eventName}):`, error.message);
+  }
+}
+
 function signToken(user) {
   return jwt.sign(
-    { id: user.id, email: user.email, role: user.role, nombre: user.nombre },
+    { id: user.id, email: user.email, role: user.role, nombre: user.nombre, empresa: user.empresa || '', telefono: user.telefono || '' },
     JWT_SECRET,
     { expiresIn: '7d' }
   );
@@ -121,165 +189,6 @@ function mapRegistrationRequest(row) {
     createdAt: row.created_at,
     reviewedAt: row.reviewed_at,
   };
-}
-
-
-const twilioClient = (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) ? twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN) : null;
-
-function normalizeStoredPhone(raw) {
-  let digits = String(raw || '').replace(/\D/g, '');
-  if (!digits) return '';
-  if (digits.startsWith('521') && digits.length === 13) return digits;
-  if (digits.startsWith('52') && digits.length === 12) return '521' + digits.slice(2);
-  if (digits.startsWith('1') && digits.length === 11) return '521' + digits.slice(1);
-  if (digits.length === 10) return '521' + digits;
-  if (digits.length < 13 && !digits.startsWith('521')) return '521' + digits.slice(-10);
-  return digits;
-}
-
-function normalizeWhatsAppNumber(raw) {
-  const value = String(raw || '').trim();
-  if (!value) return '';
-  if (value.startsWith('whatsapp:')) return value;
-  const digits = normalizeStoredPhone(value);
-  if (!digits) return '';
-  return 'whatsapp:+' + digits;
-}
-
-function reportLink(item) {
-  if (!APP_BASE_URL) return '';
-  const unit = encodeURIComponent(item.numero_economico || item.numeroEconomico || '');
-  return `${APP_BASE_URL}/?folio=${encodeURIComponent(item.folio || '')}&unidad=${unit}`;
-}
-
-async function sendWhatsAppMessage(to, body) {
-  if (!twilioClient || !TWILIO_WHATSAPP_NUMBER) return { skipped: true, reason: 'twilio_not_configured' };
-  const target = normalizeWhatsAppNumber(to);
-  if (!target) return { skipped: true, reason: 'no_phone' };
-  try {
-    const msg = await twilioClient.messages.create({
-      from: TWILIO_WHATSAPP_NUMBER,
-      to: target,
-      body,
-    });
-    return { sid: msg.sid };
-  } catch (error) {
-    console.error('WhatsApp Twilio error:', error?.message || error);
-    return { skipped: true, reason: error?.message || 'send_failed' };
-  }
-}
-
-async function sendWhatsAppTemplate(to, contentSid, variables) {
-  if (!twilioClient || !TWILIO_WHATSAPP_NUMBER || !contentSid) return { skipped: true, reason: 'template_not_configured' };
-  const target = normalizeWhatsAppNumber(to);
-  if (!target) return { skipped: true, reason: 'no_phone' };
-  try {
-    const msg = await twilioClient.messages.create({
-      from: TWILIO_WHATSAPP_NUMBER,
-      to: target,
-      contentSid,
-      contentVariables: JSON.stringify(variables || {}),
-    });
-    return { sid: msg.sid };
-  } catch (error) {
-    console.error('WhatsApp template error:', error?.message || error);
-    return { skipped: true, reason: error?.message || 'template_send_failed' };
-  }
-}
-
-async function notifyGarantiaWhatsApp(eventKey, garantiaLike) {
-  const item = garantiaLike || {};
-  const phone = item.telefono || item.contacto_telefono || '';
-  const link = reportLink(item);
-  const fallo = item.descripcion_fallo || item.descripcionFallo || 'Sin descripcion';
-  const unidad = item.numero_economico || item.numeroEconomico || '—';
-  const empresa = item.empresa || '—';
-  const folio = item.folio || '—';
-  const motivo = item.motivo_decision || item.motivoDecision || item.observaciones_operativo || item.observacionesOperativo || 'No especificado';
-  const refa = item.detalle_refaccion || item.detalleRefaccion || '';
-
-  if (eventKey === 'created' && WA_TEMPLATE_CREATED_SID) {
-    return sendWhatsAppTemplate(phone, WA_TEMPLATE_CREATED_SID, {
-      folio,
-      unidad,
-      empresa,
-      falla: fallo,
-    });
-  }
-  if (eventKey === 'accepted' && WA_TEMPLATE_ACCEPTED_SID) {
-    return sendWhatsAppTemplate(phone, WA_TEMPLATE_ACCEPTED_SID, { folio, unidad, empresa });
-  }
-  if (eventKey === 'rejected' && WA_TEMPLATE_REJECTED_SID) {
-    return sendWhatsAppTemplate(phone, WA_TEMPLATE_REJECTED_SID, { folio, unidad, motivo });
-  }
-  if (eventKey === 'in_progress' && WA_TEMPLATE_IN_PROGRESS_SID) {
-    return sendWhatsAppTemplate(phone, WA_TEMPLATE_IN_PROGRESS_SID, { folio, unidad });
-  }
-  if (eventKey === 'waiting_parts' && WA_TEMPLATE_WAITING_PARTS_SID) {
-    return sendWhatsAppTemplate(phone, WA_TEMPLATE_WAITING_PARTS_SID, { folio, unidad, refaccion: refa || 'Pendiente' });
-  }
-  if (eventKey === 'finished' && WA_TEMPLATE_FINISHED_SID) {
-    return sendWhatsAppTemplate(phone, WA_TEMPLATE_FINISHED_SID, { folio, unidad, empresa });
-  }
-
-  let body = '';
-  if (eventKey === 'created') {
-    body = `CARLAB GARANTIAS
-
-Tu reporte fue recibido.
-
-Folio: ${folio}
-Unidad: ${unidad}
-Empresa: ${empresa}
-Falla: ${fallo}
-
-Estatus: Nueva`;
-  } else if (eventKey === 'accepted') {
-    body = `CARLAB GARANTIAS
-
-Tu reporte ${folio} fue ACEPTADO.
-
-Unidad: ${unidad}
-Empresa: ${empresa}`;
-  } else if (eventKey === 'rejected') {
-    body = `CARLAB GARANTIAS
-
-Tu reporte ${folio} fue RECHAZADO.
-
-Unidad: ${unidad}
-Motivo: ${motivo}`;
-  } else if (eventKey === 'pending_review') {
-    body = `CARLAB GARANTIAS
-
-Tu reporte ${folio} esta PENDIENTE DE REVISION.
-
-Unidad: ${unidad}`;
-  } else if (eventKey === 'in_progress') {
-    body = `CARLAB GARANTIAS
-
-Tu reporte ${folio} ya esta EN PROCESO.
-
-Unidad: ${unidad}`;
-  } else if (eventKey === 'waiting_parts') {
-    body = `CARLAB GARANTIAS
-
-Tu reporte ${folio} esta en ESPERA DE REFACCION.
-
-Unidad: ${unidad}` + (refa ? `
-Refaccion: ${refa}` : '');
-  } else if (eventKey === 'finished') {
-    body = `CARLAB GARANTIAS
-
-Tu reporte ${folio} ya fue TERMINADO.
-
-Unidad: ${unidad}
-Empresa: ${empresa}`;
-  }
-  if (!body) return { skipped: true, reason: 'no_message' };
-  if (link) body += `
-
-Ver sistema: ${link}`;
-  return sendWhatsAppMessage(phone, body);
 }
 
 function authRequired(req, res, next) {
@@ -442,16 +351,14 @@ async function initDb() {
   }
 }
 
-let dbReady = false;
-let dbInitError = null;
-
-app.get('/api/health', (_req, res) => {
-  res.json({
-    ok: true,
-    service: 'carlab-cloud-v2',
-    dbReady,
-    dbInitError: dbInitError ? 'db_init_failed' : null
-  });
+app.get('/api/health', async (_req, res) => {
+  try {
+    const result = await pool.query('SELECT NOW() AS now');
+    res.json({ ok: true, db: result.rows[0].now });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ ok: false, error: 'No hubo conexión con la base.' });
+  }
 });
 
 app.get('/api/public/companies', async (_req, res) => {
@@ -462,7 +369,7 @@ app.get('/api/public/companies', async (_req, res) => {
 app.post('/api/public/register-operator', async (req, res) => {
   const nombre = String(req.body.nombre || '').trim();
   const email = String(req.body.email || '').trim().toLowerCase();
-  const telefono = normalizeStoredPhone(req.body.telefono || '');
+  const telefono = normalizeMxPhone(req.body.telefono);
   const empresa = String(req.body.empresa || '').trim();
   const numeroEconomico = String(req.body.numeroEconomico || '').trim();
   const password = String(req.body.password || '');
@@ -533,7 +440,7 @@ app.get('/api/companies', authRequired, requireRoles('admin'), async (_req, res)
 app.post('/api/companies', authRequired, requireRoles('admin'), async (req, res) => {
   const nombre = String(req.body.nombre || '').trim();
   const contacto = String(req.body.contacto || '').trim();
-  const telefono = String(req.body.telefono || '').trim();
+  const telefono = normalizeMxPhone(req.body.telefono);
   const email = String(req.body.email || '').trim().toLowerCase();
   const notas = String(req.body.notas || '').trim();
   if (!nombre) return res.status(400).json({ error: 'El nombre de la empresa es obligatorio.' });
@@ -551,7 +458,7 @@ app.post('/api/companies', authRequired, requireRoles('admin'), async (req, res)
 app.patch('/api/companies/:id', authRequired, requireRoles('admin'), async (req, res) => {
   const nombre = String(req.body.nombre || '').trim();
   const contacto = String(req.body.contacto || '').trim();
-  const telefono = String(req.body.telefono || '').trim();
+  const telefono = normalizeMxPhone(req.body.telefono);
   const email = String(req.body.email || '').trim().toLowerCase();
   const notas = String(req.body.notas || '').trim();
   const activo = req.body.activo !== false;
@@ -619,7 +526,7 @@ app.patch('/api/registration-requests/:id', authRequired, requireRoles('admin'),
     await pool.query(
       `INSERT INTO users (id, nombre, email, password_hash, role, empresa, telefono, activo)
        VALUES ($1,$2,$3,$4,'operador',$5,$6,TRUE)`,
-      [cryptoRandomId(), row.nombre, row.email, row.password_hash, row.empresa, normalizeStoredPhone(row.telefono || '')]
+      [cryptoRandomId(), row.nombre, row.email, row.password_hash, row.empresa, row.telefono || '']
     );
   }
 
@@ -644,7 +551,7 @@ app.post('/api/users', authRequired, requireRoles('admin'), async (req, res) => 
   const password = String(req.body.password || '');
   const role = String(req.body.role || '').trim();
   const empresa = String(req.body.empresa || '').trim();
-  const telefono = normalizeStoredPhone(req.body.telefono || '');
+  const telefono = String(req.body.telefono || '').trim();
 
   if (!nombre || !email || !password || !['operador', 'operativo', 'supervisor', 'admin'].includes(role)) {
     return res.status(400).json({ error: 'Datos de usuario incompletos o inválidos.' });
@@ -675,7 +582,7 @@ app.patch('/api/users/:id', authRequired, requireRoles('admin'), async (req, res
   const role = String(req.body.role || '').trim();
   const password = String(req.body.password || '');
   const empresa = String(req.body.empresa || '').trim();
-  const telefono = normalizeStoredPhone(req.body.telefono || '');
+  const telefono = String(req.body.telefono || '').trim();
 
   if (!nombre || !email || !['operador', 'operativo', 'supervisor', 'admin'].includes(role)) {
     return res.status(400).json({ error: 'Datos de usuario incompletos o inválidos.' });
@@ -720,9 +627,6 @@ app.get('/api/garantias', authRequired, async (req, res) => {
   if (req.user.role === 'operador') {
     query += ' WHERE reportado_por_id = $1';
     params.push(req.user.id);
-  } else if (req.user.role === 'supervisor') {
-    query += ' WHERE empresa = $1';
-    params.push(req.user.empresa || '');
   }
   query += ' ORDER BY created_at DESC';
   const result = await pool.query(query, params);
@@ -758,7 +662,7 @@ app.post('/api/garantias', authRequired, requireRoles('operador', 'admin'), asyn
       body.empresa,
       body.kilometraje || '',
       body.contactoNombre || '',
-      normalizeStoredPhone(body.telefono || ''),
+      normalizeMxPhone(body.telefono),
       body.tipoIncidente,
       body.descripcionFallo,
       !!body.solicitaRefaccion,
@@ -814,7 +718,6 @@ app.patch('/api/garantias/:id/review', authRequired, requireRoles('operativo', '
   await addAuditLog(req.params.id, req.user.id, 'revision', `${req.user.nombre} cambió a ${estatusValidacion}`);
   if (estatusValidacion === 'aceptada') notifyGarantiaWhatsApp('accepted', result.rows[0]).catch(() => {});
   if (estatusValidacion === 'rechazada') notifyGarantiaWhatsApp('rejected', result.rows[0]).catch(() => {});
-  if (estatusValidacion === 'pendiente de revisión') notifyGarantiaWhatsApp('pending_review', result.rows[0]).catch(() => {});
   res.json(mapGarantia(result.rows[0]));
 });
 
@@ -843,7 +746,7 @@ app.patch('/api/garantias/:id/operational', authRequired, requireRoles('operativ
   );
 
   await addAuditLog(req.params.id, req.user.id, 'estatus_operativo', `${req.user.nombre} cambió operativo a ${estatusOperativo}`);
-  if (estatusOperativo === 'en proceso') notifyGarantiaWhatsApp('in_progress', result.rows[0]).catch(() => {});
+  if (estatusOperativo === 'en proceso') notifyGarantiaWhatsApp('in_process', result.rows[0]).catch(() => {});
   if (estatusOperativo === 'espera refacción') notifyGarantiaWhatsApp('waiting_parts', result.rows[0]).catch(() => {});
   if (estatusOperativo === 'terminada') notifyGarantiaWhatsApp('finished', result.rows[0]).catch(() => {});
   res.json(mapGarantia(result.rows[0]));
@@ -858,10 +761,6 @@ app.delete('/api/garantias/:id', authRequired, requireRoles('admin'), async (req
 });
 
 app.get('/api/audit/:garantiaId', authRequired, requireRoles('admin', 'operativo', 'supervisor'), async (req, res) => {
-  if (req.user.role === 'supervisor') {
-    const allowed = await pool.query('SELECT id FROM garantias WHERE id = $1 AND empresa = $2', [req.params.garantiaId, req.user.empresa || '']);
-    if (!allowed.rowCount) return res.status(403).json({ error: 'No tienes acceso a esta garantía.' });
-  }
   const result = await pool.query(
     `SELECT a.*, u.nombre AS user_nombre, u.email AS user_email
      FROM audit_logs a
@@ -874,14 +773,10 @@ app.get('/api/audit/:garantiaId', authRequired, requireRoles('admin', 'operativo
 });
 
 app.get('/api/history/unit/:numeroEconomico', authRequired, requireRoles('admin', 'operativo', 'supervisor'), async (req, res) => {
-  let sql = 'SELECT * FROM garantias WHERE numero_economico = $1';
-  const params = [req.params.numeroEconomico];
-  if (req.user.role === 'supervisor') {
-    sql += ' AND empresa = $2';
-    params.push(req.user.empresa || '');
-  }
-  sql += ' ORDER BY created_at DESC';
-  const result = await pool.query(sql, params);
+  const result = await pool.query(
+    `SELECT * FROM garantias WHERE numero_economico = $1 ORDER BY created_at DESC`,
+    [req.params.numeroEconomico]
+  );
   res.json(result.rows.map(mapGarantia));
 });
 
@@ -889,15 +784,11 @@ app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`CARLAB CLOUD V3.7.1 corriendo en puerto ${PORT}`);
-  initDb()
-    .then(() => {
-      dbReady = true;
-      console.log('Base de datos inicializada.');
-    })
-    .catch((error) => {
-      dbInitError = error;
-      console.error('No se pudo inicializar la base:', error);
-    });
-});
+initDb()
+  .then(() => {
+    app.listen(PORT, () => console.log(`CARLAB CLOUD V3 Fase 3 corriendo en puerto ${PORT}`));
+  })
+  .catch((error) => {
+    console.error('No se pudo inicializar la base:', error);
+    process.exit(1);
+  });

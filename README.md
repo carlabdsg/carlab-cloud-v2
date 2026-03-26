@@ -1,30 +1,69 @@
-# CARLAB CLOUD V3.6
+# CARLAB CLOUD V2 | Fase 2
 
-Versión estable con:
-- Multi fotos en reportes
-- WhatsApp Twilio en creación y cambios de estatus
-- PDF limpio sin la raya gris
-- Supervisor limitado por empresa
+Versión sencilla y lista para internet del flujo de garantías con usuarios y roles.
 
-## Variables nuevas de entorno
+## Qué trae
+- Login
+- Roles: admin, operador, operativo, supervisor
+- Operador crea reportes con evidencias, refacción y firma
+- Operativo acepta, rechaza o deja pendiente
+- Operativo mueve el flujo a en proceso, espera refacción o terminada
+- Supervisor solo ve
+- Admin crea usuarios
+- Historial básico por movimiento
+- PDF por reporte
+- PostgreSQL central para que abra donde abra se vea lo mismo
+
+## Acceso inicial
+Al primer deploy se crea este admin automático:
+- Correo: `admin@carlab.local`
+- Contraseña: `Admin123*`
+
+Cámbialo creando tus usuarios reales desde el panel.
+
+## Roles
+### Operador
+- crea reportes
+- ve solo sus reportes
+
+### Operativo
+- ve todo
+- acepta, rechaza o deja pendiente
+- cambia estatus operativo
+
+### Supervisor
+- ve todo
+- no modifica
+
+### Admin
+- ve todo
+- crea usuarios
+- puede revisar igual que operativo
+
+## Variables de entorno
 - `DATABASE_URL`
-- `NODE_ENV=production`
+- `PORT`
+- `NODE_ENV`
 - `JWT_SECRET`
-- `TWILIO_ACCOUNT_SID`
-- `TWILIO_AUTH_TOKEN`
-- `TWILIO_WHATSAPP_NUMBER` ejemplo `whatsapp:+14155238886` o tu número aprobado
-- `APP_BASE_URL` ejemplo `https://carlab-cloud-v2.onrender.com`
+- `ADMIN_NAME`
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
 
-## WhatsApp
-Envía mensajes automáticos cuando:
-- se crea el reporte
-- se marca pendiente de revisión
-- se acepta
-- se rechaza
-- pasa a en proceso
-- entra a espera refacción
-- termina
+## Correr local
+```bash
+npm install
+cp .env.example .env
+# edita .env si quieres
+npm start
+```
 
-## Deploy
-Build Command: `npm install`
-Start Command: `npm start`
+## Deploy en Render
+1. Sube esta carpeta a GitHub.
+2. En Render usa **New + → Blueprint**.
+3. Selecciona el repo.
+4. Espera a que cree app + PostgreSQL.
+5. Entra con el admin inicial.
+
+## Nota práctica
+Esta fase 1 está hecha para ser fácil de levantar y operar.
+No trae permisos rebuscados ni módulos extras. Solo lo necesario para que jale bien.
