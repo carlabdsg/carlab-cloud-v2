@@ -12,6 +12,8 @@ const state = {
   activePanel: 'board',
   editingUserId: '',
   editingCompanyId: '',
+  schedules: [],
+  selectedScheduleDate: new Date().toISOString().slice(0,10),
 };
 
 const api = {
@@ -48,8 +50,8 @@ const api = {
   updateRequest(id, payload) { return this.request(`/api/registration-requests/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }); },
   getUnitHistory(numeroEconomico) { return this.request(`/api/history/unit/${encodeURIComponent(numeroEconomico)}`); },
   getSchedules(date='') { return this.request(`/api/schedules${date ? `?date=${encodeURIComponent(date)}` : ''}`); },
-  requestSchedule(id) { return this.request(`/api/garantias/${id}/request-schedule`, { method: 'POST' }); },
-  confirmSchedule(id, payload) { return this.request(`/api/schedules/${id}/confirm`, { method: 'PATCH', body: JSON.stringify(payload) }); }
+  requestSchedule(garantiaId) { return this.request('/api/schedule/request', { method: 'POST', body: JSON.stringify({ garantiaId }) }); },
+  confirmSchedule(id) { return this.request('/api/schedule/confirm', { method: 'POST', body: JSON.stringify({ id }) }); }
 };
 
 const els = {};
@@ -57,12 +59,12 @@ function bind() {
   [
     'loginView','dashboardView','loginForm','loginEmail','loginPassword','loginError','registerForm','registerMessage','regNombre','regEmail','regTelefono','regEmpresa','regNumeroEconomico','regPassword',
     'tabLoginBtn','tabRegisterBtn','welcomeText','currentUserName','currentUserEmail','currentRoleBadge','avatarCircle','pageTitle','roleSummaryText','roleBrief','logoutBtn',
-    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel','boardPanel',
+    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel',
     'reportForm','numeroObra','modelo','numeroEconomico','empresa','kilometraje','contactoNombre','telefono','descripcionFallo','solicitaRefaccion','refaccionFields','detalleRefaccion',
     'evidencias','evidenciasRefaccion','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn','searchInput','validationFilter','operationalFilter',
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
-    'topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList'
+    'topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleReloadBtn','scheduleList'
   ].forEach(id => els[id] = document.getElementById(id));
 }
 bind();
@@ -129,47 +131,57 @@ async function fileToCompressedDataUrl(file, maxSide = 1600, quality = 0.78) {
   const cx = canvas.getContext('2d'); cx.drawImage(img, 0, 0, canvas.width, canvas.height);
   return canvas.toDataURL('image/jpeg', quality);
 }
-function drawPreviews(container, items, type) {
+function drawPreviews(container, items) { if (!container) return; container.innerHTML = ''; items.forEach(src => { const img = document.createElement('img'); img.src = src; container.appendChild(img); }); }
+
+function renderThumbs(container, items, removeHandler) {
   if (!container) return;
   container.innerHTML = '';
-  items.forEach((src, index) => {
+  items.forEach((src, idx) => {
     const wrap = document.createElement('div');
-    wrap.className = 'preview-item';
+    wrap.className = 'thumb-wrap';
     const img = document.createElement('img');
     img.src = src;
-    const remove = document.createElement('button');
-    remove.type = 'button';
-    remove.className = 'preview-remove';
-    remove.textContent = '×';
-    remove.addEventListener('click', () => {
-      if (type === 'general') state.currentEvidence.splice(index, 1);
-      else state.currentRefEvidence.splice(index, 1);
-      drawPreviews(container, type === 'general' ? state.currentEvidence : state.currentRefEvidence, type);
-    });
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'thumb-remove';
+    btn.textContent = '×';
+    btn.addEventListener('click', () => removeHandler(idx));
     wrap.appendChild(img);
-    wrap.appendChild(remove);
+    wrap.appendChild(btn);
     container.appendChild(wrap);
   });
 }
-
+function refreshEvidenceThumbs() {
+  renderThumbs(els.previewEvidencias, state.currentEvidence, (idx) => {
+    state.currentEvidence.splice(idx, 1);
+    refreshEvidenceThumbs();
+  });
+}
+function refreshRefEvidenceThumbs() {
+  renderThumbs(els.previewRefaccion, state.currentRefEvidence, (idx) => {
+    state.currentRefEvidence.splice(idx, 1);
+    refreshRefEvidenceThumbs();
+  });
+}
 els.evidencias?.addEventListener('change', async e => {
-  const nuevos = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file)));
-  state.currentEvidence = [...state.currentEvidence, ...nuevos].slice(0, 20);
-  drawPreviews(els.previewEvidencias, state.currentEvidence, 'general');
+  const incoming = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file)));
+  state.currentEvidence = [...state.currentEvidence, ...incoming];
+  refreshEvidenceThumbs();
   e.target.value = '';
 });
 els.evidenciasRefaccion?.addEventListener('change', async e => {
-  const nuevos = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file)));
-  state.currentRefEvidence = [...state.currentRefEvidence, ...nuevos].slice(0, 20);
-  drawPreviews(els.previewRefaccion, state.currentRefEvidence, 'refaccion');
+  const incoming = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file)));
+  state.currentRefEvidence = [...state.currentRefEvidence, ...incoming];
+  refreshRefEvidenceThumbs();
   e.target.value = '';
 });
+
 els.solicitaRefaccion?.addEventListener('change', () => els.refaccionFields?.classList.toggle('hidden', !els.solicitaRefaccion.checked));
 
 function resetReportForm() {
   els.reportForm?.reset();
   state.currentEvidence = []; state.currentRefEvidence = [];
-  drawPreviews(els.previewEvidencias, [], 'general'); drawPreviews(els.previewRefaccion, [], 'refaccion');
+  refreshEvidenceThumbs(); refreshRefEvidenceThumbs();
   els.refaccionFields?.classList.add('hidden');
   const radio = document.querySelector('input[name="tipoIncidente"][value="daño"]');
   if (radio) radio.checked = true;
@@ -237,7 +249,6 @@ function switchPanel(panel) {
   els.analyticsPanel?.classList.toggle('hidden', panel !== 'analytics');
   els.historyPanel?.classList.toggle('hidden', panel !== 'history');
   els.schedulePanel?.classList.toggle('hidden', panel !== 'schedule');
-  els.boardPanel?.classList.toggle('hidden', panel !== 'board');
   const board = panel === 'board';
   els.filtersPanel?.classList.toggle('hidden', !board);
   setActiveNav(
@@ -250,9 +261,9 @@ function switchPanel(panel) {
     panel === 'schedule' ? els.navScheduleBtn :
     els.navBoardBtn
   );
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (panel === 'report') document.getElementById('reportFormPanel')?.scrollIntoView({behavior:'smooth', block:'start'});
+  if (panel === 'schedule') loadSchedules().catch(e => notify(e.message, true));
 }
-
 
 function showDashboard() {
   els.loginView?.classList.add('hidden'); els.dashboardView?.classList.remove('hidden');
@@ -262,9 +273,10 @@ function showDashboard() {
   els.navCompaniesBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navAnalyticsBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo'));
   els.navHistoryBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo'));
-  els.navScheduleBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo','operador'));
-  updateHeaderForRole(); switchPanel('board');
+  els.navScheduleBtn?.classList.toggle('hidden', !isRole('admin','operativo','supervisor'));
+  updateHeaderForRole(); switchPanel(state.user?.role === 'operador' ? 'report' : 'board');
 }
+
 function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); }
 
 function filteredGarantias() {
@@ -445,29 +457,6 @@ function beginCompanyEdit(company) {
   els.companyCancelEditBtn.classList.remove('hidden');
 }
 
-async function loadSchedules(date = '') {
-  if (!isRole('admin','operativo','supervisor','operador')) return;
-  state.schedules = await api.getSchedules(date || els.scheduleDateInput?.value || '');
-  renderSchedules();
-}
-
-function renderSchedules() {
-  if (!els.scheduleList) return;
-  els.scheduleList.innerHTML = '';
-  if (!state.schedules.length) { els.scheduleList.innerHTML = '<div class="empty-state"><strong>Sin unidades programadas.</strong><span>Cuando entren propuestas o citas confirmadas, aparecerán aquí.</span></div>'; return; }
-  state.schedules.forEach(item => {
-    const row = document.createElement('div'); row.className = 'table-row schedule-row';
-    const when = item.scheduledFor || item.proposedAt || item.requestedAt;
-    row.innerHTML = `<div><strong>${escapeHtml(item.folio || '—')} · Unidad ${escapeHtml(item.unidad || '—')}</strong><div class="small muted">${escapeHtml(item.empresa || '—')} · ${escapeHtml(item.contactoNombre || '—')}</div></div><div>${escapeHtml(item.status)}</div><div>${escapeHtml(fmtDate(when))}</div><div class="action-row"></div>`;
-    const actions = row.querySelector('.action-row');
-    if (isRole('admin','operativo') && item.status === 'proposed') {
-      actions.appendChild(button('Confirmar', 'btn btn-primary', async () => { try { await api.confirmSchedule(item.id, { status:'confirmed', scheduledFor: item.scheduledFor || item.proposedAt }); notify('Cita confirmada.'); await loadSchedules(); } catch (error) { notify(error.message, true); } }));
-      actions.appendChild(button('Pedir otra fecha', 'btn btn-ghost', async () => { try { await api.confirmSchedule(item.id, { status:'rejected' }); notify('Se pidió nueva fecha.'); await loadSchedules(); } catch (error) { notify(error.message, true); } }));
-    }
-    els.scheduleList.appendChild(row);
-  });
-}
-
 function renderCompanies() {
   if (!els.companiesList) return;
   els.companiesList.innerHTML = '';
@@ -520,7 +509,7 @@ function renderGarantias() {
       const div = document.createElement('div'); div.innerHTML = `<strong>${escapeHtml(label)}</strong>${escapeHtml(String(value || '—'))}`; miniGrid.appendChild(div);
     });
     const strip = node.querySelector('.evidence-strip'); [...(item.evidencias || []), ...(item.evidenciasRefaccion || [])].slice(0,6).forEach(src => { const img = document.createElement('img'); img.src = src; strip.appendChild(img); }); if (item.firma) { const img = document.createElement('img'); img.src = item.firma; strip.appendChild(img); }
-    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
+    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin','operativo') && item.estatusValidacion === 'aceptada') baseRow.appendChild(button('Programar unidad', 'btn btn-secondary', async () => { try { await api.requestSchedule(item.id); notify('Solicitud de programación enviada al operador.'); await loadSchedules(); } catch (error) { notify(error.message, true); } })); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
     if (isRole('operativo','admin')) {
       const reviewBox = document.createElement('div'); reviewBox.innerHTML = `
         <label>Decisión operativa</label>
@@ -540,10 +529,6 @@ function renderGarantias() {
       });
       area.appendChild(reviewBox);
       if (item.estatusValidacion === 'aceptada') {
-        const scheduleRow = document.createElement('div'); scheduleRow.className = 'action-row';
-        if (isRole('admin','operativo')) scheduleRow.appendChild(button('Programar unidad', 'btn btn-primary', async () => { try { await api.requestSchedule(item.id); notify('Solicitud enviada por WhatsApp.'); await loadSchedules(); switchPanel('schedule'); } catch (error) { notify(error.message, true); } }));
-        if (isRole('operador')) scheduleRow.appendChild(button('Ver mi agenda', 'btn btn-secondary', async () => { await loadSchedules(); switchPanel('schedule'); }));
-        if (scheduleRow.children.length) area.appendChild(scheduleRow);
         const operationalBox = document.createElement('div'); operationalBox.innerHTML = `
           <label>Flujo del trabajo</label>
           <div class="action-row">
@@ -567,6 +552,45 @@ async function loadGarantias() { state.garantias = await api.getGarantias(); ren
 async function loadUsers() { if (!isRole('admin')) return; state.users = await api.getUsers(); renderUsers(); }
 async function loadCompanies() { state.companies = isRole('admin') ? await api.getCompanies() : await api.getPublicCompanies(); renderCompanies(); }
 async function loadRequests() { if (!isRole('admin')) return; state.registrationRequests = await api.getRequests(); renderRequests(); }
+
+
+async function loadSchedules() {
+  if (!isRole('admin','operativo','supervisor')) return;
+  const date = els.scheduleDateInput?.value || state.selectedScheduleDate;
+  state.selectedScheduleDate = date;
+  state.schedules = await api.getSchedules(date);
+  renderSchedules();
+}
+
+function renderSchedules() {
+  if (!els.scheduleList) return;
+  els.scheduleList.innerHTML = '';
+  if (!state.schedules.length) {
+    els.scheduleList.innerHTML = '<div class="empty-state"><strong>Sin unidades programadas.</strong><span>Las respuestas por WhatsApp aparecerán aquí para la fecha seleccionada.</span></div>';
+    return;
+  }
+  state.schedules.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'table-row';
+    row.innerHTML = `
+      <div><strong>${escapeHtml(item.folio || 'Sin folio')}</strong><div class="small muted">Unidad ${escapeHtml(item.unidad || '—')} · ${escapeHtml(item.empresa || '—')}</div></div>
+      <div>${item.fecha ? new Date(item.fecha).toLocaleDateString('es-MX') : '—'}</div>
+      <div>${escapeHtml(item.hora || '—')}</div>
+      <div><span class="badge ${item.status === 'confirmado' ? 'badge-done' : item.status === 'propuesto' ? 'badge-review' : 'badge-info'}">${escapeHtml(item.status)}</span></div>
+      <div class="action-row"></div>`;
+    const actions = row.querySelector('.action-row');
+    if (isRole('admin','operativo') && item.status !== 'confirmado') {
+      actions.appendChild(button('Confirmar', 'btn btn-secondary', async () => {
+        try {
+          await api.confirmSchedule(item.id);
+          notify('Cita confirmada.');
+          await loadSchedules();
+        } catch (error) { notify(error.message, true); }
+      }));
+    }
+    els.scheduleList.appendChild(row);
+  });
+}
 
 async function renderUnitHistory() {
   const numero = els.unitHistoryInput?.value.trim();
@@ -593,7 +617,7 @@ els.loginForm?.addEventListener('submit', async (e) => {
   try {
     const data = await api.login(els.loginEmail.value.trim(), els.loginPassword.value);
     state.token = data.token; localStorage.setItem('carlabToken', state.token); state.user = data.user; showDashboard();
-    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); await loadSchedules(); resetReportForm(); resetCompanyForm(); if (els.scheduleDateInput && !els.scheduleDateInput.value) els.scheduleDateInput.value = new Date().toISOString().slice(0,10); notify(`Bienvenido, ${state.user.nombre}.`);
+    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); resetReportForm(); resetCompanyForm(); notify(`Bienvenido, ${state.user.nombre}.`);
   } catch (error) { if (els.loginError) { els.loginError.textContent = error.message; els.loginError.classList.remove('hidden'); } else notify(error.message,true); }
 });
 
@@ -611,6 +635,7 @@ els.navBoardBtn?.addEventListener('click', () => switchPanel('board'));
 els.navNewReportBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); });
 els.navAnalyticsBtn?.addEventListener('click', () => switchPanel('analytics'));
 els.navHistoryBtn?.addEventListener('click', () => switchPanel('history'));
+els.navScheduleBtn?.addEventListener('click', () => switchPanel('schedule'));
 els.navUsersBtn?.addEventListener('click', async () => { switchPanel('users'); await loadUsers(); });
 els.navRequestsBtn?.addEventListener('click', async () => { switchPanel('requests'); await loadRequests(); });
 els.navCompaniesBtn?.addEventListener('click', async () => { switchPanel('companies'); await loadCompanies(); });
@@ -618,6 +643,8 @@ els.cancelReportBtn?.addEventListener('click', () => { resetReportForm(); switch
 els.userCancelEditBtn?.addEventListener('click', resetUserForm);
 els.companyCancelEditBtn?.addEventListener('click', resetCompanyForm);
 els.unitHistoryBtn?.addEventListener('click', renderUnitHistory);
+els.scheduleReloadBtn?.addEventListener('click', loadSchedules);
+if (els.scheduleDateInput) els.scheduleDateInput.value = state.selectedScheduleDate;
 
 els.reportForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -654,7 +681,7 @@ els.companyForm?.addEventListener('submit', async (e) => {
   if (!state.token) return showLogin();
   try {
     const data = await api.me(); state.user = data.user; showDashboard();
-    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); await loadSchedules(); resetReportForm(); resetCompanyForm(); if (els.scheduleDateInput && !els.scheduleDateInput.value) els.scheduleDateInput.value = new Date().toISOString().slice(0,10);
+    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); resetReportForm(); resetCompanyForm();
   } catch {
     localStorage.removeItem('carlabToken'); state.token = ''; showLogin();
   }

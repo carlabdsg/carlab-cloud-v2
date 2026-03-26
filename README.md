@@ -67,3 +67,10 @@ npm start
 ## Nota práctica
 Esta fase 1 está hecha para ser fácil de levantar y operar.
 No trae permisos rebuscados ni módulos extras. Solo lo necesario para que jale bien.
+
+
+## Variables nuevas para agenda y WhatsApp
+- TWILIO_TEMPLATE_PROGRAMAR_UNIDAD=HX...
+- TWILIO_TEMPLATE_CONFIRMACION_CITA=HX... (opcional)
+- Webhook entrante en Twilio: https://carlab-cloud-v2.onrender.com/webhook/whatsapp
+- Status callback (opcional): https://carlab-cloud-v2.onrender.com/api/whatsapp/status
