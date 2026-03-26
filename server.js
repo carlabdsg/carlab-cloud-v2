@@ -6,7 +6,7 @@ const { Pool } = require('pg');
 const twilio = require('twilio');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 const DATABASE_URL = process.env.DATABASE_URL;
 const JWT_SECRET = process.env.JWT_SECRET || 'carlab-dev-secret';
 const ADMIN_NAME = process.env.ADMIN_NAME || 'Administrador Carlab';
@@ -17,6 +17,12 @@ const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || '';
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
 const TWILIO_WHATSAPP_NUMBER = process.env.TWILIO_WHATSAPP_NUMBER || '';
 const APP_BASE_URL = (process.env.APP_BASE_URL || '').replace(/\/$/, '');
+const WA_TEMPLATE_CREATED_SID = process.env.WA_TEMPLATE_CREATED_SID || 'HXf82c1dd49abe680d58751a33d5958231';
+const WA_TEMPLATE_ACCEPTED_SID = process.env.WA_TEMPLATE_ACCEPTED_SID || '';
+const WA_TEMPLATE_REJECTED_SID = process.env.WA_TEMPLATE_REJECTED_SID || '';
+const WA_TEMPLATE_IN_PROGRESS_SID = process.env.WA_TEMPLATE_IN_PROGRESS_SID || '';
+const WA_TEMPLATE_WAITING_PARTS_SID = process.env.WA_TEMPLATE_WAITING_PARTS_SID || '';
+const WA_TEMPLATE_FINISHED_SID = process.env.WA_TEMPLATE_FINISHED_SID || '';
 
 if (!DATABASE_URL) {
   console.error('Falta DATABASE_URL');
@@ -120,24 +126,24 @@ function mapRegistrationRequest(row) {
 
 const twilioClient = (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) ? twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN) : null;
 
+function normalizeStoredPhone(raw) {
+  let digits = String(raw || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('521') && digits.length === 13) return digits;
+  if (digits.startsWith('52') && digits.length === 12) return '521' + digits.slice(2);
+  if (digits.startsWith('1') && digits.length === 11) return '521' + digits.slice(1);
+  if (digits.length === 10) return '521' + digits;
+  if (digits.length < 13 && !digits.startsWith('521')) return '521' + digits.slice(-10);
+  return digits;
+}
+
 function normalizeWhatsAppNumber(raw) {
   const value = String(raw || '').trim();
   if (!value) return '';
   if (value.startsWith('whatsapp:')) return value;
-  let digits = value.replace(/\D/g, '');
+  const digits = normalizeStoredPhone(value);
   if (!digits) return '';
-  if (digits.length === 10) {
-    digits = '52' + digits;
-  } else if (digits.startsWith('1') && digits.length === 11) {
-    digits = '52' + digits.slice(1);
-  } else if (digits.startsWith('521') && digits.length === 13) {
-    digits = digits;
-  } else if (digits.startsWith('52') && digits.length === 12) {
-    digits = digits;
-  } else if (digits.length < 12) {
-    digits = '52' + digits;
-  }
-  return 'whatsapp:+' + digits
+  return 'whatsapp:+' + digits;
 }
 
 function reportLink(item) {
@@ -163,34 +169,116 @@ async function sendWhatsAppMessage(to, body) {
   }
 }
 
+async function sendWhatsAppTemplate(to, contentSid, variables) {
+  if (!twilioClient || !TWILIO_WHATSAPP_NUMBER || !contentSid) return { skipped: true, reason: 'template_not_configured' };
+  const target = normalizeWhatsAppNumber(to);
+  if (!target) return { skipped: true, reason: 'no_phone' };
+  try {
+    const msg = await twilioClient.messages.create({
+      from: TWILIO_WHATSAPP_NUMBER,
+      to: target,
+      contentSid,
+      contentVariables: JSON.stringify(variables || {}),
+    });
+    return { sid: msg.sid };
+  } catch (error) {
+    console.error('WhatsApp template error:', error?.message || error);
+    return { skipped: true, reason: error?.message || 'template_send_failed' };
+  }
+}
+
 async function notifyGarantiaWhatsApp(eventKey, garantiaLike) {
-  const item = garantiaLike;
+  const item = garantiaLike || {};
   const phone = item.telefono || item.contacto_telefono || '';
   const link = reportLink(item);
-  let body = '';
-  const fallo = item.descripcion_fallo || item.descripcionFallo || 'Sin descripción';
+  const fallo = item.descripcion_fallo || item.descripcionFallo || 'Sin descripcion';
   const unidad = item.numero_economico || item.numeroEconomico || '—';
   const empresa = item.empresa || '—';
   const folio = item.folio || '—';
-  const motivo = item.motivo_decision || item.motivoDecision || item.observaciones_operativo || item.observacionesOperativo || '';
+  const motivo = item.motivo_decision || item.motivoDecision || item.observaciones_operativo || item.observacionesOperativo || 'No especificado';
   const refa = item.detalle_refaccion || item.detalleRefaccion || '';
-  if (eventKey === 'created') {
-    body = `🛠️ *CARLAB GARANTÍAS*\n\nTu reporte fue recibido correctamente.\n\n*Folio:* ${folio}\n*Unidad:* ${unidad}\n*Empresa:* ${empresa}\n*Falla:* ${fallo}\n*Estatus:* Nueva`;
-  } else if (eventKey === 'accepted') {
-    body = `✅ *CARLAB GARANTÍAS*\n\nTu reporte *${folio}* fue *ACEPTADO*.\n\n*Unidad:* ${unidad}\n*Empresa:* ${empresa}\n*Estatus actual:* ${item.estatus_operativo || item.estatusOperativo || 'en proceso'}`;
-  } else if (eventKey === 'rejected') {
-    body = `⚠️ *CARLAB GARANTÍAS*\n\nTu reporte *${folio}* fue *RECHAZADO*.\n\n*Unidad:* ${unidad}\n*Motivo:* ${motivo || 'No especificado'}`;
-  } else if (eventKey === 'pending_review') {
-    body = `🕓 *CARLAB GARANTÍAS*\n\nTu reporte *${folio}* está *PENDIENTE DE REVISIÓN*.\n\n*Unidad:* ${unidad}`;
-  } else if (eventKey === 'in_progress') {
-    body = `🔧 *CARLAB GARANTÍAS*\n\nTu reporte *${folio}* ya está *EN PROCESO*.\n\n*Unidad:* ${unidad}`;
-  } else if (eventKey === 'waiting_parts') {
-    body = `📦 *CARLAB GARANTÍAS*\n\nTu reporte *${folio}* está en *ESPERA DE REFACCIÓN*.\n\n*Unidad:* ${unidad}` + (refa ? `\n*Detalle:* ${refa}` : '');
-  } else if (eventKey === 'finished') {
-    body = `🎉 *CARLAB GARANTÍAS*\n\nTu reporte *${folio}* ya fue *TERMINADO*.\n\n*Unidad:* ${unidad}\n*Empresa:* ${empresa}`;
+
+  if (eventKey === 'created' && WA_TEMPLATE_CREATED_SID) {
+    return sendWhatsAppTemplate(phone, WA_TEMPLATE_CREATED_SID, {
+      folio,
+      unidad,
+      empresa,
+      falla: fallo,
+    });
   }
-  if (!body) return { skipped: true, reason: 'no_template' };
-  if (link) body += `\n\nVer sistema: ${link}`;
+  if (eventKey === 'accepted' && WA_TEMPLATE_ACCEPTED_SID) {
+    return sendWhatsAppTemplate(phone, WA_TEMPLATE_ACCEPTED_SID, { folio, unidad, empresa });
+  }
+  if (eventKey === 'rejected' && WA_TEMPLATE_REJECTED_SID) {
+    return sendWhatsAppTemplate(phone, WA_TEMPLATE_REJECTED_SID, { folio, unidad, motivo });
+  }
+  if (eventKey === 'in_progress' && WA_TEMPLATE_IN_PROGRESS_SID) {
+    return sendWhatsAppTemplate(phone, WA_TEMPLATE_IN_PROGRESS_SID, { folio, unidad });
+  }
+  if (eventKey === 'waiting_parts' && WA_TEMPLATE_WAITING_PARTS_SID) {
+    return sendWhatsAppTemplate(phone, WA_TEMPLATE_WAITING_PARTS_SID, { folio, unidad, refaccion: refa || 'Pendiente' });
+  }
+  if (eventKey === 'finished' && WA_TEMPLATE_FINISHED_SID) {
+    return sendWhatsAppTemplate(phone, WA_TEMPLATE_FINISHED_SID, { folio, unidad, empresa });
+  }
+
+  let body = '';
+  if (eventKey === 'created') {
+    body = `CARLAB GARANTIAS
+
+Tu reporte fue recibido.
+
+Folio: ${folio}
+Unidad: ${unidad}
+Empresa: ${empresa}
+Falla: ${fallo}
+
+Estatus: Nueva`;
+  } else if (eventKey === 'accepted') {
+    body = `CARLAB GARANTIAS
+
+Tu reporte ${folio} fue ACEPTADO.
+
+Unidad: ${unidad}
+Empresa: ${empresa}`;
+  } else if (eventKey === 'rejected') {
+    body = `CARLAB GARANTIAS
+
+Tu reporte ${folio} fue RECHAZADO.
+
+Unidad: ${unidad}
+Motivo: ${motivo}`;
+  } else if (eventKey === 'pending_review') {
+    body = `CARLAB GARANTIAS
+
+Tu reporte ${folio} esta PENDIENTE DE REVISION.
+
+Unidad: ${unidad}`;
+  } else if (eventKey === 'in_progress') {
+    body = `CARLAB GARANTIAS
+
+Tu reporte ${folio} ya esta EN PROCESO.
+
+Unidad: ${unidad}`;
+  } else if (eventKey === 'waiting_parts') {
+    body = `CARLAB GARANTIAS
+
+Tu reporte ${folio} esta en ESPERA DE REFACCION.
+
+Unidad: ${unidad}` + (refa ? `
+Refaccion: ${refa}` : '');
+  } else if (eventKey === 'finished') {
+    body = `CARLAB GARANTIAS
+
+Tu reporte ${folio} ya fue TERMINADO.
+
+Unidad: ${unidad}
+Empresa: ${empresa}`;
+  }
+  if (!body) return { skipped: true, reason: 'no_message' };
+  if (link) body += `
+
+Ver sistema: ${link}`;
   return sendWhatsAppMessage(phone, body);
 }
 
@@ -374,7 +462,7 @@ app.get('/api/public/companies', async (_req, res) => {
 app.post('/api/public/register-operator', async (req, res) => {
   const nombre = String(req.body.nombre || '').trim();
   const email = String(req.body.email || '').trim().toLowerCase();
-  const telefono = String(req.body.telefono || '').trim();
+  const telefono = normalizeStoredPhone(req.body.telefono || '');
   const empresa = String(req.body.empresa || '').trim();
   const numeroEconomico = String(req.body.numeroEconomico || '').trim();
   const password = String(req.body.password || '');
@@ -531,7 +619,7 @@ app.patch('/api/registration-requests/:id', authRequired, requireRoles('admin'),
     await pool.query(
       `INSERT INTO users (id, nombre, email, password_hash, role, empresa, telefono, activo)
        VALUES ($1,$2,$3,$4,'operador',$5,$6,TRUE)`,
-      [cryptoRandomId(), row.nombre, row.email, row.password_hash, row.empresa, row.telefono || '']
+      [cryptoRandomId(), row.nombre, row.email, row.password_hash, row.empresa, normalizeStoredPhone(row.telefono || '')]
     );
   }
 
@@ -556,7 +644,7 @@ app.post('/api/users', authRequired, requireRoles('admin'), async (req, res) => 
   const password = String(req.body.password || '');
   const role = String(req.body.role || '').trim();
   const empresa = String(req.body.empresa || '').trim();
-  const telefono = String(req.body.telefono || '').trim();
+  const telefono = normalizeStoredPhone(req.body.telefono || '');
 
   if (!nombre || !email || !password || !['operador', 'operativo', 'supervisor', 'admin'].includes(role)) {
     return res.status(400).json({ error: 'Datos de usuario incompletos o inválidos.' });
@@ -587,7 +675,7 @@ app.patch('/api/users/:id', authRequired, requireRoles('admin'), async (req, res
   const role = String(req.body.role || '').trim();
   const password = String(req.body.password || '');
   const empresa = String(req.body.empresa || '').trim();
-  const telefono = String(req.body.telefono || '').trim();
+  const telefono = normalizeStoredPhone(req.body.telefono || '');
 
   if (!nombre || !email || !['operador', 'operativo', 'supervisor', 'admin'].includes(role)) {
     return res.status(400).json({ error: 'Datos de usuario incompletos o inválidos.' });
@@ -670,7 +758,7 @@ app.post('/api/garantias', authRequired, requireRoles('operador', 'admin'), asyn
       body.empresa,
       body.kilometraje || '',
       body.contactoNombre || '',
-      body.telefono || '',
+      normalizeStoredPhone(body.telefono || ''),
       body.tipoIncidente,
       body.descripcionFallo,
       !!body.solicitaRefaccion,
@@ -802,7 +890,7 @@ app.get('*', (_req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`CARLAB CLOUD V3.6 corriendo en puerto ${PORT}`);
+  console.log(`CARLAB CLOUD V3.7.1 corriendo en puerto ${PORT}`);
   initDb()
     .then(() => {
       dbReady = true;
