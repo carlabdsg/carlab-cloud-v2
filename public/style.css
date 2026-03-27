@@ -593,149 +593,81 @@ body.operator-mode .main-area {
   padding-bottom: 98px;
 }
 
-/* ===== Reacomodo fino sidebar / cabina ===== */
-.shell{
-  display:grid;
-  grid-template-columns: 280px minmax(0,1fr);
-  gap:18px;
-  padding:18px;
+
+/* Ultra fino dashboard roles */
+body.role-supervisor .shell,
+body.role-operativo .shell {
+  grid-template-columns: 246px 1fr;
 }
-.sidebar{
-  background:#ffffff;
-  border:1px solid #e7e9ef;
-  border-radius:22px;
-  box-shadow:0 10px 30px rgba(15,23,42,.05);
-  padding:18px 16px 16px;
-  display:flex;
-  flex-direction:column;
-  min-height:calc(100vh - 36px);
-  position:sticky;
-  top:18px;
+body.role-supervisor .sidebar,
+body.role-operativo .sidebar {
+  padding: 14px 12px;
+  gap: 12px;
 }
-.sidebar-top{
-  display:flex;
-  flex-direction:column;
-  gap:16px;
+body.role-supervisor .brand-lockup .muted,
+body.role-operativo .brand-lockup .muted {
+  display: none;
 }
-.brand-lockup p{display:none;}
-.profile-panel{
-  background:#f8fafc;
-  border:1px solid #e7e9ef;
-  border-radius:16px;
-  padding:12px;
-  display:grid;
-  grid-template-columns:44px 1fr auto;
-  align-items:center;
-  gap:10px;
+body.role-supervisor .profile-panel,
+body.role-operativo .profile-panel {
+  grid-template-columns: 42px 1fr;
+  align-items: center;
 }
-.nav-stack{display:flex;flex-direction:column;gap:10px;}
-.nav-group{
-  background:#f8fafc;
-  border:1px solid #edf0f5;
-  border-radius:16px;
-  padding:10px;
+body.role-supervisor .profile-panel > span.badge-role,
+body.role-operativo .profile-panel > span.badge-role {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin-top: 6px;
 }
-.nav-group + .nav-group{margin-top:0;}
-.nav-group-label{
-  font-size:11px;
-  letter-spacing:.14em;
-  text-transform:uppercase;
-  color:#98a2b3;
-  margin:4px 6px 8px;
+body.role-supervisor .stats,
+body.role-operativo .stats {
+  display: none;
 }
-.nav-btn{
-  min-height:44px;
-  border-radius:12px;
-  font-weight:700;
-  padding:12px 14px;
+body.role-supervisor .system-note,
+body.role-operativo .system-note {
+  padding: 12px;
 }
-.nav-btn:hover, .nav-btn.active{
-  background:#111827;
-  color:#fff;
-  border-color:#111827;
-  box-shadow:0 8px 18px rgba(17,24,39,.12);
+body.role-supervisor .role-brief,
+body.role-operativo .role-brief {
+  grid-template-columns: 1fr;
 }
-.stats{
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:10px;
-  margin-top:14px;
+body.role-supervisor .topbar-chip,
+body.role-operativo .topbar-chip {
+  min-width: 180px;
 }
-.stat{
-  min-height:96px;
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  border-radius:16px;
-  box-shadow:0 4px 14px rgba(15,23,42,.03);
+body.role-supervisor .nav-group + .nav-group,
+body.role-operativo .nav-group + .nav-group {
+  margin-top: 8px;
 }
-.sidebar-bottom{
-  margin-top:14px;
-  background:none;
-  padding-top:0;
+body.role-supervisor .nav-group-label,
+body.role-operativo .nav-group-label {
+  font-size: 11px;
+  margin-bottom: 6px;
 }
-.system-note{
-  border-radius:16px;
-  background:#f8fafc;
+body.role-supervisor .nav-btn,
+body.role-operativo .nav-btn {
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-weight: 600;
 }
-#logoutBtn{
-  min-height:46px;
-  border-radius:14px;
-  background:#fff;
-  border:1px solid #e5e7eb;
+body.role-supervisor .main-area,
+body.role-operativo .main-area {
+  padding: 16px;
+  gap: 12px;
 }
-.topbar{
-  border-radius:22px;
-  padding:22px;
+body.role-supervisor .topbar,
+body.role-operativo .topbar {
+  padding-bottom: 2px;
 }
-.panel{
-  border-radius:20px;
-  border:1px solid #eceff4;
-  box-shadow:0 8px 24px rgba(15,23,42,.04);
+body.role-supervisor #boardPanel .panel-head,
+body.role-operativo #boardPanel .panel-head {
+  margin-bottom: 6px;
 }
-.role-brief{
-  grid-template-columns:repeat(3,minmax(0,1fr));
+body.role-supervisor .toolbar,
+body.role-operativo .toolbar {
+  grid-template-columns: 1fr;
 }
-.table-row{
-  border-radius:18px;
-  border:1px solid #eceff4;
-  padding:16px;
-  margin-bottom:10px;
-  background:#fff;
-}
-.garantia-card{
-  border-radius:20px;
-}
-body.compact-cabina .stats,
-body.role-supervisor .stats{
-  display:none;
-}
-body.compact-cabina .system-note,
-body.role-supervisor .system-note{
-  display:none;
-}
-body.compact-cabina .topbar-side .topbar-chip:first-child,
-body.role-supervisor .topbar-side .topbar-chip:first-child{
-  display:none;
-}
-body.compact-cabina .role-brief,
-body.role-supervisor .role-brief{
-  display:none !important;
-}
-body.role-supervisor #navAnalyticsBtn,
-body.role-supervisor #navHistoryBtn{
-  display:none !important;
-}
-body.role-operativo #navAnalyticsBtn,
-body.role-operativo #navHistoryBtn{
-  display:none !important;
-}
-body.role-supervisor .sidebar{
-  max-width:280px;
-}
-body.role-operativo .sidebar{
-  max-width:280px;
-}
-@media (max-width: 1100px){
-  .shell{grid-template-columns:1fr;}
-  .sidebar{position:static;min-height:auto;}
+body.role-supervisor #filtersPanel,
+body.role-operativo #filtersPanel {
+  padding: 14px;
 }

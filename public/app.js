@@ -195,10 +195,10 @@ function reportPayload() {
 
 function roleCopy(role) {
   return {
-    admin: { title:'Cabina administrativa', summary:'Control total con lectura visual clara y rápida.', panels:[['Control total','Usuarios, empresas y solicitudes en una sola vista.'],['Lectura comercial','Detecta patrones por empresa y unidad.'],['Control operativo','Puedes actuar igual que un operativo cuando haga falta.']], boardKicker:'ADMINISTRACIÓN', listTitle:'Bandeja total', legend:'Operación integral con control, agenda y lectura ejecutiva.' },
-    operativo: { title:'Cabina operativa', summary:'Decisiones rápidas, agenda al frente y seguimiento limpio.', panels:[['Acción inmediata','Valida, agenda y mueve reportes sin ruido.'],['Lectura rápida','Ve lo importante primero y actúa.'],['Control de flujo','Confirma citas y mueve el trabajo.']], boardKicker:'OPERACIÓN', listTitle:'Bandeja operativa', legend:'Operación directa con foco en reportes y agenda.' },
-    operador: { title:'Portal del operador', summary:'Reporta, agenda y sigue tus garantías sin salir del flujo.', panels:[['Reporte rápido','Levanta incidencias con evidencia y firma.'],['Agenda visible','Consulta tus propuestas y citas confirmadas.'],['Sin distracciones','Interfaz enfocada en ejecutar.']], boardKicker:'OPERADOR', listTitle:'Mis reportes', legend:'Tu trabajo, tu agenda y tus evidencias en una sola vista.' },
-    supervisor: { title:'Cabina de supervisión', summary:'Solo tu empresa, solo lo importante, lectura limpia y rápida.', panels:[['Visibilidad puntual','Revisa únicamente lo ligado a tu empresa.'],['Agenda clara','Detecta citas y seguimiento sin ruido.'],['Lectura ejecutiva','Supervisión con una sola bandeja.']], boardKicker:'SUPERVISIÓN', listTitle:'Bandeja supervisada', legend:'Monitoreo ejecutivo con foco en reportes y agenda de tu empresa.' },
+    admin: { title:'Cabina administrativa', summary:'Control total. Apruebas accesos, administras usuarios, ves analítica y conviertes reincidencias en acción.', panels:[['Gestión total','Usuarios, empresas y solicitudes en una sola vista.'],['Lectura comercial','Detecta patrones por empresa, modelo y unidad.'],['Control operativo','Puedes actuar igual que un operativo cuando haga falta.']], boardKicker:'ADMIN', listTitle:'Bandeja general del sistema', legend:'Portal corporativo con control total, solicitudes y lectura comercial.' },
+    operador: { title:'Portal de operador', summary:'Reportas fallas, subes evidencia y ves el estatus sin depender de llamadas.', panels:[['Levantar incidencia','Captura la falla con datos, fotos, refacción y firma.'],['Seguimiento','Consulta si fue aceptada, rechazada o quedó pendiente.'],['Sin cruces','Solo ves tus reportes. No puedes decidir ni alterar revisiones.']], boardKicker:'OPERADOR', listTitle:'Mis reportes de garantía', legend:'Aquí ves solo tus reportes y su estatus actual.' },
+    operativo: { title:'Mesa de validación operativa', summary:'Revisas reportes, decides si proceden y mueves el trabajo hasta terminar.', panels:[['Decisión','Acepta, rechaza o marca pendiente de revisión.'],['Flujo','Mueve el trabajo a en proceso, espera refacción o terminada.'],['Patrones','También ves unidades reincidentes para atacar la raíz.']], boardKicker:'OPERATIVO', listTitle:'Bandeja operativa', legend:'Aquí validas, autorizas y avanzas el trabajo.' },
+    supervisor: { title:'Portal de supervisor', summary:'Consulta únicamente la información de tu empresa en modo corporativo de solo lectura.', panels:[['Visibilidad','Revisa empresas, unidades, evidencias y avances.'],['Lectura ejecutiva','Historial por unidad y top de fallas sin tocar procesos.'],['Sin edición','No cambias decisiones ni alteras procesos.']], boardKicker:'SUPERVISOR', listTitle:'Bandeja supervisada', legend:'Monitoreo integral con lectura operativa y comercial.' },
   }[role];
 }
 
@@ -214,10 +214,7 @@ function updateHeaderForRole() {
   if (els.currentRoleBadge) els.currentRoleBadge.textContent = roleName(state.user.role);
   if (els.welcomeText) els.welcomeText.textContent = `${roleName(state.user.role)} · Sesión activa`;
   if (els.avatarCircle) els.avatarCircle.textContent = state.user.nombre?.[0]?.toUpperCase() || 'C';
-  if (els.roleBrief) {
-    els.roleBrief.innerHTML = copy.panels.map(([title, desc]) => `<article><strong>${escapeHtml(title)}</strong><span>${escapeHtml(desc)}</span></article>`).join('');
-    els.roleBrief.classList.toggle('hidden', state.user.role !== 'admin');
-  }
+  if (els.roleBrief) els.roleBrief.innerHTML = copy.panels.map(([title, desc]) => `<article><strong>${escapeHtml(title)}</strong><span>${escapeHtml(desc)}</span></article>`).join('');
 }
 function setActiveNav(activeBtn) {
   [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navScheduleBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
@@ -265,19 +262,14 @@ function showDashboard() {
   els.loginView?.classList.add('hidden'); els.dashboardView?.classList.remove('hidden');
   document.body.classList.remove('role-admin','role-supervisor','role-operativo','role-operador');
   if (state.user?.role) document.body.classList.add(`role-${state.user.role}`);
-
   els.navNewReportBtn?.classList.toggle('hidden', !isRole('operador','admin'));
   els.navUsersBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navRequestsBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navCompaniesBtn?.classList.toggle('hidden', !isRole('admin'));
-
-  // interfaz más limpia: supervisor y operativo se enfocan en reportes + agenda
-  els.navAnalyticsBtn?.classList.toggle('hidden', !isRole('admin'));
-  els.navHistoryBtn?.classList.toggle('hidden', !isRole('admin'));
+  els.navAnalyticsBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo'));
+  els.navHistoryBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo'));
   els.navScheduleBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo','operador'));
-
-  updateHeaderForRole();
-  switchPanel(state.user?.role === 'operador' ? 'report' : 'board');
+  updateHeaderForRole(); switchPanel(state.user?.role === 'operador' ? 'report' : 'board');
 }
 function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); }
 
@@ -808,15 +800,3 @@ setInterval(async () => {
     await loadSchedules('');
   } catch {}
 }, 30000);
-
-
-// ajuste visual: reducir ruido para supervisor y operativo
-function applyCompactRoleUI() {
-  const compact = ['supervisor','operativo'].includes(state.user?.role);
-  document.body.classList.toggle('compact-cabina', compact);
-}
-const _showDashboardOriginal = showDashboard;
-showDashboard = function() {
-  _showDashboardOriginal();
-  applyCompactRoleUI();
-};

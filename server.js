@@ -701,14 +701,14 @@ app.get('/api/garantias', authRequired, async (req, res) => {
   const params = [];
   const where = [];
   if (req.user.role === 'operador') {
+    where.push(`reportado_por_id = $${params.length + 1}`);
     params.push(req.user.id);
-    where.push(`reportado_por_id = $${params.length}`);
   }
-  if (req.user.role === 'supervisor' && req.user.empresa) {
-    params.push(req.user.empresa);
-    where.push(`empresa = $${params.length}`);
+  if (req.user.role === 'supervisor') {
+    where.push(`empresa = $${params.length + 1}`);
+    params.push(req.user.empresa || '');
   }
-  if (where.length) query += ` WHERE ${where.join(' AND ')}`;
+  if (where.length) query += ' WHERE ' + where.join(' AND ');
   query += ' ORDER BY created_at DESC';
   const result = await pool.query(query, params);
   res.json(result.rows.map(mapGarantia));
@@ -854,10 +854,14 @@ app.get('/api/audit/:garantiaId', authRequired, requireRoles('admin', 'operativo
 });
 
 app.get('/api/history/unit/:numeroEconomico', authRequired, requireRoles('admin', 'operativo', 'supervisor'), async (req, res) => {
-  const result = await pool.query(
-    `SELECT * FROM garantias WHERE numero_economico = $1 ORDER BY created_at DESC`,
-    [req.params.numeroEconomico]
-  );
+  const params = [req.params.numeroEconomico];
+  let query = `SELECT * FROM garantias WHERE numero_economico = $1`;
+  if (req.user.role === 'supervisor') {
+    params.push(req.user.empresa || '');
+    query += ` AND empresa = $2`;
+  }
+  query += ` ORDER BY created_at DESC`;
+  const result = await pool.query(query, params);
   res.json(result.rows.map(mapGarantia));
 });
 
