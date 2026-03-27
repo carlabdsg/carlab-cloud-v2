@@ -699,10 +699,16 @@ app.delete('/api/users/:id', authRequired, requireRoles('admin'), async (req, re
 app.get('/api/garantias', authRequired, async (req, res) => {
   let query = 'SELECT * FROM garantias';
   const params = [];
+  const where = [];
   if (req.user.role === 'operador') {
-    query += ' WHERE reportado_por_id = $1';
     params.push(req.user.id);
+    where.push(`reportado_por_id = $${params.length}`);
   }
+  if (req.user.role === 'supervisor' && req.user.empresa) {
+    params.push(req.user.empresa);
+    where.push(`empresa = $${params.length}`);
+  }
+  if (where.length) query += ` WHERE ${where.join(' AND ')}`;
   query += ' ORDER BY created_at DESC';
   const result = await pool.query(query, params);
   res.json(result.rows.map(mapGarantia));
