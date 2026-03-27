@@ -592,3 +592,308 @@ body.operator-mode #boardPanel {
 body.operator-mode .main-area {
   padding-bottom: 98px;
 }
+
+
+/* ===== VISUAL UPGRADE ADMIN / SUP / OPS ===== */
+body:not(.auth-mode)[data-role="admin"],
+body:not(.auth-mode)[data-role="supervisor"],
+body:not(.auth-mode)[data-role="operativo"] {
+  --bg: #0a0f1d;
+  --surface: rgba(10, 18, 35, 0.78);
+  --surface-2: rgba(15, 26, 49, 0.84);
+  --surface-3: rgba(21, 35, 66, 0.84);
+  --sidebar: linear-gradient(180deg, #081120 0%, #0b1730 44%, #091223 100%);
+  --line: rgba(151, 176, 255, 0.14);
+  --line-2: rgba(151, 176, 255, 0.2);
+  --text: #edf2ff;
+  --muted: #9ca9c5;
+  --title: #ffffff;
+  --accent: #58a6ff;
+  --accent-soft: rgba(88,166,255,.12);
+  --blue: #63b3ff;
+  --blue-soft: rgba(99,179,255,.12);
+  --green: #2dd4bf;
+  --yellow: #fbbf24;
+  --red: #fb7185;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(88,166,255,.12) 0%, rgba(88,166,255,0) 30%),
+    radial-gradient(circle at 100% 0%, rgba(45,212,191,.08) 0%, rgba(45,212,191,0) 28%),
+    linear-gradient(180deg, #060b16 0%, #0a0f1d 100%);
+}
+body:not(.auth-mode)[data-role="admin"] .shell,
+body:not(.auth-mode)[data-role="supervisor"] .shell,
+body:not(.auth-mode)[data-role="operativo"] .shell {
+  background: transparent;
+}
+body:not(.auth-mode)[data-role="admin"] .sidebar,
+body:not(.auth-mode)[data-role="supervisor"] .sidebar,
+body:not(.auth-mode)[data-role="operativo"] .sidebar {
+  background: var(--sidebar);
+  border-right: 1px solid rgba(120, 150, 255, .16);
+  box-shadow: inset -1px 0 0 rgba(255,255,255,.03), 30px 0 80px rgba(0,0,0,.18);
+}
+body:not(.auth-mode)[data-role="admin"] .brand-lockup,
+body:not(.auth-mode)[data-role="supervisor"] .brand-lockup,
+body:not(.auth-mode)[data-role="operativo"] .brand-lockup {
+  position: relative;
+  padding: 18px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(88,166,255,.14), rgba(88,166,255,.04));
+  border: 1px solid rgba(116,167,255,.18);
+  overflow: hidden;
+}
+body:not(.auth-mode)[data-role="admin"] .brand-lockup::after,
+body:not(.auth-mode)[data-role="supervisor"] .brand-lockup::after,
+body:not(.auth-mode)[data-role="operativo"] .brand-lockup::after {
+  content: '';
+  position: absolute;
+  inset: auto -30% -55% auto;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(45,212,191,.24) 0%, rgba(45,212,191,0) 65%);
+  pointer-events: none;
+}
+body:not(.auth-mode)[data-role="admin"] .pill,
+body:not(.auth-mode)[data-role="supervisor"] .pill,
+body:not(.auth-mode)[data-role="operativo"] .pill {
+  background: rgba(255,255,255,.06);
+  color: #dce8ff;
+  border-color: rgba(151,176,255,.18);
+}
+body:not(.auth-mode)[data-role="admin"] .profile-panel,
+body:not(.auth-mode)[data-role="supervisor"] .profile-panel,
+body:not(.auth-mode)[data-role="operativo"] .profile-panel,
+body:not(.auth-mode)[data-role="admin"] .stat,
+body:not(.auth-mode)[data-role="supervisor"] .stat,
+body:not(.auth-mode)[data-role="operativo"] .stat,
+body:not(.auth-mode)[data-role="admin"] .panel,
+body:not(.auth-mode)[data-role="supervisor"] .panel,
+body:not(.auth-mode)[data-role="operativo"] .panel,
+body:not(.auth-mode)[data-role="admin"] .analytic-card,
+body:not(.auth-mode)[data-role="supervisor"] .analytic-card,
+body:not(.auth-mode)[data-role="operativo"] .analytic-card,
+body:not(.auth-mode)[data-role="admin"] .table-row,
+body:not(.auth-mode)[data-role="supervisor"] .table-row,
+body:not(.auth-mode)[data-role="operativo"] .table-row,
+body:not(.auth-mode)[data-role="admin"] .system-note,
+body:not(.auth-mode)[data-role="supervisor"] .system-note,
+body:not(.auth-mode)[data-role="operativo"] .system-note,
+body:not(.auth-mode)[data-role="admin"] .topbar-chip,
+body:not(.auth-mode)[data-role="supervisor"] .topbar-chip,
+body:not(.auth-mode)[data-role="operativo"] .topbar-chip,
+body:not(.auth-mode)[data-role="admin"] .role-brief article,
+body:not(.auth-mode)[data-role="supervisor"] .role-brief article,
+body:not(.auth-mode)[data-role="operativo"] .role-brief article {
+  background: linear-gradient(180deg, rgba(13,24,45,.9), rgba(9,16,30,.92));
+  border-color: rgba(116,167,255,.16);
+  box-shadow: 0 18px 45px rgba(2,6,23,.22), inset 0 1px 0 rgba(255,255,255,.03);
+  backdrop-filter: blur(16px);
+}
+body:not(.auth-mode)[data-role="admin"] .nav-btn,
+body:not(.auth-mode)[data-role="supervisor"] .nav-btn,
+body:not(.auth-mode)[data-role="operativo"] .nav-btn {
+  color: #d7e4ff;
+  border-color: transparent;
+}
+body:not(.auth-mode)[data-role="admin"] .nav-btn:hover,
+body:not(.auth-mode)[data-role="admin"] .nav-btn.active,
+body:not(.auth-mode)[data-role="supervisor"] .nav-btn:hover,
+body:not(.auth-mode)[data-role="supervisor"] .nav-btn.active,
+body:not(.auth-mode)[data-role="operativo"] .nav-btn:hover,
+body:not(.auth-mode)[data-role="operativo"] .nav-btn.active {
+  background: linear-gradient(180deg, rgba(88,166,255,.18), rgba(88,166,255,.09));
+  border-color: rgba(116,167,255,.16);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.02), 0 10px 22px rgba(1,8,20,.12);
+  transform: translateX(2px);
+}
+body:not(.auth-mode)[data-role="admin"] .main-area,
+body:not(.auth-mode)[data-role="supervisor"] .main-area,
+body:not(.auth-mode)[data-role="operativo"] .main-area {
+  padding: 24px;
+  gap: 18px;
+}
+body:not(.auth-mode)[data-role="admin"] .topbar h1,
+body:not(.auth-mode)[data-role="supervisor"] .topbar h1,
+body:not(.auth-mode)[data-role="operativo"] .topbar h1 {
+  font-size: 34px;
+  letter-spacing: -.04em;
+  color: #fff;
+}
+body:not(.auth-mode)[data-role="admin"] .topbar-kicker,
+body:not(.auth-mode)[data-role="supervisor"] .topbar-kicker,
+body:not(.auth-mode)[data-role="operativo"] .topbar-kicker {
+  color: #7dd3fc;
+}
+body:not(.auth-mode)[data-role="admin"] .toolbar,
+body:not(.auth-mode)[data-role="supervisor"] .toolbar,
+body:not(.auth-mode)[data-role="operativo"] .toolbar {
+  grid-template-columns: 1.6fr .75fr .75fr;
+}
+body:not(.auth-mode)[data-role="admin"] .badge,
+body:not(.auth-mode)[data-role="supervisor"] .badge,
+body:not(.auth-mode)[data-role="operativo"] .badge {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+}
+body:not(.auth-mode)[data-role="admin"] .btn-primary,
+body:not(.auth-mode)[data-role="supervisor"] .btn-primary,
+body:not(.auth-mode)[data-role="operativo"] .btn-primary {
+  background: linear-gradient(135deg, #58a6ff, #7c3aed);
+  border-color: rgba(116,167,255,.28);
+  box-shadow: 0 14px 32px rgba(88,166,255,.24);
+}
+body:not(.auth-mode)[data-role="admin"] .btn-secondary,
+body:not(.auth-mode)[data-role="supervisor"] .btn-secondary,
+body:not(.auth-mode)[data-role="operativo"] .btn-secondary,
+body:not(.auth-mode)[data-role="admin"] .btn-ghost,
+body:not(.auth-mode)[data-role="supervisor"] .btn-ghost,
+body:not(.auth-mode)[data-role="operativo"] .btn-ghost {
+  background: rgba(255,255,255,.04);
+  color: #dce8ff;
+  border-color: rgba(151,176,255,.14);
+}
+body:not(.auth-mode)[data-role="admin"] input,
+body:not(.auth-mode)[data-role="admin"] textarea,
+body:not(.auth-mode)[data-role="admin"] select,
+body:not(.auth-mode)[data-role="supervisor"] input,
+body:not(.auth-mode)[data-role="supervisor"] textarea,
+body:not(.auth-mode)[data-role="supervisor"] select,
+body:not(.auth-mode)[data-role="operativo"] input,
+body:not(.auth-mode)[data-role="operativo"] textarea,
+body:not(.auth-mode)[data-role="operativo"] select {
+  background: rgba(8,14,26,.92);
+  border-color: rgba(116,167,255,.12);
+  color: #eef4ff;
+}
+body:not(.auth-mode)[data-role="admin"] input::placeholder,
+body:not(.auth-mode)[data-role="supervisor"] input::placeholder,
+body:not(.auth-mode)[data-role="operativo"] input::placeholder,
+body:not(.auth-mode)[data-role="admin"] textarea::placeholder,
+body:not(.auth-mode)[data-role="supervisor"] textarea::placeholder,
+body:not(.auth-mode)[data-role="operativo"] textarea::placeholder {
+  color: #6f7f9f;
+}
+body:not(.auth-mode)[data-role="admin"] .table-list,
+body:not(.auth-mode)[data-role="supervisor"] .table-list,
+body:not(.auth-mode)[data-role="operativo"] .table-list {
+  gap: 12px;
+}
+body:not(.auth-mode)[data-role="admin"] .table-row,
+body:not(.auth-mode)[data-role="supervisor"] .table-row,
+body:not(.auth-mode)[data-role="operativo"] .table-row {
+  position: relative;
+  overflow: hidden;
+}
+body:not(.auth-mode)[data-role="admin"] .table-row::before,
+body:not(.auth-mode)[data-role="supervisor"] .table-row::before,
+body:not(.auth-mode)[data-role="operativo"] .table-row::before {
+  content:'';
+  position:absolute;
+  inset:0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(180deg, #58a6ff, #2dd4bf);
+  opacity: .85;
+}
+body:not(.auth-mode)[data-role="admin"] .analytics-grid,
+body:not(.auth-mode)[data-role="supervisor"] .analytics-grid,
+body:not(.auth-mode)[data-role="operativo"] .analytics-grid {
+  grid-template-columns: repeat(4, minmax(0,1fr));
+}
+body:not(.auth-mode)[data-role="admin"] .analytic-card strong,
+body:not(.auth-mode)[data-role="supervisor"] .analytic-card strong,
+body:not(.auth-mode)[data-role="operativo"] .analytic-card strong {
+  color: #fff;
+}
+body:not(.auth-mode)[data-role="admin"] .stat strong,
+body:not(.auth-mode)[data-role="supervisor"] .stat strong,
+body:not(.auth-mode)[data-role="operativo"] .stat strong {
+  color: #fff;
+  font-size: 32px;
+}
+body:not(.auth-mode)[data-role="admin"] .muted,
+body:not(.auth-mode)[data-role="supervisor"] .muted,
+body:not(.auth-mode)[data-role="operativo"] .muted,
+body:not(.auth-mode)[data-role="admin"] label,
+body:not(.auth-mode)[data-role="supervisor"] label,
+body:not(.auth-mode)[data-role="operativo"] label {
+  color: #8fa1c6;
+}
+body:not(.auth-mode)[data-role="admin"] #toast,
+body:not(.auth-mode)[data-role="supervisor"] #toast,
+body:not(.auth-mode)[data-role="operativo"] #toast {
+  background: rgba(9, 16, 30, .96);
+  border-color: rgba(116,167,255,.16);
+}
+body:not(.auth-mode)[data-role="admin"] .sidebar-bottom,
+body:not(.auth-mode)[data-role="supervisor"] .sidebar-bottom,
+body:not(.auth-mode)[data-role="operativo"] .sidebar-bottom {
+  background: linear-gradient(180deg, rgba(9, 18, 35, 0) 0%, rgba(9, 18, 35, .82) 25%, #091223 100%);
+}
+body:not(.auth-mode)[data-role="admin"] .system-note strong,
+body:not(.auth-mode)[data-role="supervisor"] .system-note strong,
+body:not(.auth-mode)[data-role="operativo"] .system-note strong {
+  color: #fff;
+}
+body:not(.auth-mode)[data-role="admin"] .preview-item,
+body:not(.auth-mode)[data-role="supervisor"] .preview-item,
+body:not(.auth-mode)[data-role="operativo"] .preview-item {
+  border-color: rgba(116,167,255,.18);
+  background: rgba(10,18,35,.7);
+}
+body:not(.auth-mode)[data-role="admin"] .schedule-calendar,
+body:not(.auth-mode)[data-role="supervisor"] .schedule-calendar,
+body:not(.auth-mode)[data-role="operativo"] .schedule-calendar {
+  background: linear-gradient(180deg, rgba(10,18,35,.92), rgba(8,14,26,.92));
+}
+body:not(.auth-mode)[data-role="admin"] .calendar-day.has-items,
+body:not(.auth-mode)[data-role="supervisor"] .calendar-day.has-items,
+body:not(.auth-mode)[data-role="operativo"] .calendar-day.has-items {
+  border-color: rgba(45,212,191,.35);
+  box-shadow: inset 0 0 0 1px rgba(45,212,191,.15), 0 12px 22px rgba(2,6,23,.18);
+}
+body:not(.auth-mode)[data-role="admin"] .calendar-day.has-items::after,
+body:not(.auth-mode)[data-role="supervisor"] .calendar-day.has-items::after,
+body:not(.auth-mode)[data-role="operativo"] .calendar-day.has-items::after {
+  background: #2dd4bf;
+  box-shadow: 0 0 0 6px rgba(45,212,191,.1);
+}
+body:not(.auth-mode)[data-role="admin"] .panel-head,
+body:not(.auth-mode)[data-role="supervisor"] .panel-head,
+body:not(.auth-mode)[data-role="operativo"] .panel-head {
+  align-items: center;
+}
+body:not(.auth-mode)[data-role="admin"] .panel-head h3,
+body:not(.auth-mode)[data-role="supervisor"] .panel-head h3,
+body:not(.auth-mode)[data-role="operativo"] .panel-head h3 {
+  color: #fff;
+  font-size: 20px;
+}
+body:not(.auth-mode)[data-role="admin"] .topbar,
+body:not(.auth-mode)[data-role="supervisor"] .topbar,
+body:not(.auth-mode)[data-role="operativo"] .topbar {
+  position: relative;
+  padding: 10px 4px 4px;
+}
+body:not(.auth-mode)[data-role="admin"] .topbar::after,
+body:not(.auth-mode)[data-role="supervisor"] .topbar::after,
+body:not(.auth-mode)[data-role="operativo"] .topbar::after {
+  content:'';
+  position:absolute;
+  inset:auto 0 -6px 0;
+  height:1px;
+  background: linear-gradient(90deg, rgba(88,166,255,.35), rgba(45,212,191,.18), rgba(0,0,0,0));
+}
+body:not(.auth-mode)[data-role="admin"] .badge-role,
+body:not(.auth-mode)[data-role="supervisor"] .badge-role,
+body:not(.auth-mode)[data-role="operativo"] .badge-role {
+  background: rgba(88,166,255,.12);
+  color: #dce8ff;
+  border-color: rgba(116,167,255,.18);
+}
+@media (max-width: 980px) {
+  body:not(.auth-mode)[data-role="admin"] .analytics-grid,
+  body:not(.auth-mode)[data-role="supervisor"] .analytics-grid,
+  body:not(.auth-mode)[data-role="operativo"] .analytics-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

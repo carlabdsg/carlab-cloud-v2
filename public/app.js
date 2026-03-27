@@ -203,6 +203,7 @@ function roleCopy(role) {
 }
 
 function updateHeaderForRole() {
+  document.body.dataset.role = state.user?.role || '';
   const copy = roleCopy(state.user.role);
   if (els.pageTitle) els.pageTitle.textContent = copy.title;
   if (els.statusLegend) els.statusLegend.textContent = copy.legend;
@@ -233,6 +234,7 @@ function updateOperatorAppNav(panel) {
 }
 function switchPanel(panel) {
   state.activePanel = panel;
+  document.body.dataset.panel = panel;
   document.getElementById('boardPanel')?.classList.toggle('hidden', panel !== 'board');
   els.reportFormPanel?.classList.toggle('hidden', panel !== 'report');
   els.usersPanel?.classList.toggle('hidden', panel !== 'users');
