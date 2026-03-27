@@ -149,8 +149,6 @@
           </div>
           <div class="topbar-side">
             <div class="topbar-chip"><span>Sesión</span><strong id="currentUserEmail">admin@carlab.local</strong></div>
-            <div class="topbar-chip notif-chip"><span>Alertas</span><strong id="notifSummary">0 pendientes</strong></div>
-            <button id="globalRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
           </div>
         </header>
 
@@ -215,10 +213,8 @@
               <label>Fecha</label>
               <input id="scheduleDateInput" type="date" />
             </div>
-            <button id="scheduleRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
+            <button id="scheduleRefreshBtn" class="btn btn-secondary" type="button">Ver agenda</button>
           </div>
-          <div id="scheduleAlerts" class="schedule-alerts"></div>
-          <div id="scheduleCalendar" class="schedule-calendar"></div>
           <div id="scheduleList" class="table-list compact-list"></div>
         </section>
 
@@ -265,7 +261,7 @@
               </div>
             </div>
             <div class="col-span-2"><label>Descripción del fallo</label><textarea id="descripcionFallo" rows="4" required></textarea></div>
-            <div class="col-span-2"><label>Evidencias generales</label><input id="evidencias" type="file" accept="image/*" multiple /><div class="muted small">En iPhone puedes tomar una foto, volver a abrir cámara y seguir agregando más. También puedes elegir varias desde galería.</div><div id="previewEvidencias" class="preview-grid"></div></div>
+            <div class="col-span-2"><label>Evidencias generales</label><input id="evidencias" type="file" accept="image/*" multiple /><div class="muted small">En iPhone puedes agregar varias fotos por tandas desde cámara o galería.</div><div id="previewEvidencias" class="preview-grid"></div></div>
             <div class="col-span-2"><label class="checkbox-row"><input id="solicitaRefaccion" type="checkbox" /> Solicita refacción</label></div>
             <div id="refaccionFields" class="col-span-2 hidden stack gap-12">
               <div><label>Detalle de refacción solicitada</label><textarea id="detalleRefaccion" rows="3"></textarea></div>
@@ -338,13 +334,9 @@
     </article>
   </template>
 
-  <nav id="operatorAppNav" class="operator-app-nav hidden">
-    <button id="opNavHomeBtn" type="button">Reportes</button>
-    <button id="opNavNewBtn" type="button">Nuevo</button>
-    <button id="opNavScheduleBtn" type="button">Agenda</button>
-    <button id="opNavLogoutBtn" type="button">Salir</button>
-  </nav>
-
   <script src="/app.js"></script>
+
+<div id="commandCenter" style="padding:20px"></div>
+
 </body>
 </html>
