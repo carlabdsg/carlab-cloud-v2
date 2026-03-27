@@ -195,15 +195,22 @@ function reportPayload() {
 
 function roleCopy(role) {
   return {
-    admin: { title:'Cabina administrativa', summary:'Control total. Apruebas accesos, administras usuarios, ves analítica y conviertes reincidencias en acción.', panels:[['Gestión total','Usuarios, empresas y solicitudes en una sola vista.'],['Lectura comercial','Detecta patrones por empresa, modelo y unidad.'],['Control operativo','Puedes actuar igual que un operativo cuando haga falta.']], boardKicker:'ADMIN', listTitle:'Bandeja general del sistema', legend:'Portal corporativo con control total, solicitudes y lectura comercial.' },
+    admin: { title:'Command desk administrativo', summary:'Control total, lectura operativa y decisiones en tiempo real para mantener el taller ordenado y visual.', panels:[['Gestión total','Usuarios, empresas y solicitudes en una sola vista.'],['Lectura comercial','Detecta patrones por empresa, modelo y unidad.'],['Control operativo','Puedes actuar igual que un operativo cuando haga falta.']], boardKicker:'ADMIN', listTitle:'Bandeja general del sistema', legend:'Portal corporativo con control total, solicitudes y lectura comercial.' },
     operador: { title:'Portal de operador', summary:'Reportas fallas, subes evidencia y ves el estatus sin depender de llamadas.', panels:[['Levantar incidencia','Captura la falla con datos, fotos, refacción y firma.'],['Seguimiento','Consulta si fue aceptada, rechazada o quedó pendiente.'],['Sin cruces','Solo ves tus reportes. No puedes decidir ni alterar revisiones.']], boardKicker:'OPERADOR', listTitle:'Mis reportes de garantía', legend:'Aquí ves solo tus reportes y su estatus actual.' },
-    operativo: { title:'Mesa de validación operativa', summary:'Revisas reportes, decides si proceden y mueves el trabajo hasta terminar.', panels:[['Decisión','Acepta, rechaza o marca pendiente de revisión.'],['Flujo','Mueve el trabajo a en proceso, espera refacción o terminada.'],['Patrones','También ves unidades reincidentes para atacar la raíz.']], boardKicker:'OPERATIVO', listTitle:'Bandeja operativa', legend:'Aquí validas, autorizas y avanzas el trabajo.' },
-    supervisor: { title:'Portal de supervisor', summary:'Consulta únicamente la información de tu empresa en modo corporativo de solo lectura.', panels:[['Visibilidad','Revisa empresas, unidades, evidencias y avances.'],['Lectura ejecutiva','Historial por unidad y top de fallas sin tocar procesos.'],['Sin edición','No cambias decisiones ni alteras procesos.']], boardKicker:'SUPERVISOR', listTitle:'Bandeja supervisada', legend:'Monitoreo integral con lectura operativa y comercial.' },
+    operativo: { title:'Centro operativo', summary:'Revisas reportes, autorizas flujo y mueves el taller con una vista dominante y clara.', panels:[['Decisión','Acepta, rechaza o marca pendiente de revisión.'],['Flujo','Mueve el trabajo a en proceso, espera refacción o terminada.'],['Patrones','También ves unidades reincidentes para atacar la raíz.']], boardKicker:'OPERATIVO', listTitle:'Bandeja operativa', legend:'Aquí validas, autorizas y avanzas el trabajo.' },
+    supervisor: { title:'Cabina de supervisión', summary:'Consulta la operación de tu empresa con lectura ejecutiva clara y visual.', panels:[['Visibilidad','Revisa empresas, unidades, evidencias y avances.'],['Lectura ejecutiva','Historial por unidad y top de fallas sin tocar procesos.'],['Sin edición','No cambias decisiones ni alteras procesos.']], boardKicker:'SUPERVISOR', listTitle:'Bandeja supervisada', legend:'Monitoreo integral con lectura operativa y comercial.' },
   }[role];
 }
 
+
+function applyWorkspaceTone() {
+  const desktopPremium = !!state.user && state.user.role !== 'operador';
+  document.body.classList.toggle('desktop-premium', desktopPremium);
+  if (!desktopPremium) return;
+  document.body.classList.remove('operator-mode');
+}
+
 function updateHeaderForRole() {
-  document.body.dataset.role = state.user?.role || '';
   const copy = roleCopy(state.user.role);
   if (els.pageTitle) els.pageTitle.textContent = copy.title;
   if (els.statusLegend) els.statusLegend.textContent = copy.legend;
@@ -216,6 +223,7 @@ function updateHeaderForRole() {
   if (els.welcomeText) els.welcomeText.textContent = `${roleName(state.user.role)} · Sesión activa`;
   if (els.avatarCircle) els.avatarCircle.textContent = state.user.nombre?.[0]?.toUpperCase() || 'C';
   if (els.roleBrief) els.roleBrief.innerHTML = copy.panels.map(([title, desc]) => `<article><strong>${escapeHtml(title)}</strong><span>${escapeHtml(desc)}</span></article>`).join('');
+  applyWorkspaceTone();
 }
 function setActiveNav(activeBtn) {
   [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navScheduleBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
@@ -234,7 +242,6 @@ function updateOperatorAppNav(panel) {
 }
 function switchPanel(panel) {
   state.activePanel = panel;
-  document.body.dataset.panel = panel;
   document.getElementById('boardPanel')?.classList.toggle('hidden', panel !== 'board');
   els.reportFormPanel?.classList.toggle('hidden', panel !== 'report');
   els.usersPanel?.classList.toggle('hidden', panel !== 'users');
@@ -460,7 +467,7 @@ async function loadNotifications() {
       if (data.pendingSchedules) bits.push(`<div class="alert-card warn">Tienes <strong>${data.pendingSchedules}</strong> propuestas pendientes por confirmar.</div>`);
       if (data.todaySchedules) bits.push(`<div class="alert-card info">Hay <strong>${data.todaySchedules}</strong> citas para hoy.</div>`);
       if (data.newReports) bits.push(`<div class="alert-card soft"><strong>${data.newReports}</strong> reportes nuevos esperando acción.</div>`);
-      els.scheduleAlerts.innerHTML = bits.join('');
+      els.scheduleAlerts.innerHTML = bits.join('') || `<div class="alert-card info">Sin alertas de agenda por ahora.</div>`;
     }
   } catch {}
 }
@@ -517,7 +524,7 @@ function renderSchedules() {
         const raw = item.scheduledFor || item.proposedAt || item.requestedAt;
         return raw && String(raw).slice(0,10) === iso;
       }).length;
-      const cls = iso === selectedDate ? 'calendar-cell active' : 'calendar-cell';
+      const cls = iso === selectedDate ? `calendar-cell active ${count ? 'has-events' : ''}` : `calendar-cell ${count ? 'has-events' : ''}`;
       days.push(`<button type="button" class="${cls}" data-date="${iso}"><span>${d}</span>${count ? `<strong>${count}</strong>` : '<em>·</em>'}</button>`);
     }
     const chips = groupedDates.length
