@@ -78,13 +78,13 @@ function bind() {
   [
     'loginView','dashboardView','loginForm','loginEmail','loginPassword','loginError','registerForm','registerMessage','regNombre','regEmail','regTelefono','regEmpresa','regNumeroEconomico','regPassword',
     'tabLoginBtn','tabRegisterBtn','welcomeText','currentUserName','currentUserEmail','currentRoleBadge','avatarCircle','pageTitle','roleSummaryText','roleBrief','logoutBtn',
-    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navPartsBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel',
+    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navFleetBtn','navPartsBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel',
     'reportForm','numeroObra','modelo','numeroEconomico','empresa','kilometraje','contactoNombre','telefono','descripcionFallo','solicitaRefaccion','refaccionFields','detalleRefaccion',
     'evidencias','evidenciasRefaccion','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn','searchInput','validationFilter','operationalFilter',
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
-    'topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistorySearchInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn',
-    'navFleetBtn','partsPanel','partsList','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas','fleetNewBtn','fleetCancelBtn','fleetFormBox','fleetSearchInput','fleetStatusFilter'
+    'topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistorySearchInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','partsPanel','partsRefreshBtn','partsSummary','partsList','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn',
+    'navFleetBtn','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas','fleetNewBtn','fleetCancelBtn','fleetFormBox','fleetSearchInput','fleetStatusFilter'
   ].forEach(id => els[id] = document.getElementById(id));
 }
 bind();
@@ -308,7 +308,9 @@ function updateHeaderForRole() {
   if (els.welcomeText) els.welcomeText.textContent = `${roleName(state.user.role)} · Sesión activa`;
   if (els.avatarCircle) els.avatarCircle.textContent = state.user.nombre?.[0]?.toUpperCase() || 'C';
   if (els.roleBrief) els.roleBrief.innerHTML = copy.panels.map(([title, desc]) => `<article><strong>${escapeHtml(title)}</strong><span>${escapeHtml(desc)}</span></article>`).join('');
+  document.body.classList.toggle('owner-portal', state.user?.role === 'supervisor_flotas');
 }
+
 function setActiveNav(activeBtn) {
   [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navScheduleBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
   if (activeBtn && !activeBtn.classList.contains('hidden')) activeBtn.classList.add('active');
@@ -334,13 +336,14 @@ function switchPanel(panel) {
   els.analyticsPanel?.classList.toggle('hidden', panel !== 'analytics');
   els.historyPanel?.classList.toggle('hidden', panel !== 'history');
   els.schedulePanel?.classList.toggle('hidden', panel !== 'schedule');
-  els.partsPanel?.classList.toggle('hidden', panel !== 'parts');
   els.fleetPanel?.classList.toggle('hidden', panel !== 'fleet');
+  els.partsPanel?.classList.toggle('hidden', panel !== 'parts');
+  document.body.dataset.panel = panel;
   const board = panel === 'board';
   els.filtersPanel?.classList.toggle('hidden', !board);
   if (panel === 'schedule') loadSchedules('');
-  if (panel === 'parts') loadPartsPending();
   if (panel === 'fleet') loadFleet();
+  if (panel === 'parts') loadPartsPending();
   updateOperatorAppNav(panel);
   setActiveNav(
     panel === 'report' ? els.navNewReportBtn :
@@ -350,8 +353,8 @@ function switchPanel(panel) {
     panel === 'analytics' ? els.navAnalyticsBtn :
     panel === 'history' ? els.navHistoryBtn :
     panel === 'schedule' ? els.navScheduleBtn :
-    panel === 'parts' ? els.navPartsBtn :
     panel === 'fleet' ? els.navFleetBtn :
+    panel === 'parts' ? els.navPartsBtn :
     els.navBoardBtn
   );
   if (panel === 'report') window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -369,11 +372,11 @@ function showDashboard() {
   els.navAnalyticsBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo'));
   els.navHistoryBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo'));
   els.navScheduleBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo','operador'));
-  els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','operativo','supervisor_flotas'));
   els.navFleetBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas','operativo'));
+  els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas'));
   updateHeaderForRole(); switchPanel(state.user?.role === 'operador' ? 'report' : 'board');
 }
-function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); document.body.classList.remove('executive-mode','operator-mode'); document.body.dataset.role=''; }
+function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); document.body.classList.remove('executive-mode','operator-mode'); document.body.dataset.role=''; document.body.dataset.panel='login'; }
 
 function filteredGarantias() {
   const search = els.searchInput?.value.trim().toLowerCase() || '';
@@ -666,8 +669,7 @@ function renderSchedules() {
           await api.confirmSchedule(item.id, { status:'confirmed', scheduledFor: item.scheduledFor || item.proposedAt, notes: item.notes || '' });
           notify('Cita confirmada.'); await loadSchedules(selectedDate); await loadNotifications();
         } catch (error) {
-          if (String(error.message || '').includes('ocupado')) notify(error.message, true);
-          else notify(error.message, true);
+          notify(error.message, true);
         }
       }));
       actions.appendChild(button('Recomendar +1h', 'btn btn-secondary', async () => {
@@ -679,17 +681,18 @@ function renderSchedules() {
         } catch (error) { notify(error.message, true); }
       }));
     }
-    if (isRole('admin','operativo','supervisor_flotas') && (item.status === 'confirmed' || item.status === 'proposed' || item.status === 'waiting_operator')) {
+    if (isRole('admin','operativo','supervisor_flotas') && ['proposed','confirmed','waiting_operator'].includes(item.status)) {
       actions.appendChild(button('Reprogramar', 'btn btn-secondary', async () => { await reprogramarCita(item.id); }));
-      actions.appendChild(button('Cancelar', 'btn btn-ghost danger-btn', async () => { await cancelarCita(item.id); }));
+      actions.appendChild(button('Cancelar', 'btn btn-ghost', async () => { await cancelarCita(item.id); }));
     }
     els.scheduleList.appendChild(row);
   });
 }
 
 
+
 async function loadPartsPending() {
-  if (!isRole('admin','operativo','supervisor_flotas')) return;
+  if (!isRole('admin','supervisor_flotas')) return;
   try {
     state.partsPending = await api.getPartsPending();
     renderPartsPending();
@@ -700,24 +703,44 @@ async function loadPartsPending() {
 
 function renderPartsPending() {
   if (!els.partsList) return;
-  els.partsList.innerHTML = '';
-  if (!state.partsPending.length) {
-    els.partsList.innerHTML = '<div class="empty-state"><strong>Sin refacciones pendientes.</strong><span>Cuando se soliciten refacciones desde reportes aceptados, aparecerán aquí.</span></div>';
+  const items = state.partsPending || [];
+  const total = items.length;
+  const empresas = [...new Set(items.map(item => item.empresa).filter(Boolean))].length;
+  const unidades = [...new Set(items.map(item => item.numeroEconomico).filter(Boolean))].length;
+  if (els.partsSummary) {
+    els.partsSummary.innerHTML = `
+      <article class="analytic-card highlight-card"><strong>Pendientes</strong><div class="metric-line">${total}</div></article>
+      <article class="analytic-card"><strong>Unidades</strong><div class="metric-line">${unidades}</div></article>
+      <article class="analytic-card"><strong>Empresas</strong><div class="metric-line">${empresas}</div></article>
+    `;
+  }
+  if (!items.length) {
+    els.partsList.innerHTML = '<div class="parts-empty"><strong>No hay refacciones pendientes.</strong><div>Cuando una unidad quede en espera de pieza o se solicite refacción, aparecerá aquí.</div></div>';
     return;
   }
-  state.partsPending.forEach(item => {
-    const row = document.createElement('div');
-    row.className = 'table-row parts-row';
-    row.innerHTML = `
-      <div><strong>${escapeHtml(item.folio || '—')} · Unidad ${escapeHtml(item.numeroEconomico || '—')}</strong><div class="small muted">${escapeHtml(item.empresa || '—')}</div></div>
-      <div><span class="badge badge-waiting">Refacción pendiente</span></div>
-      <div>${escapeHtml(item.detalleRefaccion || 'Sin detalle')}</div>
-      <div>${escapeHtml(item.estatusOperativo || 'sin iniciar')}</div>
+  els.partsList.innerHTML = '';
+  items.forEach(item => {
+    const card = document.createElement('article');
+    card.className = 'parts-card';
+    card.innerHTML = `
+      <div class="parts-card-head">
+        <div>
+          <div class="kicker">${escapeHtml(item.empresa || '—')}</div>
+          <h4>Unidad ${escapeHtml(item.numeroEconomico || '—')}</h4>
+        </div>
+        <span class="badge badge-waiting">Pendiente</span>
+      </div>
+      <div class="parts-piece">${escapeHtml(item.detalleRefaccion || 'Refacción pendiente sin detalle específico')}</div>
+      <div class="parts-meta">
+        <div><strong>Folio</strong>${escapeHtml(item.folio || '—')}</div>
+        <div><strong>Estado</strong>${escapeHtml(item.estatusOperativo || 'sin iniciar')}</div>
+        <div><strong>Modelo</strong>${escapeHtml(item.modelo || '—')}</div>
+        <div><strong>Último movimiento</strong>${escapeHtml(fmtDate(item.updatedAt || item.createdAt))}</div>
+      </div>
     `;
-    els.partsList.appendChild(row);
+    els.partsList.appendChild(card);
   });
 }
-
 
 async function loadFleet() {
   try {
@@ -1092,6 +1115,7 @@ els.navAnalyticsBtn?.addEventListener('click', () => switchPanel('analytics'));
 els.navHistoryBtn?.addEventListener('click', () => switchPanel('history'));
 els.navScheduleBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
 els.navFleetBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
+els.navPartsBtn?.addEventListener('click', async () => { await loadPartsPending(); switchPanel('parts'); });
 els.navUsersBtn?.addEventListener('click', async () => { switchPanel('users'); await loadUsers(); });
 els.navRequestsBtn?.addEventListener('click', async () => { switchPanel('requests'); await loadRequests(); });
 els.navCompaniesBtn?.addEventListener('click', async () => { switchPanel('companies'); await loadCompanies(); });
@@ -1110,6 +1134,7 @@ els.unitHistorySearchInput?.addEventListener('input', () => paintUnitHistory(sta
 els.scheduleRefreshBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
 
 els.fleetRefreshBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
+els.partsRefreshBtn?.addEventListener('click', async () => { await loadPartsPending(); switchPanel('parts'); });
 els.fleetSearchInput?.addEventListener('input', renderFleet);
 els.fleetStatusFilter?.addEventListener('change', renderFleet);
 els.fleetSaveBtn?.addEventListener('click', async () => {
@@ -1174,6 +1199,7 @@ els.companyForm?.addEventListener('submit', async (e) => {
     if (isRole('admin')) await Promise.allSettled([loadUsers(), loadRequests()]);
     if (isRole('admin','operativo','supervisor','supervisor_flotas','operador')) await Promise.allSettled([loadSchedules('')]);
     if (isRole('admin','operativo','supervisor_flotas')) await Promise.allSettled([loadFleet()]);
+    if (isRole('admin','supervisor_flotas')) await Promise.allSettled([loadPartsPending()]);
     resetReportForm(); resetCompanyForm(); resetFleetForm();
   } catch {
     localStorage.removeItem('carlabToken'); state.token = ''; showLogin();
@@ -1187,5 +1213,6 @@ setInterval(async () => {
     await loadNotifications();
     if (['board','schedule'].includes(state.activePanel)) await Promise.allSettled([loadGarantias(), loadSchedules('')]);
     if (state.activePanel === 'fleet' && isRole('admin','operativo','supervisor_flotas')) await loadFleet();
+    if (state.activePanel === 'parts' && isRole('admin','supervisor_flotas')) await loadPartsPending();
   } catch {}
 }, 5000);

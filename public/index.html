@@ -114,8 +114,8 @@
               <button id="navAnalyticsBtn" class="nav-btn hidden" type="button">Analítica</button>
               <button id="navHistoryBtn" class="nav-btn hidden" type="button">Historial por unidad</button>
               <button id="navScheduleBtn" class="nav-btn hidden" type="button">Agenda</button>
-              <button id="navPartsBtn" class="nav-btn hidden" type="button">Refacciones</button>
               <button id="navFleetBtn" class="nav-btn hidden" type="button">Flotas</button>
+              <button id="navPartsBtn" class="nav-btn hidden" type="button">Refacciones</button>
             </div>
             <div class="nav-group">
               <div class="nav-group-label">Administración</div>
@@ -226,21 +226,6 @@
           <div id="scheduleAlerts" class="schedule-alerts"></div>
           <div id="scheduleCalendar" class="schedule-calendar"></div>
           <div id="scheduleList" class="table-list compact-list"></div>
-        </section>
-
-
-        <section id="partsPanel" class="panel hidden">
-          <div class="panel-head">
-            <div>
-              <div class="topbar-kicker">REFACCIONES</div>
-              <h3>Refacciones pendientes</h3>
-            </div>
-            <span class="badge badge-info">Control de piezas por unidad</span>
-          </div>
-          <div class="role-brief single-brief">
-            <article><strong>Vista ejecutiva</strong><span>Aquí ves qué unidades siguen detenidas o en espera por refacción, con lectura limpia para operación y flota.</span></article>
-          </div>
-          <div id="partsList" class="table-list compact-list"></div>
         </section>
 
         <section id="filtersPanel" class="toolbar panel">
@@ -422,6 +407,26 @@
           </div>
         </section>
 
+
+        
+        <section id="partsPanel" class="panel hidden">
+          <div class="panel-head">
+            <div>
+              <div class="topbar-kicker">REFACCIONES</div>
+              <h3>Refacciones pendientes</h3>
+            </div>
+            <span class="badge badge-info">Unidad · Pieza · Seguimiento</span>
+          </div>
+          <div class="parts-premium-head">
+            <div class="parts-premium-copy">
+              <strong>Pendientes de refacción</strong>
+              <span>Solo aparecen las unidades y piezas pendientes. Lectura limpia para dirección y supervisión de flota.</span>
+            </div>
+            <button id="partsRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
+          </div>
+          <div id="partsSummary" class="analytics-grid fleet-summary-grid parts-summary-grid"></div>
+          <div id="partsList" class="parts-grid"></div>
+        </section>
 
         <section id="boardPanel" class="panel">
           <div class="panel-head"><div><div class="topbar-kicker" id="boardKicker">CENTRAL</div><h3 id="listTitle">Bandeja de garantías</h3></div></div>
