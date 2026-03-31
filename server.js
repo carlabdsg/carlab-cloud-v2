@@ -789,6 +789,7 @@ app.get('/api/users', authRequired, requireRoles('admin'), async (_req, res) => 
 });
 
 app.post('/api/users', authRequired, requireRoles('admin'), async (req, res) => {
+  await ensureUsersRoleConstraint();
   const nombre = String(req.body.nombre || '').trim();
   const email = String(req.body.email || '').trim().toLowerCase();
   const password = String(req.body.password || '');
@@ -819,6 +820,7 @@ app.post('/api/users', authRequired, requireRoles('admin'), async (req, res) => 
 });
 
 app.patch('/api/users/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  await ensureUsersRoleConstraint();
   const current = await pool.query('SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL', [req.params.id]);
   if (!current.rowCount) return res.status(404).json({ error: 'Usuario no encontrado.' });
 

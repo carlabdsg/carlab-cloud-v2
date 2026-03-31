@@ -708,3 +708,273 @@ html, body { height: 100%; overflow: hidden; }
   html, body, .shell, .main-area { overflow: auto; height: auto; }
   #fleetUnitsList { position: static; max-height: none; overflow: visible; }
 }
+
+
+/* Executive redesign for admin, operativo, supervisor and supervisor_flotas */
+body.executive-mode {
+  background:
+    radial-gradient(circle at top left, rgba(199,55,121,.08), transparent 28%),
+    linear-gradient(180deg, #fbfcff 0%, #f4f6fb 100%);
+}
+.executive-mode .shell { display:block; }
+.executive-mode .sidebar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 40;
+  height: auto;
+  min-height: 0;
+  padding: 14px 22px;
+  border-right: 0;
+  border-bottom: 1px solid rgba(16,24,40,.08);
+  background: rgba(249,250,251,.86);
+  backdrop-filter: blur(18px);
+  display: grid;
+  grid-template-columns: 210px 1fr auto;
+  align-items: center;
+  gap: 18px;
+  box-shadow: 0 18px 50px rgba(16,24,40,.06);
+}
+.executive-mode .sidebar-top { overflow: visible; padding: 0; display: contents; }
+.executive-mode .brand-lockup { display:flex; align-items:center; gap:12px; }
+.executive-mode .brand-lockup .pill { margin:0; }
+.executive-mode .brand-lockup h2 { margin:0; font-size: 26px; }
+.executive-mode .brand-lockup p,
+.executive-mode .stats,
+.executive-mode .system-note,
+.executive-mode .welcomeText { display:none; }
+.executive-mode .profile-panel {
+  order: 3;
+  grid-template-columns: auto 1fr auto;
+  min-width: 280px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,.9);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
+}
+.executive-mode .nav-stack { order:2; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.executive-mode .nav-group { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.executive-mode .nav-group + .nav-group { margin:0 0 0 8px; padding:0 0 0 18px; border-top:0; border-left:1px solid rgba(16,24,40,.08); }
+.executive-mode .nav-group-label { padding:0; }
+.executive-mode .nav-btn {
+  width:auto;
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: transparent;
+  border: 1px solid transparent;
+  font-weight: 700;
+}
+.executive-mode .nav-btn:hover,
+.executive-mode .nav-btn.active {
+  background: #fff;
+  border-color: rgba(16,24,40,.08);
+  box-shadow: 0 10px 24px rgba(16,24,40,.08);
+}
+.executive-mode .sidebar-bottom {
+  order: 4;
+  display:flex;
+  justify-content:flex-end;
+  padding:0;
+  margin:0;
+  background:none;
+}
+.executive-mode #logoutBtn {
+  width:auto;
+  min-width: 132px;
+  border-radius: 999px;
+}
+.executive-mode .main-area {
+  padding: 104px 26px 24px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+.executive-mode .panel {
+  border-radius: 24px;
+  border-color: rgba(16,24,40,.08);
+  box-shadow: 0 14px 40px rgba(16,24,40,.04);
+}
+.executive-mode .topbar {
+  position: sticky;
+  top: 86px;
+  z-index: 20;
+  background: rgba(255,255,255,.88);
+  backdrop-filter: blur(18px);
+}
+.executive-mode .topbar h1 { font-size: 40px; }
+.executive-mode .role-brief {
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  background: transparent;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+}
+.executive-mode .role-brief article {
+  background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,255,255,.88));
+  border-radius: 22px;
+  border-color: rgba(16,24,40,.06);
+  min-height: 112px;
+}
+.executive-mode .analytics-grid,
+.executive-mode .fleet-summary-grid { gap: 16px; }
+.executive-mode .analytic-card,
+.executive-mode .highlight-card {
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,250,252,.96));
+  border-color: rgba(16,24,40,.06);
+}
+.executive-mode .metric-line {
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -.04em;
+}
+.executive-mode #boardPanel,
+.executive-mode #fleetPanel,
+.executive-mode #analyticsPanel,
+.executive-mode #historyPanel,
+.executive-mode #schedulePanel,
+.executive-mode #usersPanel,
+.executive-mode #companiesPanel,
+.executive-mode #requestsPanel { scroll-margin-top: 140px; }
+.executive-mode .fleet-layout {
+  display:grid;
+  grid-template-columns: minmax(360px, 520px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+.executive-mode #fleetUnitsList {
+  display:grid;
+  gap: 14px;
+  max-height: calc(100vh - 280px);
+  overflow:auto;
+  padding-right: 6px;
+}
+.executive-mode #fleetDetail {
+  position: sticky;
+  top: 194px;
+  min-height: 420px;
+  background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(249,250,251,.98));
+  border:1px solid rgba(16,24,40,.08);
+  border-radius: 24px;
+  padding: 20px;
+}
+.executive-mode .fleet-admin-toolbar {
+  display:flex;
+  gap: 12px;
+  margin: 16px 0;
+  position: sticky;
+  top: 172px;
+  z-index: 12;
+  background: rgba(246,247,251,.86);
+  padding: 10px 0 6px;
+  backdrop-filter: blur(14px);
+}
+.executive-mode #fleetFormBox {
+  margin-bottom: 16px;
+  padding: 18px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,250,252,.96));
+  border: 1px solid rgba(16,24,40,.08);
+}
+.executive-mode .history-search-box { grid-template-columns: repeat(4,minmax(0,1fr)); }
+.executive-mode .fleet-card {
+  border-radius: 22px;
+  border-color: rgba(16,24,40,.08);
+  background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,250,252,.96));
+  box-shadow: 0 12px 32px rgba(16,24,40,.05);
+}
+.executive-mode .fleet-card-head {
+  display:flex;
+  justify-content:space-between;
+  gap:16px;
+  align-items:flex-start;
+  margin-bottom: 14px;
+}
+.executive-mode .fleet-card-kicker {
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color:#98a2b3;
+  font-weight:700;
+  margin-bottom: 6px;
+}
+.executive-mode .fleet-card h4 { margin:0; font-size: 28px; letter-spacing: -.04em; }
+.executive-mode .fleet-card-strip {
+  display:grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap:10px;
+  margin-bottom: 14px;
+}
+.executive-mode .fleet-card-strip > div {
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(16,24,40,.06);
+  background: rgba(255,255,255,.82);
+}
+.executive-mode .fleet-card-strip span {
+  display:block;
+  color:#667085;
+  font-size:12px;
+  margin-bottom:6px;
+}
+.executive-mode .fleet-card-strip strong { font-size: 14px; line-height: 1.4; }
+.executive-mode .fleet-card-actions { display:flex; flex-wrap:wrap; }
+.executive-mode .fleet-hero {
+  display:grid;
+  grid-template-columns: minmax(0,1.2fr) minmax(320px,.8fr);
+  gap:18px;
+}
+.executive-mode .fleet-timeline-box,
+.executive-mode .fleet-status-admin,
+.executive-mode .fleet-cost-form,
+.executive-mode .fleet-columns section {
+  border: 1px solid rgba(16,24,40,.06);
+  background: rgba(255,255,255,.82);
+  border-radius: 20px;
+  padding: 16px;
+}
+.executive-mode .fleet-columns {
+  display:grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap:16px;
+  margin-top:16px;
+}
+.executive-mode .table-row {
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,250,252,.95));
+}
+.executive-mode .mini-grid > div {
+  border-radius: 16px;
+  background: rgba(255,255,255,.82);
+}
+.executive-mode .toolbar {
+  grid-template-columns: 1.6fr .8fr .8fr;
+  position: sticky;
+  top: 176px;
+  z-index: 10;
+  background: rgba(246,247,251,.86);
+  padding: 8px 0;
+  backdrop-filter: blur(14px);
+}
+.executive-mode .cards { gap: 16px; }
+.executive-mode .card {
+  border-radius: 22px;
+  border-color: rgba(16,24,40,.06);
+  box-shadow: 0 12px 28px rgba(16,24,40,.04);
+}
+.executive-mode .compact-list .table-row { grid-template-columns: 2fr 1fr 1fr; }
+
+@media (max-width: 1220px) {
+  .executive-mode .sidebar { grid-template-columns: 1fr; }
+  .executive-mode .nav-stack { order:3; }
+  .executive-mode .profile-panel, .executive-mode .sidebar-bottom { order: initial; }
+  .executive-mode .main-area { padding-top: 180px; }
+  .executive-mode .toolbar, .executive-mode .fleet-admin-toolbar, .executive-mode .topbar { position: static; }
+  .executive-mode .fleet-layout, .executive-mode .fleet-hero, .executive-mode .fleet-columns, .executive-mode .history-search-box { grid-template-columns: 1fr; }
+  .executive-mode #fleetUnitsList { max-height: none; overflow: visible; }
+  .executive-mode #fleetDetail { position: static; }
+}
+@media (max-width: 860px) {
+  .executive-mode .main-area { padding: 208px 14px 20px; }
+  .executive-mode .topbar-side { flex-direction: column; width: 100%; }
+  .executive-mode .topbar-chip { min-width: 0; width: 100%; }
+  .executive-mode .role-brief, .executive-mode .fleet-card-strip { grid-template-columns: 1fr; }
+  .executive-mode .nav-group { width: 100%; }
+}

@@ -221,6 +221,7 @@ function resetFleetForm() {
   if (els.fleetCampaignActiva) els.fleetCampaignActiva.checked = false;
   if (els.fleetSaveBtn) els.fleetSaveBtn.textContent = 'Guardar unidad';
   toggleFleetForm(false);
+  if (els.fleetEmpresa && !['supervisor','supervisor_flotas'].includes(state.user?.role)) els.fleetEmpresa.value = ''; 
 }
 function beginFleetEdit(unit) {
   state.editingFleetUnitId = unit.id;
@@ -236,7 +237,7 @@ function beginFleetEdit(unit) {
   if (els.fleetCampaignActiva) els.fleetCampaignActiva.checked = !!unit.campaignActiva;
   if (els.fleetSaveBtn) els.fleetSaveBtn.textContent = 'Guardar cambios';
   toggleFleetForm(true);
-  document.getElementById('fleetPanel')?.scrollIntoView({ behavior:'smooth', block:'start' });
+  els.fleetNumeroEconomico?.focus();
 }
 
 function reportPayload() {
@@ -318,6 +319,9 @@ function switchPanel(panel) {
 
 function showDashboard() {
   els.loginView?.classList.add('hidden'); els.dashboardView?.classList.remove('hidden');
+  document.body.classList.toggle('operator-mode', state.user?.role === 'operador');
+  document.body.classList.toggle('executive-mode', state.user?.role !== 'operador');
+  document.body.dataset.role = state.user?.role || ''; 
   els.navNewReportBtn?.classList.toggle('hidden', !isRole('operador','admin'));
   els.navUsersBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navRequestsBtn?.classList.toggle('hidden', !isRole('admin'));
@@ -328,7 +332,7 @@ function showDashboard() {
   els.navFleetBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas','operativo'));
   updateHeaderForRole(); switchPanel(state.user?.role === 'operador' ? 'report' : 'board');
 }
-function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); }
+function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); document.body.classList.remove('executive-mode','operator-mode'); document.body.dataset.role=''; }
 
 function filteredGarantias() {
   const search = els.searchInput?.value.trim().toLowerCase() || '';
@@ -674,15 +678,20 @@ function renderFleet() {
     const card = document.createElement('article');
     card.className = 'card fleet-card';
     card.innerHTML = `
-      <div class="card-top">
-        <div><h4>Unidad ${escapeHtml(unit.numeroEconomico)}</h4><p class="meta">${escapeHtml(unit.empresa)}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}</p></div>
+      <div class="fleet-card-head">
+        <div>
+          <div class="fleet-card-kicker">${escapeHtml(unit.empresa || '—')}</div>
+          <h4>${escapeHtml(unit.numeroEconomico)}</h4>
+          <p class="meta">${escapeHtml(unit.marca || '—')}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}${unit.anio ? ' · ' + escapeHtml(unit.anio) : ''}</p>
+        </div>
         <span class="fleet-dot ${sem.cls}">${sem.label}</span>
       </div>
-      <div class="mini-grid fleet-mini-grid">
-        <div><span class="label">Último estado</span><strong>${sem.label}</strong></div>
-        <div><span class="label">Reportes</span><strong>${unit.reportesCount || 0}</strong></div>
+      <div class="fleet-card-strip">
+        <div><span>Reportes</span><strong>${unit.reportesCount || 0}</strong></div>
+        <div><span>Costo</span><strong>${money(unit.costoTotal || 0)}</strong></div>
+        <div><span>Último movimiento</span><strong>${unit.lastReportAt ? fmtDate(unit.lastReportAt) : 'Sin movimiento'}</strong></div>
       </div>
-      <div class="action-area"></div>
+      <div class="action-area fleet-card-actions"></div>
     `;
     const act = card.querySelector('.action-area');
     act.appendChild(button('Ver unidad', 'btn btn-secondary', async () => {
@@ -760,12 +769,13 @@ function renderFleetDetail() {
   const timeline = (data.reports || []).slice(0,6).map(r => `<div class="timeline-item"><span class="timeline-dot"></span><div><strong>${escapeHtml(r.folio || 'GAR-—')}</strong><p>${escapeHtml(r.descripcionFallo || 'Sin descripción')}</p><small>${fmtDate(r.createdAt)} · ${escapeHtml(r.estatusOperativo || 'sin iniciar')}</small></div></div>`).join('') || '<div class="muted">Sin movimientos recientes.</div>';
   els.fleetDetail.innerHTML = `
     <div class="panel-head fleet-detail-head">
-      <div><div class="topbar-kicker">UNIDAD</div><h3>${escapeHtml(u.numeroEconomico)} · ${escapeHtml(u.empresa)}</h3></div>
+      <div><div class="topbar-kicker">EXPEDIENTE DE UNIDAD</div><h3>${escapeHtml(u.numeroEconomico)} · ${escapeHtml(u.empresa)}</h3><p class="muted">Lectura patrimonial, operativa y de costo en una sola vista.</p></div>
       <div class="stack-inline">${isRole('admin') ? '<button id="fleetEditInlineBtn" class="btn btn-ghost" type="button">Editar</button><button id="fleetDeleteInlineBtn" class="btn btn-ghost" type="button">Eliminar</button>' : ''}<span class="fleet-dot '+sem.cls+'">'+sem.label+'</span></div>
     </div>
     <div class="fleet-hero">
       <div class="fleet-hero-main">
         <div class="mini-grid fleet-meta-grid">
+          <div><span class="label">Costo total</span><strong>${money(u.costoTotal)}</strong></div>
           <div><span class="label">Marca</span><strong>${escapeHtml(u.marca || '—')}</strong></div>
           <div><span class="label">Modelo</span><strong>${escapeHtml(u.modelo || '—')}</strong></div>
           <div><span class="label">Año</span><strong>${escapeHtml(u.anio || '—')}</strong></div>
