@@ -1101,6 +1101,18 @@ app.patch('/api/schedules/:id/confirm', authRequired, requireRoles('admin', 'ope
   const notes = String(req.body.notes || '').trim();
   const found = await pool.query(`SELECT sr.*, g.folio, g.numero_economico, g.empresa, g.telefono FROM schedule_requests sr JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id = $1`, [req.params.id]);
   if (!found.rowCount) return res.status(404).json({ error: 'Programación no encontrada.' });
+
+app.patch('/api/schedules/:id/cancel', authRequired, async (req,res)=>{
+ await pool.query("UPDATE schedule_requests SET status='cancelled' WHERE id=$1",[req.params.id]);
+ res.json({ok:true});
+});
+
+app.patch('/api/schedules/:id/reschedule', authRequired, async (req,res)=>{
+ const {scheduledFor}=req.body;
+ await pool.query("UPDATE schedule_requests SET scheduled_for=$2 WHERE id=$1",[req.params.id,scheduledFor]);
+ res.json({ok:true});
+});
+
   const current = found.rows[0];
   const scheduledFor = req.body.scheduledFor ? new Date(req.body.scheduledFor) : (current.scheduled_for ? new Date(current.scheduled_for) : null);
 
