@@ -60,7 +60,6 @@ const api = {
   getFleetUnits() { return this.request('/api/fleet/units'); },
   getFleetUnit(id) { return this.request(`/api/fleet/units/${id}`); },
   createFleetUnit(payload) { return this.request('/api/fleet/units', { method: 'POST', body: JSON.stringify(payload) }); },
-  updateFleetUnitStatus(id, payload) { return this.request(`/api/fleet/units/${id}/status`, { method: 'PATCH', body: JSON.stringify(payload) }); },
   createFleetCost(id, payload) { return this.request(`/api/fleet/units/${id}/costs`, { method: 'POST', body: JSON.stringify(payload) }); },
 
 };
@@ -88,7 +87,7 @@ if (ctx) {
   ctx.strokeStyle = '#111';
 }
 
-function roleName(role) { return ({ admin: 'Admin', operador: 'Operador', operativo: 'Operativo', supervisor: 'Supervisor' })[role] || role; }
+function roleName(role) { return ({ admin: 'Admin', operador: 'Operador', operativo: 'Operativo', supervisor: 'Supervisor', supervisor_flotas: 'Supervisor flotas' })[role] || role; }
 function isRole(...roles) { return state.user && roles.includes(state.user.role); }
 function selectedRadio(name) { return document.querySelector(`input[name="${name}"]:checked`)?.value || ''; }
 function fmtDate(value) { return value ? new Date(value).toLocaleString('es-MX') : '—'; }
@@ -105,35 +104,12 @@ function badgeClassValidation(status) { return ({ 'nueva':'badge-new','pendiente
 function badgeClassOperational(status) { return ({ 'sin iniciar':'badge-info','en proceso':'badge-progress','espera refacción':'badge-waiting','terminada':'badge-done' })[status] || 'badge-info'; }
 
 function fleetSemaforo(unit) {
-  const st = unit.unitStatus || unit.estatusOperativo || '';
-  if (['operando', 'terminada', 'sin actividad'].includes(st)) return { label: 'Operando', cls: 'fleet-ok' };
-  if (['en_taller', 'en proceso'].includes(st)) return { label: 'En taller', cls: 'fleet-warn' };
-  if (['detenida', 'espera refacción'].includes(st)) return { label: 'Detenida', cls: 'fleet-bad' };
-  if (['programada', 'aceptada'].includes(st)) return { label: 'Programada', cls: 'fleet-info' };
+  const st = unit.estatusOperativo || '';
+  if (st === 'terminada' || st === 'sin actividad') return { label: 'Operando', cls: 'fleet-ok' };
+  if (st === 'en proceso') return { label: 'En taller', cls: 'fleet-warn' };
+  if (st === 'espera refacción') return { label: 'Detenida', cls: 'fleet-bad' };
+  if (st === 'aceptada') return { label: 'Programada', cls: 'fleet-info' };
   return { label: 'Operando', cls: 'fleet-ok' };
-}
-
-function findFleetAutofillSource() {
-  const empresa = els.fleetEmpresa?.value.trim();
-  const numeroEconomico = els.fleetNumeroEconomico?.value.trim();
-  if (!empresa || !numeroEconomico) return null;
-  const guarantee = state.garantias.find(g => g.empresa === empresa && g.numeroEconomico === numeroEconomico);
-  const unit = state.fleetUnits.find(u => u.empresa === empresa && u.numeroEconomico === numeroEconomico);
-  return { guarantee, unit };
-}
-
-function autofillFleetForm() {
-  const match = findFleetAutofillSource();
-  if (!match) return;
-  const { guarantee, unit } = match;
-  if (els.fleetNumeroObra && !els.fleetNumeroObra.value) els.fleetNumeroObra.value = unit?.numeroObra || guarantee?.numeroObra || '';
-  if (els.fleetMarca && !els.fleetMarca.value) els.fleetMarca.value = unit?.marca || '';
-  if (els.fleetModelo && !els.fleetModelo.value) els.fleetModelo.value = unit?.modelo || guarantee?.modelo || '';
-  if (els.fleetKilometraje && !els.fleetKilometraje.value) els.fleetKilometraje.value = unit?.kilometraje || guarantee?.kilometraje || '';
-  if (els.fleetNombreFlota && !els.fleetNombreFlota.value) els.fleetNombreFlota.value = unit?.nombreFlota || '';
-  if (els.fleetAnio && !els.fleetAnio.value) els.fleetAnio.value = unit?.anio || '';
-  if (els.fleetPolizaActiva && unit) els.fleetPolizaActiva.checked = !!unit.polizaActiva;
-  if (els.fleetCampaignActiva && unit) els.fleetCampaignActiva.checked = !!unit.campaignActiva;
 }
 function countBy(items, getter) {
   const map = new Map();
@@ -239,10 +215,11 @@ function reportPayload() {
 
 function roleCopy(role) {
   return {
-    admin: { title:'Dashboard ejecutivo Carlab', summary:'Vista más limpia, corporativa y lista para operar sin ruido. Aquí controlas accesos, flota y lectura completa del sistema.', panels:[['Control central','Usuarios, empresas y solicitudes sin brincar de pantalla.'],['Lectura por unidad','Detecta reincidencias por empresa, modelo y número económico.'],['Operación viva','Puedes entrar a validar, mover estatus y bajar a detalle cuando haga falta.']], boardKicker:'ADMIN', listTitle:'Bandeja general del sistema', legend:'Panel ejecutivo con lectura clara de reportes, unidades y operación.' },
+    admin: { title:'Cabina administrativa', summary:'Control total. Apruebas accesos, administras usuarios, ves analítica y conviertes reincidencias en acción.', panels:[['Gestión total','Usuarios, empresas y solicitudes en una sola vista.'],['Lectura comercial','Detecta patrones por empresa, modelo y unidad.'],['Control operativo','Puedes actuar igual que un operativo cuando haga falta.']], boardKicker:'ADMIN', listTitle:'Bandeja general del sistema', legend:'Portal corporativo con control total, solicitudes y lectura comercial.' },
     operador: { title:'Portal de operador', summary:'Reportas fallas, subes evidencia y ves el estatus sin depender de llamadas.', panels:[['Levantar incidencia','Captura la falla con datos, fotos, refacción y firma.'],['Seguimiento','Consulta si fue aceptada, rechazada o quedó pendiente.'],['Sin cruces','Solo ves tus reportes. No puedes decidir ni alterar revisiones.']], boardKicker:'OPERADOR', listTitle:'Mis reportes de garantía', legend:'Aquí ves solo tus reportes y su estatus actual.' },
     operativo: { title:'Mesa de validación operativa', summary:'Revisas reportes, decides si proceden y mueves el trabajo hasta terminar.', panels:[['Decisión','Acepta, rechaza o marca pendiente de revisión.'],['Flujo','Mueve el trabajo a en proceso, espera refacción o terminada.'],['Patrones','También ves unidades reincidentes para atacar la raíz.']], boardKicker:'OPERATIVO', listTitle:'Bandeja operativa', legend:'Aquí validas, autorizas y avanzas el trabajo.' },
     supervisor: { title:'Portal de supervisor', summary:'Consulta únicamente la información de tu empresa en modo corporativo de solo lectura.', panels:[['Visibilidad','Revisa empresas, unidades, evidencias y avances.'],['Lectura ejecutiva','Historial por unidad y top de fallas sin tocar procesos.'],['Sin edición','No cambias decisiones ni alteras procesos.']], boardKicker:'SUPERVISOR', listTitle:'Bandeja supervisada', legend:'Monitoreo integral con lectura operativa y comercial.' },
+    supervisor_flotas: { title:'Centro de flotas Carlab', summary:'Supervisión de unidades, semáforo vivo, historial y lectura por empresa sin tocar usuarios ni validaciones.', panels:[['Semáforo vivo','Detecta qué unidad opera, cuál cayó al taller y cuál reincide.'],['Lectura por unidad','Historial de reportes, costos y último movimiento en una sola vista.'],['Control enfocado','Supervisa flotas sin entrar a módulos ajenos.']], boardKicker:'FLOTAS', listTitle:'Radar de unidades', legend:'Tablero ejecutivo para seguir flota, carga histórica y reincidencia por empresa.' },
   }[role];
 }
 
@@ -311,10 +288,10 @@ function showDashboard() {
   els.navUsersBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navRequestsBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navCompaniesBtn?.classList.toggle('hidden', !isRole('admin'));
-  els.navAnalyticsBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo'));
-  els.navHistoryBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo'));
-  els.navScheduleBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo','operador'));
-  els.navFleetBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo'));
+  els.navAnalyticsBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo'));
+  els.navHistoryBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo'));
+  els.navScheduleBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo','operador'));
+  els.navFleetBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo'));
   updateHeaderForRole(); switchPanel(state.user?.role === 'operador' ? 'report' : 'board');
 }
 function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); }
@@ -512,7 +489,7 @@ async function loadNotifications() {
 }
 
 async function loadSchedules(_date = '') {
-  if (!isRole('admin','operativo','supervisor','operador')) return;
+  if (!isRole('admin','operativo','supervisor','supervisor_flotas','operador')) return;
   state.schedules = await api.getSchedules('');
   const today = new Date().toISOString().slice(0,10);
   const existingDates = [...new Set(state.schedules.map(item => String((item.scheduledFor || item.proposedAt || item.requestedAt || '')).slice(0,10)).filter(Boolean))].sort();
@@ -631,7 +608,7 @@ async function loadFleet() {
   try {
     if (isRole('admin','operativo')) els.fleetSaveBtn?.classList.remove('hidden');
     else els.fleetSaveBtn?.classList.add('hidden');
-    if (state.user?.role === 'supervisor' && els.fleetEmpresa) {
+    if (['supervisor','supervisor_flotas'].includes(state.user?.role) && els.fleetEmpresa) {
       els.fleetEmpresa.value = state.user.empresa || '';
       els.fleetEmpresa.disabled = true;
     } else if (els.fleetEmpresa) {
@@ -657,14 +634,15 @@ function renderFleet() {
   state.fleetUnits.forEach(unit => {
     const sem = fleetSemaforo(unit);
     const card = document.createElement('article');
-    card.className = 'card fleet-card fleet-card-min';
+    card.className = 'card fleet-card';
     card.innerHTML = `
-      <div class="fleet-min-row">
-        <div>
-          <div class="fleet-min-number">Unidad ${escapeHtml(unit.numeroEconomico)}</div>
-          <div class="fleet-min-meta">${escapeHtml(unit.empresa)}${unit.ultimoFolio ? ` · ${escapeHtml(unit.ultimoFolio)}` : ''}</div>
-        </div>
+      <div class="card-top">
+        <div><h4>Unidad ${escapeHtml(unit.numeroEconomico)}</h4><p class="meta">${escapeHtml(unit.empresa)}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}</p></div>
         <span class="fleet-dot ${sem.cls}">${sem.label}</span>
+      </div>
+      <div class="mini-grid fleet-mini-grid">
+        <div><span class="label">Último estado</span><strong>${sem.label}</strong></div>
+        <div><span class="label">Reportes</span><strong>${unit.reportesCount || 0}</strong></div>
       </div>
       <div class="action-area"></div>
     `;
@@ -684,48 +662,29 @@ function renderFleetDetail() {
   if (!els.fleetDetail) return;
   const data = state.selectedFleetUnit;
   if (!data?.unit) {
-    els.fleetDetail.innerHTML = '<div class="muted">Selecciona una unidad para ver estado actual, historial de reportes y refacciones.</div>';
+    els.fleetDetail.innerHTML = '<div class="muted">Selecciona una unidad para ver historial, reportes y costos.</div>';
     return;
   }
   const u = data.unit;
   const sem = fleetSemaforo(u);
   const reports = (data.reports || []).map(r => `
-    <div class="table-row fleet-history-row">
-      <div>
-        <strong>${escapeHtml(r.folio || 'GAR-—')}</strong>
-        <div class="small muted">${escapeHtml(r.descripcionFallo || 'Sin descripción')}</div>
-      </div>
-      <div><span class="badge ${badgeClassValidation(r.estatusValidacion)}">${escapeHtml(r.estatusValidacion || '—')}</span></div>
-      <div><span class="badge ${badgeClassOperational(r.estatusOperativo)}">${escapeHtml(r.estatusOperativo || '—')}</span></div>
+    <div class="table-row">
+      <div><strong>${escapeHtml(r.folio || 'GAR-—')}</strong><div class="small muted">${escapeHtml(r.descripcionFallo || 'Sin descripción')}</div></div>
+      <div><span class="badge ${badgeClassValidation(r.estatusValidacion || 'nueva')}">${escapeHtml(r.estatusValidacion || '—')}</span></div>
+      <div><span class="badge ${badgeClassOperational(r.estatusOperativo || 'sin iniciar')}">${escapeHtml(r.estatusOperativo || '—')}</span></div>
     </div>
   `).join('') || '<div class="muted">Sin reportes ligados.</div>';
   const costs = (data.costs || []).map(c => `
-    <div class="table-row fleet-history-row">
+    <div class="table-row">
       <div><strong>${escapeHtml(c.tipo)}</strong><div class="small muted">${escapeHtml(c.concepto || 'Sin concepto')}</div></div>
       <div>${money(c.monto)}</div>
       <div>${escapeHtml(c.createdByNombre || '—')}</div>
     </div>
-  `).join('') || '<div class="muted">Sin refacciones o costos capturados.</div>';
-  const statusAdmin = isRole('admin') ? `
-    <div class="fleet-status-box">
-      <div class="topbar-kicker">CONTROL ADMIN</div>
-      <div class="stack-inline wrap-inline">
-        <select id="fleetUnitStatusSelect">
-          <option value="">Automático por reportes</option>
-          <option value="operando" ${u.unitStatus === 'operando' ? 'selected' : ''}>Operando</option>
-          <option value="en_taller" ${u.unitStatus === 'en_taller' ? 'selected' : ''}>En taller</option>
-          <option value="detenida" ${u.unitStatus === 'detenida' ? 'selected' : ''}>Detenida</option>
-          <option value="programada" ${u.unitStatus === 'programada' ? 'selected' : ''}>Programada</option>
-        </select>
-        <input id="fleetUnitStatusNote" placeholder="Nota opcional" value="${escapeHtml(u.unitStatusNote || '')}" />
-        <button id="fleetUnitStatusSaveBtn" class="btn btn-primary" type="button">Guardar estado</button>
-      </div>
-    </div>
-  ` : '';
+  `).join('') || '<div class="muted">Sin costos capturados.</div>';
   const costForm = isRole('admin') ? `
     <div class="fleet-cost-form">
-      <h4>Registrar refacción o costo</h4>
-      <div class="stack-inline wrap-inline">
+      <h4>Registrar costo</h4>
+      <div class="stack-inline">
         <select id="fleetCostTipo"><option value="refaccion">Refacción</option><option value="mano_obra">Mano de obra</option></select>
         <input id="fleetCostConcepto" placeholder="Concepto" />
         <input id="fleetCostMonto" type="number" step="0.01" placeholder="Monto" />
@@ -733,43 +692,51 @@ function renderFleetDetail() {
       </div>
     </div>
   ` : '';
+  const statusControl = isRole('admin') ? `
+    <div class="fleet-status-admin">
+      <label>Estado manual de unidad</label>
+      <div class="stack-inline">
+        <select id="fleetManualStatus">
+          <option value="operando">Operando</option>
+          <option value="en_taller">En taller</option>
+          <option value="detenida">Detenida</option>
+          <option value="programada">Programada</option>
+        </select>
+        <button id="fleetApplyStatusBtn" class="btn btn-secondary" type="button">Aplicar</button>
+      </div>
+    </div>
+  ` : '';
+  const timeline = (data.reports || []).slice(0,6).map(r => `<div class="timeline-item"><span class="timeline-dot"></span><div><strong>${escapeHtml(r.folio || 'GAR-—')}</strong><p>${escapeHtml(r.descripcionFallo || 'Sin descripción')}</p><small>${fmtDate(r.createdAt)} · ${escapeHtml(r.estatusOperativo || 'sin iniciar')}</small></div></div>`).join('') || '<div class="muted">Sin movimientos recientes.</div>';
   els.fleetDetail.innerHTML = `
-    <div class="panel-head">
+    <div class="panel-head fleet-detail-head">
       <div><div class="topbar-kicker">UNIDAD</div><h3>${escapeHtml(u.numeroEconomico)} · ${escapeHtml(u.empresa)}</h3></div>
       <span class="fleet-dot ${sem.cls}">${sem.label}</span>
     </div>
-    <div class="mini-grid fleet-meta-grid">
-      <div><span class="label">Marca</span><strong>${escapeHtml(u.marca || '—')}</strong></div>
-      <div><span class="label">Modelo</span><strong>${escapeHtml(u.modelo || '—')}</strong></div>
-      <div><span class="label">Año</span><strong>${escapeHtml(u.anio || '—')}</strong></div>
-      <div><span class="label">KM</span><strong>${escapeHtml(u.kilometraje || '—')}</strong></div>
-      <div><span class="label">Obra</span><strong>${escapeHtml(u.numeroObra || '—')}</strong></div>
-      <div><span class="label">Último folio</span><strong>${escapeHtml(u.ultimoFolio || '—')}</strong></div>
-      <div><span class="label">Refacciones</span><strong>${money(u.costoRefacciones)}</strong></div>
-      <div><span class="label">Mano de obra</span><strong>${money(u.costoManoObra)}</strong></div>
+    <div class="fleet-hero">
+      <div class="fleet-hero-main">
+        <div class="mini-grid fleet-meta-grid">
+          <div><span class="label">Marca</span><strong>${escapeHtml(u.marca || '—')}</strong></div>
+          <div><span class="label">Modelo</span><strong>${escapeHtml(u.modelo || '—')}</strong></div>
+          <div><span class="label">Año</span><strong>${escapeHtml(u.anio || '—')}</strong></div>
+          <div><span class="label">KM</span><strong>${escapeHtml(u.kilometraje || '—')}</strong></div>
+          <div><span class="label">Póliza</span><strong>${u.polizaActiva ? 'Activa' : 'No'}</strong></div>
+          <div><span class="label">Campaña</span><strong>${u.campaignActiva ? 'Sí' : 'No'}</strong></div>
+          <div><span class="label">Refacciones</span><strong>${money(u.costoRefacciones)}</strong></div>
+          <div><span class="label">Mano de obra</span><strong>${money(u.costoManoObra)}</strong></div>
+        </div>
+        ${statusControl}
+        ${costForm}
+      </div>
+      <aside class="fleet-timeline-box"><div class="topbar-kicker">MOVIMIENTO RECIENTE</div>${timeline}</aside>
     </div>
-    ${statusAdmin}
-    ${costForm}
     <div class="fleet-columns">
-      <section><div class="topbar-kicker">HISTORIAL DE REPORTES</div><div class="table-list compact-list">${reports}</div></section>
-      <section><div class="topbar-kicker">REFACCIONES Y COSTOS</div><div class="table-list compact-list">${costs}</div></section>
+      <section><div class="topbar-kicker">REPORTES</div><div class="table-list compact-list">${reports}</div></section>
+      <section><div class="topbar-kicker">COSTOS</div><div class="table-list compact-list">${costs}</div></section>
     </div>
   `;
   if (isRole('admin')) {
-    document.getElementById('fleetUnitStatusSaveBtn')?.addEventListener('click', async () => {
-      try {
-        await api.updateFleetUnitStatus(u.id, {
-          unitStatus: document.getElementById('fleetUnitStatusSelect').value,
-          unitStatusNote: document.getElementById('fleetUnitStatusNote').value.trim()
-        });
-        state.selectedFleetUnit = await api.getFleetUnit(u.id);
-        const [summary, units] = await Promise.all([api.getFleetSummary(), api.getFleetUnits()]);
-        state.fleetSummary = summary;
-        state.fleetUnits = units;
-        renderFleet();
-        notify('Estado de unidad actualizado.');
-      } catch (error) { notify(error.message, true); }
-    });
+    document.getElementById('fleetManualStatus').value = ({ operando:'operando', 'en_taller':'en_taller', detenida:'detenida', programada:'programada' })[sem.key || 'operando'] || 'operando';
+    document.getElementById('fleetApplyStatusBtn')?.addEventListener('click', async () => { notify('El estado visual se mueve desde el último reporte operativo. Para cambio real, actualiza el reporte más reciente de la unidad.', false); });
     document.getElementById('fleetCostSaveBtn')?.addEventListener('click', async () => {
       try {
         await api.createFleetCost(u.id, {
@@ -964,10 +931,6 @@ els.unitHistoryBtn?.addEventListener('click', renderUnitHistory);
 els.scheduleRefreshBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
 
 els.fleetRefreshBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
-['input','change'].forEach(evt => {
-  els.fleetEmpresa?.addEventListener(evt, autofillFleetForm);
-  els.fleetNumeroEconomico?.addEventListener(evt, autofillFleetForm);
-});
 els.fleetSaveBtn?.addEventListener('click', async () => {
   try {
     const payload = {

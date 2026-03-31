@@ -24,6 +24,12 @@ const TWILIO_TEMPLATE_REPORTE_ESPERA_REFACCION = process.env.TWILIO_TEMPLATE_REP
 const TWILIO_TEMPLATE_REPORTE_TERMINADO = process.env.TWILIO_TEMPLATE_REPORTE_TERMINADO || 'HX3dc80afa6862fd5f0479410f92742278';
 const TWILIO_TEMPLATE_SCHEDULE_REQUEST = process.env.TWILIO_TEMPLATE_SCHEDULE_REQUEST || process.env.TWILIO_TEMPLATE_PROGRAMAR || '';
 
+const ROLE_SUPERVISOR_FLOTAS = 'supervisor_flotas';
+const SUPERVISOR_ROLES = ['supervisor', ROLE_SUPERVISOR_FLOTAS];
+const BOARD_ROLES = ['admin','operativo','supervisor', ROLE_SUPERVISOR_FLOTAS];
+const ALL_MANAGED_ROLES = ['admin','operador','operativo','supervisor', ROLE_SUPERVISOR_FLOTAS];
+const FLEET_ALLOWED_ROLES = ['admin','operativo','supervisor', ROLE_SUPERVISOR_FLOTAS];
+
 if (!DATABASE_URL) {
   console.error('Falta DATABASE_URL');
   process.exit(1);
@@ -262,16 +268,11 @@ function mapFleetUnit(row) {
     polizaActiva: !!row.poliza_activa,
     campaignActiva: !!row.campaign_activa,
     estatusOperativo: row.estatus_operativo || 'sin actividad',
-    estatusValidacion: row.estatus_validacion || '',
-    unitStatus: row.unit_status || '',
-    unitStatusNote: row.unit_status_note || '',
-    ultimoFolio: row.ultimo_folio || '',
     costoRefacciones: Number(row.costo_refacciones || 0),
     costoManoObra: Number(row.costo_mano_obra || 0),
     costoTotal: Number(row.costo_total || 0),
     lastReportAt: row.last_report_at || null,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at || row.created_at
+    createdAt: row.created_at
   };
 }
 
@@ -288,23 +289,6 @@ function mapFleetCost(row) {
   };
 }
 
-
-
-function fleetStatusSql(alias = 'fu') {
-  return `COALESCE(${alias}.unit_status, (
-    SELECT CASE
-      WHEN g.estatus_operativo = 'terminada' THEN 'operando'
-      WHEN g.estatus_operativo = 'en proceso' THEN 'en_taller'
-      WHEN g.estatus_operativo = 'espera refacción' THEN 'detenida'
-      WHEN g.estatus_validacion = 'aceptada' THEN 'programada'
-      ELSE 'operando'
-    END
-    FROM garantias g
-    WHERE g.empresa = ${alias}.empresa AND g.numero_economico = ${alias}.numero_economico
-    ORDER BY g.created_at DESC
-    LIMIT 1
-  ), 'operando')`;
-}
 
 function authRequired(req, res, next) {
   const auth = req.headers.authorization || '';
@@ -341,6 +325,65 @@ async function nextGarantiaFolio() {
   return `GAR-${String(next).padStart(5, '0')}`;
 }
 
+
+async function tryBackfillLegacyReports() {
+  const hasGarantias = await pool.query("SELECT to_regclass('public.garantias') AS name");
+  if (!hasGarantias.rows[0]?.name) return;
+  const total = await pool.query('SELECT COUNT(*)::int AS total FROM garantias');
+  if ((total.rows[0]?.total || 0) > 0) return;
+  const candidates = ['reports','reportes','warranties','garantias_old'];
+  for (const table of candidates) {
+    const exists = await pool.query('SELECT to_regclass($1) AS name', [`public.${table}`]);
+    if (!exists.rows[0]?.name) continue;
+    try {
+      const rows = await pool.query(`SELECT * FROM ${table} ORDER BY created_at DESC NULLS LAST LIMIT 300`);
+      for (const row of rows.rows) {
+        const id = row.id || cryptoRandomId();
+        const folio = row.folio || `LEG-${String(Math.floor(Math.random()*99999)).padStart(5,'0')}`;
+        await pool.query(
+          `INSERT INTO garantias (
+            id, folio, numero_obra, modelo, numero_economico, empresa, kilometraje, contacto_nombre, telefono,
+            tipo_incidente, descripcion_fallo, solicita_refaccion, detalle_refaccion, estatus_validacion,
+            estatus_operativo, evidencias, evidencias_refaccion, firma, reportado_por_nombre, reportado_por_email,
+            created_at, updated_at
+          ) VALUES (
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb,$17::jsonb,$18,$19,$20,
+            COALESCE($21,NOW()), COALESCE($22,NOW())
+          ) ON CONFLICT (id) DO NOTHING`,
+          [
+            id,
+            folio,
+            row.numero_obra || row.numeroobra || row.numeroObra || row.obra || 'SIN-OBRA',
+            row.modelo || row.bus_model || row.tipo || 'Sin modelo',
+            row.numero_economico || row.numeroeconomico || row.numeroEconomico || row.unidad || row.economico || 'SIN-UNIDAD',
+            row.empresa || row.company || 'Sin empresa',
+            row.kilometraje || '',
+            row.contacto_nombre || row.contacto || row.operador || '',
+            normalizeMxPhone(row.telefono || row.phone || ''),
+            row.tipo_incidente || row.tipoIncidente || 'falla',
+            row.descripcion_fallo || row.descripcion || row.falla || row.detalle || 'Registro histórico recuperado',
+            !!(row.solicita_refaccion || row.refaccion),
+            row.detalle_refaccion || row.refaccion_detalle || '',
+            row.estatus_validacion || row.validacion || 'aceptada',
+            row.estatus_operativo || row.operativo || 'sin iniciar',
+            JSON.stringify(Array.isArray(row.evidencias) ? row.evidencias : []),
+            JSON.stringify(Array.isArray(row.evidencias_refaccion) ? row.evidencias_refaccion : []),
+            row.firma || '',
+            row.reportado_por_nombre || row.creado_por || 'Migración histórica',
+            row.reportado_por_email || '',
+            row.created_at || row.fecha_creacion || null,
+            row.updated_at || row.fecha_actualizacion || row.created_at || null,
+          ]
+        );
+      }
+      console.log(`Backfill histórico intentado desde tabla legacy: ${table}`);
+      break;
+    } catch (error) {
+      console.error(`No se pudo migrar historial desde ${table}:`, error.message);
+    }
+  }
+}
+
 async function initDb() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS companies (
@@ -359,7 +402,7 @@ async function initDb() {
       nombre TEXT NOT NULL,
       email TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('admin','operador','operativo','supervisor')),
+      role TEXT NOT NULL CHECK (role IN ('admin','operador','operativo','supervisor','supervisor_flotas')),
       empresa TEXT,
       telefono TEXT,
       activo BOOLEAN NOT NULL DEFAULT TRUE,
@@ -475,10 +518,6 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_fleet_cost_entries_unit ON fleet_cost_entries(fleet_unit_id);
     CREATE INDEX IF NOT EXISTS idx_fleet_cost_entries_garantia ON fleet_cost_entries(garantia_id);
 
-    ALTER TABLE fleet_units ADD COLUMN IF NOT EXISTS unit_status TEXT;
-    ALTER TABLE fleet_units ADD COLUMN IF NOT EXISTS unit_status_note TEXT;
-    ALTER TABLE fleet_units ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-
     ALTER TABLE garantias ADD COLUMN IF NOT EXISTS fleet_unit_id TEXT;
 
 
@@ -510,6 +549,8 @@ async function initDb() {
       [cryptoRandomId(), name]
     );
   }
+
+  await tryBackfillLegacyReports();
 
   const existingAdmin = await pool.query('SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL', [ADMIN_EMAIL]);
   if (!existingAdmin.rowCount) {
@@ -726,7 +767,7 @@ app.post('/api/users', authRequired, requireRoles('admin'), async (req, res) => 
   const empresa = String(req.body.empresa || '').trim();
   const telefono = String(req.body.telefono || '').trim();
 
-  if (!nombre || !email || !password || !['operador', 'operativo', 'supervisor', 'admin'].includes(role)) {
+  if (!nombre || !email || !password || !ALL_MANAGED_ROLES.includes(role)) {
     return res.status(400).json({ error: 'Datos de usuario incompletos o inválidos.' });
   }
 
@@ -757,7 +798,7 @@ app.patch('/api/users/:id', authRequired, requireRoles('admin'), async (req, res
   const empresa = String(req.body.empresa || '').trim();
   const telefono = String(req.body.telefono || '').trim();
 
-  if (!nombre || !email || !['operador', 'operativo', 'supervisor', 'admin'].includes(role)) {
+  if (!nombre || !email || !ALL_MANAGED_ROLES.includes(role)) {
     return res.status(400).json({ error: 'Datos de usuario incompletos o inválidos.' });
   }
 
@@ -802,11 +843,11 @@ app.get('/api/garantias', authRequired, async (req, res) => {
     params.push(req.user.id);
     where.push(`reportado_por_id = $${params.length}`);
   }
-  if (req.user.role === 'supervisor') {
+  if (SUPERVISOR_ROLES.includes(req.user.role)) {
     params.push(req.user.empresa || '');
     where.push(`empresa = $${params.length}`);
   }
-  if (where.length) query += ` WHERE ${where.join(' AND ')}`;
+  if (where.length) query += ' WHERE ' + where.join(' AND ');
   query += ' ORDER BY created_at DESC';
   const result = await pool.query(query, params);
   res.json(result.rows.map(mapGarantia));
@@ -939,7 +980,7 @@ app.delete('/api/garantias/:id', authRequired, requireRoles('admin'), async (req
   res.json({ ok: true });
 });
 
-app.get('/api/audit/:garantiaId', authRequired, requireRoles('admin', 'operativo', 'supervisor'), async (req, res) => {
+app.get('/api/audit/:garantiaId', authRequired, requireRoles('admin', 'operativo', 'supervisor', 'supervisor_flotas'), async (req, res) => {
   const result = await pool.query(
     `SELECT a.*, u.nombre AS user_nombre, u.email AS user_email
      FROM audit_logs a
@@ -951,7 +992,7 @@ app.get('/api/audit/:garantiaId', authRequired, requireRoles('admin', 'operativo
   res.json(result.rows);
 });
 
-app.get('/api/history/unit/:numeroEconomico', authRequired, requireRoles('admin', 'operativo', 'supervisor'), async (req, res) => {
+app.get('/api/history/unit/:numeroEconomico', authRequired, requireRoles('admin', 'operativo', 'supervisor', 'supervisor_flotas'), async (req, res) => {
   const result = await pool.query(
     `SELECT * FROM garantias WHERE numero_economico = $1 ORDER BY created_at DESC`,
     [req.params.numeroEconomico]
@@ -968,7 +1009,7 @@ app.get('/api/schedules', authRequired, requireRoles('admin', 'operativo', 'supe
     params.push(date);
     where.push(`DATE(sr.scheduled_for AT TIME ZONE 'UTC') = $${params.length}`);
   }
-  if (req.user.role === 'supervisor') {
+  if (SUPERVISOR_ROLES.includes(req.user.role)) {
     params.push(req.user.empresa || '');
     where.push(`g.empresa = $${params.length}`);
   }
@@ -1110,11 +1151,11 @@ app.post('/api/whatsapp/status', async (req, res) => {
 });
 
 
-app.get('/api/notifications', authRequired, requireRoles('admin','operativo','supervisor','operador'), async (req, res) => {
+app.get('/api/notifications', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas','operador'), async (req, res) => {
   const params = [];
   let whereGarantias = [];
   let whereSchedules = [];
-  if (req.user.role === 'supervisor') {
+  if (SUPERVISOR_ROLES.includes(req.user.role)) {
     params.push(req.user.empresa || '');
     whereGarantias.push(`g.empresa = $${params.length}`);
     whereSchedules.push(`g.empresa = $${params.length}`);
@@ -1149,17 +1190,30 @@ app.get('/api/notifications', authRequired, requireRoles('admin','operativo','su
 });
 
 
-app.get('/api/fleet/summary', authRequired, requireRoles('admin','operativo','supervisor'), async (req, res) => {
+app.get('/api/fleet/summary', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
   const params = [];
   const where = [];
-  if (req.user.role === 'supervisor') {
+  if (SUPERVISOR_ROLES.includes(req.user.role)) {
     params.push(req.user.empresa || '');
     where.push(`fu.empresa = $${params.length}`);
   }
   const totalQ = await pool.query(`SELECT COUNT(*)::int AS total FROM fleet_units fu ${where.length ? 'WHERE ' + where.join(' AND ') : ''}`, params);
   const sem = await pool.query(`
     WITH base AS (
-      SELECT fu.id, fu.empresa, fu.numero_economico, ${fleetStatusSql('fu')} AS status
+      SELECT fu.id, fu.empresa, fu.numero_economico,
+             COALESCE((
+               SELECT CASE
+                 WHEN g.estatus_operativo = 'terminada' THEN 'operando'
+                 WHEN g.estatus_operativo = 'en proceso' THEN 'en_taller'
+                 WHEN g.estatus_operativo = 'espera refacción' THEN 'detenida'
+                 WHEN g.estatus_validacion = 'aceptada' THEN 'programada'
+                 ELSE 'operando'
+               END
+               FROM garantias g
+               WHERE g.empresa = fu.empresa AND g.numero_economico = fu.numero_economico
+               ORDER BY g.created_at DESC
+               LIMIT 1
+             ), 'operando') AS status
       FROM fleet_units fu
       ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
     )
@@ -1175,36 +1229,26 @@ app.get('/api/fleet/summary', authRequired, requireRoles('admin','operativo','su
   });
 });
 
-app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supervisor'), async (req, res) => {
+app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
   const params = [];
   const where = [];
-  if (req.user.role === 'supervisor') {
+  if (SUPERVISOR_ROLES.includes(req.user.role)) {
     params.push(req.user.empresa || '');
     where.push(`fu.empresa = $${params.length}`);
   }
   const result = await pool.query(`
     SELECT fu.*,
-      ${fleetStatusSql('fu')} AS estatus_operativo,
-      (
-        SELECT g.estatus_validacion
+      COALESCE((
+        SELECT g.estatus_operativo
         FROM garantias g
         WHERE g.empresa = fu.empresa AND g.numero_economico = fu.numero_economico
         ORDER BY g.created_at DESC
         LIMIT 1
-      ) AS estatus_validacion,
+      ), 'sin actividad') AS estatus_operativo,
       (
-        SELECT g.folio
+        SELECT MAX(g.created_at)
         FROM garantias g
         WHERE g.empresa = fu.empresa AND g.numero_economico = fu.numero_economico
-        ORDER BY g.created_at DESC
-        LIMIT 1
-      ) AS ultimo_folio,
-      (
-        SELECT g.created_at
-        FROM garantias g
-        WHERE g.empresa = fu.empresa AND g.numero_economico = fu.numero_economico
-        ORDER BY g.created_at DESC
-        LIMIT 1
       ) AS last_report_at,
       COALESCE((SELECT SUM(CASE WHEN tipo='refaccion' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_refacciones,
       COALESCE((SELECT SUM(CASE WHEN tipo='mano_obra' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_mano_obra,
@@ -1251,10 +1295,10 @@ app.post('/api/fleet/units', authRequired, requireRoles('admin','operativo'), as
   res.status(201).json(mapFleetUnit(result.rows[0]));
 });
 
-app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','supervisor'), async (req, res) => {
+app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
   const params = [req.params.id];
   let extra = '';
-  if (req.user.role === 'supervisor') {
+  if (SUPERVISOR_ROLES.includes(req.user.role)) {
     params.push(req.user.empresa || '');
     extra = ` AND fu.empresa = $${params.length}`;
   }
@@ -1282,22 +1326,6 @@ app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','
     reports: reports.rows.map(mapGarantia),
     costs: costs.rows.map(mapFleetCost)
   });
-});
-
-
-app.patch('/api/fleet/units/:id/status', authRequired, requireRoles('admin'), async (req, res) => {
-  const allowed = ['operando','en_taller','detenida','programada',''];
-  const unitStatus = String(req.body.unitStatus || '').trim();
-  const unitStatusNote = String(req.body.unitStatusNote || '').trim();
-  if (!allowed.includes(unitStatus)) return res.status(400).json({ error: 'Estatus de unidad inválido.' });
-  const result = await pool.query(`
-    UPDATE fleet_units
-    SET unit_status = $2, unit_status_note = $3, updated_at = NOW()
-    WHERE id = $1
-    RETURNING *
-  `, [req.params.id, unitStatus || null, unitStatusNote]);
-  if (!result.rowCount) return res.status(404).json({ error: 'Unidad no encontrada.' });
-  res.json(mapFleetUnit(result.rows[0]));
 });
 
 app.post('/api/fleet/units/:id/costs', authRequired, requireRoles('admin'), async (req, res) => {
