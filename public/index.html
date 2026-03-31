@@ -1,350 +1,549 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CARLAB CLOUD V3 | Fase 3</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>CARLAB CLOUD V4</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
-  <div id="app">
-    <section id="loginView" class="auth-shell">
-      <div class="auth-backdrop"></div>
-      <div class="auth-layout">
-        <div class="auth-brand">
-          <div class="pill">CARLAB CLOUD V3</div>
-          <h1>Garantías, operación y crecimiento comercial en una sola cabina.</h1>
-          <p>Acceso corporativo para el equipo interno y alta controlada para operadores. Menos llamadas, más trazabilidad y más argumentos para vender mantenimiento y refacciones.</p>
-          <div class="hero-grid">
-            <article><strong>Acceso controlado</strong><span>Tu equipo entra con credenciales. Los operadores nuevos solicitan acceso.</span></article>
-            <article><strong>Flujo real</strong><span>Operador reporta, operativo decide, supervisor observa y admin controla.</span></article>
-            <article><strong>Historial por unidad</strong><span>Detecta reincidencias y convierte fallas repetidas en oportunidad de venta.</span></article>
-            <article><strong>Imagen corporativa</strong><span>Más serio, más limpio y más vendible frente a cliente.</span></article>
-          </div>
-        </div>
 
-        <div class="auth-card">
-          <div class="stack-inline auth-switcher">
-            <button id="tabLoginBtn" class="btn btn-primary" type="button">Iniciar sesión</button>
-            <button id="tabRegisterBtn" class="btn btn-ghost" type="button">Solicitar acceso</button>
-          </div>
-
-          <div id="loginPane">
-            <div class="card-eyebrow">ACCESO INTERNO</div>
-            <h2>Entrar al sistema</h2>
-            <p class="muted">Admin, supervisor, operativo y operadores aprobados.</p>
-            <form id="loginForm" class="stack gap-16" autocomplete="off">
-              <div>
-                <label>Correo</label>
-                <input id="loginEmail" type="email" placeholder="Correo corporativo" autocomplete="off" required />
-              </div>
-              <div>
-                <label>Contraseña</label>
-                <input id="loginPassword" type="password" placeholder="Tu contraseña" autocomplete="new-password" required />
-              </div>
-              <button class="btn btn-primary" type="submit">Entrar</button>
-            </form>
-            <div id="loginError" class="alert hidden"></div>
-          </div>
-
-          <div id="registerPane" class="hidden">
-            <div class="card-eyebrow">ALTA DE OPERADOR</div>
-            <h2>Solicitar acceso</h2>
-            <p class="muted">El operador llena el formato y el admin aprueba o rechaza la solicitud.</p>
-            <form id="registerForm" class="stack gap-16" autocomplete="off">
-              <div>
-                <label>Nombre completo</label>
-                <input id="regNombre" required />
-              </div>
-              <div>
-                <label>Correo</label>
-                <input id="regEmail" type="email" required />
-              </div>
-              <div>
-                <label>Teléfono</label>
-                <input id="regTelefono" required />
-              </div>
-              <div>
-                <label>Empresa</label>
-                <select id="regEmpresa" required></select>
-              </div>
-              <div>
-                <label>Número económico de unidad</label>
-                <input id="regNumeroEconomico" />
-              </div>
-              <div>
-                <label>Contraseña</label>
-                <input id="regPassword" type="password" required />
-              </div>
-              <button class="btn btn-primary" type="submit">Enviar solicitud</button>
-            </form>
-            <div id="registerMessage" class="alert hidden"></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="dashboardView" class="hidden shell">
-      <aside class="sidebar">
-        <div class="sidebar-top">
-          <div class="brand-lockup">
-            <div class="pill">CARLAB</div>
-            <h2>Cloud</h2>
-            <p class="muted">Garantías, trazabilidad y lectura comercial.</p>
-          </div>
-
-          <div class="profile-panel">
-            <div class="avatar-circle" id="avatarCircle">A</div>
-            <div>
-              <strong id="currentUserName">Administrador</strong>
-              <div class="muted small" id="welcomeText"></div>
-            </div>
-            <span id="currentRoleBadge" class="badge badge-role"></span>
-          </div>
-
-          <nav class="nav-stack">
-            <div class="nav-group">
-              <div class="nav-group-label">Operación</div>
-              <button id="navBoardBtn" class="nav-btn active" type="button">Reportes</button>
-              <button id="navNewReportBtn" class="nav-btn hidden" type="button">Nuevo reporte</button>
-              <button id="navAnalyticsBtn" class="nav-btn hidden" type="button">Analítica</button>
-              <button id="navHistoryBtn" class="nav-btn hidden" type="button">Historial por unidad</button>
-              <button id="navScheduleBtn" class="nav-btn hidden" type="button">Agenda</button>
-            </div>
-            <div class="nav-group">
-              <div class="nav-group-label">Administración</div>
-              <button id="navUsersBtn" class="nav-btn hidden" type="button">Usuarios</button>
-              <button id="navRequestsBtn" class="nav-btn hidden" type="button">Solicitudes</button>
-              <button id="navCompaniesBtn" class="nav-btn hidden" type="button">Empresas</button>
-            </div>
-          </nav>
-        </div>
-
-        <div class="stats">
-          <div class="stat"><span>Total</span><strong id="statTotal">0</strong></div>
-          <div class="stat"><span>Nuevas</span><strong id="statNew">0</strong></div>
-          <div class="stat"><span>Aceptadas</span><strong id="statAccepted">0</strong></div>
-          <div class="stat"><span>Terminadas</span><strong id="statDone">0</strong></div>
-        </div>
-
-        <div class="sidebar-bottom">
-          <div class="system-note">
-            <strong>Modo actual</strong>
-            <p id="roleSummaryText">Todo lo importante a la vista.</p>
-          </div>
-          <button id="logoutBtn" class="btn btn-ghost">Cerrar sesión</button>
-        </div>
-      </aside>
-
-      <main class="main-area">
-        <header class="topbar panel">
-          <div>
-            <div class="topbar-kicker">CARLAB CLOUD V3 · FASE 3</div>
-            <h1 id="pageTitle">Bandeja general</h1>
-            <p id="statusLegend" class="muted">Operación más venta, con control y lectura por unidad.</p>
-          </div>
-          <div class="topbar-side">
-            <div class="topbar-chip"><span>Sesión</span><strong id="currentUserEmail">admin@carlab.local</strong></div>
-            <div class="topbar-chip notif-chip"><span>Alertas</span><strong id="notifSummary">0 pendientes</strong></div>
-            <button id="globalRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
-          </div>
-        </header>
-
-        <section id="roleBrief" class="panel role-brief"></section>
-
-        <section id="analyticsPanel" class="panel hidden">
-          <div class="panel-head">
-            <div>
-              <div class="topbar-kicker">FASE 3</div>
-              <h3>Lectura comercial y operativa</h3>
-            </div>
-            <span class="badge badge-info">Solo supervisión y dirección</span>
-          </div>
-          <div class="analytics-grid">
-            <article class="analytic-card">
-              <strong>Top empresas</strong>
-              <div id="topCompanies" class="list-plain muted">Sin datos todavía.</div>
-            </article>
-            <article class="analytic-card">
-              <strong>Top modelos</strong>
-              <div id="topModels" class="list-plain muted">Sin datos todavía.</div>
-            </article>
-            <article class="analytic-card">
-              <strong>Tipos de incidencia</strong>
-              <div id="topIncidentTypes" class="list-plain muted">Sin datos todavía.</div>
-            </article>
-            <article class="analytic-card highlight-card">
-              <strong>Unidades reincidentes</strong>
-              <div id="repeatUnits" class="list-plain muted">Cuando una unidad repita fallas, aparecerá aquí.</div>
-            </article>
-          </div>
-        </section>
-
-        <section id="historyPanel" class="panel hidden">
-          <div class="panel-head">
-            <div>
-              <div class="topbar-kicker">CONSULTA</div>
-              <h3>Historial por unidad</h3>
-            </div>
-            <span class="badge badge-info">Trazabilidad</span>
-          </div>
-          <div class="history-search-box history-panel-box">
-            <div>
-              <label>Número económico</label>
-              <input id="unitHistoryInput" placeholder="Ej. 1042" />
-            </div>
-            <button id="unitHistoryBtn" class="btn btn-secondary" type="button">Consultar historial</button>
-          </div>
-          <div id="unitHistoryResult" class="table-list compact-list"></div>
-        </section>
-
-        <section id="schedulePanel" class="panel hidden">
-          <div class="panel-head">
-            <div>
-              <div class="topbar-kicker">AGENDA</div>
-              <h3>Programación de unidades</h3>
-            </div>
-            <span class="badge badge-info">Ingresos a taller</span>
-          </div>
-          <div class="history-search-box history-panel-box">
-            <div>
-              <label>Fecha</label>
-              <input id="scheduleDateInput" type="date" />
-            </div>
-            <button id="scheduleRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
-          </div>
-          <div id="scheduleAlerts" class="schedule-alerts"></div>
-          <div id="scheduleCalendar" class="schedule-calendar"></div>
-          <div id="scheduleList" class="table-list compact-list"></div>
-        </section>
-
-        <section id="filtersPanel" class="toolbar panel">
-          <input id="searchInput" type="text" placeholder="Buscar por obra, económico, empresa, modelo o contacto" />
-          <select id="validationFilter">
-            <option value="todos">Todas las validaciones</option>
-            <option value="nueva">Nueva</option>
-            <option value="pendiente de revisión">Pendiente de revisión</option>
-            <option value="aceptada">Aceptada</option>
-            <option value="rechazada">Rechazada</option>
-          </select>
-          <select id="operationalFilter">
-            <option value="todos">Todos los operativos</option>
-            <option value="sin iniciar">Sin iniciar</option>
-            <option value="en proceso">En proceso</option>
-            <option value="espera refacción">Espera refacción</option>
-            <option value="terminada">Terminada</option>
-          </select>
-        </section>
-
-        <section id="reportFormPanel" class="panel hidden">
-          <div class="panel-head">
-            <div>
-              <div class="topbar-kicker">PORTAL OPERADOR</div>
-              <h3>Nuevo reporte</h3>
-            </div>
-            <span class="badge badge-info">Captura controlada</span>
-          </div>
-          <form id="reportForm" class="grid-form">
-            <div><label>Número de obra</label><input id="numeroObra" required /></div>
-            <div><label>Modelo</label><input id="modelo" required /></div>
-            <div><label>Número económico</label><input id="numeroEconomico" required /></div>
-            <div><label>Empresa</label><select id="empresa" required></select></div>
-            <div><label>Kilometraje</label><input id="kilometraje" inputmode="numeric" placeholder="Ej. 245000" /></div>
-            <div><label>Nombre de contacto</label><input id="contactoNombre" placeholder="Nombre del operador o responsable" /></div>
-            <div><label>Teléfono</label><input id="telefono" placeholder="Ej. 6671234567" /></div>
-            <div class="col-span-2">
-              <label>Tipo de incidencia</label>
-              <div class="radio-row role-radio-row">
-                <label><input type="radio" name="tipoIncidente" value="daño" checked /> Daño</label>
-                <label><input type="radio" name="tipoIncidente" value="falla" /> Falla</label>
-                <label><input type="radio" name="tipoIncidente" value="sin daño" /> Sin daño</label>
-              </div>
-            </div>
-            <div class="col-span-2"><label>Descripción del fallo</label><textarea id="descripcionFallo" rows="4" required></textarea></div>
-            <div class="col-span-2"><label>Evidencias generales</label><input id="evidencias" type="file" accept="image/*" multiple /><div class="muted small">En iPhone puedes tomar una foto, volver a abrir cámara y seguir agregando más. También puedes elegir varias desde galería.</div><div id="previewEvidencias" class="preview-grid"></div></div>
-            <div class="col-span-2"><label class="checkbox-row"><input id="solicitaRefaccion" type="checkbox" /> Solicita refacción</label></div>
-            <div id="refaccionFields" class="col-span-2 hidden stack gap-12">
-              <div><label>Detalle de refacción solicitada</label><textarea id="detalleRefaccion" rows="3"></textarea></div>
-              <div><label>Evidencia de refacción</label><input id="evidenciasRefaccion" type="file" accept="image/*" multiple /><div id="previewRefaccion" class="preview-grid"></div></div>
-            </div>
-            <div class="col-span-2">
-              <label>Firma del operador</label>
-              <canvas id="firmaCanvas" width="900" height="240"></canvas>
-              <div class="stack-inline"><button id="clearSignatureBtn" class="btn btn-ghost" type="button">Borrar firma</button><span class="muted">Firma con dedo o mouse.</span></div>
-            </div>
-            <div class="col-span-2 stack-inline"><button class="btn btn-primary" type="submit">Enviar reporte</button><button id="cancelReportBtn" class="btn btn-secondary" type="button">Cancelar</button></div>
-          </form>
-        </section>
-
-        <section id="usersPanel" class="panel hidden">
-          <div class="panel-head"><div><div class="topbar-kicker">ADMINISTRACIÓN</div><h3>Usuarios y accesos</h3></div><span class="badge badge-info">Solo admin</span></div>
-          <form id="userForm" class="grid-form compact">
-            <input id="userId" type="hidden" />
-            <div><label>Nombre</label><input id="userNombre" required /></div>
-            <div><label>Correo</label><input id="userEmail" type="email" required /></div>
-            <div><label>Rol</label><select id="userRole"><option value="operador">Operador</option><option value="operativo">Operativo</option><option value="supervisor">Supervisor</option><option value="admin">Admin</option></select></div>
-            <div><label>Empresa</label><select id="userEmpresa"></select></div>
-            <div><label>Teléfono</label><input id="userTelefono" /></div>
-            <div><label>Contraseña</label><input id="userPassword" type="text" required /></div>
-            <div class="col-span-2 stack-inline"><button id="userSubmitBtn" class="btn btn-primary" type="submit">Crear usuario</button><button id="userCancelEditBtn" class="btn btn-ghost hidden" type="button">Cancelar edición</button></div>
-          </form>
-          <div id="usersList" class="table-list"></div>
-        </section>
-
-        <section id="requestsPanel" class="panel hidden">
-          <div class="panel-head"><div><div class="topbar-kicker">ACCESO OPERADOR</div><h3>Solicitudes de registro</h3></div><span class="badge badge-info">Aprobación admin</span></div>
-          <div id="requestsList" class="table-list"></div>
-        </section>
-
-        <section id="companiesPanel" class="panel hidden">
-          <div class="panel-head"><div><div class="topbar-kicker">CATÁLOGO</div><h3>Empresas habilitadas</h3></div><span class="badge badge-info">Base para registro</span></div>
-          <form id="companyForm" class="grid-form compact">
-            <input id="companyId" type="hidden" />
-            <div><label>Empresa</label><input id="companyNombre" placeholder="Nombre de empresa" /></div>
-            <div><label>Contacto</label><input id="companyContacto" placeholder="Nombre del contacto" /></div>
-            <div><label>Teléfono</label><input id="companyTelefono" placeholder="6671234567" /></div>
-            <div><label>Correo</label><input id="companyEmail" placeholder="correo@empresa.com" /></div>
-            <div class="col-span-2"><label>Notas</label><textarea id="companyNotas" rows="2" placeholder="Datos útiles para operación o registro"></textarea></div>
-            <div class="col-span-2 stack-inline"><button id="companySubmitBtn" class="btn btn-primary" type="submit">Guardar empresa</button><button id="companyCancelEditBtn" class="btn btn-ghost hidden" type="button">Cancelar edición</button></div>
-          </form>
-          <div id="companiesList" class="table-list"></div>
-        </section>
-
-        <section id="boardPanel" class="panel">
-          <div class="panel-head"><div><div class="topbar-kicker" id="boardKicker">CENTRAL</div><h3 id="listTitle">Bandeja de garantías</h3></div></div>
-          <div id="garantiasList" class="cards"></div>
-          <div id="emptyState" class="empty-state hidden"><strong>No hay registros para esta vista.</strong><span>Cuando entren reportes o cambien los filtros, aquí aparecerán.</span></div>
-        </section>
-      </main>
-    </section>
+<!-- ─── LOGIN ─────────────────────────────────────────────────────────── -->
+<div id="loginView" class="login-shell">
+  <div class="login-bg">
+    <div class="login-grid-lines"></div>
+    <div class="login-orb login-orb-1"></div>
+    <div class="login-orb login-orb-2"></div>
   </div>
-
-  <div id="toast" class="toast hidden"></div>
-
-  <template id="garantiaCardTemplate">
-    <article class="card">
-      <div class="card-top">
-        <div><h4 class="title"></h4><p class="meta"></p></div>
-        <div class="badge-stack"><span class="badge validation-badge"></span><span class="badge operational-badge"></span></div>
+  <div class="login-layout">
+    <div class="login-brand">
+      <div class="brand-logo">
+        <span class="logo-mark">C</span>
+        <div class="logo-text">
+          <span class="logo-main">CARLAB</span>
+          <span class="logo-sub">CLOUD V4</span>
+        </div>
       </div>
-      <p class="description"></p>
-      <div class="mini-grid"></div>
-      <div class="evidence-strip"></div>
-      <div class="action-area"></div>
-    </article>
-  </template>
+      <h1>Control total de flotas, garantías y mantenimiento.</h1>
+      <p>Sistema corporativo para Irizar, Volvo y Marcopolo. Trazabilidad completa, notificaciones WhatsApp y analítica en tiempo real.</p>
+      <div class="login-features">
+        <div class="feat-item"><span class="feat-dot feat-green"></span>Garantías con flujo completo</div>
+        <div class="feat-item"><span class="feat-dot feat-blue"></span>Flotas con semáforo de estado</div>
+        <div class="feat-item"><span class="feat-dot feat-amber"></span>Pólizas y campañas</div>
+        <div class="feat-item"><span class="feat-dot feat-purple"></span>Notificaciones WhatsApp</div>
+      </div>
+    </div>
+    <div class="login-card">
+      <div class="auth-tabs">
+        <button id="tabLoginBtn" class="auth-tab active" type="button">Iniciar sesión</button>
+        <button id="tabRegisterBtn" class="auth-tab" type="button">Solicitar acceso</button>
+      </div>
+      <div id="loginPane">
+        <form id="loginForm" autocomplete="off">
+          <div class="field"><label>Correo</label><input id="loginEmail" type="email" placeholder="correo@empresa.com" required/></div>
+          <div class="field"><label>Contraseña</label><input id="loginPassword" type="password" placeholder="••••••••" required/></div>
+          <button class="btn-primary" type="submit">Entrar al sistema</button>
+        </form>
+        <div id="loginError" class="alert-error hidden"></div>
+      </div>
+      <div id="registerPane" class="hidden">
+        <form id="registerForm" autocomplete="off">
+          <div class="field"><label>Nombre completo</label><input id="regNombre" required/></div>
+          <div class="field"><label>Correo</label><input id="regEmail" type="email" required/></div>
+          <div class="field"><label>Teléfono</label><input id="regTelefono" required/></div>
+          <div class="field"><label>Empresa</label><select id="regEmpresa" required></select></div>
+          <div class="field"><label>Número económico</label><input id="regNumeroEconomico" placeholder="Ej. 1042"/></div>
+          <div class="field"><label>Contraseña</label><input id="regPassword" type="password" required/></div>
+          <button class="btn-primary" type="submit">Enviar solicitud</button>
+        </form>
+        <div id="registerMessage" class="alert-info hidden"></div>
+      </div>
+    </div>
+  </div>
+</div>
 
-  <nav id="operatorAppNav" class="operator-app-nav hidden">
-    <button id="opNavHomeBtn" type="button">Reportes</button>
-    <button id="opNavNewBtn" type="button">Nuevo</button>
-    <button id="opNavScheduleBtn" type="button">Agenda</button>
-    <button id="opNavLogoutBtn" type="button">Salir</button>
-  </nav>
+<!-- ─── DASHBOARD ──────────────────────────────────────────────────────── -->
+<div id="dashboardView" class="hidden app-shell">
 
-  <script src="/app.js"></script>
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-brand">
+        <span class="sb-mark">C</span>
+        <div><span class="sb-name">CARLAB</span><span class="sb-ver">V4</span></div>
+      </div>
+      <button class="sidebar-toggle" id="sidebarToggle" type="button">&#9776;</button>
+    </div>
+
+    <div class="user-card">
+      <div class="avatar" id="avatarCircle">A</div>
+      <div class="user-info">
+        <strong id="currentUserName">Admin</strong>
+        <span class="role-pill" id="currentRoleBadge">Admin</span>
+      </div>
+    </div>
+
+    <div class="notif-bar" id="notifBar">
+      <div class="notif-item" id="nNewReports"><span class="notif-dot red"></span><span>0 nuevos</span></div>
+      <div class="notif-item" id="nPending"><span class="notif-dot amber"></span><span>0 agenda</span></div>
+      <div class="notif-item" id="nPolicies"><span class="notif-dot blue"></span><span>0 pólizas</span></div>
+      <div class="notif-item" id="nCritical"><span class="notif-dot red"></span><span>0 críticas</span></div>
+    </div>
+
+    <nav class="sidenav">
+      <div class="nav-section">
+        <div class="nav-section-label">OPERACIÓN</div>
+        <button class="nav-item active" id="navBoard" data-panel="board" type="button">
+          <svg viewBox="0 0 20 20"><rect x="2" y="2" width="7" height="7" rx="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5"/></svg>
+          <span>Tablero</span>
+        </button>
+        <button class="nav-item hidden" id="navNewReport" data-panel="report" type="button">
+          <svg viewBox="0 0 20 20"><path d="M10 4v12M4 10h12" stroke-width="2" stroke-linecap="round"/></svg>
+          <span>Nuevo reporte</span>
+        </button>
+        <button class="nav-item hidden" id="navSchedule" data-panel="schedule" type="button">
+          <svg viewBox="0 0 20 20"><rect x="3" y="4" width="14" height="13" rx="2"/><path d="M7 2v4M13 2v4M3 9h14" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <span>Agenda</span>
+        </button>
+        <button class="nav-item hidden" id="navAnalytics" data-panel="analytics" type="button">
+          <svg viewBox="0 0 20 20"><path d="M3 14l4-5 4 3 4-6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Analítica</span>
+        </button>
+        <button class="nav-item hidden" id="navHistory" data-panel="history" type="button">
+          <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l3 2" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <span>Historial unidad</span>
+        </button>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-label">FLOTAS</div>
+        <button class="nav-item hidden" id="navUnits" data-panel="units" type="button">
+          <svg viewBox="0 0 20 20"><path d="M2 13h16M4 13V8l3-4h6l3 4v5M6 16a1 1 0 100-2 1 1 0 000 2zM14 16a1 1 0 100-2 1 1 0 000 2z"/></svg>
+          <span>Mis unidades</span>
+        </button>
+        <button class="nav-item hidden" id="navPolicies" data-panel="policies" type="button">
+          <svg viewBox="0 0 20 20"><path d="M10 2l6 3v5c0 4-2.5 7-6 8-3.5-1-6-4-6-8V5l6-3z"/></svg>
+          <span>Pólizas</span>
+        </button>
+        <button class="nav-item hidden" id="navParts" data-panel="parts" type="button">
+          <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="3"/><path d="M10 2v3M10 15v3M2 10h3M15 10h3M4.22 4.22l2.12 2.12M13.66 13.66l2.12 2.12M4.22 15.78l2.12-2.12M13.66 6.34l2.12-2.12"/></svg>
+          <span>Refacciones</span>
+        </button>
+        <button class="nav-item hidden" id="navCampanas" data-panel="campanas" type="button">
+          <svg viewBox="0 0 20 20"><path d="M10 2C7 2 4 5 4 9c0 5-2 7-2 7h16s-2-2-2-7c0-4-3-7-6-7z"/><path d="M8 17a2 2 0 004 0"/></svg>
+          <span>Campañas</span>
+        </button>
+      </div>
+      <div class="nav-section hidden" id="navAdminSection">
+        <div class="nav-section-label">ADMINISTRACIÓN</div>
+        <button class="nav-item" id="navUsers" data-panel="users" type="button">
+          <svg viewBox="0 0 20 20"><circle cx="10" cy="7" r="3"/><path d="M4 17c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>
+          <span>Usuarios</span>
+        </button>
+        <button class="nav-item" id="navRequests" data-panel="requests" type="button">
+          <svg viewBox="0 0 20 20"><path d="M4 4h12v12H4zM8 9h4M8 12h2"/></svg>
+          <span>Solicitudes</span>
+        </button>
+        <button class="nav-item" id="navCompanies" data-panel="companies" type="button">
+          <svg viewBox="0 0 20 20"><path d="M3 17V7l7-5 7 5v10H3zM8 17v-5h4v5"/></svg>
+          <span>Empresas</span>
+        </button>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="btn-logout" id="logoutBtn" type="button">
+        <svg viewBox="0 0 20 20"><path d="M13 10H3M13 10l-3-3M13 10l-3 3M17 3v14" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Cerrar sesión
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main-content" id="mainContent">
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <h2 id="pageTitle">Tablero</h2>
+        <span class="topbar-sub" id="pageSubtitle">Vista general del sistema</span>
+      </div>
+      <div class="topbar-right">
+        <div class="stat-chips" id="statChips">
+          <div class="stat-chip"><span id="statTotal">0</span><label>Total</label></div>
+          <div class="stat-chip chip-new"><span id="statNew">0</span><label>Nuevos</label></div>
+          <div class="stat-chip chip-ok"><span id="statAccepted">0</span><label>Aceptados</label></div>
+          <div class="stat-chip chip-done"><span id="statDone">0</span><label>Terminados</label></div>
+        </div>
+        <button class="btn-icon" id="globalRefreshBtn" title="Actualizar" type="button">
+          <svg viewBox="0 0 20 20"><path d="M4 10a6 6 0 1011.9-1M4 10V5m0 5H9" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- ── PANELS ── -->
+
+    <!-- BOARD -->
+    <section id="panelBoard" class="panel active">
+      <div class="filters-bar">
+        <input id="searchInput" class="filter-input" type="text" placeholder="Buscar obra, económico, empresa, modelo…"/>
+        <select id="validationFilter" class="filter-select">
+          <option value="todos">Toda validación</option>
+          <option value="nueva">Nueva</option>
+          <option value="pendiente de revisión">Pendiente revisión</option>
+          <option value="aceptada">Aceptada</option>
+          <option value="rechazada">Rechazada</option>
+        </select>
+        <select id="operationalFilter" class="filter-select">
+          <option value="todos">Todo operativo</option>
+          <option value="sin iniciar">Sin iniciar</option>
+          <option value="en proceso">En proceso</option>
+          <option value="espera refacción">Espera refacción</option>
+          <option value="terminada">Terminada</option>
+        </select>
+      </div>
+      <div id="garantiasList" class="cards-grid"></div>
+      <div id="emptyState" class="empty-state hidden">
+        <div class="empty-icon">📋</div>
+        <strong>Sin registros</strong>
+        <span>Cuando entren reportes aparecerán aquí.</span>
+      </div>
+      <template id="garantiaCardTemplate">
+        <article class="gcard">
+          <div class="gcard-header">
+            <div class="gcard-folio-row">
+              <span class="gcard-folio"></span>
+              <div class="badge-stack">
+                <span class="badge validation-badge"></span>
+                <span class="badge operational-badge"></span>
+              </div>
+            </div>
+            <div class="gcard-meta"></div>
+          </div>
+          <p class="gcard-desc"></p>
+          <div class="gcard-grid"></div>
+          <div class="evidence-strip"></div>
+          <div class="gcard-actions"></div>
+        </article>
+      </template>
+    </section>
+
+    <!-- NUEVO REPORTE -->
+    <section id="panelReport" class="panel hidden">
+      <div class="panel-header">
+        <h3>Nuevo reporte de garantía</h3>
+        <button id="cancelReportBtn" class="btn-ghost" type="button">Cancelar</button>
+      </div>
+      <form id="reportForm" class="form-grid">
+        <div class="field"><label>Número de obra *</label><input id="numeroObra" required/></div>
+        <div class="field"><label>Modelo *</label><input id="modelo" placeholder="Ej. Irizar i6S" required/></div>
+        <div class="field"><label>Número económico *</label><input id="numeroEconomico" placeholder="Ej. 1042" required/></div>
+        <div class="field"><label>Empresa *</label><select id="empresa" required></select></div>
+        <div class="field"><label>Kilometraje</label><input id="kilometraje" inputmode="numeric" placeholder="Ej. 245000"/></div>
+        <div class="field"><label>Nombre de contacto</label><input id="contactoNombre"/></div>
+        <div class="field"><label>Teléfono</label><input id="telefono" placeholder="6671234567"/></div>
+        <div class="field field-full">
+          <label>Tipo de incidencia</label>
+          <div class="radio-group">
+            <label class="radio-opt"><input type="radio" name="tipoIncidente" value="daño" checked/> Daño</label>
+            <label class="radio-opt"><input type="radio" name="tipoIncidente" value="falla"/> Falla</label>
+            <label class="radio-opt"><input type="radio" name="tipoIncidente" value="sin daño"/> Sin daño</label>
+          </div>
+        </div>
+        <div class="field field-full"><label>Descripción del fallo *</label><textarea id="descripcionFallo" rows="4" required></textarea></div>
+        <div class="field field-full"><label>Evidencias fotográficas</label><input id="evidencias" type="file" accept="image/*" multiple/><div id="previewEvidencias" class="preview-grid"></div></div>
+        <div class="field field-full"><label class="checkbox-label"><input id="solicitaRefaccion" type="checkbox"/> Solicita refacción</label></div>
+        <div id="refaccionFields" class="field field-full hidden">
+          <label>Detalle de refacción</label><textarea id="detalleRefaccion" rows="3"></textarea>
+          <label>Evidencia de refacción</label><input id="evidenciasRefaccion" type="file" accept="image/*" multiple/>
+          <div id="previewRefaccion" class="preview-grid"></div>
+        </div>
+        <div class="field field-full">
+          <label>Firma del operador</label>
+          <canvas id="firmaCanvas" width="900" height="220"></canvas>
+          <div class="canvas-actions"><button id="clearSignatureBtn" class="btn-ghost" type="button">Borrar firma</button><span class="hint">Firma con dedo o mouse</span></div>
+        </div>
+        <div class="field field-full form-actions">
+          <button class="btn-primary" type="submit">Enviar reporte</button>
+          <button id="cancelReportBtn2" class="btn-ghost" type="button">Cancelar</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- AGENDA -->
+    <section id="panelSchedule" class="panel hidden">
+      <div class="panel-header"><h3>Agenda de ingresos</h3></div>
+      <div id="scheduleAlerts" class="alerts-row"></div>
+      <div class="schedule-layout">
+        <div id="scheduleCalendar" class="schedule-cal"></div>
+        <div class="schedule-right">
+          <div class="schedule-date-bar">
+            <input id="scheduleDateInput" type="date" class="filter-input"/>
+            <button id="scheduleRefreshBtn" class="btn-secondary" type="button">Actualizar</button>
+          </div>
+          <div id="scheduleList" class="schedule-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ANALÍTICA -->
+    <section id="panelAnalytics" class="panel hidden">
+      <div class="panel-header"><h3>Analítica operativa</h3></div>
+      <div class="analytics-grid">
+        <div class="acard"><h4>Por empresa</h4><div id="topCompanies" class="list-stat">—</div></div>
+        <div class="acard"><h4>Por modelo</h4><div id="topModels" class="list-stat">—</div></div>
+        <div class="acard"><h4>Tipo de incidencia</h4><div id="topIncidentTypes" class="list-stat">—</div></div>
+        <div class="acard highlight-acard"><h4>Unidades reincidentes</h4><div id="repeatUnits" class="list-stat">—</div></div>
+        <div class="acard"><h4>Gasto en refacciones</h4><div id="costsByCompany" class="list-stat">—</div></div>
+        <div class="acard"><h4>Unidades críticas (🔴)</h4><div id="criticalUnitsAnalytics" class="list-stat">—</div></div>
+      </div>
+    </section>
+
+    <!-- HISTORIAL UNIDAD -->
+    <section id="panelHistory" class="panel hidden">
+      <div class="panel-header"><h3>Historial por unidad</h3></div>
+      <div class="search-row">
+        <input id="unitHistoryInput" class="filter-input" placeholder="Número económico, ej. 1042"/>
+        <button id="unitHistoryBtn" class="btn-secondary" type="button">Consultar</button>
+      </div>
+      <div id="unitHistoryResult" class="table-list"></div>
+    </section>
+
+    <!-- FLOTAS / UNIDADES -->
+    <section id="panelUnits" class="panel hidden">
+      <div class="panel-header">
+        <h3>Gestión de flota</h3>
+        <button id="addUnitBtn" class="btn-primary hidden" type="button">+ Agregar unidad</button>
+      </div>
+      <!-- Filtros flota -->
+      <div class="filters-bar">
+        <input id="unitSearchInput" class="filter-input" placeholder="Buscar por económico, marca, modelo…"/>
+        <select id="unitSemaforoFilter" class="filter-select">
+          <option value="todos">Todo estatus</option>
+          <option value="verde">🟢 Verde</option>
+          <option value="amarillo">🟡 Amarillo</option>
+          <option value="rojo">🔴 Rojo</option>
+        </select>
+        <select id="unitEmpresaFilter" class="filter-select hidden">
+          <option value="">Todas las empresas</option>
+        </select>
+      </div>
+      <!-- Formulario nueva unidad (hidden por defecto) -->
+      <div id="unitForm" class="panel-form hidden">
+        <h4 id="unitFormTitle">Nueva unidad</h4>
+        <div class="form-grid">
+          <div class="field"><label>Número económico *</label><input id="uNumEco" required/></div>
+          <div class="field"><label>Empresa *</label><select id="uEmpresa" required></select></div>
+          <div class="field"><label>Marca</label><input id="uMarca" placeholder="Irizar, Volvo, Marcopolo…"/></div>
+          <div class="field"><label>Modelo</label><input id="uModelo"/></div>
+          <div class="field"><label>Año</label><input id="uAnio" placeholder="2022"/></div>
+          <div class="field"><label>Placa</label><input id="uPlaca"/></div>
+          <div class="field"><label>VIN/Serie</label><input id="uVin"/></div>
+          <div class="field"><label>Color</label><input id="uColor"/></div>
+          <div class="field"><label>Capacidad (pax)</label><input id="uCapacidad" inputmode="numeric"/></div>
+          <div class="field"><label>Combustible</label>
+            <select id="uCombustible"><option value="diesel">Diesel</option><option value="gasolina">Gasolina</option><option value="gas">Gas</option><option value="electrico">Eléctrico</option><option value="hibrido">Híbrido</option></select>
+          </div>
+          <div class="field"><label>KM actual</label><input id="uKmActual" inputmode="numeric" placeholder="0"/></div>
+          <div class="field"><label>KM próximo servicio</label><input id="uKmProximo" inputmode="numeric" placeholder="0"/></div>
+          <div class="field"><label>Estatus</label>
+            <select id="uEstatus"><option value="activa">Activa</option><option value="en_taller">En taller</option><option value="fuera_servicio">Fuera de servicio</option><option value="baja">Baja</option></select>
+          </div>
+          <div class="field"><label>Semáforo</label>
+            <select id="uSemaforo"><option value="verde">🟢 Verde</option><option value="amarillo">🟡 Amarillo</option><option value="rojo">🔴 Rojo</option></select>
+          </div>
+          <div class="field field-full"><label>Notas</label><textarea id="uNotas" rows="2"></textarea></div>
+          <div class="field field-full form-actions">
+            <button id="saveUnitBtn" class="btn-primary" type="button">Guardar unidad</button>
+            <button id="cancelUnitBtn" class="btn-ghost" type="button">Cancelar</button>
+            <input type="hidden" id="uId"/>
+          </div>
+        </div>
+      </div>
+      <!-- Grid de unidades -->
+      <div id="unitsList" class="units-grid"></div>
+      <!-- Panel detalle unidad (drilldown) -->
+      <div id="unitDetail" class="unit-detail hidden">
+        <button id="backToUnits" class="btn-ghost back-btn" type="button">← Volver a flota</button>
+        <div id="unitDetailContent"></div>
+      </div>
+    </section>
+
+    <!-- PÓLIZAS -->
+    <section id="panelPolicies" class="panel hidden">
+      <div class="panel-header">
+        <h3>Pólizas de garantía</h3>
+        <button id="addPolicyBtn" class="btn-primary hidden" type="button">+ Nueva póliza</button>
+      </div>
+      <div id="policyForm" class="panel-form hidden">
+        <h4 id="policyFormTitle">Nueva póliza</h4>
+        <div class="form-grid">
+          <div class="field"><label>Número económico</label><input id="pNumEco"/></div>
+          <div class="field"><label>Empresa</label><select id="pEmpresa"></select></div>
+          <div class="field"><label>Tipo de póliza</label>
+            <select id="pTipo"><option value="">Selecciona</option><option value="garantia_fabricante">Garantía fabricante</option><option value="garantia_extendida">Garantía extendida</option><option value="seguro">Seguro</option><option value="mantenimiento">Mantenimiento</option><option value="otro">Otro</option></select>
+          </div>
+          <div class="field"><label>Proveedor</label><input id="pProveedor"/></div>
+          <div class="field"><label>Número de póliza</label><input id="pNumPoliza"/></div>
+          <div class="field"><label>Monto $</label><input id="pMonto" inputmode="decimal" placeholder="0.00"/></div>
+          <div class="field"><label>Fecha inicio</label><input id="pFechaInicio" type="date"/></div>
+          <div class="field"><label>Fecha vencimiento</label><input id="pFechaVenc" type="date"/></div>
+          <div class="field"><label>Contacto proveedor</label><input id="pContactoProv"/></div>
+          <div class="field"><label>Teléfono proveedor</label><input id="pTelProv"/></div>
+          <div class="field field-full"><label>Cobertura</label><textarea id="pCobertura" rows="2"></textarea></div>
+          <div class="field field-full"><label>Notas</label><textarea id="pNotas" rows="2"></textarea></div>
+          <div class="field field-full form-actions">
+            <button id="savePolicyBtn" class="btn-primary" type="button">Guardar póliza</button>
+            <button id="cancelPolicyBtn" class="btn-ghost" type="button">Cancelar</button>
+            <input type="hidden" id="pId"/>
+          </div>
+        </div>
+      </div>
+      <div id="policiesList" class="table-list"></div>
+    </section>
+
+    <!-- REFACCIONES -->
+    <section id="panelParts" class="panel hidden">
+      <div class="panel-header">
+        <h3>Refacciones y costos</h3>
+        <button id="addPartBtn" class="btn-primary hidden" type="button">+ Registrar refacción</button>
+      </div>
+      <div id="partForm" class="panel-form hidden">
+        <h4>Nueva refacción</h4>
+        <div class="form-grid">
+          <div class="field"><label>Nombre *</label><input id="ptNombre" required/></div>
+          <div class="field"><label>Descripción</label><input id="ptDesc"/></div>
+          <div class="field"><label>Número de parte OEM</label><input id="ptNumParte"/></div>
+          <div class="field"><label>Proveedor</label><input id="ptProveedor"/></div>
+          <div class="field"><label>Costo unitario $</label><input id="ptCosto" inputmode="decimal" placeholder="0.00"/></div>
+          <div class="field"><label>Cantidad</label><input id="ptCantidad" inputmode="numeric" value="1"/></div>
+          <div class="field"><label>Unidad</label><select id="ptUnidad"><option value="pieza">Pieza</option><option value="litro">Litro</option><option value="juego">Juego</option><option value="par">Par</option><option value="kit">Kit</option></select></div>
+          <div class="field"><label>Número económico</label><input id="ptNumEco"/></div>
+          <div class="field"><label>Empresa</label><select id="ptEmpresa"></select></div>
+          <div class="field"><label>Tipo</label><select id="ptTipo"><option value="salida">Salida (uso)</option><option value="entrada">Entrada (stock)</option></select></div>
+          <div class="field field-full form-actions">
+            <button id="savePartBtn" class="btn-primary" type="button">Registrar refacción</button>
+            <button id="cancelPartBtn" class="btn-ghost" type="button">Cancelar</button>
+          </div>
+        </div>
+      </div>
+      <div class="summary-row" id="partsSummaryRow"></div>
+      <div id="partsList" class="table-list"></div>
+    </section>
+
+    <!-- CAMPAÑAS -->
+    <section id="panelCampanas" class="panel hidden">
+      <div class="panel-header">
+        <h3>Campañas de mantenimiento</h3>
+        <button id="addCampanaBtn" class="btn-primary hidden" type="button">+ Nueva campaña</button>
+      </div>
+      <div id="campanaForm" class="panel-form hidden">
+        <h4>Nueva campaña</h4>
+        <div class="form-grid">
+          <div class="field"><label>Nombre *</label><input id="caNombre" required/></div>
+          <div class="field"><label>Tipo</label><select id="caTipo"><option value="preventivo">Preventivo</option><option value="correctivo">Correctivo</option><option value="recall">Recall</option><option value="inspeccion">Inspección</option><option value="otro">Otro</option></select></div>
+          <div class="field"><label>Empresa</label><select id="caEmpresa"></select></div>
+          <div class="field"><label>Estatus</label><select id="caEstatus"><option value="activa">Activa</option><option value="pausada">Pausada</option><option value="finalizada">Finalizada</option></select></div>
+          <div class="field"><label>Fecha inicio</label><input id="caFechaInicio" type="date"/></div>
+          <div class="field"><label>Fecha fin</label><input id="caFechaFin" type="date"/></div>
+          <div class="field field-full"><label>Descripción</label><textarea id="caDesc" rows="2"></textarea></div>
+          <div class="field field-full form-actions">
+            <button id="saveCampanaBtn" class="btn-primary" type="button">Guardar campaña</button>
+            <button id="cancelCampanaBtn" class="btn-ghost" type="button">Cancelar</button>
+            <input type="hidden" id="caId"/>
+          </div>
+        </div>
+      </div>
+      <div id="campanasList" class="campanas-grid"></div>
+    </section>
+
+    <!-- USUARIOS -->
+    <section id="panelUsers" class="panel hidden">
+      <div class="panel-header"><h3>Usuarios y accesos</h3></div>
+      <div class="panel-form">
+        <h4 id="userFormTitle">Nuevo usuario</h4>
+        <div class="form-grid">
+          <input type="hidden" id="userId"/>
+          <div class="field"><label>Nombre</label><input id="userNombre" required/></div>
+          <div class="field"><label>Correo</label><input id="userEmail" type="email" required/></div>
+          <div class="field"><label>Rol</label>
+            <select id="userRole"><option value="operador">Operador</option><option value="operativo">Operativo</option><option value="supervisor">Supervisor</option><option value="flota">Flota (cliente)</option><option value="admin">Admin</option></select>
+          </div>
+          <div class="field"><label>Empresa</label><select id="userEmpresa"></select></div>
+          <div class="field"><label>Teléfono</label><input id="userTelefono"/></div>
+          <div class="field"><label>Contraseña</label><input id="userPassword" type="text"/></div>
+          <div class="field field-full form-actions">
+            <button id="userSubmitBtn" class="btn-primary" type="button">Crear usuario</button>
+            <button id="userCancelEditBtn" class="btn-ghost hidden" type="button">Cancelar edición</button>
+          </div>
+        </div>
+      </div>
+      <div id="usersList" class="table-list"></div>
+    </section>
+
+    <!-- SOLICITUDES -->
+    <section id="panelRequests" class="panel hidden">
+      <div class="panel-header"><h3>Solicitudes de registro</h3></div>
+      <div id="requestsList" class="table-list"></div>
+    </section>
+
+    <!-- EMPRESAS -->
+    <section id="panelCompanies" class="panel hidden">
+      <div class="panel-header"><h3>Empresas habilitadas</h3></div>
+      <div class="panel-form">
+        <h4 id="companyFormTitle">Nueva empresa</h4>
+        <div class="form-grid">
+          <input type="hidden" id="companyId"/>
+          <div class="field"><label>Nombre</label><input id="companyNombre"/></div>
+          <div class="field"><label>Contacto</label><input id="companyContacto"/></div>
+          <div class="field"><label>Teléfono</label><input id="companyTelefono"/></div>
+          <div class="field"><label>Correo</label><input id="companyEmail" type="email"/></div>
+          <div class="field field-full"><label>Notas</label><textarea id="companyNotas" rows="2"></textarea></div>
+          <div class="field field-full form-actions">
+            <button id="companySubmitBtn" class="btn-primary" type="button">Guardar empresa</button>
+            <button id="companyCancelEditBtn" class="btn-ghost hidden" type="button">Cancelar edición</button>
+          </div>
+        </div>
+      </div>
+      <div id="companiesList" class="table-list"></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast hidden"></div>
+
+<!-- MODAL -->
+<div id="modal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="modal-header"><h4 id="modalTitle">Detalle</h4><button id="modalClose" class="btn-ghost" type="button">×</button></div>
+    <div id="modalBody" class="modal-body"></div>
+  </div>
+</div>
+
+<!-- OPERATOR BOTTOM NAV -->
+<nav id="operatorNav" class="operator-nav hidden">
+  <button id="opNavBoard" type="button" class="op-nav-btn active">
+    <svg viewBox="0 0 20 20"><rect x="2" y="2" width="7" height="7" rx="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5"/></svg>
+    Reportes
+  </button>
+  <button id="opNavNew" type="button" class="op-nav-btn">
+    <svg viewBox="0 0 20 20"><path d="M10 4v12M4 10h12" stroke-width="2" stroke-linecap="round"/></svg>
+    Nuevo
+  </button>
+  <button id="opNavSchedule" type="button" class="op-nav-btn">
+    <svg viewBox="0 0 20 20"><rect x="3" y="4" width="14" height="13" rx="2"/><path d="M7 2v4M13 2v4M3 9h14" stroke-width="1.5"/></svg>
+    Agenda
+  </button>
+  <button id="opNavLogout" type="button" class="op-nav-btn">
+    <svg viewBox="0 0 20 20"><path d="M13 10H3M13 10l-3-3M13 10l-3 3M17 3v14" stroke-width="1.5" stroke-linecap="round"/></svg>
+    Salir
+  </button>
+</nav>
+
+<script src="/app.js"></script>
 </body>
 </html>
