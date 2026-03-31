@@ -20,6 +20,8 @@ const state = {
   unitHistoryRows: [],
   partsPending: [],
   partsCacheAt: 0,
+  partsEditingId: '',
+  partsDirtyIds: new Set(),
 };
 
 const api = {
@@ -704,6 +706,7 @@ function renderSchedules() {
 
 async function loadPartsPending(force = false) {
   if (!isRole('admin','supervisor_flotas')) return;
+  if (!force && state.partsDirtyIds.size) return;
   const now = Date.now();
   if (!force && state.partsPending.length && now - state.partsCacheAt < 30000) {
     renderPartsPending();
@@ -788,6 +791,14 @@ function renderPartsPending() {
     els.partsList.appendChild(card);
 
     if (isRole('admin')) {
+      const detailInput = card.querySelector(`#partsDetail_${item.id}`);
+      const assignedInput = card.querySelector(`#partsAssigned_${item.id}`);
+      const statusInput = card.querySelector(`#partsStatus_${item.id}`);
+      [detailInput, assignedInput, statusInput].forEach(el => {
+        el?.addEventListener('input', () => state.partsDirtyIds.add(item.id));
+        el?.addEventListener('change', () => state.partsDirtyIds.add(item.id));
+      });
+
       card.querySelector(`[data-parts-save="${item.id}"]`)?.addEventListener('click', async () => {
         try {
           await api.updateParts(item.id, {
@@ -795,6 +806,7 @@ function renderPartsPending() {
             refaccionAsignada: document.getElementById(`partsAssigned_${item.id}`)?.value || '',
             refaccionStatus: document.getElementById(`partsStatus_${item.id}`)?.value || 'pendiente'
           });
+          state.partsDirtyIds.delete(item.id);
           notify('Refacción actualizada.');
           await loadPartsPending(true);
           await loadGarantias();
@@ -1259,6 +1271,21 @@ setInterval(async () => {
     await loadNotifications();
     if (['board','schedule'].includes(state.activePanel)) await Promise.allSettled([loadGarantias(), loadSchedules('')]);
     if (state.activePanel === 'fleet' && isRole('admin','operativo','supervisor_flotas')) await loadFleet();
-    if (state.activePanel === 'parts' && isRole('admin','supervisor_flotas')) await loadPartsPending();
+    if (state.activePanel === 'parts' && isRole('admin','supervisor_flotas') && !state.partsDirtyIds.size) await loadPartsPending();
   } catch {}
 }, 5000);
+
+
+const mainAreaEl = document.querySelector('.main-area');
+if (mainAreaEl) {
+  let lastScrollTop = 0;
+  mainAreaEl.addEventListener('scroll', () => {
+    const currentTop = mainAreaEl.scrollTop;
+    if (currentTop > 40 && currentTop > lastScrollTop) {
+      mainAreaEl.classList.add('scrolled-down');
+    } else {
+      mainAreaEl.classList.remove('scrolled-down');
+    }
+    lastScrollTop = currentTop <= 0 ? 0 : currentTop;
+  });
+}
