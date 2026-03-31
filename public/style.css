@@ -1307,3 +1307,72 @@ body[data-panel="history"] .topbar {
 .role-brief {
   margin-top: 0 !important;
 }
+
+
+/* V3.8.3 owner portal impeccable */
+body.owner-focus .topbar,
+body.owner-focus #roleBrief {
+  display: none !important;
+}
+
+body.owner-focus .main-area {
+  padding-top: 0 !important;
+  gap: 10px !important;
+}
+
+body.owner-focus #fleetPanel,
+body.owner-focus #partsPanel,
+body.owner-focus #schedulePanel,
+body.owner-focus #historyPanel {
+  margin-top: 0 !important;
+  padding-top: 12px !important;
+}
+
+body.owner-focus .compact-panel-head {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+body.owner-focus .panel {
+  scroll-margin-top: 0 !important;
+}
+
+body.owner-focus .main-area.scrolled-down .topbar {
+  display: none !important;
+  transform: none !important;
+  opacity: 0 !important;
+}
+
+body.owner-focus .fleet-clean-panel,
+body.owner-focus #partsPanel,
+body.owner-focus #schedulePanel,
+body.owner-focus #historyPanel {
+  border-radius: 18px;
+}
+
+body.owner-focus .fleet-line-list {
+  align-content: start;
+}
+
+body.owner-focus .fleet-detail-premium {
+  min-height: 100%;
+}
+
+body.owner-focus .sidebar {
+  padding-top: 8px !important;
+}
+
+body.owner-focus .nav-group-label {
+  font-size: 10px;
+}
+
+body.owner-focus .nav-btn {
+  min-height: 32px !important;
+  padding: 7px 11px !important;
+}
+
+@media (max-width: 980px) {
+  body.owner-focus .main-area {
+    padding-top: 0 !important;
+  }
+}

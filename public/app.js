@@ -354,6 +354,8 @@ function switchPanel(panel) {
   els.fleetPanel?.classList.toggle('hidden', panel !== 'fleet');
   els.partsPanel?.classList.toggle('hidden', panel !== 'parts');
   document.body.dataset.panel = panel;
+  const ownerFocus = state.user?.role === 'supervisor_flotas' && ['fleet','parts','schedule','history'].includes(panel);
+  document.body.classList.toggle('owner-focus', ownerFocus);
   const board = panel === 'board';
   els.filtersPanel?.classList.toggle('hidden', !board);
   if (panel === 'schedule') loadSchedules('');
@@ -379,6 +381,7 @@ function showDashboard() {
   els.loginView?.classList.add('hidden'); els.dashboardView?.classList.remove('hidden');
   document.body.classList.toggle('operator-mode', state.user?.role === 'operador');
   document.body.classList.toggle('executive-mode', state.user?.role !== 'operador');
+  document.body.classList.remove('owner-focus');
   document.body.dataset.role = state.user?.role || ''; 
   els.navNewReportBtn?.classList.toggle('hidden', !isRole('operador','admin'));
   els.navUsersBtn?.classList.toggle('hidden', !isRole('admin'));
@@ -391,7 +394,7 @@ function showDashboard() {
   els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas'));
   updateHeaderForRole(); switchPanel(state.user?.role === 'operador' ? 'report' : 'board');
 }
-function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); document.body.classList.remove('executive-mode','operator-mode'); document.body.dataset.role=''; document.body.dataset.panel='login'; }
+function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); document.body.classList.remove('executive-mode','operator-mode','owner-focus'); document.body.dataset.role=''; document.body.dataset.panel='login'; }
 
 function filteredGarantias() {
   const search = els.searchInput?.value.trim().toLowerCase() || '';
