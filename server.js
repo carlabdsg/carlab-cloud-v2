@@ -1096,24 +1096,15 @@ app.post('/api/garantias/:id/request-schedule', authRequired, requireRoles('admi
   res.status(201).json(scheduleSummary(joined.rows[0]));
 });
 
-app.patch('/api/schedules/:id/confirm', authRequired, requireRoles('admin', 'operativo'), async (req, res) => {
+app.patch('/api/schedules/:id/confirm', authRequired, requireRoles('admin', 'operativo', 'supervisor_flotas'), async (req, res) => {
   const status = String(req.body.status || 'confirmed').trim();
   const notes = String(req.body.notes || '').trim();
   const found = await pool.query(`SELECT sr.*, g.folio, g.numero_economico, g.empresa, g.telefono FROM schedule_requests sr JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id = $1`, [req.params.id]);
   if (!found.rowCount) return res.status(404).json({ error: 'Programación no encontrada.' });
-
-app.patch('/api/schedules/:id/cancel', authRequired, async (req,res)=>{
- await pool.query("UPDATE schedule_requests SET status='cancelled' WHERE id=$1",[req.params.id]);
- res.json({ok:true});
-});
-
-app.patch('/api/schedules/:id/reschedule', authRequired, async (req,res)=>{
- const {scheduledFor}=req.body;
- await pool.query("UPDATE schedule_requests SET scheduled_for=$2 WHERE id=$1",[req.params.id,scheduledFor]);
- res.json({ok:true});
-});
-
   const current = found.rows[0];
+  if (req.user.role === 'supervisor_flotas' && current.empresa !== (req.user.empresa || '')) {
+    return res.status(403).json({ error: 'No puedes gestionar citas de otra empresa.' });
+  }
   const scheduledFor = req.body.scheduledFor ? new Date(req.body.scheduledFor) : (current.scheduled_for ? new Date(current.scheduled_for) : null);
 
   if (status === 'confirmed' && scheduledFor) {
@@ -1163,6 +1154,64 @@ app.patch('/api/schedules/:id/reschedule', authRequired, async (req,res)=>{
   }
   const joined = await pool.query(`SELECT sr.*, g.folio, g.numero_economico, g.empresa, g.contacto_nombre, g.telefono FROM schedule_requests sr JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id = $1`, [req.params.id]);
   res.json(scheduleSummary(joined.rows[0]));
+});
+
+
+
+app.patch('/api/schedules/:id/reschedule', authRequired, requireRoles('admin', 'operativo', 'supervisor_flotas'), async (req, res) => {
+  try {
+    const scheduledFor = req.body.scheduledFor ? new Date(req.body.scheduledFor) : null;
+    const reason = String(req.body.reason || '').trim();
+    if (!scheduledFor || Number.isNaN(scheduledFor.getTime())) {
+      return res.status(400).json({ error: 'Fecha inválida para reprogramación.' });
+    }
+
+    const found = await pool.query(`SELECT sr.*, g.empresa, g.telefono, g.folio, g.numero_economico FROM schedule_requests sr JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id = $1`, [req.params.id]);
+    if (!found.rowCount) return res.status(404).json({ error: 'Programación no encontrada.' });
+    const current = found.rows[0];
+    if (req.user.role === 'supervisor_flotas' && current.empresa !== (req.user.empresa || '')) {
+      return res.status(403).json({ error: 'No puedes reprogramar citas de otra empresa.' });
+    }
+
+    await pool.query(`UPDATE schedule_requests SET scheduled_for = $2, status = 'confirmed', confirmed_at = NOW(), notes = CASE WHEN COALESCE(notes, '') = '' THEN $3 ELSE notes || E'\n' || $3 END, updated_at = NOW() WHERE id = $1`, [req.params.id, scheduledFor.toISOString(), reason ? `Reprogramada: ${reason}` : 'Reprogramada manualmente']);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error en /api/schedules/:id/reschedule:', error);
+    res.status(500).json({ error: 'No se pudo reprogramar la cita.' });
+  }
+});
+
+app.patch('/api/schedules/:id/cancel', authRequired, requireRoles('admin', 'operativo', 'supervisor_flotas'), async (req, res) => {
+  try {
+    const reason = String(req.body.reason || '').trim();
+    const found = await pool.query(`SELECT sr.*, g.empresa FROM schedule_requests sr JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id = $1`, [req.params.id]);
+    if (!found.rowCount) return res.status(404).json({ error: 'Programación no encontrada.' });
+    const current = found.rows[0];
+    if (req.user.role === 'supervisor_flotas' && current.empresa !== (req.user.empresa || '')) {
+      return res.status(403).json({ error: 'No puedes cancelar citas de otra empresa.' });
+    }
+    await pool.query(`UPDATE schedule_requests SET status = 'cancelled', scheduled_for = NULL, notes = CASE WHEN COALESCE(notes, '') = '' THEN $2 ELSE notes || E'\n' || $2 END, updated_at = NOW() WHERE id = $1`, [req.params.id, reason ? `Cancelada: ${reason}` : 'Cancelada manualmente']);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error en /api/schedules/:id/cancel:', error);
+    res.status(500).json({ error: 'No se pudo cancelar la cita.' });
+  }
+});
+
+app.get('/api/parts/pending', authRequired, requireRoles('admin', 'operativo', 'supervisor_flotas'), async (req, res) => {
+  try {
+    const params = [];
+    const where = ["solicita_refaccion = TRUE", "COALESCE(estatus_operativo, 'sin iniciar') <> 'terminada'"];
+    if (req.user.role === 'supervisor_flotas') {
+      params.push(req.user.empresa || '');
+      where.push(`empresa = $${params.length}`);
+    }
+    const result = await pool.query(`SELECT * FROM garantias WHERE ${where.join(' AND ')} ORDER BY created_at DESC`, params);
+    res.json(result.rows.map(mapGarantia));
+  } catch (error) {
+    console.error('Error en /api/parts/pending:', error);
+    res.status(500).json({ error: 'No se pudieron cargar las refacciones pendientes.' });
+  }
 });
 
 app.post('/api/whatsapp/incoming', async (req, res) => {

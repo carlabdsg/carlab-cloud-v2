@@ -114,6 +114,7 @@
               <button id="navAnalyticsBtn" class="nav-btn hidden" type="button">Analítica</button>
               <button id="navHistoryBtn" class="nav-btn hidden" type="button">Historial por unidad</button>
               <button id="navScheduleBtn" class="nav-btn hidden" type="button">Agenda</button>
+              <button id="navPartsBtn" class="nav-btn hidden" type="button">Refacciones</button>
               <button id="navFleetBtn" class="nav-btn hidden" type="button">Flotas</button>
             </div>
             <div class="nav-group">
@@ -225,6 +226,21 @@
           <div id="scheduleAlerts" class="schedule-alerts"></div>
           <div id="scheduleCalendar" class="schedule-calendar"></div>
           <div id="scheduleList" class="table-list compact-list"></div>
+        </section>
+
+
+        <section id="partsPanel" class="panel hidden">
+          <div class="panel-head">
+            <div>
+              <div class="topbar-kicker">REFACCIONES</div>
+              <h3>Refacciones pendientes</h3>
+            </div>
+            <span class="badge badge-info">Control de piezas por unidad</span>
+          </div>
+          <div class="role-brief single-brief">
+            <article><strong>Vista ejecutiva</strong><span>Aquí ves qué unidades siguen detenidas o en espera por refacción, con lectura limpia para operación y flota.</span></article>
+          </div>
+          <div id="partsList" class="table-list compact-list"></div>
         </section>
 
         <section id="filtersPanel" class="toolbar panel">

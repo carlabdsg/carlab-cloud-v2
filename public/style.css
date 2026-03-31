@@ -1021,3 +1021,23 @@ body.executive-mode {
   .history-toolbar, .schedule-toolbar, .fleet-search-box, .executive-mode .history-toolbar, .executive-mode .schedule-toolbar { grid-template-columns:1fr; }
   .fleet-toolbar-actions { margin-left:0; width:100%; }
 }
+
+
+.topbar.panel {
+  background: rgba(255,255,255,.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.nav-btn { position: relative; }
+.nav-btn.active::after {
+  content:'';
+  position:absolute;
+  inset:auto 10px 6px 10px;
+  height:2px;
+  border-radius:999px;
+  background: var(--accent);
+}
+.danger-btn { border-color:#fecdd3; color:#be123c; background:#fff1f2; }
+.parts-row { grid-template-columns: 1.3fr .8fr 1.2fr .7fr; }
+.single-brief { grid-template-columns: 1fr; margin-bottom: 12px; }
+@media (max-width:980px){ .parts-row { grid-template-columns:1fr; } }
