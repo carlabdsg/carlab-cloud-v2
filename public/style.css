@@ -726,7 +726,7 @@ body.executive-mode {
   padding: 14px 22px;
   border-right: 0;
   border-bottom: 1px solid rgba(16,24,40,.08);
-  background: rgba(249,250,251,.86);
+  background: rgba(249,250,251,.97);
   backdrop-filter: blur(18px);
   display: grid;
   grid-template-columns: 210px 1fr auto;
@@ -795,7 +795,7 @@ body.executive-mode {
   position: sticky;
   top: 86px;
   z-index: 20;
-  background: rgba(255,255,255,.88);
+  background: rgba(255,255,255,.96);
   backdrop-filter: blur(18px);
 }
 .executive-mode .topbar h1 { font-size: 40px; }
@@ -977,4 +977,47 @@ body.executive-mode {
   .executive-mode .topbar-chip { min-width: 0; width: 100%; }
   .executive-mode .role-brief, .executive-mode .fleet-card-strip { grid-template-columns: 1fr; }
   .executive-mode .nav-group { width: 100%; }
+}
+
+
+.executive-mode .nav-btn { color:#344054; }
+.executive-mode .nav-btn.active,
+.executive-mode .nav-btn:hover { color:#101828; }
+.executive-mode .sidebar::after {
+  content:"";
+  position:absolute;
+  inset:auto 0 0 0;
+  height:1px;
+  background:rgba(16,24,40,.08);
+}
+.history-toolbar, .schedule-toolbar, .fleet-search-box {
+  display:grid;
+  grid-template-columns: minmax(220px,1.2fr) minmax(220px,1fr) auto;
+  gap:12px;
+  align-items:end;
+}
+.fleet-admin-toolbar { justify-content:space-between; flex-wrap:wrap; }
+.fleet-toolbar-actions { margin-left:auto; }
+.executive-mode .fleet-admin-toolbar { align-items:end; }
+.executive-mode .fleet-search-box {
+  flex:1 1 760px;
+  background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,250,252,.96));
+  border:1px solid rgba(16,24,40,.08);
+  border-radius:22px;
+  padding:12px;
+  box-shadow:0 10px 28px rgba(16,24,40,.04);
+}
+.executive-mode .history-toolbar,
+.executive-mode .schedule-toolbar {
+  background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,250,252,.96));
+  border:1px solid rgba(16,24,40,.08);
+  border-radius:22px;
+  padding:14px;
+  margin-bottom:16px;
+}
+.executive-mode .history-toolbar { grid-template-columns: minmax(180px,.7fr) minmax(320px,1.4fr) auto; }
+.executive-mode .schedule-toolbar { grid-template-columns: minmax(220px, 320px) auto; justify-content:start; }
+@media (max-width: 980px) {
+  .history-toolbar, .schedule-toolbar, .fleet-search-box, .executive-mode .history-toolbar, .executive-mode .schedule-toolbar { grid-template-columns:1fr; }
+  .fleet-toolbar-actions { margin-left:0; width:100%; }
 }

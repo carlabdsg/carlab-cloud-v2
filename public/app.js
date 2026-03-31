@@ -17,6 +17,7 @@ const state = {
   fleetSummary: { total:0, operando:0, enTaller:0, detenidas:0, programadas:0 },
   selectedFleetUnit: null,
   editingFleetUnitId: '',
+  unitHistoryRows: [],
 };
 
 const api = {
@@ -78,8 +79,8 @@ function bind() {
     'evidencias','evidenciasRefaccion','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn','searchInput','validationFilter','operationalFilter',
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
-    'topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn',
-    'navFleetBtn','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas','fleetNewBtn','fleetCancelBtn','fleetFormBox'
+    'topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistorySearchInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn',
+    'navFleetBtn','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas','fleetNewBtn','fleetCancelBtn','fleetFormBox','fleetSearchInput','fleetStatusFilter'
   ].forEach(id => els[id] = document.getElementById(id));
 }
 bind();
@@ -106,6 +107,10 @@ function notify(message, isError = false) {
 }
 function badgeClassValidation(status) { return ({ 'nueva':'badge-new','pendiente de revisión':'badge-review','aceptada':'badge-accepted','rechazada':'badge-rejected' })[status] || 'badge-info'; }
 function badgeClassOperational(status) { return ({ 'sin iniciar':'badge-info','en proceso':'badge-progress','espera refacción':'badge-waiting','terminada':'badge-done' })[status] || 'badge-info'; }
+
+function normalizeText(value='') {
+  return String(value || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
 
 function fleetSemaforo(unit) {
   const st = unit.manualStatus || unit.estatusOperativo || '';
@@ -673,7 +678,18 @@ function renderFleet() {
   if (els.fleetProgramadas) els.fleetProgramadas.textContent = state.fleetSummary.programadas || 0;
 
   if (els.fleetUnitsList) els.fleetUnitsList.innerHTML = '';
-  state.fleetUnits.forEach(unit => {
+  const fleetQuery = normalizeText(els.fleetSearchInput?.value || '');
+  const fleetStatus = els.fleetStatusFilter?.value || 'todos';
+  const visibleUnits = state.fleetUnits.filter(unit => {
+    const sem = fleetSemaforo(unit);
+    const hayTexto = !fleetQuery || normalizeText([unit.numeroEconomico, unit.empresa, unit.marca, unit.modelo, unit.numeroObra, unit.nombreFlota].join(' ')).includes(fleetQuery);
+    const hayEstado = fleetStatus === 'todos' || sem.key === fleetStatus;
+    return hayTexto && hayEstado;
+  });
+  if (!visibleUnits.length && els.fleetUnitsList) {
+    els.fleetUnitsList.innerHTML = '<div class="empty-state"><strong>Sin coincidencias.</strong><span>Ajusta búsqueda o estado para encontrar la unidad correcta.</span></div>';
+  }
+  visibleUnits.forEach(unit => {
     const sem = fleetSemaforo(unit);
     const card = document.createElement('article');
     card.className = 'card fleet-card';
@@ -875,7 +891,7 @@ function renderGarantias() {
       area.appendChild(reviewBox);
       if (item.estatusValidacion === 'aceptada') {
         const scheduleRow = document.createElement('div'); scheduleRow.className = 'action-row';
-        if (isRole('admin','operativo')) scheduleRow.appendChild(button('Programar unidad', 'btn btn-primary', async () => { try { await api.requestSchedule(item.id); notify('Solicitud enviada por WhatsApp.'); await loadSchedules(); switchPanel('schedule'); } catch (error) { notify(error.message, true); } }));
+        if (isRole('admin','operativo','supervisor_flotas')) scheduleRow.appendChild(button('Solicitar servicio', 'btn btn-primary', async () => { try { await api.requestSchedule(item.id); notify('Solicitud enviada por WhatsApp.'); await loadSchedules(); switchPanel('schedule'); } catch (error) { notify(error.message, true); } }));
         if (isRole('operador')) scheduleRow.appendChild(button('Ver mi agenda', 'btn btn-secondary', async () => { await loadSchedules(); switchPanel('schedule'); }));
         if (scheduleRow.children.length) area.appendChild(scheduleRow);
         const operationalBox = document.createElement('div'); operationalBox.innerHTML = `
@@ -950,12 +966,18 @@ async function loadUsers() { if (!isRole('admin')) return; state.users = await a
 async function loadCompanies() { state.companies = isRole('admin') ? await api.getCompanies() : await api.getPublicCompanies(); renderCompanies(); }
 async function loadRequests() { if (!isRole('admin')) return; state.registrationRequests = await api.getRequests(); renderRequests(); }
 
+function paintUnitHistory(history) {
+  const q = normalizeText(els.unitHistorySearchInput?.value || '');
+  const filtered = !q ? history : history.filter(item => normalizeText([item.numeroObra, item.modelo, item.empresa, item.tipoIncidente, item.descripcionFallo].join(' ')).includes(q));
+  els.unitHistoryResult.innerHTML = filtered.length ? filtered.map(item => `<div class="table-row"><div><strong>Obra ${escapeHtml(item.numeroObra)}</strong><div class="small muted">${escapeHtml(item.modelo)} · ${escapeHtml(item.empresa)}</div><div class="small muted">${escapeHtml(item.descripcionFallo || '')}</div></div><div>${escapeHtml(item.tipoIncidente)}</div><div><span class="badge ${badgeClassValidation(item.estatusValidacion)}">${escapeHtml(item.estatusValidacion)}</span></div><div>${fmtDate(item.createdAt)}</div></div>`).join('') : '<div class="empty-state"><strong>Sin historial.</strong><span>No hay coincidencias para esa unidad.</span></div>';
+}
+
 async function renderUnitHistory() {
   const numero = els.unitHistoryInput?.value.trim();
   if (!numero) return notify('Escribe un número económico.');
   try {
-    const history = await api.getUnitHistory(numero);
-    els.unitHistoryResult.innerHTML = history.length ? history.map(item => `<div class="table-row"><div><strong>Obra ${escapeHtml(item.numeroObra)}</strong><div class="small muted">${escapeHtml(item.modelo)} · ${escapeHtml(item.empresa)}</div></div><div>${escapeHtml(item.tipoIncidente)}</div><div><span class="badge ${badgeClassValidation(item.estatusValidacion)}">${escapeHtml(item.estatusValidacion)}</span></div><div>${fmtDate(item.createdAt)}</div></div>`).join('') : '<div class="empty-state"><strong>Sin historial.</strong><span>No hay reportes para esa unidad.</span></div>';
+    state.unitHistoryRows = await api.getUnitHistory(numero);
+    paintUnitHistory(state.unitHistoryRows);
   } catch (error) { notify(error.message, true); }
 }
 
@@ -1014,9 +1036,12 @@ els.userRole?.addEventListener('change', () => {
   if (els.userEmpresa) { els.userEmpresa.disabled = !needsEmpresa; if (!needsEmpresa) els.userEmpresa.value = ''; }
 });
 els.unitHistoryBtn?.addEventListener('click', renderUnitHistory);
+els.unitHistorySearchInput?.addEventListener('input', () => paintUnitHistory(state.unitHistoryRows || []));
 els.scheduleRefreshBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
 
 els.fleetRefreshBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
+els.fleetSearchInput?.addEventListener('input', renderFleet);
+els.fleetStatusFilter?.addEventListener('change', renderFleet);
 els.fleetSaveBtn?.addEventListener('click', async () => {
   try {
     const payload = {

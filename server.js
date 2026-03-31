@@ -1038,7 +1038,7 @@ app.get('/api/history/unit/:numeroEconomico', authRequired, requireRoles('admin'
 });
 
 
-app.get('/api/schedules', authRequired, requireRoles('admin', 'operativo', 'supervisor', 'operador'), async (req, res) => {
+app.get('/api/schedules', authRequired, requireRoles('admin', 'operativo', 'supervisor', 'supervisor_flotas', 'operador'), async (req, res) => {
   const date = String(req.query.date || '').trim();
   const params = [];
   let where = [];
@@ -1064,7 +1064,7 @@ app.get('/api/schedules', authRequired, requireRoles('admin', 'operativo', 'supe
   res.json(result.rows.map(scheduleSummary));
 });
 
-app.post('/api/garantias/:id/request-schedule', authRequired, requireRoles('admin', 'operativo'), async (req, res) => {
+app.post('/api/garantias/:id/request-schedule', authRequired, requireRoles('admin', 'operativo', 'supervisor_flotas'), async (req, res) => {
   const current = await pool.query('SELECT * FROM garantias WHERE id = $1', [req.params.id]);
   if (!current.rowCount) return res.status(404).json({ error: 'Garantía no encontrada.' });
   const garantia = current.rows[0];

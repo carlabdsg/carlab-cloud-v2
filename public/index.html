@@ -193,14 +193,14 @@
             </div>
             <span class="badge badge-info">Trazabilidad</span>
           </div>
-          <div class="fleet-admin-toolbar fleet-form-only">
-            <button id="fleetNewBtn" class="btn btn-primary" type="button">Nueva unidad</button>
-            <button id="fleetCancelBtn" class="btn btn-ghost hidden" type="button">Cancelar edición</button>
-          </div>
-          <div id="fleetFormBox" class="history-search-box history-panel-box fleet-form-only hidden">
+          <div class="history-search-box history-panel-box history-toolbar">
             <div>
               <label>Número económico</label>
               <input id="unitHistoryInput" placeholder="Ej. 1042" />
+            </div>
+            <div>
+              <label>Buscar dentro del historial</label>
+              <input id="unitHistorySearchInput" placeholder="Modelo, obra, incidencia o empresa" />
             </div>
             <button id="unitHistoryBtn" class="btn btn-secondary" type="button">Consultar historial</button>
           </div>
@@ -215,8 +215,7 @@
             </div>
             <span class="badge badge-info">Ingresos a taller</span>
           </div>
-          <div class="fleet-admin-toolbar fleet-form-only"><button id="fleetNewBtn" class="btn btn-primary" type="button">Nueva unidad</button><button id="fleetCancelBtn" class="btn btn-ghost hidden" type="button">Cancelar edición</button></div>
-          <div class="history-search-box history-panel-box fleet-form-only hidden" id="fleetFormBox">
+          <div class="schedule-toolbar history-search-box history-panel-box">
             <div>
               <label>Fecha</label>
               <input id="scheduleDateInput" type="date" />
@@ -335,6 +334,29 @@
             <article class="analytic-card"><strong>En taller</strong><div id="fleetTaller" class="metric-line">0</div></article>
             <article class="analytic-card"><strong>Detenidas</strong><div id="fleetDetenidas" class="metric-line">0</div></article>
             <article class="analytic-card"><strong>Programadas</strong><div id="fleetProgramadas" class="metric-line">0</div></article>
+          </div>
+          <div class="fleet-admin-toolbar">
+            <div class="history-search-box history-panel-box fleet-search-box">
+              <div>
+                <label>Buscar unidad</label>
+                <input id="fleetSearchInput" placeholder="Número económico, empresa, modelo u obra" />
+              </div>
+              <div>
+                <label>Estado</label>
+                <select id="fleetStatusFilter">
+                  <option value="todos">Todos</option>
+                  <option value="operando">Operando</option>
+                  <option value="en_taller">En taller</option>
+                  <option value="detenida">Detenida</option>
+                  <option value="programada">Programada</option>
+                </select>
+              </div>
+              <button id="fleetRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
+            </div>
+            <div class="stack-inline fleet-toolbar-actions fleet-form-only">
+              <button id="fleetNewBtn" class="btn btn-primary" type="button">Nueva unidad</button>
+              <button id="fleetCancelBtn" class="btn btn-ghost hidden" type="button">Cancelar edición</button>
+            </div>
           </div>
           <div class="history-search-box history-panel-box fleet-form-only">
             <div>
