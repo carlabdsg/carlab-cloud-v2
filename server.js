@@ -43,13 +43,6 @@ const pool = new Pool({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/api', (_req, res, next) => {
-  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-  res.set('Pragma', 'no-cache');
-  res.set('Expires', '0');
-  next();
-});
-
 
 function cryptoRandomId() {
   return global.crypto?.randomUUID?.() || `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
@@ -504,7 +497,9 @@ async function initDb() {
       kilometraje TEXT,
       poliza_activa BOOLEAN NOT NULL DEFAULT FALSE,
       campaign_activa BOOLEAN NOT NULL DEFAULT FALSE,
+      manual_status TEXT CHECK (manual_status IN ('operando','en_taller','detenida','programada')),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (empresa, numero_economico)
     );
 
@@ -520,14 +515,14 @@ async function initDb() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
-    ALTER TABLE fleet_units ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
     CREATE INDEX IF NOT EXISTS idx_fleet_units_empresa ON fleet_units(empresa);
     CREATE INDEX IF NOT EXISTS idx_fleet_units_numero_economico ON fleet_units(numero_economico);
     CREATE INDEX IF NOT EXISTS idx_fleet_cost_entries_unit ON fleet_cost_entries(fleet_unit_id);
     CREATE INDEX IF NOT EXISTS idx_fleet_cost_entries_garantia ON fleet_cost_entries(garantia_id);
 
     ALTER TABLE garantias ADD COLUMN IF NOT EXISTS fleet_unit_id TEXT;
-
+    ALTER TABLE fleet_units ADD COLUMN IF NOT EXISTS manual_status TEXT;
+    ALTER TABLE fleet_units ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
     ALTER TABLE users ADD COLUMN IF NOT EXISTS empresa TEXT;
     ALTER TABLE companies ADD COLUMN IF NOT EXISTS contacto TEXT;
@@ -778,6 +773,9 @@ app.post('/api/users', authRequired, requireRoles('admin'), async (req, res) => 
   if (!nombre || !email || !password || !ALL_MANAGED_ROLES.includes(role)) {
     return res.status(400).json({ error: 'Datos de usuario incompletos o inválidos.' });
   }
+  if (['operador','supervisor','supervisor_flotas'].includes(role) && !empresa) {
+    return res.status(400).json({ error: 'Ese rol necesita empresa ligada.' });
+  }
 
   const exists = await pool.query('SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL', [email]);
   if (exists.rowCount) return res.status(400).json({ error: 'Ese correo ya existe.' });
@@ -808,6 +806,9 @@ app.patch('/api/users/:id', authRequired, requireRoles('admin'), async (req, res
 
   if (!nombre || !email || !ALL_MANAGED_ROLES.includes(role)) {
     return res.status(400).json({ error: 'Datos de usuario incompletos o inválidos.' });
+  }
+  if (['operador','supervisor','supervisor_flotas'].includes(role) && !empresa) {
+    return res.status(400).json({ error: 'Ese rol necesita empresa ligada.' });
   }
 
   const exists = await pool.query('SELECT id FROM users WHERE email = $1 AND id <> $2 AND deleted_at IS NULL', [email, req.params.id]);
@@ -1209,7 +1210,7 @@ app.get('/api/fleet/summary', authRequired, requireRoles('admin','operativo','su
   const sem = await pool.query(`
     WITH base AS (
       SELECT fu.id, fu.empresa, fu.numero_economico,
-             COALESCE((
+             COALESCE(fu.manual_status,(
                SELECT CASE
                  WHEN g.estatus_operativo = 'terminada' THEN 'operando'
                  WHEN g.estatus_operativo = 'en proceso' THEN 'en_taller'
@@ -1246,7 +1247,7 @@ app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supe
   }
   const result = await pool.query(`
     SELECT fu.*,
-      COALESCE((
+      COALESCE(fu.manual_status,(
         SELECT g.estatus_operativo
         FROM garantias g
         WHERE g.empresa = fu.empresa AND g.numero_economico = fu.numero_economico
@@ -1258,6 +1259,7 @@ app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supe
         FROM garantias g
         WHERE g.empresa = fu.empresa AND g.numero_economico = fu.numero_economico
       ) AS last_report_at,
+      COALESCE((SELECT COUNT(*) FROM garantias g WHERE g.empresa = fu.empresa AND g.numero_economico = fu.numero_economico),0) AS reportes_count,
       COALESCE((SELECT SUM(CASE WHEN tipo='refaccion' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_refacciones,
       COALESCE((SELECT SUM(CASE WHEN tipo='mano_obra' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_mano_obra,
       COALESCE((SELECT SUM(monto) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_total
@@ -1285,7 +1287,8 @@ app.post('/api/fleet/units', authRequired, requireRoles('admin','operativo'), as
       anio = EXCLUDED.anio,
       kilometraje = EXCLUDED.kilometraje,
       poliza_activa = EXCLUDED.poliza_activa,
-      campaign_activa = EXCLUDED.campaign_activa
+      campaign_activa = EXCLUDED.campaign_activa,
+      updated_at = NOW()
     RETURNING *
   `, [
     cryptoRandomId(),
@@ -1301,6 +1304,37 @@ app.post('/api/fleet/units', authRequired, requireRoles('admin','operativo'), as
     !!body.campaignActiva
   ]);
   res.status(201).json(mapFleetUnit(result.rows[0]));
+});
+
+app.patch('/api/fleet/units/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  const current = await pool.query('SELECT * FROM fleet_units WHERE id = $1', [req.params.id]);
+  if (!current.rowCount) return res.status(404).json({ error: 'Unidad no encontrada.' });
+  const body = req.body || {};
+  const empresa = String(body.empresa || '').trim();
+  const numeroEconomico = String(body.numeroEconomico || '').trim();
+  if (!empresa || !numeroEconomico) return res.status(400).json({ error: 'Empresa y número económico son obligatorios.' });
+  const result = await pool.query(`
+    UPDATE fleet_units
+    SET empresa=$2, nombre_flota=$3, numero_economico=$4, numero_obra=$5, marca=$6, modelo=$7, anio=$8, kilometraje=$9,
+        poliza_activa=$10, campaign_activa=$11, manual_status=COALESCE($12, manual_status), updated_at=NOW()
+    WHERE id=$1
+    RETURNING *
+  `,[req.params.id, empresa, String(body.nombreFlota||'').trim(), numeroEconomico, String(body.numeroObra||'').trim(), String(body.marca||'').trim(), String(body.modelo||'').trim(), String(body.anio||'').trim(), String(body.kilometraje||'').trim(), !!body.polizaActiva, !!body.campaignActiva, body.manualStatus ? String(body.manualStatus).trim() : null]);
+  res.json(mapFleetUnit(result.rows[0]));
+});
+
+app.patch('/api/fleet/units/:id/status', authRequired, requireRoles('admin'), async (req, res) => {
+  const status = String(req.body.status || '').trim();
+  if (!['operando','en_taller','detenida','programada',''].includes(status)) return res.status(400).json({ error: 'Estado inválido.' });
+  const result = await pool.query(`UPDATE fleet_units SET manual_status = $2, updated_at = NOW() WHERE id = $1 RETURNING *`, [req.params.id, status || null]);
+  if (!result.rowCount) return res.status(404).json({ error: 'Unidad no encontrada.' });
+  res.json(mapFleetUnit(result.rows[0]));
+});
+
+app.delete('/api/fleet/units/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  const result = await pool.query('DELETE FROM fleet_units WHERE id = $1 RETURNING id', [req.params.id]);
+  if (!result.rowCount) return res.status(404).json({ error: 'Unidad no encontrada.' });
+  res.json({ ok: true });
 });
 
 app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
@@ -1334,52 +1368,6 @@ app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','
     reports: reports.rows.map(mapGarantia),
     costs: costs.rows.map(mapFleetCost)
   });
-});
-
-
-app.patch('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo'), async (req, res) => {
-  const body = req.body || {};
-  const current = await pool.query('SELECT * FROM fleet_units WHERE id = $1', [req.params.id]);
-  if (!current.rowCount) return res.status(404).json({ error: 'Unidad no encontrada.' });
-  const row = current.rows[0];
-  const empresa = String(body.empresa || row.empresa || '').trim();
-  const numeroEconomico = String(body.numeroEconomico || row.numero_economico || '').trim();
-  if (!empresa || !numeroEconomico) return res.status(400).json({ error: 'Empresa y número económico son obligatorios.' });
-  const result = await pool.query(`
-    UPDATE fleet_units
-    SET empresa = $2,
-        nombre_flota = $3,
-        numero_economico = $4,
-        numero_obra = $5,
-        marca = $6,
-        modelo = $7,
-        anio = $8,
-        kilometraje = $9,
-        poliza_activa = $10,
-        campaign_activa = $11,
-        updated_at = NOW()
-    WHERE id = $1
-    RETURNING *
-  `, [
-    req.params.id,
-    empresa,
-    String(body.nombreFlota || row.nombre_flota || '').trim(),
-    numeroEconomico,
-    String(body.numeroObra || row.numero_obra || '').trim(),
-    String(body.marca || row.marca || '').trim(),
-    String(body.modelo || row.modelo || '').trim(),
-    String(body.anio || row.anio || '').trim(),
-    String(body.kilometraje || row.kilometraje || '').trim(),
-    body.polizaActiva === undefined ? !!row.poliza_activa : !!body.polizaActiva,
-    body.campaignActiva === undefined ? !!row.campaign_activa : !!body.campaignActiva
-  ]);
-  res.json(mapFleetUnit(result.rows[0]));
-});
-
-app.delete('/api/fleet/units/:id', authRequired, requireRoles('admin'), async (req, res) => {
-  const deleted = await pool.query('DELETE FROM fleet_units WHERE id = $1 RETURNING id', [req.params.id]);
-  if (!deleted.rowCount) return res.status(404).json({ error: 'Unidad no encontrada.' });
-  res.json({ ok: true });
 });
 
 app.post('/api/fleet/units/:id/costs', authRequired, requireRoles('admin'), async (req, res) => {
