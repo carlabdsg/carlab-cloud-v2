@@ -67,7 +67,3 @@ npm start
 ## Nota práctica
 Esta fase 1 está hecha para ser fácil de levantar y operar.
 No trae permisos rebuscados ni módulos extras. Solo lo necesario para que jale bien.
-
-
-## Fix deploy status columns
-Este paquete agrega ALTER TABLE seguros para columnas de status y programación en bases existentes.

@@ -13,6 +13,9 @@ const state = {
   activePanel: 'board',
   editingUserId: '',
   editingCompanyId: '',
+  fleetUnits: [],
+  fleetSummary: { total:0, operando:0, enTaller:0, detenidas:0, programadas:0 },
+  selectedFleetUnit: null,
 };
 
 const api = {
@@ -51,7 +54,15 @@ const api = {
   getSchedules(date='') { return this.request(`/api/schedules${date ? `?date=${encodeURIComponent(date)}` : ''}`); },
   requestSchedule(id) { return this.request(`/api/garantias/${id}/request-schedule`, { method: 'POST' }); },
   confirmSchedule(id, payload) { return this.request(`/api/schedules/${id}/confirm`, { method: 'PATCH', body: JSON.stringify(payload) }); },
-  getNotifications() { return this.request('/api/notifications'); }
+  getNotifications() { return this.request('/api/notifications'); },
+
+  getFleetSummary() { return this.request('/api/fleet/summary'); },
+  getFleetUnits() { return this.request('/api/fleet/units'); },
+  getFleetUnit(id) { return this.request(`/api/fleet/units/${id}`); },
+  createFleetUnit(payload) { return this.request('/api/fleet/units', { method: 'POST', body: JSON.stringify(payload) }); },
+  updateFleetUnitStatus(id, payload) { return this.request(`/api/fleet/units/${id}/status`, { method: 'PATCH', body: JSON.stringify(payload) }); },
+  createFleetCost(id, payload) { return this.request(`/api/fleet/units/${id}/costs`, { method: 'POST', body: JSON.stringify(payload) }); },
+
 };
 
 const els = {};
@@ -64,7 +75,8 @@ function bind() {
     'evidencias','evidenciasRefaccion','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn','searchInput','validationFilter','operationalFilter',
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
-    'topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn'
+    'topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn',
+    'navFleetBtn','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas'
   ].forEach(id => els[id] = document.getElementById(id));
 }
 bind();
@@ -91,6 +103,38 @@ function notify(message, isError = false) {
 }
 function badgeClassValidation(status) { return ({ 'nueva':'badge-new','pendiente de revisión':'badge-review','aceptada':'badge-accepted','rechazada':'badge-rejected' })[status] || 'badge-info'; }
 function badgeClassOperational(status) { return ({ 'sin iniciar':'badge-info','en proceso':'badge-progress','espera refacción':'badge-waiting','terminada':'badge-done' })[status] || 'badge-info'; }
+
+function fleetSemaforo(unit) {
+  const st = unit.unitStatus || unit.estatusOperativo || '';
+  if (['operando', 'terminada', 'sin actividad'].includes(st)) return { label: 'Operando', cls: 'fleet-ok' };
+  if (['en_taller', 'en proceso'].includes(st)) return { label: 'En taller', cls: 'fleet-warn' };
+  if (['detenida', 'espera refacción'].includes(st)) return { label: 'Detenida', cls: 'fleet-bad' };
+  if (['programada', 'aceptada'].includes(st)) return { label: 'Programada', cls: 'fleet-info' };
+  return { label: 'Operando', cls: 'fleet-ok' };
+}
+
+function findFleetAutofillSource() {
+  const empresa = els.fleetEmpresa?.value.trim();
+  const numeroEconomico = els.fleetNumeroEconomico?.value.trim();
+  if (!empresa || !numeroEconomico) return null;
+  const guarantee = state.garantias.find(g => g.empresa === empresa && g.numeroEconomico === numeroEconomico);
+  const unit = state.fleetUnits.find(u => u.empresa === empresa && u.numeroEconomico === numeroEconomico);
+  return { guarantee, unit };
+}
+
+function autofillFleetForm() {
+  const match = findFleetAutofillSource();
+  if (!match) return;
+  const { guarantee, unit } = match;
+  if (els.fleetNumeroObra && !els.fleetNumeroObra.value) els.fleetNumeroObra.value = unit?.numeroObra || guarantee?.numeroObra || '';
+  if (els.fleetMarca && !els.fleetMarca.value) els.fleetMarca.value = unit?.marca || '';
+  if (els.fleetModelo && !els.fleetModelo.value) els.fleetModelo.value = unit?.modelo || guarantee?.modelo || '';
+  if (els.fleetKilometraje && !els.fleetKilometraje.value) els.fleetKilometraje.value = unit?.kilometraje || guarantee?.kilometraje || '';
+  if (els.fleetNombreFlota && !els.fleetNombreFlota.value) els.fleetNombreFlota.value = unit?.nombreFlota || '';
+  if (els.fleetAnio && !els.fleetAnio.value) els.fleetAnio.value = unit?.anio || '';
+  if (els.fleetPolizaActiva && unit) els.fleetPolizaActiva.checked = !!unit.polizaActiva;
+  if (els.fleetCampaignActiva && unit) els.fleetCampaignActiva.checked = !!unit.campaignActiva;
+}
 function countBy(items, getter) {
   const map = new Map();
   items.forEach(item => {
@@ -195,7 +239,7 @@ function reportPayload() {
 
 function roleCopy(role) {
   return {
-    admin: { title:'Cabina administrativa', summary:'Control total. Apruebas accesos, administras usuarios, ves analítica y conviertes reincidencias en acción.', panels:[['Gestión total','Usuarios, empresas y solicitudes en una sola vista.'],['Lectura comercial','Detecta patrones por empresa, modelo y unidad.'],['Control operativo','Puedes actuar igual que un operativo cuando haga falta.']], boardKicker:'ADMIN', listTitle:'Bandeja general del sistema', legend:'Portal corporativo con control total, solicitudes y lectura comercial.' },
+    admin: { title:'Dashboard ejecutivo Carlab', summary:'Vista más limpia, corporativa y lista para operar sin ruido. Aquí controlas accesos, flota y lectura completa del sistema.', panels:[['Control central','Usuarios, empresas y solicitudes sin brincar de pantalla.'],['Lectura por unidad','Detecta reincidencias por empresa, modelo y número económico.'],['Operación viva','Puedes entrar a validar, mover estatus y bajar a detalle cuando haga falta.']], boardKicker:'ADMIN', listTitle:'Bandeja general del sistema', legend:'Panel ejecutivo con lectura clara de reportes, unidades y operación.' },
     operador: { title:'Portal de operador', summary:'Reportas fallas, subes evidencia y ves el estatus sin depender de llamadas.', panels:[['Levantar incidencia','Captura la falla con datos, fotos, refacción y firma.'],['Seguimiento','Consulta si fue aceptada, rechazada o quedó pendiente.'],['Sin cruces','Solo ves tus reportes. No puedes decidir ni alterar revisiones.']], boardKicker:'OPERADOR', listTitle:'Mis reportes de garantía', legend:'Aquí ves solo tus reportes y su estatus actual.' },
     operativo: { title:'Mesa de validación operativa', summary:'Revisas reportes, decides si proceden y mueves el trabajo hasta terminar.', panels:[['Decisión','Acepta, rechaza o marca pendiente de revisión.'],['Flujo','Mueve el trabajo a en proceso, espera refacción o terminada.'],['Patrones','También ves unidades reincidentes para atacar la raíz.']], boardKicker:'OPERATIVO', listTitle:'Bandeja operativa', legend:'Aquí validas, autorizas y avanzas el trabajo.' },
     supervisor: { title:'Portal de supervisor', summary:'Consulta únicamente la información de tu empresa en modo corporativo de solo lectura.', panels:[['Visibilidad','Revisa empresas, unidades, evidencias y avances.'],['Lectura ejecutiva','Historial por unidad y top de fallas sin tocar procesos.'],['Sin edición','No cambias decisiones ni alteras procesos.']], boardKicker:'SUPERVISOR', listTitle:'Bandeja supervisada', legend:'Monitoreo integral con lectura operativa y comercial.' },
@@ -241,9 +285,11 @@ function switchPanel(panel) {
   els.analyticsPanel?.classList.toggle('hidden', panel !== 'analytics');
   els.historyPanel?.classList.toggle('hidden', panel !== 'history');
   els.schedulePanel?.classList.toggle('hidden', panel !== 'schedule');
+  els.fleetPanel?.classList.toggle('hidden', panel !== 'fleet');
   const board = panel === 'board';
   els.filtersPanel?.classList.toggle('hidden', !board);
   if (panel === 'schedule') loadSchedules('');
+  if (panel === 'fleet') loadFleet();
   updateOperatorAppNav(panel);
   setActiveNav(
     panel === 'report' ? els.navNewReportBtn :
@@ -253,6 +299,7 @@ function switchPanel(panel) {
     panel === 'analytics' ? els.navAnalyticsBtn :
     panel === 'history' ? els.navHistoryBtn :
     panel === 'schedule' ? els.navScheduleBtn :
+    panel === 'fleet' ? els.navFleetBtn :
     els.navBoardBtn
   );
   if (panel === 'report') window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -267,6 +314,7 @@ function showDashboard() {
   els.navAnalyticsBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo'));
   els.navHistoryBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo'));
   els.navScheduleBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo','operador'));
+  els.navFleetBtn?.classList.toggle('hidden', !isRole('admin','supervisor','operativo'));
   updateHeaderForRole(); switchPanel(state.user?.role === 'operador' ? 'report' : 'board');
 }
 function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); }
@@ -578,6 +626,171 @@ function renderSchedules() {
   });
 }
 
+
+async function loadFleet() {
+  try {
+    if (isRole('admin','operativo')) els.fleetSaveBtn?.classList.remove('hidden');
+    else els.fleetSaveBtn?.classList.add('hidden');
+    if (state.user?.role === 'supervisor' && els.fleetEmpresa) {
+      els.fleetEmpresa.value = state.user.empresa || '';
+      els.fleetEmpresa.disabled = true;
+    } else if (els.fleetEmpresa) {
+      els.fleetEmpresa.disabled = false;
+    }
+    const [summary, units] = await Promise.all([api.getFleetSummary(), api.getFleetUnits()]);
+    state.fleetSummary = summary || state.fleetSummary;
+    state.fleetUnits = units || [];
+    renderFleet();
+  } catch (error) {
+    notify(error.message, true);
+  }
+}
+
+function renderFleet() {
+  if (els.fleetTotal) els.fleetTotal.textContent = state.fleetSummary.total || 0;
+  if (els.fleetOperando) els.fleetOperando.textContent = state.fleetSummary.operando || 0;
+  if (els.fleetTaller) els.fleetTaller.textContent = state.fleetSummary.enTaller || 0;
+  if (els.fleetDetenidas) els.fleetDetenidas.textContent = state.fleetSummary.detenidas || 0;
+  if (els.fleetProgramadas) els.fleetProgramadas.textContent = state.fleetSummary.programadas || 0;
+
+  if (els.fleetUnitsList) els.fleetUnitsList.innerHTML = '';
+  state.fleetUnits.forEach(unit => {
+    const sem = fleetSemaforo(unit);
+    const card = document.createElement('article');
+    card.className = 'card fleet-card fleet-card-min';
+    card.innerHTML = `
+      <div class="fleet-min-row">
+        <div>
+          <div class="fleet-min-number">Unidad ${escapeHtml(unit.numeroEconomico)}</div>
+          <div class="fleet-min-meta">${escapeHtml(unit.empresa)}${unit.ultimoFolio ? ` · ${escapeHtml(unit.ultimoFolio)}` : ''}</div>
+        </div>
+        <span class="fleet-dot ${sem.cls}">${sem.label}</span>
+      </div>
+      <div class="action-area"></div>
+    `;
+    const act = card.querySelector('.action-area');
+    act.appendChild(button('Ver unidad', 'btn btn-secondary', async () => {
+      try {
+        state.selectedFleetUnit = await api.getFleetUnit(unit.id);
+        renderFleetDetail();
+      } catch (error) { notify(error.message, true); }
+    }));
+    els.fleetUnitsList?.appendChild(card);
+  });
+  renderFleetDetail();
+}
+
+function renderFleetDetail() {
+  if (!els.fleetDetail) return;
+  const data = state.selectedFleetUnit;
+  if (!data?.unit) {
+    els.fleetDetail.innerHTML = '<div class="muted">Selecciona una unidad para ver estado actual, historial de reportes y refacciones.</div>';
+    return;
+  }
+  const u = data.unit;
+  const sem = fleetSemaforo(u);
+  const reports = (data.reports || []).map(r => `
+    <div class="table-row fleet-history-row">
+      <div>
+        <strong>${escapeHtml(r.folio || 'GAR-—')}</strong>
+        <div class="small muted">${escapeHtml(r.descripcionFallo || 'Sin descripción')}</div>
+      </div>
+      <div><span class="badge ${badgeClassValidation(r.estatusValidacion)}">${escapeHtml(r.estatusValidacion || '—')}</span></div>
+      <div><span class="badge ${badgeClassOperational(r.estatusOperativo)}">${escapeHtml(r.estatusOperativo || '—')}</span></div>
+    </div>
+  `).join('') || '<div class="muted">Sin reportes ligados.</div>';
+  const costs = (data.costs || []).map(c => `
+    <div class="table-row fleet-history-row">
+      <div><strong>${escapeHtml(c.tipo)}</strong><div class="small muted">${escapeHtml(c.concepto || 'Sin concepto')}</div></div>
+      <div>${money(c.monto)}</div>
+      <div>${escapeHtml(c.createdByNombre || '—')}</div>
+    </div>
+  `).join('') || '<div class="muted">Sin refacciones o costos capturados.</div>';
+  const statusAdmin = isRole('admin') ? `
+    <div class="fleet-status-box">
+      <div class="topbar-kicker">CONTROL ADMIN</div>
+      <div class="stack-inline wrap-inline">
+        <select id="fleetUnitStatusSelect">
+          <option value="">Automático por reportes</option>
+          <option value="operando" ${u.unitStatus === 'operando' ? 'selected' : ''}>Operando</option>
+          <option value="en_taller" ${u.unitStatus === 'en_taller' ? 'selected' : ''}>En taller</option>
+          <option value="detenida" ${u.unitStatus === 'detenida' ? 'selected' : ''}>Detenida</option>
+          <option value="programada" ${u.unitStatus === 'programada' ? 'selected' : ''}>Programada</option>
+        </select>
+        <input id="fleetUnitStatusNote" placeholder="Nota opcional" value="${escapeHtml(u.unitStatusNote || '')}" />
+        <button id="fleetUnitStatusSaveBtn" class="btn btn-primary" type="button">Guardar estado</button>
+      </div>
+    </div>
+  ` : '';
+  const costForm = isRole('admin') ? `
+    <div class="fleet-cost-form">
+      <h4>Registrar refacción o costo</h4>
+      <div class="stack-inline wrap-inline">
+        <select id="fleetCostTipo"><option value="refaccion">Refacción</option><option value="mano_obra">Mano de obra</option></select>
+        <input id="fleetCostConcepto" placeholder="Concepto" />
+        <input id="fleetCostMonto" type="number" step="0.01" placeholder="Monto" />
+        <button id="fleetCostSaveBtn" class="btn btn-primary" type="button">Guardar costo</button>
+      </div>
+    </div>
+  ` : '';
+  els.fleetDetail.innerHTML = `
+    <div class="panel-head">
+      <div><div class="topbar-kicker">UNIDAD</div><h3>${escapeHtml(u.numeroEconomico)} · ${escapeHtml(u.empresa)}</h3></div>
+      <span class="fleet-dot ${sem.cls}">${sem.label}</span>
+    </div>
+    <div class="mini-grid fleet-meta-grid">
+      <div><span class="label">Marca</span><strong>${escapeHtml(u.marca || '—')}</strong></div>
+      <div><span class="label">Modelo</span><strong>${escapeHtml(u.modelo || '—')}</strong></div>
+      <div><span class="label">Año</span><strong>${escapeHtml(u.anio || '—')}</strong></div>
+      <div><span class="label">KM</span><strong>${escapeHtml(u.kilometraje || '—')}</strong></div>
+      <div><span class="label">Obra</span><strong>${escapeHtml(u.numeroObra || '—')}</strong></div>
+      <div><span class="label">Último folio</span><strong>${escapeHtml(u.ultimoFolio || '—')}</strong></div>
+      <div><span class="label">Refacciones</span><strong>${money(u.costoRefacciones)}</strong></div>
+      <div><span class="label">Mano de obra</span><strong>${money(u.costoManoObra)}</strong></div>
+    </div>
+    ${statusAdmin}
+    ${costForm}
+    <div class="fleet-columns">
+      <section><div class="topbar-kicker">HISTORIAL DE REPORTES</div><div class="table-list compact-list">${reports}</div></section>
+      <section><div class="topbar-kicker">REFACCIONES Y COSTOS</div><div class="table-list compact-list">${costs}</div></section>
+    </div>
+  `;
+  if (isRole('admin')) {
+    document.getElementById('fleetUnitStatusSaveBtn')?.addEventListener('click', async () => {
+      try {
+        await api.updateFleetUnitStatus(u.id, {
+          unitStatus: document.getElementById('fleetUnitStatusSelect').value,
+          unitStatusNote: document.getElementById('fleetUnitStatusNote').value.trim()
+        });
+        state.selectedFleetUnit = await api.getFleetUnit(u.id);
+        const [summary, units] = await Promise.all([api.getFleetSummary(), api.getFleetUnits()]);
+        state.fleetSummary = summary;
+        state.fleetUnits = units;
+        renderFleet();
+        notify('Estado de unidad actualizado.');
+      } catch (error) { notify(error.message, true); }
+    });
+    document.getElementById('fleetCostSaveBtn')?.addEventListener('click', async () => {
+      try {
+        await api.createFleetCost(u.id, {
+          tipo: document.getElementById('fleetCostTipo').value,
+          concepto: document.getElementById('fleetCostConcepto').value.trim(),
+          monto: document.getElementById('fleetCostMonto').value
+        });
+        notify('Costo guardado.');
+        state.selectedFleetUnit = await api.getFleetUnit(u.id);
+        renderFleetDetail();
+        const summary = await api.getFleetSummary(); state.fleetSummary = summary; renderFleet();
+      } catch (error) { notify(error.message, true); }
+    });
+  }
+}
+
+function money(v) {
+  const n = Number(v || 0);
+  return new Intl.NumberFormat('es-MX', { style:'currency', currency:'MXN', maximumFractionDigits:2 }).format(n);
+}
+
 function renderGarantias() {
   updateStats(); renderAnalytics();
   const items = filteredGarantias();
@@ -716,7 +929,7 @@ els.loginForm?.addEventListener('submit', async (e) => {
   try {
     const data = await api.login(els.loginEmail.value.trim(), els.loginPassword.value);
     state.token = data.token; localStorage.setItem('carlabToken', state.token); state.user = data.user; showDashboard();
-    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); await loadSchedules(''); await loadNotifications(); resetReportForm(); resetCompanyForm(); notify(`Bienvenido, ${state.user.nombre}.`);
+    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); await loadSchedules(''); await loadNotifications(); await loadFleet(); resetReportForm(); resetCompanyForm(); notify(`Bienvenido, ${state.user.nombre}.`);
   } catch (error) { if (els.loginError) { els.loginError.textContent = error.message; els.loginError.classList.remove('hidden'); } else notify(error.message,true); }
 });
 
@@ -730,7 +943,7 @@ els.registerForm?.addEventListener('submit', async (e) => {
 });
 
 els.logoutBtn?.addEventListener('click', () => { localStorage.removeItem('carlabToken'); state.token = ''; state.user = null; showLogin(); });
-els.globalRefreshBtn?.addEventListener('click', async () => { await Promise.all([loadGarantias(), loadSchedules(''), loadNotifications()]); notify('Datos actualizados.'); });
+els.globalRefreshBtn?.addEventListener('click', async () => { await Promise.all([loadGarantias(), loadSchedules(''), loadNotifications(), loadFleet()]); notify('Datos actualizados.'); });
 els.opNavHomeBtn?.addEventListener('click', () => switchPanel('board'));
 els.opNavNewBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); });
 els.opNavScheduleBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
@@ -740,6 +953,7 @@ els.navNewReportBtn?.addEventListener('click', () => { resetReportForm(); switch
 els.navAnalyticsBtn?.addEventListener('click', () => switchPanel('analytics'));
 els.navHistoryBtn?.addEventListener('click', () => switchPanel('history'));
 els.navScheduleBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
+els.navFleetBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
 els.navUsersBtn?.addEventListener('click', async () => { switchPanel('users'); await loadUsers(); });
 els.navRequestsBtn?.addEventListener('click', async () => { switchPanel('requests'); await loadRequests(); });
 els.navCompaniesBtn?.addEventListener('click', async () => { switchPanel('companies'); await loadCompanies(); });
@@ -748,6 +962,32 @@ els.userCancelEditBtn?.addEventListener('click', resetUserForm);
 els.companyCancelEditBtn?.addEventListener('click', resetCompanyForm);
 els.unitHistoryBtn?.addEventListener('click', renderUnitHistory);
 els.scheduleRefreshBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
+
+els.fleetRefreshBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
+['input','change'].forEach(evt => {
+  els.fleetEmpresa?.addEventListener(evt, autofillFleetForm);
+  els.fleetNumeroEconomico?.addEventListener(evt, autofillFleetForm);
+});
+els.fleetSaveBtn?.addEventListener('click', async () => {
+  try {
+    const payload = {
+      empresa: els.fleetEmpresa?.value.trim(),
+      nombreFlota: els.fleetNombreFlota?.value.trim(),
+      numeroEconomico: els.fleetNumeroEconomico?.value.trim(),
+      numeroObra: els.fleetNumeroObra?.value.trim(),
+      marca: els.fleetMarca?.value.trim(),
+      modelo: els.fleetModelo?.value.trim(),
+      anio: els.fleetAnio?.value.trim(),
+      kilometraje: els.fleetKilometraje?.value.trim(),
+      polizaActiva: !!els.fleetPolizaActiva?.checked,
+      campaignActiva: !!els.fleetCampaignActiva?.checked
+    };
+    await api.createFleetUnit(payload);
+    notify('Unidad de flota guardada.');
+    await loadFleet();
+  } catch (error) { notify(error.message, true); }
+});
+
 
 els.reportForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -784,7 +1024,7 @@ els.companyForm?.addEventListener('submit', async (e) => {
   if (!state.token) return showLogin();
   try {
     const data = await api.me(); state.user = data.user; showDashboard();
-    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); await loadSchedules(''); await loadNotifications(); resetReportForm(); resetCompanyForm();
+    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); await loadSchedules(''); await loadNotifications(); await loadFleet(); resetReportForm(); resetCompanyForm();
   } catch {
     localStorage.removeItem('carlabToken'); state.token = ''; showLogin();
   }
