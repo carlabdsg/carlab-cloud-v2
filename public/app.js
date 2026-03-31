@@ -60,6 +60,7 @@ const api = {
   cancelSchedule(id, payload) { return this.request(`/api/schedules/${id}/cancel`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   rescheduleSchedule(id, payload) { return this.request(`/api/schedules/${id}/reschedule`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   getPartsPending() { return this.request('/api/parts/pending'); },
+  updatePart(id, payload) { return this.request(`/api/parts/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }); },
   getNotifications() { return this.request('/api/notifications'); },
 
   getFleetSummary() { return this.request('/api/fleet/summary'); },
@@ -111,6 +112,13 @@ function notify(message, isError = false) {
 }
 function badgeClassValidation(status) { return ({ 'nueva':'badge-new','pendiente de revisión':'badge-review','aceptada':'badge-accepted','rechazada':'badge-rejected' })[status] || 'badge-info'; }
 function badgeClassOperational(status) { return ({ 'sin iniciar':'badge-info','en proceso':'badge-progress','espera refacción':'badge-waiting','terminada':'badge-done' })[status] || 'badge-info'; }
+
+function partStatusLabel(status) {
+  return ({ pendiente:'Pendiente', asignada:'Asignada', en_compra:'En compra', recibida:'Recibida', instalada:'Instalada' })[status] || 'Pendiente';
+}
+function partStatusBadge(status) {
+  return ({ pendiente:'badge-waiting', asignada:'badge-info', en_compra:'badge-review', recibida:'badge-progress', instalada:'badge-accepted' })[status] || 'badge-waiting';
+}
 
 function normalizeText(value='') {
   return String(value || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -707,11 +715,13 @@ function renderPartsPending() {
   const total = items.length;
   const empresas = [...new Set(items.map(item => item.empresa).filter(Boolean))].length;
   const unidades = [...new Set(items.map(item => item.numeroEconomico).filter(Boolean))].length;
+  const asignadas = items.filter(item => (item.refaccionStatus || 'pendiente') !== 'pendiente').length;
   if (els.partsSummary) {
     els.partsSummary.innerHTML = `
       <article class="analytic-card highlight-card"><strong>Pendientes</strong><div class="metric-line">${total}</div></article>
       <article class="analytic-card"><strong>Unidades</strong><div class="metric-line">${unidades}</div></article>
       <article class="analytic-card"><strong>Empresas</strong><div class="metric-line">${empresas}</div></article>
+      <article class="analytic-card"><strong>Asignadas</strong><div class="metric-line">${asignadas}</div></article>
     `;
   }
   if (!items.length) {
@@ -722,22 +732,63 @@ function renderPartsPending() {
   items.forEach(item => {
     const card = document.createElement('article');
     card.className = 'parts-card';
+    const currentStatus = item.refaccionStatus || 'pendiente';
     card.innerHTML = `
       <div class="parts-card-head">
         <div>
           <div class="kicker">${escapeHtml(item.empresa || '—')}</div>
           <h4>Unidad ${escapeHtml(item.numeroEconomico || '—')}</h4>
         </div>
-        <span class="badge badge-waiting">Pendiente</span>
+        <span class="badge ${partStatusBadge(currentStatus)}">${partStatusLabel(currentStatus)}</span>
       </div>
       <div class="parts-piece">${escapeHtml(item.detalleRefaccion || 'Refacción pendiente sin detalle específico')}</div>
       <div class="parts-meta">
         <div><strong>Folio</strong>${escapeHtml(item.folio || '—')}</div>
-        <div><strong>Estado</strong>${escapeHtml(item.estatusOperativo || 'sin iniciar')}</div>
+        <div><strong>Estado operativo</strong>${escapeHtml(item.estatusOperativo || 'sin iniciar')}</div>
         <div><strong>Modelo</strong>${escapeHtml(item.modelo || '—')}</div>
-        <div><strong>Último movimiento</strong>${escapeHtml(fmtDate(item.updatedAt || item.createdAt))}</div>
+        <div><strong>Asignada</strong>${escapeHtml(item.refaccionAsignada || 'Sin asignar')}</div>
       </div>
+      ${isRole('admin') ? `
+      <div class="parts-admin-box">
+        <div class="parts-admin-grid">
+          <div>
+            <label>Refacción solicitada</label>
+            <textarea class="parts-input js-part-detail" rows="2">${escapeHtml(item.detalleRefaccion || '')}</textarea>
+          </div>
+          <div>
+            <label>Refacción asignada</label>
+            <input class="parts-input js-part-assign" value="${escapeHtml(item.refaccionAsignada || '')}" placeholder="Ej. Juego de lunas lateral izquierda" />
+          </div>
+          <div>
+            <label>Estatus</label>
+            <select class="parts-input js-part-status">
+              <option value="pendiente" ${currentStatus === 'pendiente' ? 'selected' : ''}>Pendiente</option>
+              <option value="asignada" ${currentStatus === 'asignada' ? 'selected' : ''}>Asignada</option>
+              <option value="en_compra" ${currentStatus === 'en_compra' ? 'selected' : ''}>En compra</option>
+              <option value="recibida" ${currentStatus === 'recibida' ? 'selected' : ''}>Recibida</option>
+              <option value="instalada" ${currentStatus === 'instalada' ? 'selected' : ''}>Instalada</option>
+            </select>
+          </div>
+          <div class="parts-admin-actions">
+            <button type="button" class="btn btn-primary js-part-save">Guardar</button>
+          </div>
+        </div>
+      </div>` : ''}
     `;
+    if (isRole('admin')) {
+      card.querySelector('.js-part-save')?.addEventListener('click', async () => {
+        try {
+          await api.updatePart(item.id, {
+            detalleRefaccion: card.querySelector('.js-part-detail')?.value || '',
+            refaccionAsignada: card.querySelector('.js-part-assign')?.value || '',
+            refaccionStatus: card.querySelector('.js-part-status')?.value || 'pendiente'
+          });
+          notify('Refacción actualizada.');
+          await loadPartsPending();
+          await loadNotifications();
+        } catch (error) { notify(error.message, true); }
+      });
+    }
     els.partsList.appendChild(card);
   });
 }
