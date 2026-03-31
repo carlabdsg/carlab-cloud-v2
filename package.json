@@ -1,20 +1,20 @@
 {
-  "name": "carlab-cloud-v4",
+  "name": "carlab-cloud-v2-rescate-whatsapp",
   "version": "4.0.0",
-  "description": "CARLAB CLOUD V4 - Flotas, garantías, pólizas, campañas, WhatsApp",
+  "description": "CARLAB CLOUD V3.7 - Rescate estable con WhatsApp y telefonos normalizados",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js"
   },
+  "engines": {
+    "node": "20.x"
+  },
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "express": "^4.18.2",
-    "jsonwebtoken": "^9.0.0",
-    "pg": "^8.11.3",
-    "twilio": "^4.19.0"
-  },
-  "engines": {
-    "node": ">=18.0.0"
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.3",
+    "twilio": "^5.4.3"
   }
 }
