@@ -114,7 +114,6 @@
               <button id="navAnalyticsBtn" class="nav-btn hidden" type="button">Analítica</button>
               <button id="navHistoryBtn" class="nav-btn hidden" type="button">Historial por unidad</button>
               <button id="navScheduleBtn" class="nav-btn hidden" type="button">Agenda</button>
-              <button id="navFleetBtn" class="nav-btn hidden" type="button">Flotas</button>
             </div>
             <div class="nav-group">
               <div class="nav-group-label">Administración</div>
@@ -222,69 +221,6 @@
           <div id="scheduleCalendar" class="schedule-calendar"></div>
           <div id="scheduleList" class="table-list compact-list"></div>
         </section>
-
-        
-        <section id="fleetPanel" class="panel hidden">
-          <div class="panel-head">
-            <div>
-              <div class="topbar-kicker">FLOTAS</div>
-              <h3>Control de flota</h3>
-            </div>
-            <button id="fleetReloadBtn" class="btn btn-secondary" type="button">Actualizar</button>
-          </div>
-          <div class="fleet-layout">
-            <div class="fleet-side panel surface-subtle">
-              <div class="panel-head compact"><h4>Registrar / actualizar unidad</h4></div>
-              <form id="fleetForm" class="stack gap-12">
-                <div class="field-grid">
-                  <div><label>Empresa</label><select id="fleetCompany"></select></div>
-                  <div><label>Número económico</label><input id="fleetNumeroEconomico" placeholder="Ej. 656" /></div>
-                  <div><label>Marca</label><input id="fleetMarca" placeholder="Irizar / Marcopolo..." /></div>
-                  <div><label>Modelo</label><input id="fleetModelo" placeholder="i8 / G7..." /></div>
-                  <div><label>Año</label><input id="fleetAnio" placeholder="2025" /></div>
-                  <div><label>Kilometraje</label><input id="fleetKilometraje" placeholder="KM actual" /></div>
-                </div>
-                <div class="stack-inline">
-                  <label class="check-inline"><input id="fleetPoliza" type="checkbox" /> Póliza activa</label>
-                  <label class="check-inline"><input id="fleetCampana" type="checkbox" /> Campaña de mantenimiento</label>
-                </div>
-                <div>
-                  <label>Estatus actual</label>
-                  <select id="fleetStatus">
-                    <option value="operando">Operando</option>
-                    <option value="programada">Programada</option>
-                    <option value="en taller">En taller</option>
-                    <option value="detenida">Detenida</option>
-                    <option value="terminada">Terminada</option>
-                    <option value="fuera de servicio">Fuera de servicio</option>
-                  </select>
-                </div>
-                <div><label>Notas</label><textarea id="fleetNotes" rows="3" placeholder="Observaciones internas"></textarea></div>
-                <button class="btn btn-primary" type="submit">Guardar unidad</button>
-              </form>
-            </div>
-
-            <div class="fleet-main">
-              <div class="history-search-box history-panel-box">
-                <div>
-                  <label>Filtrar estatus</label>
-                  <select id="fleetFilterStatus">
-                    <option value="todos">Todas</option>
-                    <option value="operando">Operando</option>
-                    <option value="programada">Programada</option>
-                    <option value="en taller">En taller</option>
-                    <option value="detenida">Detenida</option>
-                    <option value="terminada">Terminada</option>
-                    <option value="fuera de servicio">Fuera de servicio</option>
-                  </select>
-                </div>
-              </div>
-              <div id="fleetList" class="table-list compact-list"></div>
-              <div id="fleetDetail" class="fleet-detail-shell"></div>
-            </div>
-          </div>
-        </section>
-
 
         <section id="filtersPanel" class="toolbar panel">
           <input id="searchInput" type="text" placeholder="Buscar por obra, económico, empresa, modelo o contacto" />
