@@ -321,37 +321,26 @@
         </section>
 
         
-        <section id="fleetPanel" class="panel hidden">
-          <div class="panel-head">
+        
+        <section id="fleetPanel" class="panel hidden fleet-clean-panel">
+          <div class="panel-head compact-panel-head">
             <div>
               <div class="topbar-kicker">FLOTAS</div>
-              <h3>Centro de flota dinámico</h3>
+              <h3>Flota ejecutiva</h3>
             </div>
-            <span class="badge badge-info">Empresa · Unidad · Semáforo</span>
+            <span class="badge badge-info">Estado · Póliza · Campaña</span>
           </div>
-          <div class="analytics-grid fleet-summary-grid">
-            <article class="analytic-card highlight-card"><strong>Total flota</strong><div id="fleetTotal" class="metric-line">0</div></article>
-            <article class="analytic-card"><strong>Operando</strong><div id="fleetOperando" class="metric-line">0</div></article>
-            <article class="analytic-card"><strong>En taller</strong><div id="fleetTaller" class="metric-line">0</div></article>
-            <article class="analytic-card"><strong>Detenidas</strong><div id="fleetDetenidas" class="metric-line">0</div></article>
-            <article class="analytic-card"><strong>Programadas</strong><div id="fleetProgramadas" class="metric-line">0</div></article>
-          </div>
-          <div class="fleet-admin-toolbar">
-            <div class="history-search-box history-panel-box fleet-search-box">
-              <div>
-                <label>Buscar unidad</label>
-                <input id="fleetSearchInput" placeholder="Número económico, empresa, modelo u obra" />
-              </div>
-              <div>
-                <label>Estado</label>
-                <select id="fleetStatusFilter">
-                  <option value="todos">Todos</option>
-                  <option value="operando">Operando</option>
-                  <option value="en_taller">En taller</option>
-                  <option value="detenida">Detenida</option>
-                  <option value="programada">Programada</option>
-                </select>
-              </div>
+
+          <div class="fleet-admin-toolbar compact-toolbar">
+            <div class="fleet-line-filters">
+              <input id="fleetSearchInput" placeholder="Buscar unidad, empresa o modelo" />
+              <select id="fleetStatusFilter">
+                <option value="todos">Todos</option>
+                <option value="operando">Operando</option>
+                <option value="en_taller">En taller</option>
+                <option value="detenida">Detenida</option>
+                <option value="programada">Programada</option>
+              </select>
               <button id="fleetRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
             </div>
             <div class="stack-inline fleet-toolbar-actions fleet-form-only">
@@ -359,6 +348,7 @@
               <button id="fleetCancelBtn" class="btn btn-ghost hidden" type="button">Cancelar edición</button>
             </div>
           </div>
+
           <div class="history-search-box history-panel-box fleet-form-only">
             <div>
               <label>Empresa</label>
@@ -392,39 +382,37 @@
               <label>Nombre de flota</label>
               <input id="fleetNombreFlota" placeholder="Ej. Flota Norte" />
             </div>
-            <label class="stack-inline"><input id="fleetPolizaActiva" type="checkbox" style="width:auto;min-height:auto"> Póliza activa</label>
-            <label class="stack-inline"><input id="fleetCampaignActiva" type="checkbox" style="width:auto;min-height:auto"> Campaña de mantenimiento</label>
+            <div>
+              <label class="checkbox-row" style="height:auto"><input id="fleetPolizaActiva" type="checkbox" /> Póliza activa</label>
+            </div>
+            <div>
+              <label class="checkbox-row" style="height:auto"><input id="fleetCampaignActiva" type="checkbox" /> Campaña de mantenimiento</label>
+            </div>
             <div class="stack-inline">
               <button id="fleetSaveBtn" class="btn btn-primary hidden" type="button">Guardar unidad</button>
-              
             </div>
           </div>
-          <div class="fleet-layout">
-            <div id="fleetUnitsList" class="cards compact-cards"></div>
-            <div id="fleetDetail" class="panel-subtle">
-              <div class="muted">Selecciona una unidad para ver historial, reportes y costos.</div>
+
+          <div class="fleet-layout compact-fleet-layout">
+            <div id="fleetUnitsList" class="fleet-line-list"></div>
+            <div id="fleetDetail" class="panel-subtle fleet-detail-premium">
+              <div class="muted">Selecciona una unidad para ver historial, reportes, póliza, campaña y costos.</div>
             </div>
           </div>
         </section>
 
 
+
         
         <section id="partsPanel" class="panel hidden">
-          <div class="panel-head">
+          <div class="panel-head compact-panel-head">
             <div>
               <div class="topbar-kicker">REFACCIONES</div>
               <h3>Refacciones pendientes</h3>
             </div>
-            <span class="badge badge-info">Unidad · Pieza · Seguimiento</span>
-          </div>
-          <div class="parts-premium-head">
-            <div class="parts-premium-copy">
-              <strong>Pendientes de refacción</strong>
-              <span>Solo aparecen las unidades y piezas pendientes. Lectura limpia para dirección y supervisión de flota.</span>
-            </div>
             <button id="partsRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
           </div>
-          <div id="partsSummary" class="analytics-grid fleet-summary-grid parts-summary-grid"></div>
+          <div id="partsSummary" class="parts-summary-row"></div>
           <div id="partsList" class="parts-grid"></div>
         </section>
 

@@ -19,6 +19,7 @@ const state = {
   editingFleetUnitId: '',
   unitHistoryRows: [],
   partsPending: [],
+  partsCacheAt: 0,
 };
 
 const api = {
@@ -60,7 +61,7 @@ const api = {
   cancelSchedule(id, payload) { return this.request(`/api/schedules/${id}/cancel`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   rescheduleSchedule(id, payload) { return this.request(`/api/schedules/${id}/reschedule`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   getPartsPending() { return this.request('/api/parts/pending'); },
-  updatePart(id, payload) { return this.request(`/api/parts/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }); },
+  updateParts(id, payload) { return this.request(`/api/garantias/${id}/parts`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   getNotifications() { return this.request('/api/notifications'); },
 
   getFleetSummary() { return this.request('/api/fleet/summary'); },
@@ -113,13 +114,6 @@ function notify(message, isError = false) {
 function badgeClassValidation(status) { return ({ 'nueva':'badge-new','pendiente de revisión':'badge-review','aceptada':'badge-accepted','rechazada':'badge-rejected' })[status] || 'badge-info'; }
 function badgeClassOperational(status) { return ({ 'sin iniciar':'badge-info','en proceso':'badge-progress','espera refacción':'badge-waiting','terminada':'badge-done' })[status] || 'badge-info'; }
 
-function partStatusLabel(status) {
-  return ({ pendiente:'Pendiente', asignada:'Asignada', en_compra:'En compra', recibida:'Recibida', instalada:'Instalada' })[status] || 'Pendiente';
-}
-function partStatusBadge(status) {
-  return ({ pendiente:'badge-waiting', asignada:'badge-info', en_compra:'badge-review', recibida:'badge-progress', instalada:'badge-accepted' })[status] || 'badge-waiting';
-}
-
 function normalizeText(value='') {
   return String(value || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
@@ -131,6 +125,19 @@ function fleetSemaforo(unit) {
   if (st === 'espera refacción' || st === 'detenida') return { key:'detenida', label: 'Detenida', cls: 'fleet-bad' };
   if (st === 'aceptada' || st === 'programada') return { key:'programada', label: 'Programada', cls: 'fleet-info' };
   return { key:'operando', label: 'Operando', cls: 'fleet-ok' };
+}
+function fleetStatusLuxury(unit) {
+  const sem = fleetSemaforo(unit);
+  if (sem.key === 'operando') return { emoji:'🟢', text:'Sin pendientes', chip:'good' };
+  if (sem.key === 'programada') return { emoji:'🟠', text:'Espera programación', chip:'warn' };
+  if (sem.key === 'en_taller') return { emoji:'🔴', text:'En taller', chip:'bad' };
+  return { emoji:'🟠', text:'Espera refacción', chip:'warn' };
+}
+function fleetTagPoliza(unit) {
+  return unit.polizaActiva ? { text:'Póliza activa', cls:'good' } : { text:'Sin póliza', cls:'neutral' };
+}
+function fleetTagCampania(unit) {
+  return unit.campaignActiva ? { text:'Campaña activa', cls:'warn' } : { text:'Sin campaña', cls:'neutral' };
 }
 function countBy(items, getter) {
   const map = new Map();
@@ -316,9 +323,7 @@ function updateHeaderForRole() {
   if (els.welcomeText) els.welcomeText.textContent = `${roleName(state.user.role)} · Sesión activa`;
   if (els.avatarCircle) els.avatarCircle.textContent = state.user.nombre?.[0]?.toUpperCase() || 'C';
   if (els.roleBrief) els.roleBrief.innerHTML = copy.panels.map(([title, desc]) => `<article><strong>${escapeHtml(title)}</strong><span>${escapeHtml(desc)}</span></article>`).join('');
-  document.body.classList.toggle('owner-portal', state.user?.role === 'supervisor_flotas');
 }
-
 function setActiveNav(activeBtn) {
   [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navScheduleBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
   if (activeBtn && !activeBtn.classList.contains('hidden')) activeBtn.classList.add('active');
@@ -677,7 +682,9 @@ function renderSchedules() {
           await api.confirmSchedule(item.id, { status:'confirmed', scheduledFor: item.scheduledFor || item.proposedAt, notes: item.notes || '' });
           notify('Cita confirmada.'); await loadSchedules(selectedDate); await loadNotifications();
         } catch (error) {
-          notify(error.message, true);
+          if (String(error.message || '').includes('ocupado')) {
+            notify(error.message, true);
+          } else notify(error.message, true);
         }
       }));
       actions.appendChild(button('Recomendar +1h', 'btn btn-secondary', async () => {
@@ -689,20 +696,24 @@ function renderSchedules() {
         } catch (error) { notify(error.message, true); }
       }));
     }
-    if (isRole('admin','operativo','supervisor_flotas') && ['proposed','confirmed','waiting_operator'].includes(item.status)) {
-      actions.appendChild(button('Reprogramar', 'btn btn-secondary', async () => { await reprogramarCita(item.id); }));
-      actions.appendChild(button('Cancelar', 'btn btn-ghost', async () => { await cancelarCita(item.id); }));
-    }
     els.scheduleList.appendChild(row);
   });
 }
 
 
 
-async function loadPartsPending() {
+async function loadPartsPending(force = false) {
   if (!isRole('admin','supervisor_flotas')) return;
+  const now = Date.now();
+  if (!force && state.partsPending.length && now - state.partsCacheAt < 30000) {
+    renderPartsPending();
+    return;
+  }
   try {
-    state.partsPending = await api.getPartsPending();
+    if (els.partsList) els.partsList.innerHTML = '<div class="parts-empty">Cargando refacciones pendientes…</div>';
+    const data = await api.getPartsPending();
+    state.partsPending = data || [];
+    state.partsCacheAt = Date.now();
     renderPartsPending();
   } catch (error) {
     notify(error.message, true);
@@ -712,84 +723,87 @@ async function loadPartsPending() {
 function renderPartsPending() {
   if (!els.partsList) return;
   const items = state.partsPending || [];
-  const total = items.length;
-  const empresas = [...new Set(items.map(item => item.empresa).filter(Boolean))].length;
   const unidades = [...new Set(items.map(item => item.numeroEconomico).filter(Boolean))].length;
-  const asignadas = items.filter(item => (item.refaccionStatus || 'pendiente') !== 'pendiente').length;
+  const empresas = [...new Set(items.map(item => item.empresa).filter(Boolean))].length;
+
   if (els.partsSummary) {
     els.partsSummary.innerHTML = `
-      <article class="analytic-card highlight-card"><strong>Pendientes</strong><div class="metric-line">${total}</div></article>
-      <article class="analytic-card"><strong>Unidades</strong><div class="metric-line">${unidades}</div></article>
-      <article class="analytic-card"><strong>Empresas</strong><div class="metric-line">${empresas}</div></article>
-      <article class="analytic-card"><strong>Asignadas</strong><div class="metric-line">${asignadas}</div></article>
+      <article class="parts-summary-card"><strong>Pendientes</strong><span>${items.length}</span></article>
+      <article class="parts-summary-card"><strong>Unidades</strong><span>${unidades}</span></article>
+      <article class="parts-summary-card"><strong>Empresas</strong><span>${empresas}</span></article>
     `;
   }
+
   if (!items.length) {
-    els.partsList.innerHTML = '<div class="parts-empty"><strong>No hay refacciones pendientes.</strong><div>Cuando una unidad quede en espera de pieza o se solicite refacción, aparecerá aquí.</div></div>';
+    els.partsList.innerHTML = '<div class="parts-empty"><strong>No hay refacciones pendientes.</strong><div>Cuando una unidad quede a la espera de pieza o una refacción se marque pendiente, aparecerá aquí.</div></div>';
     return;
   }
+
   els.partsList.innerHTML = '';
   items.forEach(item => {
     const card = document.createElement('article');
     card.className = 'parts-card';
-    const currentStatus = item.refaccionStatus || 'pendiente';
+    const statusLabel = ({
+      pendiente:'Pendiente',
+      asignada:'Asignada',
+      en_compra:'En compra',
+      recibida:'Recibida',
+      instalada:'Instalada'
+    })[item.refaccionStatus || 'pendiente'] || 'Pendiente';
+
+    const adminEditor = isRole('admin') ? `
+      <div class="parts-edit-box">
+        <textarea id="partsDetail_${item.id}" rows="3" placeholder="Detalle de refacción">${escapeHtml(item.detalleRefaccion || '')}</textarea>
+        <input id="partsAssigned_${item.id}" placeholder="Refacción asignada" value="${escapeHtml(item.refaccionAsignada || '')}" />
+        <div class="stack-inline">
+          <select id="partsStatus_${item.id}">
+            <option value="pendiente" ${(item.refaccionStatus || 'pendiente') === 'pendiente' ? 'selected' : ''}>Pendiente</option>
+            <option value="asignada" ${item.refaccionStatus === 'asignada' ? 'selected' : ''}>Asignada</option>
+            <option value="en_compra" ${item.refaccionStatus === 'en_compra' ? 'selected' : ''}>En compra</option>
+            <option value="recibida" ${item.refaccionStatus === 'recibida' ? 'selected' : ''}>Recibida</option>
+            <option value="instalada" ${item.refaccionStatus === 'instalada' ? 'selected' : ''}>Instalada</option>
+          </select>
+          <button class="btn btn-primary" data-parts-save="${item.id}" type="button">Guardar</button>
+        </div>
+      </div>
+    ` : '';
+
     card.innerHTML = `
       <div class="parts-card-head">
         <div>
-          <div class="kicker">${escapeHtml(item.empresa || '—')}</div>
+          <div class="parts-kicker">${escapeHtml(item.empresa || '—')}</div>
           <h4>Unidad ${escapeHtml(item.numeroEconomico || '—')}</h4>
         </div>
-        <span class="badge ${partStatusBadge(currentStatus)}">${partStatusLabel(currentStatus)}</span>
+        <span class="badge badge-waiting">${escapeHtml(statusLabel)}</span>
       </div>
       <div class="parts-piece">${escapeHtml(item.detalleRefaccion || 'Refacción pendiente sin detalle específico')}</div>
       <div class="parts-meta">
         <div><strong>Folio</strong>${escapeHtml(item.folio || '—')}</div>
-        <div><strong>Estado operativo</strong>${escapeHtml(item.estatusOperativo || 'sin iniciar')}</div>
         <div><strong>Modelo</strong>${escapeHtml(item.modelo || '—')}</div>
+        <div><strong>Estado operativo</strong>${escapeHtml(item.estatusOperativo || 'sin iniciar')}</div>
         <div><strong>Asignada</strong>${escapeHtml(item.refaccionAsignada || 'Sin asignar')}</div>
       </div>
-      ${isRole('admin') ? `
-      <div class="parts-admin-box">
-        <div class="parts-admin-grid">
-          <div>
-            <label>Refacción solicitada</label>
-            <textarea class="parts-input js-part-detail" rows="2">${escapeHtml(item.detalleRefaccion || '')}</textarea>
-          </div>
-          <div>
-            <label>Refacción asignada</label>
-            <input class="parts-input js-part-assign" value="${escapeHtml(item.refaccionAsignada || '')}" placeholder="Ej. Juego de lunas lateral izquierda" />
-          </div>
-          <div>
-            <label>Estatus</label>
-            <select class="parts-input js-part-status">
-              <option value="pendiente" ${currentStatus === 'pendiente' ? 'selected' : ''}>Pendiente</option>
-              <option value="asignada" ${currentStatus === 'asignada' ? 'selected' : ''}>Asignada</option>
-              <option value="en_compra" ${currentStatus === 'en_compra' ? 'selected' : ''}>En compra</option>
-              <option value="recibida" ${currentStatus === 'recibida' ? 'selected' : ''}>Recibida</option>
-              <option value="instalada" ${currentStatus === 'instalada' ? 'selected' : ''}>Instalada</option>
-            </select>
-          </div>
-          <div class="parts-admin-actions">
-            <button type="button" class="btn btn-primary js-part-save">Guardar</button>
-          </div>
-        </div>
-      </div>` : ''}
+      ${adminEditor}
     `;
+    els.partsList.appendChild(card);
+
     if (isRole('admin')) {
-      card.querySelector('.js-part-save')?.addEventListener('click', async () => {
+      card.querySelector(`[data-parts-save="${item.id}"]`)?.addEventListener('click', async () => {
         try {
-          await api.updatePart(item.id, {
-            detalleRefaccion: card.querySelector('.js-part-detail')?.value || '',
-            refaccionAsignada: card.querySelector('.js-part-assign')?.value || '',
-            refaccionStatus: card.querySelector('.js-part-status')?.value || 'pendiente'
+          await api.updateParts(item.id, {
+            detalleRefaccion: document.getElementById(`partsDetail_${item.id}`)?.value || '',
+            refaccionAsignada: document.getElementById(`partsAssigned_${item.id}`)?.value || '',
+            refaccionStatus: document.getElementById(`partsStatus_${item.id}`)?.value || 'pendiente'
           });
           notify('Refacción actualizada.');
-          await loadPartsPending();
-          await loadNotifications();
-        } catch (error) { notify(error.message, true); }
+          await loadPartsPending(true);
+          await loadGarantias();
+          if (state.activePanel === 'fleet') await loadFleet();
+        } catch (error) {
+          notify(error.message, true);
+        }
       });
     }
-    els.partsList.appendChild(card);
   });
 }
 
@@ -815,12 +829,6 @@ async function loadFleet() {
 }
 
 function renderFleet() {
-  if (els.fleetTotal) els.fleetTotal.textContent = state.fleetSummary.total || 0;
-  if (els.fleetOperando) els.fleetOperando.textContent = state.fleetSummary.operando || 0;
-  if (els.fleetTaller) els.fleetTaller.textContent = state.fleetSummary.enTaller || 0;
-  if (els.fleetDetenidas) els.fleetDetenidas.textContent = state.fleetSummary.detenidas || 0;
-  if (els.fleetProgramadas) els.fleetProgramadas.textContent = state.fleetSummary.programadas || 0;
-
   if (els.fleetUnitsList) els.fleetUnitsList.innerHTML = '';
   const fleetQuery = normalizeText(els.fleetSearchInput?.value || '');
   const fleetStatus = els.fleetStatusFilter?.value || 'todos';
@@ -830,50 +838,37 @@ function renderFleet() {
     const hayEstado = fleetStatus === 'todos' || sem.key === fleetStatus;
     return hayTexto && hayEstado;
   });
+
   if (!visibleUnits.length && els.fleetUnitsList) {
     els.fleetUnitsList.innerHTML = '<div class="empty-state"><strong>Sin coincidencias.</strong><span>Ajusta búsqueda o estado para encontrar la unidad correcta.</span></div>';
   }
+
   visibleUnits.forEach(unit => {
-    const sem = fleetSemaforo(unit);
-    const card = document.createElement('article');
-    card.className = 'card fleet-card';
-    card.innerHTML = `
-      <div class="fleet-card-head">
-        <div>
-          <div class="fleet-card-kicker">${escapeHtml(unit.empresa || '—')}</div>
-          <h4>${escapeHtml(unit.numeroEconomico)}</h4>
-          <p class="meta">${escapeHtml(unit.marca || '—')}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}${unit.anio ? ' · ' + escapeHtml(unit.anio) : ''}</p>
-        </div>
-        <span class="fleet-dot ${sem.cls}">${sem.label}</span>
+    const status = fleetStatusLuxury(unit);
+    const poliza = fleetTagPoliza(unit);
+    const camp = fleetTagCampania(unit);
+    const row = document.createElement('article');
+    row.className = 'fleet-line-item';
+    row.innerHTML = `
+      <div class="fleet-line-num">${escapeHtml(unit.numeroEconomico || '—')}</div>
+      <div class="fleet-line-emoji">${status.emoji}</div>
+      <div class="fleet-line-main">
+        <strong>${escapeHtml(status.text)}</strong>
+        <div class="fleet-line-sub">${escapeHtml(unit.empresa || '—')}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}${unit.marca ? ' · ' + escapeHtml(unit.marca) : ''}</div>
       </div>
-      <div class="fleet-card-strip">
-        <div><span>Reportes</span><strong>${unit.reportesCount || 0}</strong></div>
-        <div><span>Costo</span><strong>${money(unit.costoTotal || 0)}</strong></div>
-        <div><span>Último movimiento</span><strong>${unit.lastReportAt ? fmtDate(unit.lastReportAt) : 'Sin movimiento'}</strong></div>
+      <div class="fleet-line-tags">
+        <span class="fleet-chip ${poliza.cls}">${poliza.text}</span>
+        <span class="fleet-chip ${camp.cls}">${camp.text}</span>
       </div>
-      <div class="action-area fleet-card-actions"></div>
+      <div class="fleet-line-status">${unit.lastReportAt ? fmtDate(unit.lastReportAt) : 'Sin movimiento'}</div>
     `;
-    const act = card.querySelector('.action-area');
-    act.appendChild(button('Ver unidad', 'btn btn-secondary', async () => {
+    row.addEventListener('click', async () => {
       try {
         state.selectedFleetUnit = await api.getFleetUnit(unit.id);
         renderFleetDetail();
       } catch (error) { notify(error.message, true); }
-    }));
-    if (isRole('admin')) {
-      act.appendChild(button('Editar', 'btn btn-ghost', () => beginFleetEdit(unit)));
-      act.appendChild(button('Eliminar', 'btn btn-ghost', async () => {
-        if (!confirm(`¿Eliminar unidad ${unit.numeroEconomico}?`)) return;
-        try {
-          await api.deleteFleetUnit(unit.id);
-          if (state.selectedFleetUnit?.unit?.id === unit.id) state.selectedFleetUnit = null;
-          resetFleetForm();
-          await loadFleet();
-          notify('Unidad eliminada.');
-        } catch (error) { notify(error.message, true); }
-      }));
-    }
-    els.fleetUnitsList?.appendChild(card);
+    });
+    els.fleetUnitsList?.appendChild(row);
   });
   renderFleetDetail();
 }
@@ -940,8 +935,8 @@ function renderFleetDetail() {
           <div><span class="label">Modelo</span><strong>${escapeHtml(u.modelo || '—')}</strong></div>
           <div><span class="label">Año</span><strong>${escapeHtml(u.anio || '—')}</strong></div>
           <div><span class="label">KM</span><strong>${escapeHtml(u.kilometraje || '—')}</strong></div>
-          <div><span class="label">Póliza</span><strong>${u.polizaActiva ? 'Activa' : 'No'}</strong></div>
-          <div><span class="label">Campaña</span><strong>${u.campaignActiva ? 'Sí' : 'No'}</strong></div>
+          <div><span class="label">Póliza</span><strong>${u.polizaActiva ? 'Póliza activa' : 'Sin póliza'}</strong></div>
+          <div><span class="label">Campaña</span><strong>${u.campaignActiva ? 'Campaña activa' : 'Sin campaña'}</strong></div>
           <div><span class="label">Refacciones</span><strong>${money(u.costoRefacciones)}</strong></div>
           <div><span class="label">Mano de obra</span><strong>${money(u.costoManoObra)}</strong></div>
         </div>
@@ -1166,7 +1161,7 @@ els.navAnalyticsBtn?.addEventListener('click', () => switchPanel('analytics'));
 els.navHistoryBtn?.addEventListener('click', () => switchPanel('history'));
 els.navScheduleBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
 els.navFleetBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
-els.navPartsBtn?.addEventListener('click', async () => { await loadPartsPending(); switchPanel('parts'); });
+els.navPartsBtn?.addEventListener('click', async () => { await loadPartsPending(true); switchPanel('parts'); });
 els.navUsersBtn?.addEventListener('click', async () => { switchPanel('users'); await loadUsers(); });
 els.navRequestsBtn?.addEventListener('click', async () => { switchPanel('requests'); await loadRequests(); });
 els.navCompaniesBtn?.addEventListener('click', async () => { switchPanel('companies'); await loadCompanies(); });
@@ -1185,7 +1180,7 @@ els.unitHistorySearchInput?.addEventListener('input', () => paintUnitHistory(sta
 els.scheduleRefreshBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
 
 els.fleetRefreshBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
-els.partsRefreshBtn?.addEventListener('click', async () => { await loadPartsPending(); switchPanel('parts'); });
+els.partsRefreshBtn?.addEventListener('click', async () => { await loadPartsPending(true); switchPanel('parts'); });
 els.fleetSearchInput?.addEventListener('input', renderFleet);
 els.fleetStatusFilter?.addEventListener('change', renderFleet);
 els.fleetSaveBtn?.addEventListener('click', async () => {
@@ -1250,7 +1245,7 @@ els.companyForm?.addEventListener('submit', async (e) => {
     if (isRole('admin')) await Promise.allSettled([loadUsers(), loadRequests()]);
     if (isRole('admin','operativo','supervisor','supervisor_flotas','operador')) await Promise.allSettled([loadSchedules('')]);
     if (isRole('admin','operativo','supervisor_flotas')) await Promise.allSettled([loadFleet()]);
-    if (isRole('admin','supervisor_flotas')) await Promise.allSettled([loadPartsPending()]);
+    if (isRole('admin','supervisor_flotas')) await Promise.allSettled([loadPartsPending(true)]);
     resetReportForm(); resetCompanyForm(); resetFleetForm();
   } catch {
     localStorage.removeItem('carlabToken'); state.token = ''; showLogin();

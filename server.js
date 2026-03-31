@@ -571,6 +571,7 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_garantias_estatus_operativo ON garantias(estatus_operativo);
     CREATE INDEX IF NOT EXISTS idx_garantias_reportado_por_id ON garantias(reportado_por_id);
     CREATE INDEX IF NOT EXISTS idx_garantias_numero_economico ON garantias(numero_economico);
+    CREATE INDEX IF NOT EXISTS idx_garantias_refacciones_pendientes ON garantias (empresa, refaccion_status, created_at) WHERE solicita_refaccion = TRUE;
   `);
 
   await ensureUsersRoleConstraint();
@@ -1427,46 +1428,67 @@ app.get('/api/parts/pending', authRequired, requireRoles('admin','supervisor_flo
     const params = [];
     const where = [
       `solicita_refaccion = TRUE`,
-      `COALESCE(estatus_operativo, 'sin iniciar') <> 'terminada'`,
-      `COALESCE(refaccion_status, 'pendiente') <> 'instalada'`
+      `COALESCE(refaccion_status, 'pendiente') <> 'instalada'`,
+      `COALESCE(estatus_operativo, 'sin iniciar') <> 'terminada'`
     ];
     if (req.user.role === 'supervisor_flotas') {
       params.push(req.user.empresa || '');
       where.push(`empresa = $${params.length}`);
     }
     const result = await pool.query(
-      `SELECT * FROM garantias WHERE ${where.join(' AND ')} ORDER BY updated_at DESC, created_at DESC`,
+      `SELECT
+         id, folio, numero_obra, modelo, numero_economico, empresa,
+         detalle_refaccion, refaccion_status, refaccion_asignada,
+         estatus_operativo, created_at, updated_at, refaccion_updated_at
+       FROM garantias
+       WHERE ${where.join(' AND ')}
+       ORDER BY COALESCE(refaccion_updated_at, updated_at, created_at) DESC`,
       params
     );
-    res.json(result.rows.map(mapGarantia));
+    res.json(result.rows.map(row => ({
+      id: row.id,
+      folio: row.folio || '',
+      numeroObra: row.numero_obra || '',
+      modelo: row.modelo || '',
+      numeroEconomico: row.numero_economico || '',
+      empresa: row.empresa || '',
+      detalleRefaccion: row.detalle_refaccion || '',
+      refaccionStatus: row.refaccion_status || 'pendiente',
+      refaccionAsignada: row.refaccion_asignada || '',
+      estatusOperativo: row.estatus_operativo || 'sin iniciar',
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      refaccionUpdatedAt: row.refaccion_updated_at
+    })));
   } catch (error) {
     console.error('Error cargando refacciones pendientes:', error);
     res.status(500).json({ error: 'No se pudieron cargar las refacciones pendientes.' });
   }
 });
 
-app.patch('/api/parts/:id', authRequired, requireRoles('admin'), async (req, res) => {
+app.patch('/api/garantias/:id/parts', authRequired, requireRoles('admin'), async (req, res) => {
   try {
     const detalleRefaccion = String(req.body.detalleRefaccion || '').trim();
-    const refaccionAsignada = String(req.body.refaccionAsignada || '').trim();
     const refaccionStatus = String(req.body.refaccionStatus || 'pendiente').trim();
-    const allowed = ['pendiente','asignada','en_compra','recibida','instalada'];
-    if (!allowed.includes(refaccionStatus)) {
+    const refaccionAsignada = String(req.body.refaccionAsignada || '').trim();
+
+    if (!['pendiente','asignada','en_compra','recibida','instalada'].includes(refaccionStatus)) {
       return res.status(400).json({ error: 'Estado de refacción inválido.' });
     }
+
     const result = await pool.query(
       `UPDATE garantias
        SET detalle_refaccion = $2,
-           refaccion_asignada = $3,
-           refaccion_status = $4,
+           refaccion_status = $3,
+           refaccion_asignada = $4,
            refaccion_updated_at = NOW(),
            updated_at = NOW()
        WHERE id = $1
        RETURNING *`,
-      [req.params.id, detalleRefaccion, refaccionAsignada, refaccionStatus]
+      [req.params.id, detalleRefaccion, refaccionStatus, refaccionAsignada]
     );
-    if (!result.rowCount) return res.status(404).json({ error: 'Registro no encontrado.' });
-    await addAuditLog(req.params.id, req.user.id, 'refaccion_actualizada', `Refacción ${refaccionStatus}: ${refaccionAsignada || detalleRefaccion || 'sin detalle'}`);
+
+    if (!result.rowCount) return res.status(404).json({ error: 'Garantía no encontrada.' });
     res.json(mapGarantia(result.rows[0]));
   } catch (error) {
     console.error('Error actualizando refacción:', error);
@@ -1515,7 +1537,6 @@ app.patch('/api/schedules/:id/reschedule', authRequired, requireRoles('admin','o
 app.patch('/api/schedules/:id/cancel', authRequired, requireRoles('admin','operativo','supervisor_flotas'), async (req, res) => {
   try {
     const reason = String(req.body.reason || '').trim();
-
     const found = await pool.query(
       `SELECT sr.*, g.empresa
        FROM schedule_requests sr
@@ -1546,7 +1567,6 @@ app.patch('/api/schedules/:id/cancel', authRequired, requireRoles('admin','opera
     res.status(500).json({ error: 'No se pudo cancelar la cita.' });
   }
 });
-
 
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
