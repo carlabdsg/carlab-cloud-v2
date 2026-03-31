@@ -114,6 +114,7 @@
               <button id="navAnalyticsBtn" class="nav-btn hidden" type="button">Analítica</button>
               <button id="navHistoryBtn" class="nav-btn hidden" type="button">Historial por unidad</button>
               <button id="navScheduleBtn" class="nav-btn hidden" type="button">Agenda</button>
+              <button id="navFleetBtn" class="nav-btn hidden" type="button">Flotas</button>
             </div>
             <div class="nav-group">
               <div class="nav-group-label">Administración</div>
@@ -313,6 +314,71 @@
           </form>
           <div id="companiesList" class="table-list"></div>
         </section>
+
+        
+        <section id="fleetPanel" class="panel hidden">
+          <div class="panel-head">
+            <div>
+              <div class="topbar-kicker">FLOTAS</div>
+              <h3>Control de flota y costo por unidad</h3>
+            </div>
+            <span class="badge badge-info">Empresa · Unidad · Semáforo</span>
+          </div>
+          <div class="analytics-grid fleet-summary-grid">
+            <article class="analytic-card highlight-card"><strong>Total flota</strong><div id="fleetTotal" class="metric-line">0</div></article>
+            <article class="analytic-card"><strong>Operando</strong><div id="fleetOperando" class="metric-line">0</div></article>
+            <article class="analytic-card"><strong>En taller</strong><div id="fleetTaller" class="metric-line">0</div></article>
+            <article class="analytic-card"><strong>Detenidas</strong><div id="fleetDetenidas" class="metric-line">0</div></article>
+            <article class="analytic-card"><strong>Programadas</strong><div id="fleetProgramadas" class="metric-line">0</div></article>
+          </div>
+          <div class="history-search-box history-panel-box">
+            <div>
+              <label>Empresa</label>
+              <input id="fleetEmpresa" placeholder="Empresa ligada" />
+            </div>
+            <div>
+              <label>Número económico</label>
+              <input id="fleetNumeroEconomico" placeholder="Ej. 502" />
+            </div>
+            <div>
+              <label>Obra</label>
+              <input id="fleetNumeroObra" placeholder="Opcional" />
+            </div>
+            <div>
+              <label>Marca</label>
+              <input id="fleetMarca" placeholder="Ej. Irizar" />
+            </div>
+            <div>
+              <label>Modelo</label>
+              <input id="fleetModelo" placeholder="Ej. i6" />
+            </div>
+            <div>
+              <label>Año</label>
+              <input id="fleetAnio" placeholder="Ej. 2020" />
+            </div>
+            <div>
+              <label>Kilometraje</label>
+              <input id="fleetKilometraje" placeholder="Ej. 145000" />
+            </div>
+            <div>
+              <label>Nombre de flota</label>
+              <input id="fleetNombreFlota" placeholder="Ej. Flota Norte" />
+            </div>
+            <label class="stack-inline"><input id="fleetPolizaActiva" type="checkbox" style="width:auto;min-height:auto"> Póliza activa</label>
+            <label class="stack-inline"><input id="fleetCampaignActiva" type="checkbox" style="width:auto;min-height:auto"> Campaña de mantenimiento</label>
+            <div class="stack-inline">
+              <button id="fleetSaveBtn" class="btn btn-primary hidden" type="button">Guardar unidad</button>
+              <button id="fleetRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
+            </div>
+          </div>
+          <div class="fleet-layout">
+            <div id="fleetUnitsList" class="cards compact-cards"></div>
+            <div id="fleetDetail" class="panel-subtle">
+              <div class="muted">Selecciona una unidad para ver historial, reportes y costos.</div>
+            </div>
+          </div>
+        </section>
+
 
         <section id="boardPanel" class="panel">
           <div class="panel-head"><div><div class="topbar-kicker" id="boardKicker">CENTRAL</div><h3 id="listTitle">Bandeja de garantías</h3></div></div>
