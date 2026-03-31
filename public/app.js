@@ -75,7 +75,7 @@ function bind() {
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
     'topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn',
-    'navFleetBtn','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas'
+    'navFleetBtn','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetResetBtn','fleetEditorBox','fleetQuickSearch','fleetCabinTitle','fleetCabinText','fleetLiveStamp','fleetListTitle','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas'
   ].forEach(id => els[id] = document.getElementById(id));
 }
 bind();
@@ -219,7 +219,7 @@ function roleCopy(role) {
     operador: { title:'Portal de operador', summary:'Reportas fallas, subes evidencia y ves el estatus sin depender de llamadas.', panels:[['Levantar incidencia','Captura la falla con datos, fotos, refacción y firma.'],['Seguimiento','Consulta si fue aceptada, rechazada o quedó pendiente.'],['Sin cruces','Solo ves tus reportes. No puedes decidir ni alterar revisiones.']], boardKicker:'OPERADOR', listTitle:'Mis reportes de garantía', legend:'Aquí ves solo tus reportes y su estatus actual.' },
     operativo: { title:'Mesa de validación operativa', summary:'Revisas reportes, decides si proceden y mueves el trabajo hasta terminar.', panels:[['Decisión','Acepta, rechaza o marca pendiente de revisión.'],['Flujo','Mueve el trabajo a en proceso, espera refacción o terminada.'],['Patrones','También ves unidades reincidentes para atacar la raíz.']], boardKicker:'OPERATIVO', listTitle:'Bandeja operativa', legend:'Aquí validas, autorizas y avanzas el trabajo.' },
     supervisor: { title:'Portal de supervisor', summary:'Consulta únicamente la información de tu empresa en modo corporativo de solo lectura.', panels:[['Visibilidad','Revisa empresas, unidades, evidencias y avances.'],['Lectura ejecutiva','Historial por unidad y top de fallas sin tocar procesos.'],['Sin edición','No cambias decisiones ni alteras procesos.']], boardKicker:'SUPERVISOR', listTitle:'Bandeja supervisada', legend:'Monitoreo integral con lectura operativa y comercial.' },
-    supervisor_flotas: { title:'Centro de flotas Carlab', summary:'Supervisión de unidades, semáforo vivo, historial y lectura por empresa sin tocar usuarios ni validaciones.', panels:[['Semáforo vivo','Detecta qué unidad opera, cuál cayó al taller y cuál reincide.'],['Lectura por unidad','Historial de reportes, costos y último movimiento en una sola vista.'],['Control enfocado','Supervisa flotas sin entrar a módulos ajenos.']], boardKicker:'FLOTAS', listTitle:'Radar de unidades', legend:'Tablero ejecutivo para seguir flota, carga histórica y reincidencia por empresa.' },
+    supervisor_flotas: { title:'Cabina premium de flota', summary:'Vista pensada para dueños y responsables de unidades, con lectura impecable, enfoque y velocidad.', panels:[['Semáforo ejecutivo','Cada unidad respira con color, prioridad y contexto.'],['Expediente instantáneo','Historial, costos y reportes sin brincar de módulo.'],['Monitoreo elegante','Una cabina sobria, clara y lista para cliente final.']], boardKicker:'CABINA', listTitle:'Expediente de unidades', legend:'Vista premium para seguir flota, movimientos y reincidencias en tiempo casi real.' },
   }[role];
 }
 
@@ -236,6 +236,8 @@ function updateHeaderForRole() {
   if (els.welcomeText) els.welcomeText.textContent = `${roleName(state.user.role)} · Sesión activa`;
   if (els.avatarCircle) els.avatarCircle.textContent = state.user.nombre?.[0]?.toUpperCase() || 'C';
   if (els.roleBrief) els.roleBrief.innerHTML = copy.panels.map(([title, desc]) => `<article><strong>${escapeHtml(title)}</strong><span>${escapeHtml(desc)}</span></article>`).join('');
+  if (els.fleetCabinTitle) els.fleetCabinTitle.textContent = state.user?.role === 'supervisor_flotas' ? 'Cabina premium para dueño de flota' : 'Cabina de control de unidades';
+  if (els.fleetCabinText) els.fleetCabinText.textContent = state.user?.role === 'supervisor_flotas' ? 'Visualiza tu empresa con una lectura impecable: unidades, semáforo, historial y costos en una sola cabina.' : 'Lectura viva del parque vehicular con semáforo, reincidencia e historial por unidad.';
 }
 function setActiveNav(activeBtn) {
   [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navScheduleBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
@@ -291,8 +293,8 @@ function showDashboard() {
   els.navAnalyticsBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo'));
   els.navHistoryBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo'));
   els.navScheduleBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo','operador'));
-  els.navFleetBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo'));
-  updateHeaderForRole(); switchPanel(state.user?.role === 'operador' ? 'report' : 'board');
+  els.navFleetBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas','operativo'));
+  updateHeaderForRole(); switchPanel(state.user?.role === 'operador' ? 'report' : (state.user?.role === 'supervisor_flotas' ? 'fleet' : 'board'));
 }
 function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); }
 
@@ -605,16 +607,19 @@ function renderSchedules() {
 
 
 async function loadFleet() {
+  if (!isRole('admin','operativo','supervisor_flotas')) return;
   try {
-    if (isRole('admin','operativo')) els.fleetSaveBtn?.classList.remove('hidden');
-    else els.fleetSaveBtn?.classList.add('hidden');
-    if (['supervisor','supervisor_flotas'].includes(state.user?.role) && els.fleetEmpresa) {
+    const [summary, units] = await Promise.all([api.getFleetSummary(), api.getFleetUnits()]);
+    els.fleetSaveBtn?.classList.toggle('hidden', !canManageFleet());
+    els.fleetResetBtn?.classList.toggle('hidden', !canManageFleet());
+    els.fleetEditorBox?.classList.toggle('hidden', !canManageFleet());
+    if (state.user?.role === 'supervisor_flotas' && els.fleetEmpresa) {
       els.fleetEmpresa.value = state.user.empresa || '';
       els.fleetEmpresa.disabled = true;
     } else if (els.fleetEmpresa) {
       els.fleetEmpresa.disabled = false;
     }
-    const [summary, units] = await Promise.all([api.getFleetSummary(), api.getFleetUnits()]);
+    if (!state.fleetEditingId && canManageFleet() && !els.fleetEmpresa?.value && state.user?.empresa) els.fleetEmpresa.value = state.user.empresa;
     state.fleetSummary = summary || state.fleetSummary;
     state.fleetUnits = units || [];
     renderFleet();
@@ -629,32 +634,52 @@ function renderFleet() {
   if (els.fleetTaller) els.fleetTaller.textContent = state.fleetSummary.enTaller || 0;
   if (els.fleetDetenidas) els.fleetDetenidas.textContent = state.fleetSummary.detenidas || 0;
   if (els.fleetProgramadas) els.fleetProgramadas.textContent = state.fleetSummary.programadas || 0;
-
   if (els.fleetUnitsList) els.fleetUnitsList.innerHTML = '';
-  state.fleetUnits.forEach(unit => {
+
+  const q = (state.fleetSearch || '').trim().toLowerCase();
+  const visibleUnits = state.fleetUnits.filter(unit => {
+    const blob = `${unit.numeroEconomico || ''} ${unit.empresa || ''} ${unit.modelo || ''} ${unit.numeroObra || ''} ${unit.marca || ''}`.toLowerCase();
+    return !q || blob.includes(q);
+  });
+
+  if (els.fleetListTitle) els.fleetListTitle.textContent = state.user?.role === 'supervisor_flotas' ? 'Mi flota monitoreada' : 'Radar de unidades';
+
+  visibleUnits.forEach(unit => {
     const sem = fleetSemaforo(unit);
     const card = document.createElement('article');
-    card.className = 'card fleet-card';
+    card.className = 'card fleet-card premium-fleet-card';
+    if (state.selectedFleetUnit?.unit?.id === unit.id) card.classList.add('selected');
     card.innerHTML = `
-      <div class="card-top">
-        <div><h4>Unidad ${escapeHtml(unit.numeroEconomico)}</h4><p class="meta">${escapeHtml(unit.empresa)}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}</p></div>
+      <div class="fleet-card-topline">
+        <div>
+          <strong>Unidad ${escapeHtml(unit.numeroEconomico || '—')}</strong>
+          <div class="muted small">${escapeHtml(unit.empresa || '—')} · ${escapeHtml(unit.marca || '—')} ${escapeHtml(unit.modelo || '')}</div>
+        </div>
         <span class="fleet-dot ${sem.cls}">${sem.label}</span>
       </div>
-      <div class="mini-grid fleet-mini-grid">
-        <div><span class="label">Último estado</span><strong>${sem.label}</strong></div>
-        <div><span class="label">Reportes</span><strong>${unit.reportesCount || 0}</strong></div>
+      <div class="fleet-card-kpis">
+        <span><b>Obra</b> ${escapeHtml(unit.numeroObra || '—')}</span>
+        <span><b>KM</b> ${escapeHtml(unit.kilometraje || '—')}</span>
+        <span><b>Último</b> ${escapeHtml(fmtDate(unit.lastReportAt))}</span>
       </div>
-      <div class="action-area"></div>
+      <div class="fleet-card-actions-row">
+        <button class="btn btn-secondary" type="button">Ver expediente</button>
+      </div>
     `;
-    const act = card.querySelector('.action-area');
-    act.appendChild(button('Ver unidad', 'btn btn-secondary', async () => {
+    card.addEventListener('click', async () => {
       try {
         state.selectedFleetUnit = await api.getFleetUnit(unit.id);
+        if (canManageFleet()) fillFleetForm(state.selectedFleetUnit.unit);
+        renderFleet();
         renderFleetDetail();
       } catch (error) { notify(error.message, true); }
-    }));
+    });
     els.fleetUnitsList?.appendChild(card);
   });
+
+  if (!visibleUnits.length && els.fleetUnitsList) {
+    els.fleetUnitsList.innerHTML = '<div class="empty-state"><strong>Sin unidades para esta vista.</strong><span>Ajusta búsqueda o registra una unidad nueva.</span></div>';
+  }
   renderFleetDetail();
 }
 
@@ -694,7 +719,7 @@ function renderFleetDetail() {
   ` : '';
   const statusControl = isRole('admin') ? `
     <div class="fleet-status-admin">
-      <label>Estado manual de unidad</label>
+      <label>Estado visual</label>
       <div class="stack-inline">
         <select id="fleetManualStatus">
           <option value="operando">Operando</option>
@@ -709,8 +734,12 @@ function renderFleetDetail() {
   const timeline = (data.reports || []).slice(0,6).map(r => `<div class="timeline-item"><span class="timeline-dot"></span><div><strong>${escapeHtml(r.folio || 'GAR-—')}</strong><p>${escapeHtml(r.descripcionFallo || 'Sin descripción')}</p><small>${fmtDate(r.createdAt)} · ${escapeHtml(r.estatusOperativo || 'sin iniciar')}</small></div></div>`).join('') || '<div class="muted">Sin movimientos recientes.</div>';
   els.fleetDetail.innerHTML = `
     <div class="panel-head fleet-detail-head">
-      <div><div class="topbar-kicker">UNIDAD</div><h3>${escapeHtml(u.numeroEconomico)} · ${escapeHtml(u.empresa)}</h3></div>
-      <span class="fleet-dot ${sem.cls}">${sem.label}</span>
+      <div><div class="topbar-kicker">UNIDAD ${escapeHtml(u.numeroEconomico || '')}</div><h3>${escapeHtml(u.empresa || '')}</h3></div>
+      <div class="stack-inline">
+        <span class="fleet-dot ${sem.cls}">${sem.label}</span>
+        ${canManageFleet() ? '<button id="fleetEditUnitBtn" class="btn btn-secondary" type="button">Editar</button>' : ''}
+        ${canDeleteFleet() ? '<button id="fleetDeleteUnitBtn" class="btn btn-ghost" type="button">Eliminar</button>' : ''}
+      </div>
     </div>
     <div class="fleet-hero">
       <div class="fleet-hero-main">
@@ -735,8 +764,9 @@ function renderFleetDetail() {
     </div>
   `;
   if (isRole('admin')) {
-    document.getElementById('fleetManualStatus').value = ({ operando:'operando', 'en_taller':'en_taller', detenida:'detenida', programada:'programada' })[sem.key || 'operando'] || 'operando';
-    document.getElementById('fleetApplyStatusBtn')?.addEventListener('click', async () => { notify('El estado visual se mueve desde el último reporte operativo. Para cambio real, actualiza el reporte más reciente de la unidad.', false); });
+    const statusEl = document.getElementById('fleetManualStatus');
+    if (statusEl) statusEl.value = ({ operando:'operando', 'en_taller':'en_taller', detenida:'detenida', programada:'programada' })[sem.key || 'operando'] || 'operando';
+    document.getElementById('fleetApplyStatusBtn')?.addEventListener('click', async () => { notify('El semáforo sigue leyendo el último reporte operativo de la unidad.', false); });
     document.getElementById('fleetCostSaveBtn')?.addEventListener('click', async () => {
       try {
         await api.createFleetCost(u.id, {
@@ -744,80 +774,31 @@ function renderFleetDetail() {
           concepto: document.getElementById('fleetCostConcepto').value.trim(),
           monto: document.getElementById('fleetCostMonto').value
         });
-        notify('Costo guardado.');
+        notify('Costo agregado.');
         state.selectedFleetUnit = await api.getFleetUnit(u.id);
         renderFleetDetail();
         const summary = await api.getFleetSummary(); state.fleetSummary = summary; renderFleet();
       } catch (error) { notify(error.message, true); }
     });
   }
-}
-
-function money(v) {
-  const n = Number(v || 0);
-  return new Intl.NumberFormat('es-MX', { style:'currency', currency:'MXN', maximumFractionDigits:2 }).format(n);
-}
-
-function renderGarantias() {
-  updateStats(); renderAnalytics();
-  const items = filteredGarantias();
-  if (els.garantiasList) els.garantiasList.innerHTML = '';
-  els.emptyState?.classList.toggle('hidden', items.length > 0);
-  items.forEach(item => {
-    const node = els.garantiaCardTemplate.content.cloneNode(true);
-    node.querySelector('.title').textContent = `${item.folio || 'GAR-—'} · Unidad ${item.numeroEconomico} · Obra ${item.numeroObra}`;
-    node.querySelector('.meta').textContent = `${item.empresa} · ${item.modelo} · Reportó ${item.reportadoPorNombre || '—'} · ${fmtDate(item.createdAt)}`;
-    node.querySelector('.description').textContent = item.descripcionFallo;
-    const validationBadge = node.querySelector('.validation-badge'); validationBadge.textContent = item.estatusValidacion; validationBadge.classList.add(badgeClassValidation(item.estatusValidacion));
-    const operationalBadge = node.querySelector('.operational-badge'); operationalBadge.textContent = item.estatusOperativo; operationalBadge.classList.add(badgeClassOperational(item.estatusOperativo));
-    const miniGrid = node.querySelector('.mini-grid');
-    [ ['Incidencia', item.tipoIncidente], ['Solicita refacción', item.solicitaRefaccion ? 'Sí' : 'No'], ['KM', item.kilometraje || '—'], ['Contacto', item.contactoNombre || '—'], ['Teléfono', item.telefono || '—'], ['Revisó', item.revisadoPorNombre || 'Pendiente'], ['Último cambio', fmtDate(item.updatedAt)], ['Obs. operativo', item.observacionesOperativo || '—'], ['Motivo decisión', item.motivoDecision || '—'] ].forEach(([label, value]) => {
-      const div = document.createElement('div'); div.innerHTML = `<strong>${escapeHtml(label)}</strong>${escapeHtml(String(value || '—'))}`; miniGrid.appendChild(div);
-    });
-    const strip = node.querySelector('.evidence-strip'); [...(item.evidencias || []), ...(item.evidenciasRefaccion || [])].slice(0,6).forEach(src => { const img = document.createElement('img'); img.src = src; strip.appendChild(img); }); if (item.firma) { const img = document.createElement('img'); img.src = item.firma; strip.appendChild(img); }
-    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
-    if (isRole('operativo','admin')) {
-      const reviewBox = document.createElement('div'); reviewBox.innerHTML = `
-        <label>Decisión operativa</label>
-        <div class="action-row">
-          <select class="reviewStatus"><option value="pendiente de revisión">Pendiente de revisión</option><option value="aceptada">Aceptada</option><option value="rechazada">Rechazada</option></select>
-          <input class="reviewReason" placeholder="Motivo o comentario" />
-          <button class="btn btn-primary reviewBtn" type="button">Guardar decisión</button>
-        </div>`;
-      reviewBox.querySelector('.reviewStatus').value = item.estatusValidacion === 'nueva' ? 'pendiente de revisión' : item.estatusValidacion;
-      reviewBox.querySelector('.reviewReason').value = item.estatusValidacion === 'rechazada' ? item.motivoDecision : item.observacionesOperativo;
-      reviewBox.querySelector('.reviewBtn').addEventListener('click', async () => {
-        try {
-          const status = reviewBox.querySelector('.reviewStatus').value; const text = reviewBox.querySelector('.reviewReason').value.trim();
-          await api.reviewGarantia(item.id, { estatusValidacion: status, observacionesOperativo: status !== 'rechazada' ? text : '', motivoDecision: status === 'rechazada' ? text : '' });
-          notify('Decisión guardada.'); await loadGarantias();
-        } catch (error) { notify(error.message, true); }
-      });
-      area.appendChild(reviewBox);
-      if (item.estatusValidacion === 'aceptada') {
-        const scheduleRow = document.createElement('div'); scheduleRow.className = 'action-row';
-        if (isRole('admin','operativo')) scheduleRow.appendChild(button('Programar unidad', 'btn btn-primary', async () => { try { await api.requestSchedule(item.id); notify('Solicitud enviada por WhatsApp.'); await loadSchedules(); switchPanel('schedule'); } catch (error) { notify(error.message, true); } }));
-        if (isRole('operador')) scheduleRow.appendChild(button('Ver mi agenda', 'btn btn-secondary', async () => { await loadSchedules(); switchPanel('schedule'); }));
-        if (scheduleRow.children.length) area.appendChild(scheduleRow);
-        const operationalBox = document.createElement('div'); operationalBox.innerHTML = `
-          <label>Flujo del trabajo</label>
-          <div class="action-row">
-            <select class="opStatus"><option value="sin iniciar">Sin iniciar</option><option value="en proceso">En proceso</option><option value="espera refacción">Espera refacción</option><option value="terminada">Terminada</option></select>
-            <input class="opNotes" placeholder="Observación operativa" value="${escapeHtml(item.observacionesOperativo || '')}" />
-            <button class="btn btn-secondary opBtn" type="button">Actualizar trabajo</button>
-          </div>`;
-        operationalBox.querySelector('.opStatus').value = item.estatusOperativo;
-        operationalBox.querySelector('.opBtn').addEventListener('click', async () => {
-          try { await api.updateOperational(item.id, { estatusOperativo: operationalBox.querySelector('.opStatus').value, observacionesOperativo: operationalBox.querySelector('.opNotes').value.trim() }); notify('Flujo actualizado.'); await loadGarantias(); }
-          catch (error) { notify(error.message, true); }
-        });
-        area.appendChild(operationalBox);
-      }
-    }
-    els.garantiasList?.appendChild(node);
+  document.getElementById('fleetEditUnitBtn')?.addEventListener('click', () => {
+    if (!canManageFleet()) return;
+    fillFleetForm(u);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    notify('Unidad lista para edición.');
+  });
+  document.getElementById('fleetDeleteUnitBtn')?.addEventListener('click', async () => {
+    if (!canDeleteFleet()) return;
+    if (!confirm(`¿Eliminar la unidad ${u.numeroEconomico}?`)) return;
+    try {
+      await api.deleteFleetUnit(u.id);
+      notify('Unidad eliminada de flota.');
+      state.selectedFleetUnit = null;
+      clearFleetForm();
+      await loadFleet();
+    } catch (error) { notify(error.message, true); }
   });
 }
-
 
 function renderCompanies() {
   if (els.companiesList) els.companiesList.innerHTML = '';

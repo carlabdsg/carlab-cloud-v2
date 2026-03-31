@@ -324,14 +324,14 @@
             </div>
             <span class="badge badge-info">Empresa · Unidad · Semáforo</span>
           </div>
-          <div class="analytics-grid fleet-summary-grid">
+          <div id="fleetSummarySection" class="analytics-grid fleet-summary-grid">
             <article class="analytic-card highlight-card"><strong>Total flota</strong><div id="fleetTotal" class="metric-line">0</div></article>
             <article class="analytic-card"><strong>Operando</strong><div id="fleetOperando" class="metric-line">0</div></article>
             <article class="analytic-card"><strong>En taller</strong><div id="fleetTaller" class="metric-line">0</div></article>
             <article class="analytic-card"><strong>Detenidas</strong><div id="fleetDetenidas" class="metric-line">0</div></article>
             <article class="analytic-card"><strong>Programadas</strong><div id="fleetProgramadas" class="metric-line">0</div></article>
           </div>
-          <div class="history-search-box history-panel-box">
+          <div id="fleetManageBox" class="history-search-box history-panel-box">
             <div>
               <label>Empresa</label>
               <input id="fleetEmpresa" placeholder="Empresa ligada" />
@@ -368,10 +368,12 @@
             <label class="stack-inline"><input id="fleetCampaignActiva" type="checkbox" style="width:auto;min-height:auto"> Campaña de mantenimiento</label>
             <div class="stack-inline">
               <button id="fleetSaveBtn" class="btn btn-primary hidden" type="button">Guardar unidad</button>
+              <button id="fleetCancelBtn" class="btn btn-ghost hidden" type="button">Cancelar edición</button>
               <button id="fleetRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
             </div>
           </div>
           <div class="fleet-layout">
+            <div id="fleetOwnerBanner" class="fleet-owner-banner hidden"></div>
             <div id="fleetUnitsList" class="cards compact-cards"></div>
             <div id="fleetDetail" class="panel-subtle">
               <div class="muted">Selecciona una unidad para ver historial, reportes y costos.</div>
