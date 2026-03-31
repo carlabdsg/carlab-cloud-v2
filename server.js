@@ -384,6 +384,30 @@ async function tryBackfillLegacyReports() {
   }
 }
 
+async function ensureUsersRoleConstraint() {
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1
+        FROM pg_constraint c
+        JOIN pg_class t ON t.oid = c.conrelid
+        WHERE t.relname = 'users' AND c.conname = 'users_role_check'
+      ) THEN
+        ALTER TABLE users DROP CONSTRAINT users_role_check;
+      END IF;
+    EXCEPTION WHEN undefined_table THEN
+      NULL;
+    END $$;
+  `);
+
+  await pool.query(`
+    ALTER TABLE users
+    ADD CONSTRAINT users_role_check
+    CHECK (role IN ('admin','operador','operativo','supervisor','supervisor_flotas'))
+  `).catch(() => {});
+}
+
 async function initDb() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS companies (
@@ -543,6 +567,8 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_garantias_reportado_por_id ON garantias(reportado_por_id);
     CREATE INDEX IF NOT EXISTS idx_garantias_numero_economico ON garantias(numero_economico);
   `);
+
+  await ensureUsersRoleConstraint();
 
   for (const name of DEFAULT_COMPANIES) {
     await pool.query(

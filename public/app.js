@@ -79,7 +79,7 @@ function bind() {
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
     'topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn',
-    'navFleetBtn','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas'
+    'navFleetBtn','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas','fleetNewBtn','fleetCancelBtn','fleetFormBox'
   ].forEach(id => els[id] = document.getElementById(id));
 }
 bind();
@@ -209,12 +209,18 @@ function resetCompanyForm() {
   if (els.companySubmitBtn) els.companySubmitBtn.textContent = 'Guardar empresa';
   els.companyCancelEditBtn?.classList.add('hidden');
 }
+function toggleFleetForm(show = false) {
+  els.fleetFormBox?.classList.toggle('hidden', !show);
+  els.fleetCancelBtn?.classList.toggle('hidden', !show);
+  if (els.fleetNewBtn) els.fleetNewBtn.textContent = show ? (state.editingFleetUnitId ? 'Editando unidad' : 'Nueva unidad') : 'Nueva unidad';
+}
 function resetFleetForm() {
   state.editingFleetUnitId = '';
   ['fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota'].forEach(id => { if (els[id]) els[id].value = ''; });
   if (els.fleetPolizaActiva) els.fleetPolizaActiva.checked = false;
   if (els.fleetCampaignActiva) els.fleetCampaignActiva.checked = false;
   if (els.fleetSaveBtn) els.fleetSaveBtn.textContent = 'Guardar unidad';
+  toggleFleetForm(false);
 }
 function beginFleetEdit(unit) {
   state.editingFleetUnitId = unit.id;
@@ -229,7 +235,10 @@ function beginFleetEdit(unit) {
   if (els.fleetPolizaActiva) els.fleetPolizaActiva.checked = !!unit.polizaActiva;
   if (els.fleetCampaignActiva) els.fleetCampaignActiva.checked = !!unit.campaignActiva;
   if (els.fleetSaveBtn) els.fleetSaveBtn.textContent = 'Guardar cambios';
+  toggleFleetForm(true);
+  document.getElementById('fleetPanel')?.scrollIntoView({ behavior:'smooth', block:'start' });
 }
+
 function reportPayload() {
   return {
     numeroObra: els.numeroObra?.value.trim(), modelo: els.modelo?.value.trim(), numeroEconomico: els.numeroEconomico?.value.trim(), empresa: els.empresa?.value.trim(), kilometraje: els.kilometraje?.value.trim(),
@@ -451,6 +460,8 @@ function button(text, className, onClick) { const btn = document.createElement('
 
 function renderUsers() {
   if (!els.usersList) return;
+  const currentRole = els.userRole?.value || 'operador';
+  if (els.userEmpresa) els.userEmpresa.disabled = !['operador','supervisor','supervisor_flotas'].includes(currentRole);
   els.usersList.innerHTML = '';
   state.users.forEach(user => {
     const row = document.createElement('div'); row.className = 'table-row';
@@ -634,6 +645,7 @@ async function loadFleet() {
     const canManageFleet = isRole('admin','operativo');
     els.fleetSaveBtn?.classList.toggle('hidden', !canManageFleet);
     document.querySelectorAll('.fleet-form-only').forEach(el => el.classList.toggle('hidden', !canManageFleet));
+    if (!canManageFleet) toggleFleetForm(false);
     if (['supervisor','supervisor_flotas'].includes(state.user?.role) && els.fleetEmpresa) {
       els.fleetEmpresa.value = state.user.empresa || '';
       els.fleetEmpresa.disabled = true;
@@ -953,7 +965,7 @@ els.loginForm?.addEventListener('submit', async (e) => {
   try {
     const data = await api.login(els.loginEmail.value.trim(), els.loginPassword.value);
     state.token = data.token; localStorage.setItem('carlabToken', state.token); state.user = data.user; showDashboard();
-    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); await loadSchedules(''); await loadNotifications(); await loadFleet(); resetReportForm(); resetCompanyForm(); notify(`Bienvenido, ${state.user.nombre}.`);
+    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); await loadSchedules(''); await loadNotifications(); await loadFleet(); resetReportForm(); resetCompanyForm(); resetFleetForm(); notify(`Bienvenido, ${state.user.nombre}.`);
   } catch (error) { if (els.loginError) { els.loginError.textContent = error.message; els.loginError.classList.remove('hidden'); } else notify(error.message,true); }
 });
 
@@ -984,6 +996,13 @@ els.navCompaniesBtn?.addEventListener('click', async () => { switchPanel('compan
 els.cancelReportBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('board'); });
 els.userCancelEditBtn?.addEventListener('click', resetUserForm);
 els.companyCancelEditBtn?.addEventListener('click', resetCompanyForm);
+els.fleetNewBtn?.addEventListener('click', () => { if (!isRole('admin','operativo')) return; state.editingFleetUnitId = ''; toggleFleetForm(true); if (els.fleetSaveBtn) els.fleetSaveBtn.textContent = 'Guardar unidad'; });
+els.fleetCancelBtn?.addEventListener('click', resetFleetForm);
+els.userRole?.addEventListener('change', () => {
+  const role = els.userRole.value;
+  const needsEmpresa = ['operador','supervisor','supervisor_flotas'].includes(role);
+  if (els.userEmpresa) { els.userEmpresa.disabled = !needsEmpresa; if (!needsEmpresa) els.userEmpresa.value = ''; }
+});
 els.unitHistoryBtn?.addEventListener('click', renderUnitHistory);
 els.scheduleRefreshBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
 
@@ -1019,7 +1038,8 @@ els.reportForm?.addEventListener('submit', async (e) => {
 els.userForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
   try {
-    const payload = { nombre: els.userNombre.value.trim(), email: els.userEmail.value.trim(), role: els.userRole.value, empresa: els.userEmpresa.value.trim(), telefono: els.userTelefono.value.trim(), password: els.userPassword.value };
+    const role = els.userRole.value;
+    const payload = { nombre: els.userNombre.value.trim(), email: els.userEmail.value.trim(), role, empresa: ['operador','supervisor','supervisor_flotas'].includes(role) ? els.userEmpresa.value.trim() : '', telefono: els.userTelefono.value.trim(), password: els.userPassword.value };
     if (state.editingUserId) { await api.updateUser(state.editingUserId, payload); notify('Usuario actualizado.'); }
     else { await api.createUser(payload); notify('Usuario creado.'); }
     resetUserForm(); await loadUsers();
