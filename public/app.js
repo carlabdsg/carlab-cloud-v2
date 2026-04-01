@@ -20,6 +20,8 @@ const state = {
   unitHistoryRows: [],
   partsPending: [],
   partsCacheAt: 0,
+  partsDirtyIds: new Set(),
+  fleetDirty: false,
 };
 
 const api = {
@@ -267,6 +269,7 @@ function toggleFleetForm(show = false) {
   if (els.fleetNewBtn) els.fleetNewBtn.textContent = show ? (state.editingFleetUnitId ? 'Editando unidad' : 'Nueva unidad') : 'Nueva unidad';
 }
 function resetFleetForm() {
+  state.fleetDirty = false;
   state.editingFleetUnitId = '';
   ['fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota'].forEach(id => { if (els[id]) els[id].value = ''; });
   if (els.fleetPolizaActiva) els.fleetPolizaActiva.checked = false;
@@ -720,6 +723,7 @@ function renderSchedules() {
 
 async function loadPartsPending(force = false) {
   if (!isRole('admin','supervisor_flotas')) return;
+  if (!force && state.partsDirtyIds.size) return;
   const now = Date.now();
   if (!force && state.partsPending.length && now - state.partsCacheAt < 30000) {
     renderPartsPending();
@@ -804,6 +808,14 @@ function renderPartsPending() {
     els.partsList.appendChild(card);
 
     if (isRole('admin')) {
+      const detailInput = card.querySelector(`#partsDetail_${item.id}`);
+      const assignedInput = card.querySelector(`#partsAssigned_${item.id}`);
+      const statusInput = card.querySelector(`#partsStatus_${item.id}`);
+      [detailInput, assignedInput, statusInput].forEach(el => {
+        el?.addEventListener('input', () => state.partsDirtyIds.add(item.id));
+        el?.addEventListener('change', () => state.partsDirtyIds.add(item.id));
+      });
+
       card.querySelector(`[data-parts-save="${item.id}"]`)?.addEventListener('click', async () => {
         try {
           await api.updateParts(item.id, {
@@ -811,6 +823,7 @@ function renderPartsPending() {
             refaccionAsignada: document.getElementById(`partsAssigned_${item.id}`)?.value || '',
             refaccionStatus: document.getElementById(`partsStatus_${item.id}`)?.value || 'pendiente'
           });
+          state.partsDirtyIds.delete(item.id);
           notify('Refacción actualizada.');
           await loadPartsPending(true);
           await loadGarantias();
@@ -1206,6 +1219,11 @@ els.fleetRefreshBtn?.addEventListener('click', async () => { await loadFleet(); 
 els.partsRefreshBtn?.addEventListener('click', async () => { await loadPartsPending(true); switchPanel('parts'); });
 els.fleetSearchInput?.addEventListener('input', renderFleet);
 els.fleetStatusFilter?.addEventListener('change', renderFleet);
+['fleetEmpresa','fleetNombreFlota','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetPolizaActiva','fleetCampaignActiva'].forEach(id => {
+  const el = document.getElementById(id);
+  el?.addEventListener('input', () => state.fleetDirty = true);
+  el?.addEventListener('change', () => state.fleetDirty = true);
+});
 els.fleetSaveBtn?.addEventListener('click', async () => {
   try {
     const payload = {
@@ -1222,6 +1240,7 @@ els.fleetSaveBtn?.addEventListener('click', async () => {
     };
     if (state.editingFleetUnitId) { await api.updateFleetUnit(state.editingFleetUnitId, payload); notify('Unidad actualizada.'); }
     else { await api.createFleetUnit(payload); notify('Unidad de flota guardada.'); }
+    state.fleetDirty = false;
     resetFleetForm();
     await loadFleet();
   } catch (error) { notify(error.message, true); }
@@ -1281,7 +1300,5 @@ setInterval(async () => {
   try {
     await loadNotifications();
     if (['board','schedule'].includes(state.activePanel)) await Promise.allSettled([loadGarantias(), loadSchedules('')]);
-    if (state.activePanel === 'fleet' && isRole('admin','operativo','supervisor_flotas')) await loadFleet();
-    if (state.activePanel === 'parts' && isRole('admin','supervisor_flotas')) await loadPartsPending();
   } catch {}
 }, 5000);
