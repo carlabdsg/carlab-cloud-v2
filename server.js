@@ -578,7 +578,7 @@ async function initDb() {
       numero_economico TEXT,
       solicitud TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'pendiente',
-      requested_by UUID REFERENCES users(id) ON DELETE SET NULL,
+      requested_by TEXT REFERENCES users(id) ON DELETE SET NULL,
       notes TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
