@@ -79,6 +79,9 @@ const api = {
   updateFleetStatus(id, payload) { return this.request(`/api/fleet/units/${id}/status`, { method: 'PATCH', body: JSON.stringify(payload) }); },
   deleteFleetUnit(id) { return this.request(`/api/fleet/units/${id}`, { method: 'DELETE' }); },
   createFleetCost(id, payload) { return this.request(`/api/fleet/units/${id}/costs`, { method: 'POST', body: JSON.stringify(payload) }); },
+  getFleetCosts(id) { return this.request(`/api/fleet/units/${id}/costs`); },
+  updateFleetCost(id, payload) { return this.request(`/api/fleet/costs/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
+  deleteFleetCost(id) { return this.request(`/api/fleet/costs/${id}`, { method: 'DELETE' }); },
 
 };
 
@@ -706,9 +709,8 @@ function renderSchedules() {
           await api.confirmSchedule(item.id, { status:'confirmed', scheduledFor: item.scheduledFor || item.proposedAt, notes: item.notes || '' });
           notify('Cita confirmada.'); await loadSchedules(selectedDate); await loadNotifications();
         } catch (error) {
-          if (String(error.message || '').includes('ocupado')) {
-            notify(error.message, true);
-          } else notify(error.message, true);
+          if (String(error.message || '').includes('ocupado')) notify(error.message, true);
+          else notify(error.message, true);
         }
       }));
       actions.appendChild(button('Recomendar +1h', 'btn btn-secondary', async () => {
@@ -719,6 +721,10 @@ function renderSchedules() {
           notify('Se confirmó con horario recomendado.'); await loadSchedules(selectedDate); await loadNotifications();
         } catch (error) { notify(error.message, true); }
       }));
+    }
+    if (isRole('admin','operativo','supervisor_flotas') && ['proposed','confirmed','waiting_operator'].includes(item.status)) {
+      actions.appendChild(button('Reprogramar', 'btn btn-secondary', async () => { await reprogramarCita(item.id); }));
+      actions.appendChild(button('Cancelar', 'btn btn-ghost', async () => { await cancelarCita(item.id); }));
     }
     els.scheduleList.appendChild(row);
   });
@@ -844,7 +850,7 @@ function renderPartsPending() {
     }
   }
 
-  const extras = state.independentPartsRequests || [];
+  const extras = (state.independentPartsRequests || []).filter(req => !['instalada','cerrada','cancelada'].includes(String(req.status || '').toLowerCase()));
   if (!items.length && !extras.length) {
     els.partsList.innerHTML = '<div class="parts-empty"><strong>No hay refacciones pendientes.</strong><div>Cuando una unidad quede a la espera de pieza o una refacción se marque pendiente, aparecerá aquí.</div></div>';
     return;
@@ -1050,6 +1056,22 @@ function renderFleetDetail() {
       <div>${escapeHtml(c.createdByNombre || '—')}</div>
     </div>
   `).join('') || '<div class="muted">Sin costos capturados.</div>';
+  const adminCostsEditor = isRole('admin') ? `
+    <div class="admin-cost-editor-list">
+      ${(state.unitCostsAdmin || []).map(c => `
+        <div class="admin-cost-editor-row">
+          <select id="adminCostTipo_${c.id}">
+            <option value="refaccion" ${c.tipo === 'refaccion' ? 'selected' : ''}>Refacción</option>
+            <option value="mano_obra" ${c.tipo === 'mano_obra' ? 'selected' : ''}>Mano de obra</option>
+          </select>
+          <input id="adminCostConcepto_${c.id}" value="${escapeHtml(c.concepto || '')}" placeholder="Concepto" />
+          <input id="adminCostMonto_${c.id}" type="number" step="0.01" min="0" value="${Number(c.monto || 0).toFixed(2)}" placeholder="Monto" />
+          <button class="btn btn-secondary" type="button" onclick="guardarCostoAdmin('${c.id}','${u.id}')">Guardar</button>
+          <button class="btn btn-ghost" type="button" onclick="eliminarCostoAdmin('${c.id}','${u.id}')">Eliminar</button>
+        </div>
+      `).join('')}
+    </div>
+  ` : '';
   const costForm = isRole('admin') ? `
     <div class="fleet-cost-form">
       <h4>Registrar costo</h4>
@@ -1101,7 +1123,7 @@ function renderFleetDetail() {
     </div>
     <div class="fleet-columns">
       <section><div class="topbar-kicker">REPORTES</div><div class="table-list compact-list">${reports}</div></section>
-      <section><div class="topbar-kicker">COSTOS</div><div class="table-list compact-list">${costs}</div></section>
+      <section><div class="topbar-kicker">COSTOS</div><div class="table-list compact-list">${costs}</div>${adminCostsEditor}</section>
     </div>
   `;
   if (isRole('admin')) {
@@ -1134,6 +1156,7 @@ function renderFleetDetail() {
         });
         notify('Costo guardado.');
         state.selectedFleetUnit = await api.getFleetUnit(u.id);
+        await loadAdminUnitCosts(u.id);
         renderFleetDetail();
         const summary = await api.getFleetSummary(); state.fleetSummary = summary; renderFleet();
       } catch (error) { notify(error.message, true); }

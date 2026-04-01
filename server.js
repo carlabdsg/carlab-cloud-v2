@@ -1420,9 +1420,9 @@ app.post('/api/fleet/units/:id/costs', authRequired, requireRoles('admin'), asyn
   if (!unit.rowCount) return res.status(404).json({ error: 'Unidad no encontrada.' });
   const tipo = String(req.body.tipo || '').trim();
   const concepto = String(req.body.concepto || '').trim();
-  const monto = Number(req.body.monto || 0);
+  const monto = Number(req.body.monto);
   const garantiaId = String(req.body.garantiaId || '').trim() || null;
-  if (!['refaccion','mano_obra'].includes(tipo) || !monto) return res.status(400).json({ error: 'Costo inválido.' });
+  if (!['refaccion','mano_obra'].includes(tipo) || Number.isNaN(monto) || monto < 0) return res.status(400).json({ error: 'Costo inválido.' });
   const result = await pool.query(`
     INSERT INTO fleet_cost_entries (id, fleet_unit_id, garantia_id, tipo, concepto, monto, created_by_id, created_by_nombre)
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
@@ -1584,8 +1584,8 @@ app.get('/api/fleet/units/:id/costs', authRequired, requireRoles('admin'), async
   try {
     const result = await pool.query(
       `SELECT id, tipo, concepto, monto, created_at
-       FROM fleet_unit_costs
-       WHERE unit_id = $1
+       FROM fleet_cost_entries
+       WHERE fleet_unit_id = $1
        ORDER BY created_at DESC`,
       [req.params.id]
     );
@@ -1605,10 +1605,10 @@ app.patch('/api/fleet/costs/:id', authRequired, requireRoles('admin'), async (re
       return res.status(400).json({ error: 'Datos de costo inválidos.' });
     }
     const result = await pool.query(
-      `UPDATE fleet_unit_costs
+      `UPDATE fleet_cost_entries
        SET tipo = $2, concepto = $3, monto = $4
        WHERE id = $1
-       RETURNING id, unit_id, tipo, concepto, monto, created_at`,
+       RETURNING id, fleet_unit_id, tipo, concepto, monto, created_at`,
       [req.params.id, tipo, concepto, monto]
     );
     if (!result.rowCount) return res.status(404).json({ error: 'Costo no encontrado.' });
@@ -1621,7 +1621,7 @@ app.patch('/api/fleet/costs/:id', authRequired, requireRoles('admin'), async (re
 
 app.delete('/api/fleet/costs/:id', authRequired, requireRoles('admin'), async (req, res) => {
   try {
-    const result = await pool.query(`DELETE FROM fleet_unit_costs WHERE id = $1 RETURNING id`, [req.params.id]);
+    const result = await pool.query(`DELETE FROM fleet_cost_entries WHERE id = $1 RETURNING id`, [req.params.id]);
     if (!result.rowCount) return res.status(404).json({ error: 'Costo no encontrado.' });
     res.json({ ok: true });
   } catch (error) {

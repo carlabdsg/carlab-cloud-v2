@@ -2471,3 +2471,58 @@ body[data-role="supervisor_flotas"] .profile-panel span {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* V4.1.4 real fixes */
+@media (min-width: 1101px) {
+  body[data-role="admin"] #filtersPanel,
+  body[data-role="operativo"] #filtersPanel,
+  body[data-role="supervisor"] #filtersPanel,
+  body[data-role="supervisor_flotas"] #filtersPanel {
+    display: grid !important;
+    grid-template-columns: minmax(0,1.5fr) 180px 180px !important;
+    gap: 12px !important;
+    align-items: center !important;
+    position: static !important;
+    margin: 0 0 16px 0 !important;
+    padding: 14px !important;
+    background: #fff !important;
+    border: 1px solid rgba(16,24,40,.08) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 12px 24px rgba(16,24,40,.04) !important;
+  }
+}
+@media (max-width: 1100px) {
+  body[data-role="admin"] #filtersPanel,
+  body[data-role="operativo"] #filtersPanel,
+  body[data-role="supervisor"] #filtersPanel,
+  body[data-role="supervisor_flotas"] #filtersPanel {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+    position: static !important;
+    margin: 0 0 14px 0 !important;
+    padding: 12px !important;
+    background: #fff !important;
+    border: 1px solid rgba(16,24,40,.08) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 12px 24px rgba(16,24,40,.04) !important;
+  }
+}
+
+.admin-cost-editor-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+.admin-cost-editor-row {
+  display: grid;
+  grid-template-columns: 150px 1.4fr 120px auto auto;
+  gap: 8px;
+  align-items: center;
+}
+@media (max-width: 980px) {
+  .admin-cost-editor-row {
+    grid-template-columns: 1fr;
+  }
+}
