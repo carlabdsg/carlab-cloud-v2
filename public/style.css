@@ -1740,3 +1740,71 @@ body.executive-mode.owner-focus .fleet-luxury-card.is-selected {
     grid-template-columns: 320px minmax(0,1fr) !important;
   }
 }
+
+
+/* V3.9.7 roles locked + fleet toolbar on top in PC */
+body[data-role="supervisor"] .nav-btn#navFleetBtn,
+body[data-role="supervisor"] .nav-btn#navPartsBtn,
+body[data-role="supervisor"] .nav-btn#navUsersBtn,
+body[data-role="supervisor"] .nav-btn#navRequestsBtn,
+body[data-role="supervisor"] .nav-btn#navCompaniesBtn,
+body[data-role="supervisor_flotas"] .nav-btn#navUsersBtn,
+body[data-role="supervisor_flotas"] .nav-btn#navRequestsBtn,
+body[data-role="supervisor_flotas"] .nav-btn#navCompaniesBtn,
+body[data-role="supervisor_flotas"] .nav-btn#navNewReportBtn {
+  display: none !important;
+}
+
+@media (min-width: 1101px) {
+  body.executive-mode.owner-focus .fleet-admin-toolbar {
+    margin-bottom: 14px !important;
+  }
+
+  body.executive-mode.owner-focus .fleet-line-filters {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 3 !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 110px 120px !important;
+    gap: 10px !important;
+    align-items: center !important;
+    width: 100% !important;
+    margin: 0 0 14px 0 !important;
+    padding: 12px !important;
+    background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,250,252,.96)) !important;
+    border: 1px solid rgba(16,24,40,.06) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 10px 24px rgba(16,24,40,.04) !important;
+  }
+
+  body.executive-mode.owner-focus .fleet-line-list {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+  }
+
+  body.executive-mode.owner-focus .fleet-line-item,
+  body.executive-mode.owner-focus .fleet-luxury-card {
+    margin-top: 0 !important;
+  }
+
+  body.executive-mode.owner-focus .fleet-line-filters + .fleet-line-list,
+  body.executive-mode.owner-focus .fleet-admin-toolbar + .fleet-layout {
+    margin-top: 12px !important;
+  }
+
+  body.executive-mode.owner-focus .fleet-layout {
+    align-items: start !important;
+  }
+
+  body.executive-mode.owner-focus .fleet-detail-premium {
+    margin-top: 0 !important;
+  }
+
+  body.executive-mode.owner-focus .fleet-line-filters input,
+  body.executive-mode.owner-focus .fleet-line-filters select,
+  body.executive-mode.owner-focus .fleet-line-filters .btn {
+    min-height: 40px !important;
+    height: 40px !important;
+    margin: 0 !important;
+  }
+}

@@ -340,7 +340,8 @@ function updateOperatorAppNav(panel) {
   if (panel === 'schedule') els.opNavScheduleBtn?.classList.add('active');
 }
 function switchPanel(panel) {
-  if (state.user?.role === 'supervisor_flotas' && ['users','requests','companies'].includes(panel)) panel = 'fleet';
+  if (state.user?.role === 'supervisor_flotas' && ['users','requests','companies','report'].includes(panel)) panel = 'fleet';
+  if (state.user?.role === 'supervisor' && ['users','requests','companies','fleet','parts','report'].includes(panel)) panel = 'board';
   state.activePanel = panel;
   document.getElementById('boardPanel')?.classList.toggle('hidden', panel !== 'board');
   els.reportFormPanel?.classList.toggle('hidden', panel !== 'report');
@@ -387,10 +388,19 @@ function showDashboard() {
   els.navHistoryBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo'));
   els.navScheduleBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo','operador'));
   els.navFleetBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas','operativo'));
+  els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas','operativo'));
+  if (state.user?.role === 'supervisor') {
+    els.navFleetBtn?.classList.add('hidden');
+    els.navPartsBtn?.classList.add('hidden');
+    els.navUsersBtn?.classList.add('hidden');
+    els.navRequestsBtn?.classList.add('hidden');
+    els.navCompaniesBtn?.classList.add('hidden');
+  }
   if (state.user?.role === 'supervisor_flotas') {
     els.navUsersBtn?.classList.add('hidden');
     els.navRequestsBtn?.classList.add('hidden');
     els.navCompaniesBtn?.classList.add('hidden');
+    els.navNewReportBtn?.classList.add('hidden');
   }
   els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas'));
   updateHeaderForRole(); switchPanel(state.user?.role === 'operador' ? 'report' : 'board');
