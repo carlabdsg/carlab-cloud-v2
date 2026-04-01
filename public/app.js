@@ -20,8 +20,6 @@ const state = {
   unitHistoryRows: [],
   partsPending: [],
   partsCacheAt: 0,
-  partsEditingId: '',
-  partsDirtyIds: new Set(),
 };
 
 const api = {
@@ -354,12 +352,8 @@ function switchPanel(panel) {
   els.fleetPanel?.classList.toggle('hidden', panel !== 'fleet');
   els.partsPanel?.classList.toggle('hidden', panel !== 'parts');
   document.body.dataset.panel = panel;
-  const ownerFocus = state.user?.role === 'supervisor_flotas' && ['fleet','parts','schedule','history'].includes(panel);
-  document.body.classList.toggle('owner-focus', ownerFocus);
   const board = panel === 'board';
-  const hideGlobalFilters = state.user?.role === 'supervisor_flotas' && ['fleet','parts','schedule','history'].includes(panel);
-  els.filtersPanel?.classList.toggle('hidden', !board || hideGlobalFilters);
-  if (els.filtersPanel) els.filtersPanel.style.display = hideGlobalFilters ? 'none' : '';
+  els.filtersPanel?.classList.toggle('hidden', !board);
   if (panel === 'schedule') loadSchedules('');
   if (panel === 'fleet') loadFleet();
   if (panel === 'parts') loadPartsPending();
@@ -383,7 +377,6 @@ function showDashboard() {
   els.loginView?.classList.add('hidden'); els.dashboardView?.classList.remove('hidden');
   document.body.classList.toggle('operator-mode', state.user?.role === 'operador');
   document.body.classList.toggle('executive-mode', state.user?.role !== 'operador');
-  document.body.classList.remove('owner-focus');
   document.body.dataset.role = state.user?.role || ''; 
   els.navNewReportBtn?.classList.toggle('hidden', !isRole('operador','admin'));
   els.navUsersBtn?.classList.toggle('hidden', !isRole('admin'));
@@ -396,7 +389,7 @@ function showDashboard() {
   els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas'));
   updateHeaderForRole(); switchPanel(state.user?.role === 'operador' ? 'report' : 'board');
 }
-function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); document.body.classList.remove('executive-mode','operator-mode','owner-focus'); document.body.dataset.role=''; document.body.dataset.panel='login'; }
+function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); document.body.classList.remove('executive-mode','operator-mode'); document.body.dataset.role=''; document.body.dataset.panel='login'; }
 
 function filteredGarantias() {
   const search = els.searchInput?.value.trim().toLowerCase() || '';
@@ -711,7 +704,6 @@ function renderSchedules() {
 
 async function loadPartsPending(force = false) {
   if (!isRole('admin','supervisor_flotas')) return;
-  if (!force && state.partsDirtyIds.size) return;
   const now = Date.now();
   if (!force && state.partsPending.length && now - state.partsCacheAt < 30000) {
     renderPartsPending();
@@ -796,14 +788,6 @@ function renderPartsPending() {
     els.partsList.appendChild(card);
 
     if (isRole('admin')) {
-      const detailInput = card.querySelector(`#partsDetail_${item.id}`);
-      const assignedInput = card.querySelector(`#partsAssigned_${item.id}`);
-      const statusInput = card.querySelector(`#partsStatus_${item.id}`);
-      [detailInput, assignedInput, statusInput].forEach(el => {
-        el?.addEventListener('input', () => state.partsDirtyIds.add(item.id));
-        el?.addEventListener('change', () => state.partsDirtyIds.add(item.id));
-      });
-
       card.querySelector(`[data-parts-save="${item.id}"]`)?.addEventListener('click', async () => {
         try {
           await api.updateParts(item.id, {
@@ -811,7 +795,6 @@ function renderPartsPending() {
             refaccionAsignada: document.getElementById(`partsAssigned_${item.id}`)?.value || '',
             refaccionStatus: document.getElementById(`partsStatus_${item.id}`)?.value || 'pendiente'
           });
-          state.partsDirtyIds.delete(item.id);
           notify('Refacción actualizada.');
           await loadPartsPending(true);
           await loadGarantias();
@@ -849,15 +832,30 @@ function renderFleet() {
   if (els.fleetUnitsList) els.fleetUnitsList.innerHTML = '';
   const fleetQuery = normalizeText(els.fleetSearchInput?.value || '');
   const fleetStatus = els.fleetStatusFilter?.value || 'todos';
+
   const visibleUnits = state.fleetUnits.filter(unit => {
     const sem = fleetSemaforo(unit);
-    const hayTexto = !fleetQuery || normalizeText([unit.numeroEconomico, unit.empresa, unit.marca, unit.modelo, unit.numeroObra, unit.nombreFlota].join(' ')).includes(fleetQuery);
-    const hayEstado = fleetStatus === 'todos' || sem.key === fleetStatus;
-    return hayTexto && hayEstado;
+    const statusKey = sem.key;
+    const textBlob = normalizeText([
+      unit.numeroEconomico,
+      unit.empresa,
+      unit.marca,
+      unit.modelo,
+      unit.numeroObra,
+      unit.nombreFlota
+    ].join(' '));
+    const matchQuery = !fleetQuery || textBlob.includes(fleetQuery);
+    const matchStatus = fleetStatus === 'todos' || statusKey === fleetStatus;
+    return matchQuery && matchStatus;
   });
 
-  if (!visibleUnits.length && els.fleetUnitsList) {
-    els.fleetUnitsList.innerHTML = '<div class="empty-state"><strong>Sin coincidencias.</strong><span>Ajusta búsqueda o estado para encontrar la unidad correcta.</span></div>';
+  if (els.fleetUnitsList) {
+    els.fleetUnitsList.innerHTML = visibleUnits.length ? '' : `
+      <div class="fleet-empty-luxury">
+        <strong>Sin unidades visibles</strong>
+        <span>Ajusta búsqueda o estado para encontrar la unidad correcta.</span>
+      </div>
+    `;
   }
 
   visibleUnits.forEach(unit => {
@@ -865,28 +863,43 @@ function renderFleet() {
     const poliza = fleetTagPoliza(unit);
     const camp = fleetTagCampania(unit);
     const row = document.createElement('article');
-    row.className = 'fleet-line-item';
+    row.className = `fleet-luxury-card ${state.selectedFleetUnit?.unit?.id === unit.id ? 'is-selected' : ''}`;
     row.innerHTML = `
-      <div class="fleet-line-num">${escapeHtml(unit.numeroEconomico || '—')}</div>
-      <div class="fleet-line-emoji">${status.emoji}</div>
-      <div class="fleet-line-main">
-        <strong>${escapeHtml(status.text)}</strong>
-        <div class="fleet-line-sub">${escapeHtml(unit.empresa || '—')}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}${unit.marca ? ' · ' + escapeHtml(unit.marca) : ''}</div>
+      <div class="fleet-luxury-top">
+        <div class="fleet-luxury-number">${escapeHtml(unit.numeroEconomico || '—')}</div>
+        <div class="fleet-luxury-state">
+          <span class="fleet-state-dot">${status.emoji}</span>
+          <strong>${escapeHtml(status.text)}</strong>
+        </div>
       </div>
-      <div class="fleet-line-tags">
+      <div class="fleet-luxury-company">${escapeHtml(unit.empresa || '—')}</div>
+      <div class="fleet-luxury-meta">
+        <span>${escapeHtml(unit.modelo || 'Sin modelo')}</span>
+        <span>${escapeHtml(unit.marca || 'Sin marca')}</span>
+      </div>
+      <div class="fleet-luxury-tags">
         <span class="fleet-chip ${poliza.cls}">${poliza.text}</span>
         <span class="fleet-chip ${camp.cls}">${camp.text}</span>
       </div>
-      <div class="fleet-line-status">${unit.lastReportAt ? fmtDate(unit.lastReportAt) : 'Sin movimiento'}</div>
+      <div class="fleet-luxury-footer">
+        <span>${unit.lastReportAt ? fmtDate(unit.lastReportAt) : 'Sin movimiento'}</span>
+        <button class="btn btn-ghost fleet-open-btn" type="button">Ver unidad</button>
+      </div>
     `;
-    row.addEventListener('click', async () => {
-      try {
-        state.selectedFleetUnit = await api.getFleetUnit(unit.id);
-        renderFleetDetail();
-      } catch (error) { notify(error.message, true); }
+    row.addEventListener('click', async (event) => {
+      if (event.target.closest('.fleet-open-btn') || event.currentTarget === row) {
+        try {
+          state.selectedFleetUnit = await api.getFleetUnit(unit.id);
+          renderFleet();
+          renderFleetDetail();
+        } catch (error) {
+          notify(error.message, true);
+        }
+      }
     });
     els.fleetUnitsList?.appendChild(row);
   });
+
   renderFleetDetail();
 }
 
@@ -1276,21 +1289,6 @@ setInterval(async () => {
     await loadNotifications();
     if (['board','schedule'].includes(state.activePanel)) await Promise.allSettled([loadGarantias(), loadSchedules('')]);
     if (state.activePanel === 'fleet' && isRole('admin','operativo','supervisor_flotas')) await loadFleet();
-    if (state.activePanel === 'parts' && isRole('admin','supervisor_flotas') && !state.partsDirtyIds.size) await loadPartsPending();
+    if (state.activePanel === 'parts' && isRole('admin','supervisor_flotas')) await loadPartsPending();
   } catch {}
 }, 5000);
-
-
-const mainAreaEl = document.querySelector('.main-area');
-if (mainAreaEl) {
-  let lastScrollTop = 0;
-  mainAreaEl.addEventListener('scroll', () => {
-    const currentTop = mainAreaEl.scrollTop;
-    if (currentTop > 40 && currentTop > lastScrollTop) {
-      mainAreaEl.classList.add('scrolled-down');
-    } else {
-      mainAreaEl.classList.remove('scrolled-down');
-    }
-    lastScrollTop = currentTop <= 0 ? 0 : currentTop;
-  });
-}
