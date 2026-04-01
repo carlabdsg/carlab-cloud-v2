@@ -2095,3 +2095,56 @@ body[data-role="supervisor_flotas"] .nav-btn#navNewReportBtn {
     grid-template-columns: 1fr !important;
   }
 }
+
+
+/* V4.0 move top header to side panel (except operador) */
+@media (min-width: 1101px) {
+  body[data-role="admin"] .page-header,
+  body[data-role="operativo"] .page-header,
+  body[data-role="supervisor"] .page-header,
+  body[data-role="supervisor_flotas"] .page-header {
+    display: grid !important;
+    grid-template-columns: 260px 1fr !important;
+    align-items: start !important;
+    gap: 20px !important;
+  }
+
+  body[data-role="admin"] .page-header .header-main,
+  body[data-role="operativo"] .page-header .header-main,
+  body[data-role="supervisor"] .page-header .header-main,
+  body[data-role="supervisor_flotas"] .page-header .header-main {
+    grid-column: 1 / 2 !important;
+  }
+
+  body[data-role="admin"] .page-header .header-actions,
+  body[data-role="operativo"] .page-header .header-actions,
+  body[data-role="supervisor"] .page-header .header-actions,
+  body[data-role="supervisor_flotas"] .page-header .header-actions {
+    grid-column: 2 / 3 !important;
+    justify-self: end !important;
+    display: flex !important;
+    gap: 10px !important;
+    align-items: center !important;
+  }
+
+  /* compact header visual */
+  body[data-role="admin"] .page-header,
+  body[data-role="operativo"] .page-header,
+  body[data-role="supervisor"] .page-header,
+  body[data-role="supervisor_flotas"] .page-header {
+    padding: 12px 16px !important;
+    border-radius: 14px !important;
+    background: #fff !important;
+    border: 1px solid rgba(16,24,40,.06) !important;
+    box-shadow: 0 8px 18px rgba(16,24,40,.04) !important;
+    margin-bottom: 16px !important;
+  }
+
+  /* push content below cleanly */
+  body[data-role="admin"] .page-header + *,
+  body[data-role="operativo"] .page-header + *,
+  body[data-role="supervisor"] .page-header + *,
+  body[data-role="supervisor_flotas"] .page-header + * {
+    margin-top: 10px !important;
+  }
+}
