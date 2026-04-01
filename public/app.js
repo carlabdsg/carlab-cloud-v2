@@ -24,6 +24,8 @@ const state = {
   fleetDirty: false,
   unitCostsAdmin: [],
   independentPartsRequests: [],
+  editingGarantiaId: '',
+  editingFirmaOriginal: '',
 };
 
 const api = {
@@ -170,6 +172,17 @@ function resetSignature() {
   state.hasSignature = false;
 }
 resetSignature();
+
+function loadSignatureFromDataUrl(src) {
+  if (!ctx || !els.firmaCanvas || !src) return;
+  const img = new Image();
+  img.onload = () => {
+    resetSignature();
+    ctx.drawImage(img, 0, 0, els.firmaCanvas.width, els.firmaCanvas.height);
+    state.hasSignature = true;
+  };
+  img.src = src;
+}
 function pointerPos(e) { const rect = els.firmaCanvas.getBoundingClientRect(); const point = e.touches ? e.touches[0] : e; return { x: (point.clientX - rect.left) * (els.firmaCanvas.width / rect.width), y: (point.clientY - rect.top) * (els.firmaCanvas.height / rect.height) }; }
 function startDraw(e) { state.drawing = true; state.hasSignature = true; const { x, y } = pointerPos(e); ctx.beginPath(); ctx.moveTo(x, y); }
 function moveDraw(e) { if (!state.drawing) return; e.preventDefault(); const { x, y } = pointerPos(e); ctx.lineTo(x, y); ctx.stroke(); }
@@ -256,6 +269,17 @@ function resetReportForm() {
   if (isRole('operador') && els.contactoNombre) els.contactoNombre.value = state.user?.nombre || '';
   if (isRole('operador') && els.telefono) els.telefono.value = state.user?.telefono || '';
   resetSignature();
+
+function loadSignatureFromDataUrl(src) {
+  if (!ctx || !els.firmaCanvas || !src) return;
+  const img = new Image();
+  img.onload = () => {
+    resetSignature();
+    ctx.drawImage(img, 0, 0, els.firmaCanvas.width, els.firmaCanvas.height);
+    state.hasSignature = true;
+  };
+  img.src = src;
+}
 }
 function resetUserForm() {
   state.editingUserId = '';
@@ -308,7 +332,7 @@ function reportPayload() {
   return {
     numeroObra: els.numeroObra?.value.trim(), modelo: els.modelo?.value.trim(), numeroEconomico: els.numeroEconomico?.value.trim(), empresa: els.empresa?.value.trim(), kilometraje: els.kilometraje?.value.trim(),
     contactoNombre: els.contactoNombre?.value.trim(), telefono: els.telefono?.value.trim(), tipoIncidente: selectedRadio('tipoIncidente'), descripcionFallo: els.descripcionFallo?.value.trim(), solicitaRefaccion: els.solicitaRefaccion?.checked,
-    detalleRefaccion: els.detalleRefaccion?.value.trim(), evidencias: state.currentEvidence, evidenciasRefaccion: state.currentRefEvidence, firma: state.hasSignature ? els.firmaCanvas.toDataURL('image/jpeg', 0.95) : '',
+    detalleRefaccion: els.detalleRefaccion?.value.trim(), evidencias: state.currentEvidence, evidenciasRefaccion: state.currentRefEvidence, firma: state.hasSignature ? els.firmaCanvas.toDataURL('image/jpeg', 0.95) : (state.editingGarantiaId ? state.editingFirmaOriginal : ''),
   };
 }
 
@@ -1173,42 +1197,37 @@ function money(v) {
 
 async function editarReporteAdmin(item) {
   try {
-    const numeroObra = window.prompt('Número de obra:', item.numeroObra || '');
-    if (numeroObra === null) return;
-    const numeroEconomico = window.prompt('Número económico:', item.numeroEconomico || '');
-    if (numeroEconomico === null) return;
-    const empresa = window.prompt('Empresa:', item.empresa || '');
-    if (empresa === null) return;
-    const modelo = window.prompt('Modelo:', item.modelo || '');
-    if (modelo === null) return;
-    const kilometraje = window.prompt('Kilometraje:', item.kilometraje || '');
-    if (kilometraje === null) return;
-    const contactoNombre = window.prompt('Contacto:', item.contactoNombre || '');
-    if (contactoNombre === null) return;
-    const telefono = window.prompt('Teléfono:', item.telefono || '');
-    if (telefono === null) return;
-    const tipoIncidente = window.prompt('Incidencia (daño/falla/sin daño):', item.tipoIncidente || '');
-    if (tipoIncidente === null) return;
-    const descripcionFallo = window.prompt('Descripción del reporte:', item.descripcionFallo || '');
-    if (descripcionFallo === null) return;
-    const solicitaRefaccion = window.confirm(`¿Solicita refacción?\n\nAceptar = Sí\nCancelar = No\n\nActual: ${item.solicitaRefaccion ? 'Sí' : 'No'}`);
-    const detalleRefaccion = solicitaRefaccion ? (window.prompt('Detalle de refacción:', item.detalleRefaccion || '') || '') : '';
-
-    await api.updateGarantia(item.id, {
-      numeroObra,
-      numeroEconomico,
-      empresa,
-      modelo,
-      kilometraje,
-      contactoNombre,
-      telefono,
-      tipoIncidente,
-      descripcionFallo,
-      solicitaRefaccion,
-      detalleRefaccion
-    });
-    notify('Reporte actualizado.');
-    await loadGarantias();
+    resetReportForm();
+    state.editingGarantiaId = item.id;
+    state.editingFirmaOriginal = item.firma || '';
+    if (els.numeroObra) els.numeroObra.value = item.numeroObra || '';
+    if (els.modelo) els.modelo.value = item.modelo || '';
+    if (els.numeroEconomico) els.numeroEconomico.value = item.numeroEconomico || '';
+    if (els.empresa) els.empresa.value = item.empresa || '';
+    if (els.kilometraje) els.kilometraje.value = item.kilometraje || '';
+    if (els.contactoNombre) els.contactoNombre.value = item.contactoNombre || '';
+    if (els.telefono) els.telefono.value = item.telefono || '';
+    const radio = document.querySelector(`input[name="tipoIncidente"][value="${item.tipoIncidente || 'daño'}"]`);
+    if (radio) radio.checked = true;
+    if (els.descripcionFallo) els.descripcionFallo.value = item.descripcionFallo || '';
+    if (els.solicitaRefaccion) els.solicitaRefaccion.checked = !!item.solicitaRefaccion;
+    els.refaccionFields?.classList.toggle('hidden', !els.solicitaRefaccion?.checked);
+    if (els.detalleRefaccion) els.detalleRefaccion.value = item.detalleRefaccion || '';
+    state.currentEvidence = Array.isArray(item.evidencias) ? [...item.evidencias] : [];
+    state.currentRefEvidence = Array.isArray(item.evidenciasRefaccion) ? [...item.evidenciasRefaccion] : [];
+    drawPreviews(els.previewEvidencias, state.currentEvidence, 'evidence');
+    drawPreviews(els.previewRefaccion, state.currentRefEvidence, 'ref');
+    if (item.firma) loadSignatureFromDataUrl(item.firma);
+    const submitBtn = els.reportForm?.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.textContent = 'Guardar cambios';
+    const title = els.reportFormPanel?.querySelector('.panel-head h3');
+    if (title) title.textContent = `Editar reporte ${item.folio || ''}`.trim();
+    const kicker = els.reportFormPanel?.querySelector('.panel-head .topbar-kicker');
+    if (kicker) kicker.textContent = 'ADMINISTRACIÓN';
+    const badge = els.reportFormPanel?.querySelector('.panel-head .badge');
+    if (badge) badge.textContent = 'Edición total';
+    switchPanel('report');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (error) {
     notify(error.message, true);
   }
@@ -1435,8 +1454,18 @@ els.fleetSaveBtn?.addEventListener('click', async () => {
 
 els.reportForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
-  try { await api.createGarantia(reportPayload()); notify('Reporte enviado. Ya cayó al sistema.'); resetReportForm(); switchPanel('board'); await loadGarantias(); }
-  catch (error) { notify(error.message, true); }
+  try {
+    if (state.editingGarantiaId) {
+      await api.updateGarantia(state.editingGarantiaId, reportPayload());
+      notify('Reporte actualizado.');
+    } else {
+      await api.createGarantia(reportPayload());
+      notify('Reporte enviado. Ya cayó al sistema.');
+    }
+    resetReportForm();
+    switchPanel('board');
+    await loadGarantias();
+  } catch (error) { notify(error.message, true); }
 });
 
 els.userForm?.addEventListener('submit', async (e) => {

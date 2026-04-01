@@ -970,7 +970,10 @@ app.patch('/api/garantias/:id', authRequired, requireRoles('admin'), async (req,
       tipoIncidente: String(body.tipoIncidente || '').trim(),
       descripcionFallo: String(body.descripcionFallo || '').trim(),
       solicitaRefaccion: !!body.solicitaRefaccion,
-      detalleRefaccion: String(body.detalleRefaccion || '').trim()
+      detalleRefaccion: String(body.detalleRefaccion || '').trim(),
+      evidencias: Array.isArray(body.evidencias) ? body.evidencias : [],
+      evidenciasRefaccion: Array.isArray(body.evidenciasRefaccion) ? body.evidenciasRefaccion : [],
+      firma: String(body.firma || '').trim()
     };
     const required = [payload.numeroObra, payload.modelo, payload.numeroEconomico, payload.empresa, payload.tipoIncidente, payload.descripcionFallo];
     if (required.some(v => !v)) {
@@ -993,6 +996,9 @@ app.patch('/api/garantias/:id', authRequired, requireRoles('admin'), async (req,
         descripcion_fallo = $10,
         solicita_refaccion = $11,
         detalle_refaccion = $12,
+        evidencias = $13::jsonb,
+        evidencias_refaccion = $14::jsonb,
+        firma = $15,
         updated_at = NOW()
        WHERE id = $1
        RETURNING *`,
@@ -1008,7 +1014,10 @@ app.patch('/api/garantias/:id', authRequired, requireRoles('admin'), async (req,
         payload.tipoIncidente,
         payload.descripcionFallo,
         payload.solicitaRefaccion,
-        payload.detalleRefaccion
+        payload.detalleRefaccion,
+        JSON.stringify(payload.evidencias || []),
+        JSON.stringify(payload.evidenciasRefaccion || []),
+        payload.firma
       ]
     );
 
