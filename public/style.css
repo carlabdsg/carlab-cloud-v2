@@ -1232,3 +1232,194 @@ body[data-role="supervisor_flotas"][data-panel="parts"] .main-area {
   .fleet-line-status, .fleet-line-tags { justify-content:flex-start; text-align:left; }
   .parts-summary-row, .parts-meta { grid-template-columns: 1fr; }
 }
+
+
+/* V3.9.2 barras refinadas sobre rollback bueno */
+body.executive-mode .shell {
+  grid-template-columns: 228px 1fr !important;
+}
+
+body.executive-mode .sidebar {
+  padding: 12px !important;
+  gap: 10px !important;
+  background: linear-gradient(180deg, #fbfbfd 0%, #f5f7fb 100%) !important;
+}
+
+body.executive-mode .brand-lockup h2 {
+  font-size: 24px !important;
+  margin: 8px 0 4px !important;
+}
+
+body.executive-mode .brand-lockup p {
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+}
+
+body.executive-mode .profile-panel {
+  padding: 12px !important;
+  border-radius: 14px !important;
+}
+
+body.executive-mode .avatar-circle {
+  width: 38px !important;
+  height: 38px !important;
+}
+
+body.executive-mode .nav-stack {
+  gap: 8px !important;
+}
+
+body.executive-mode .nav-group {
+  gap: 6px !important;
+}
+
+body.executive-mode .nav-group + .nav-group {
+  margin-top: 8px !important;
+  padding-top: 8px !important;
+}
+
+body.executive-mode .nav-group-label {
+  font-size: 10px !important;
+  padding: 0 4px !important;
+}
+
+body.executive-mode .nav-btn {
+  min-height: 36px !important;
+  padding: 8px 11px !important;
+  border-radius: 12px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+}
+
+body.executive-mode .stats {
+  gap: 8px !important;
+}
+
+body.executive-mode .stat {
+  padding: 10px 12px !important;
+  border-radius: 14px !important;
+}
+
+body.executive-mode .stat strong {
+  font-size: 24px !important;
+  margin-top: 6px !important;
+}
+
+body.executive-mode .sidebar-bottom {
+  padding-top: 8px !important;
+}
+
+body.executive-mode #logoutBtn {
+  min-height: 38px !important;
+  border-radius: 12px !important;
+}
+
+body.executive-mode .main-area {
+  padding: 14px !important;
+  gap: 12px !important;
+}
+
+body.executive-mode .topbar {
+  padding: 12px 14px !important;
+  border-radius: 18px !important;
+  min-height: auto !important;
+}
+
+body.executive-mode .topbar h1 {
+  font-size: 26px !important;
+  margin: 6px 0 4px !important;
+}
+
+body.executive-mode .topbar-kicker {
+  font-size: 10px !important;
+}
+
+body.executive-mode .topbar-side {
+  gap: 8px !important;
+  align-items: center !important;
+}
+
+body.executive-mode .topbar-chip {
+  min-width: 150px !important;
+  padding: 9px 10px !important;
+  border-radius: 12px !important;
+}
+
+body.executive-mode .topbar-chip span {
+  font-size: 10px !important;
+  margin-bottom: 3px !important;
+}
+
+body.executive-mode .topbar-chip strong {
+  font-size: 13px !important;
+}
+
+body.executive-mode .panel {
+  padding: 16px !important;
+  border-radius: 18px !important;
+}
+
+body.executive-mode .toolbar,
+body.executive-mode .history-search-box,
+body.executive-mode .schedule-toolbar,
+body.executive-mode .fleet-admin-toolbar {
+  padding: 12px !important;
+  border-radius: 16px !important;
+}
+
+body.executive-mode input,
+body.executive-mode textarea,
+body.executive-mode select {
+  min-height: 40px !important;
+  padding: 10px 12px !important;
+  border-radius: 10px !important;
+}
+
+body.executive-mode .btn {
+  min-height: 40px !important;
+  padding: 9px 13px !important;
+  border-radius: 12px !important;
+}
+
+body.executive-mode #roleBrief {
+  gap: 10px !important;
+}
+
+body.executive-mode #roleBrief article {
+  padding: 14px !important;
+  border-radius: 16px !important;
+}
+
+body.executive-mode .panel-head {
+  margin-bottom: 12px !important;
+}
+
+body.executive-mode .panel-head h3 {
+  font-size: 22px !important;
+  margin-top: 4px !important;
+}
+
+body.executive-mode.owner-focus .topbar,
+body.executive-mode.owner-focus #roleBrief,
+body.executive-mode.owner-focus #filtersPanel {
+  display: none !important;
+}
+
+body.executive-mode.owner-focus .main-area {
+  padding-top: 14px !important;
+}
+
+body.executive-mode.owner-focus .panel:first-child {
+  margin-top: 0 !important;
+}
+
+@media (max-width: 1100px) {
+  body.executive-mode .shell {
+    grid-template-columns: 1fr !important;
+  }
+  body.executive-mode .sidebar {
+    position: relative !important;
+    height: auto !important;
+    min-height: auto !important;
+  }
+}
