@@ -1423,3 +1423,87 @@ body.executive-mode.owner-focus .panel:first-child {
     min-height: auto !important;
   }
 }
+
+
+/* V3.9.3 PC fix: force true left sidebar on desktop */
+@media (min-width: 1101px) {
+  body.executive-mode .shell,
+  body.executive-mode.owner-focus .shell {
+    display: grid !important;
+    grid-template-columns: 228px minmax(0, 1fr) !important;
+    gap: 0 !important;
+  }
+
+  body.executive-mode .sidebar,
+  body.executive-mode.owner-focus .sidebar {
+    width: 228px !important;
+    min-width: 228px !important;
+    max-width: 228px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-self: stretch !important;
+    overflow: hidden !important;
+  }
+
+  body.executive-mode .sidebar-top,
+  body.executive-mode.owner-focus .sidebar-top {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    overflow-y: auto !important;
+  }
+
+  body.executive-mode .nav-stack,
+  body.executive-mode.owner-focus .nav-stack {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+    flex: 0 0 auto !important;
+    order: 10 !important;
+    gap: 8px !important;
+    margin-top: 10px !important;
+  }
+
+  body.executive-mode .nav-group,
+  body.executive-mode.owner-focus .nav-group {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+    gap: 6px !important;
+  }
+
+  body.executive-mode .nav-btn,
+  body.executive-mode.owner-focus .nav-btn {
+    display: block !important;
+    width: 100% !important;
+    white-space: normal !important;
+  }
+
+  body.executive-mode .sidebar-bottom,
+  body.executive-mode.owner-focus .sidebar-bottom {
+    display: grid !important;
+    width: 100% !important;
+  }
+
+  body.executive-mode .main-area,
+  body.executive-mode.owner-focus .main-area {
+    min-width: 0 !important;
+    width: auto !important;
+    margin-left: 0 !important;
+  }
+
+  /* hide any horizontal nav clone if it gets rendered outside the sidebar */
+  body.executive-mode.owner-focus .main-area .nav-stack,
+  body.executive-mode.owner-focus .main-area .nav-group,
+  body.executive-mode.owner-focus .main-area .nav-btn {
+    display: none !important;
+  }
+
+  /* ensure content starts below only what should exist */
+  body.executive-mode.owner-focus .main-area {
+    padding-top: 14px !important;
+  }
+}
