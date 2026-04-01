@@ -832,30 +832,15 @@ function renderFleet() {
   if (els.fleetUnitsList) els.fleetUnitsList.innerHTML = '';
   const fleetQuery = normalizeText(els.fleetSearchInput?.value || '');
   const fleetStatus = els.fleetStatusFilter?.value || 'todos';
-
   const visibleUnits = state.fleetUnits.filter(unit => {
     const sem = fleetSemaforo(unit);
-    const statusKey = sem.key;
-    const textBlob = normalizeText([
-      unit.numeroEconomico,
-      unit.empresa,
-      unit.marca,
-      unit.modelo,
-      unit.numeroObra,
-      unit.nombreFlota
-    ].join(' '));
-    const matchQuery = !fleetQuery || textBlob.includes(fleetQuery);
-    const matchStatus = fleetStatus === 'todos' || statusKey === fleetStatus;
-    return matchQuery && matchStatus;
+    const hayTexto = !fleetQuery || normalizeText([unit.numeroEconomico, unit.empresa, unit.marca, unit.modelo, unit.numeroObra, unit.nombreFlota].join(' ')).includes(fleetQuery);
+    const hayEstado = fleetStatus === 'todos' || sem.key === fleetStatus;
+    return hayTexto && hayEstado;
   });
 
-  if (els.fleetUnitsList) {
-    els.fleetUnitsList.innerHTML = visibleUnits.length ? '' : `
-      <div class="fleet-empty-luxury">
-        <strong>Sin unidades visibles</strong>
-        <span>Ajusta búsqueda o estado para encontrar la unidad correcta.</span>
-      </div>
-    `;
+  if (!visibleUnits.length && els.fleetUnitsList) {
+    els.fleetUnitsList.innerHTML = '<div class="empty-state"><strong>Sin coincidencias.</strong><span>Ajusta búsqueda o estado para encontrar la unidad correcta.</span></div>';
   }
 
   visibleUnits.forEach(unit => {
@@ -863,43 +848,28 @@ function renderFleet() {
     const poliza = fleetTagPoliza(unit);
     const camp = fleetTagCampania(unit);
     const row = document.createElement('article');
-    row.className = `fleet-luxury-card ${state.selectedFleetUnit?.unit?.id === unit.id ? 'is-selected' : ''}`;
+    row.className = 'fleet-line-item';
     row.innerHTML = `
-      <div class="fleet-luxury-top">
-        <div class="fleet-luxury-number">${escapeHtml(unit.numeroEconomico || '—')}</div>
-        <div class="fleet-luxury-state">
-          <span class="fleet-state-dot">${status.emoji}</span>
-          <strong>${escapeHtml(status.text)}</strong>
-        </div>
+      <div class="fleet-line-num">${escapeHtml(unit.numeroEconomico || '—')}</div>
+      <div class="fleet-line-emoji">${status.emoji}</div>
+      <div class="fleet-line-main">
+        <strong>${escapeHtml(status.text)}</strong>
+        <div class="fleet-line-sub">${escapeHtml(unit.empresa || '—')}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}${unit.marca ? ' · ' + escapeHtml(unit.marca) : ''}</div>
       </div>
-      <div class="fleet-luxury-company">${escapeHtml(unit.empresa || '—')}</div>
-      <div class="fleet-luxury-meta">
-        <span>${escapeHtml(unit.modelo || 'Sin modelo')}</span>
-        <span>${escapeHtml(unit.marca || 'Sin marca')}</span>
-      </div>
-      <div class="fleet-luxury-tags">
+      <div class="fleet-line-tags">
         <span class="fleet-chip ${poliza.cls}">${poliza.text}</span>
         <span class="fleet-chip ${camp.cls}">${camp.text}</span>
       </div>
-      <div class="fleet-luxury-footer">
-        <span>${unit.lastReportAt ? fmtDate(unit.lastReportAt) : 'Sin movimiento'}</span>
-        <button class="btn btn-ghost fleet-open-btn" type="button">Ver unidad</button>
-      </div>
+      <div class="fleet-line-status">${unit.lastReportAt ? fmtDate(unit.lastReportAt) : 'Sin movimiento'}</div>
     `;
-    row.addEventListener('click', async (event) => {
-      if (event.target.closest('.fleet-open-btn') || event.currentTarget === row) {
-        try {
-          state.selectedFleetUnit = await api.getFleetUnit(unit.id);
-          renderFleet();
-          renderFleetDetail();
-        } catch (error) {
-          notify(error.message, true);
-        }
-      }
+    row.addEventListener('click', async () => {
+      try {
+        state.selectedFleetUnit = await api.getFleetUnit(unit.id);
+        renderFleetDetail();
+      } catch (error) { notify(error.message, true); }
     });
     els.fleetUnitsList?.appendChild(row);
   });
-
   renderFleetDetail();
 }
 
