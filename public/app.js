@@ -1515,7 +1515,6 @@ setInterval(async () => {
   if (!state.token || !state.user) return;
   try {
     await loadNotifications();
-    if (state.activePanel === 'board' && !state.boardDirtyIds.size) await Promise.allSettled([loadGarantias()]);
     if (state.activePanel === 'schedule') await Promise.allSettled([loadSchedules('')]);
   } catch {}
 }, 5000);
@@ -1523,21 +1522,5 @@ window.guardarCostoAdmin = guardarCostoAdmin;
 window.eliminarCostoAdmin = eliminarCostoAdmin;
 
 
-document.addEventListener('input', (e) => {
-  const card = e.target.closest('[data-garantia-id]');
-  if (!card) return;
-  const editable = e.target.matches('textarea, input, select');
-  if (!editable) return;
-  const cardId = card.getAttribute('data-garantia-id');
-  if (cardId) state.boardDirtyIds.add(cardId);
-});
-document.addEventListener('change', (e) => {
-  const card = e.target.closest('[data-garantia-id]');
-  if (!card) return;
-  const editable = e.target.matches('textarea, input, select');
-  if (!editable) return;
-  const cardId = card.getAttribute('data-garantia-id');
-  if (cardId) state.boardDirtyIds.add(cardId);
-});
 
 
