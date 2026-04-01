@@ -43,6 +43,7 @@ const api = {
   registerOperator(payload) { return this.request('/api/public/register-operator', { method: 'POST', body: JSON.stringify(payload) }); },
   getGarantias() { return this.request('/api/garantias'); },
   createGarantia(payload) { return this.request('/api/garantias', { method: 'POST', body: JSON.stringify(payload) }); },
+  updateGarantia(id, payload) { return this.request(`/api/garantias/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   deleteGarantia(id) { return this.request(`/api/garantias/${id}`, { method: 'DELETE' }); },
   reviewGarantia(id, payload) { return this.request(`/api/garantias/${id}/review`, { method: 'PATCH', body: JSON.stringify(payload) }); },
   updateOperational(id, payload) { return this.request(`/api/garantias/${id}/operational`, { method: 'PATCH', body: JSON.stringify(payload) }); },
@@ -1169,6 +1170,50 @@ function money(v) {
   return new Intl.NumberFormat('es-MX', { style:'currency', currency:'MXN', maximumFractionDigits:2 }).format(n);
 }
 
+
+async function editarReporteAdmin(item) {
+  try {
+    const numeroObra = window.prompt('Número de obra:', item.numeroObra || '');
+    if (numeroObra === null) return;
+    const numeroEconomico = window.prompt('Número económico:', item.numeroEconomico || '');
+    if (numeroEconomico === null) return;
+    const empresa = window.prompt('Empresa:', item.empresa || '');
+    if (empresa === null) return;
+    const modelo = window.prompt('Modelo:', item.modelo || '');
+    if (modelo === null) return;
+    const kilometraje = window.prompt('Kilometraje:', item.kilometraje || '');
+    if (kilometraje === null) return;
+    const contactoNombre = window.prompt('Contacto:', item.contactoNombre || '');
+    if (contactoNombre === null) return;
+    const telefono = window.prompt('Teléfono:', item.telefono || '');
+    if (telefono === null) return;
+    const tipoIncidente = window.prompt('Incidencia (daño/falla/sin daño):', item.tipoIncidente || '');
+    if (tipoIncidente === null) return;
+    const descripcionFallo = window.prompt('Descripción del reporte:', item.descripcionFallo || '');
+    if (descripcionFallo === null) return;
+    const solicitaRefaccion = window.confirm(`¿Solicita refacción?\n\nAceptar = Sí\nCancelar = No\n\nActual: ${item.solicitaRefaccion ? 'Sí' : 'No'}`);
+    const detalleRefaccion = solicitaRefaccion ? (window.prompt('Detalle de refacción:', item.detalleRefaccion || '') || '') : '';
+
+    await api.updateGarantia(item.id, {
+      numeroObra,
+      numeroEconomico,
+      empresa,
+      modelo,
+      kilometraje,
+      contactoNombre,
+      telefono,
+      tipoIncidente,
+      descripcionFallo,
+      solicitaRefaccion,
+      detalleRefaccion
+    });
+    notify('Reporte actualizado.');
+    await loadGarantias();
+  } catch (error) {
+    notify(error.message, true);
+  }
+}
+
 function renderGarantias() {
   updateStats(); renderAnalytics();
   const items = filteredGarantias();
@@ -1186,7 +1231,7 @@ function renderGarantias() {
       const div = document.createElement('div'); div.innerHTML = `<strong>${escapeHtml(label)}</strong>${escapeHtml(String(value || '—'))}`; miniGrid.appendChild(div);
     });
     const strip = node.querySelector('.evidence-strip'); [...(item.evidencias || []), ...(item.evidenciasRefaccion || [])].slice(0,6).forEach(src => { const img = document.createElement('img'); img.src = src; strip.appendChild(img); }); if (item.firma) { const img = document.createElement('img'); img.src = item.firma; strip.appendChild(img); }
-    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
+    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin')) baseRow.appendChild(button('Editar', 'btn btn-secondary', async () => { await editarReporteAdmin(item); })); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
     if (isRole('operativo','admin')) {
       const reviewBox = document.createElement('div'); reviewBox.innerHTML = `
         <label>Decisión operativa</label>

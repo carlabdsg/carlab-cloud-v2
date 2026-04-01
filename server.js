@@ -955,6 +955,71 @@ app.post('/api/garantias', authRequired, requireRoles('operador', 'admin'), asyn
   res.status(201).json(mapGarantia(result.rows[0]));
 });
 
+
+app.patch('/api/garantias/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  try {
+    const body = req.body || {};
+    const payload = {
+      numeroObra: String(body.numeroObra || '').trim(),
+      modelo: String(body.modelo || '').trim(),
+      numeroEconomico: String(body.numeroEconomico || '').trim(),
+      empresa: String(body.empresa || '').trim(),
+      kilometraje: String(body.kilometraje || '').trim(),
+      contactoNombre: String(body.contactoNombre || '').trim(),
+      telefono: normalizeMxPhone(body.telefono || ''),
+      tipoIncidente: String(body.tipoIncidente || '').trim(),
+      descripcionFallo: String(body.descripcionFallo || '').trim(),
+      solicitaRefaccion: !!body.solicitaRefaccion,
+      detalleRefaccion: String(body.detalleRefaccion || '').trim()
+    };
+    const required = [payload.numeroObra, payload.modelo, payload.numeroEconomico, payload.empresa, payload.tipoIncidente, payload.descripcionFallo];
+    if (required.some(v => !v)) {
+      return res.status(400).json({ error: 'Faltan campos obligatorios del reporte.' });
+    }
+
+    const current = await pool.query('SELECT * FROM garantias WHERE id = $1', [req.params.id]);
+    if (!current.rowCount) return res.status(404).json({ error: 'Reporte no encontrado.' });
+
+    const result = await pool.query(
+      `UPDATE garantias SET
+        numero_obra = $2,
+        modelo = $3,
+        numero_economico = $4,
+        empresa = $5,
+        kilometraje = $6,
+        contacto_nombre = $7,
+        telefono = $8,
+        tipo_incidente = $9,
+        descripcion_fallo = $10,
+        solicita_refaccion = $11,
+        detalle_refaccion = $12,
+        updated_at = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [
+        req.params.id,
+        payload.numeroObra,
+        payload.modelo,
+        payload.numeroEconomico,
+        payload.empresa,
+        payload.kilometraje,
+        payload.contactoNombre,
+        payload.telefono,
+        payload.tipoIncidente,
+        payload.descripcionFallo,
+        payload.solicitaRefaccion,
+        payload.detalleRefaccion
+      ]
+    );
+
+    await addAuditLog(req.params.id, req.user.id, 'editar_reporte', `${req.user.nombre} editó el reporte ${result.rows[0].folio || ''}`.trim());
+    res.json(mapGarantia(result.rows[0]));
+  } catch (error) {
+    console.error('Error actualizando reporte:', error);
+    res.status(500).json({ error: 'No se pudo actualizar el reporte.' });
+  }
+});
+
 app.patch('/api/garantias/:id/review', authRequired, requireRoles('operativo', 'admin'), async (req, res) => {
   const estatusValidacion = String(req.body.estatusValidacion || '').trim();
   const observacionesOperativo = String(req.body.observacionesOperativo || '').trim();
