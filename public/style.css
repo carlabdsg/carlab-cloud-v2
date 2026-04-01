@@ -1376,3 +1376,85 @@ body.owner-focus .nav-btn {
     padding-top: 0 !important;
   }
 }
+
+
+/* V3.8.4 owner layout couture */
+body.owner-focus #filtersPanel {
+  display: none !important;
+}
+
+body.owner-focus .main-area {
+  gap: 12px !important;
+}
+
+body.owner-focus .panel {
+  border-radius: 20px;
+}
+
+body.owner-focus .compact-panel-head,
+body.owner-focus .panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px !important;
+}
+
+body.owner-focus .compact-toolbar,
+body.owner-focus .fleet-admin-toolbar {
+  margin-top: 0 !important;
+  margin-bottom: 12px !important;
+  padding-top: 0 !important;
+}
+
+body.owner-focus .fleet-line-filters {
+  grid-template-columns: 1.25fr .65fr auto !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+body.owner-focus .fleet-line-filters input,
+body.owner-focus .fleet-line-filters select {
+  min-height: 40px !important;
+  border-radius: 12px !important;
+}
+
+body.owner-focus .fleet-line-item {
+  grid-template-columns: 86px 30px 1fr auto auto !important;
+  padding: 14px 16px !important;
+}
+
+body.owner-focus .fleet-line-num {
+  font-size: 30px !important;
+}
+
+body.owner-focus .fleet-detail-premium {
+  padding: 16px !important;
+}
+
+body.owner-focus #schedulePanel .schedule-toolbar,
+body.owner-focus #historyPanel .history-search-box {
+  margin-top: 0 !important;
+}
+
+body.owner-focus #schedulePanel .schedule-toolbar,
+body.owner-focus #historyPanel .history-search-box,
+body.owner-focus #partsPanel .parts-premium-head {
+  position: static !important;
+  top: auto !important;
+}
+
+body.owner-focus .topbar-chip,
+body.owner-focus .notif-chip {
+  display: none !important;
+}
+
+body.owner-focus .topbar-side {
+  display: none !important;
+}
+
+@media (max-width: 980px) {
+  body.owner-focus .fleet-line-filters {
+    grid-template-columns: 1fr !important;
+  }
+}

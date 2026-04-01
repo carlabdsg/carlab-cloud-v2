@@ -357,7 +357,9 @@ function switchPanel(panel) {
   const ownerFocus = state.user?.role === 'supervisor_flotas' && ['fleet','parts','schedule','history'].includes(panel);
   document.body.classList.toggle('owner-focus', ownerFocus);
   const board = panel === 'board';
-  els.filtersPanel?.classList.toggle('hidden', !board);
+  const hideGlobalFilters = state.user?.role === 'supervisor_flotas' && ['fleet','parts','schedule','history'].includes(panel);
+  els.filtersPanel?.classList.toggle('hidden', !board || hideGlobalFilters);
+  if (els.filtersPanel) els.filtersPanel.style.display = hideGlobalFilters ? 'none' : '';
   if (panel === 'schedule') loadSchedules('');
   if (panel === 'fleet') loadFleet();
   if (panel === 'parts') loadPartsPending();
