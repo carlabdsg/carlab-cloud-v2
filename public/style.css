@@ -2693,3 +2693,219 @@ body[data-role="supervisor_flotas"] .table-list {
     overflow-y: visible !important;
   }
 }
+
+
+/* V4.2.0 iOS Safari adaptation for all non-operator roles */
+@supports (-webkit-touch-callout: none) {
+  html, body {
+    min-height: -webkit-fill-available;
+    height: auto !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
+
+  body[data-role="admin"],
+  body[data-role="operativo"],
+  body[data-role="supervisor"],
+  body[data-role="supervisor_flotas"] {
+    min-height: -webkit-fill-available;
+    height: auto !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: auto !important;
+    touch-action: pan-y !important;
+  }
+
+  body[data-role="admin"] .shell,
+  body[data-role="operativo"] .shell,
+  body[data-role="supervisor"] .shell,
+  body[data-role="supervisor_flotas"] .shell {
+    min-height: -webkit-fill-available !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  body[data-role="admin"] .main-area,
+  body[data-role="operativo"] .main-area,
+  body[data-role="supervisor"] .main-area,
+  body[data-role="supervisor_flotas"] .main-area {
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-bottom: calc(18px + env(safe-area-inset-bottom)) !important;
+  }
+
+  body[data-role="admin"] .sidebar,
+  body[data-role="operativo"] .sidebar,
+  body[data-role="supervisor"] .sidebar,
+  body[data-role="supervisor_flotas"] .sidebar,
+  body[data-role="admin"] .sidebar-top,
+  body[data-role="operativo"] .sidebar-top,
+  body[data-role="supervisor"] .sidebar-top,
+  body[data-role="supervisor_flotas"] .sidebar-top {
+    overflow: visible !important;
+    max-height: none !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  body[data-role="admin"] .panel,
+  body[data-role="operativo"] .panel,
+  body[data-role="supervisor"] .panel,
+  body[data-role="supervisor_flotas"] .panel,
+  body[data-role="admin"] .table-list,
+  body[data-role="operativo"] .table-list,
+  body[data-role="supervisor"] .table-list,
+  body[data-role="supervisor_flotas"] .table-list,
+  body[data-role="admin"] #fleetUnitsList,
+  body[data-role="operativo"] #fleetUnitsList,
+  body[data-role="supervisor_flotas"] #fleetUnitsList {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+}
+
+@media (max-width: 1100px) and (-webkit-min-device-pixel-ratio: 0) {
+  body[data-role="admin"] .shell,
+  body[data-role="operativo"] .shell,
+  body[data-role="supervisor"] .shell,
+  body[data-role="supervisor_flotas"] .shell {
+    display: block !important;
+    min-height: auto !important;
+  }
+
+  body[data-role="admin"] .sidebar,
+  body[data-role="operativo"] .sidebar,
+  body[data-role="supervisor"] .sidebar,
+  body[data-role="supervisor_flotas"] .sidebar {
+    position: relative !important;
+    top: auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    margin: 0 0 10px 0 !important;
+    transform: none !important;
+    overflow: visible !important;
+    padding-left: max(10px, env(safe-area-inset-left)) !important;
+    padding-right: max(10px, env(safe-area-inset-right)) !important;
+  }
+
+  body[data-role="admin"] .nav-stack,
+  body[data-role="operativo"] .nav-stack,
+  body[data-role="supervisor"] .nav-stack,
+  body[data-role="supervisor_flotas"] .nav-stack {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  body[data-role="admin"] .nav-group,
+  body[data-role="operativo"] .nav-group,
+  body[data-role="supervisor"] .nav-group,
+  body[data-role="supervisor_flotas"] .nav-group {
+    display: contents !important;
+  }
+
+  body[data-role="admin"] .nav-group-label,
+  body[data-role="operativo"] .nav-group-label,
+  body[data-role="supervisor"] .nav-group-label,
+  body[data-role="supervisor_flotas"] .nav-group-label {
+    grid-column: 1 / -1 !important;
+    margin: 6px 0 2px !important;
+  }
+
+  body[data-role="admin"] .main-area,
+  body[data-role="operativo"] .main-area,
+  body[data-role="supervisor"] .main-area,
+  body[data-role="supervisor_flotas"] .main-area {
+    display: block !important;
+    padding-left: max(12px, env(safe-area-inset-left)) !important;
+    padding-right: max(12px, env(safe-area-inset-right)) !important;
+    padding-top: 12px !important;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important;
+    overflow: visible !important;
+  }
+
+  body[data-role="admin"] .topbar,
+  body[data-role="operativo"] .topbar,
+  body[data-role="supervisor"] .topbar,
+  body[data-role="supervisor_flotas"] .topbar,
+  body[data-role="admin"] #roleBrief,
+  body[data-role="operativo"] #roleBrief,
+  body[data-role="supervisor"] #roleBrief,
+  body[data-role="supervisor_flotas"] #roleBrief,
+  body[data-role="admin"] #filtersPanel,
+  body[data-role="operativo"] #filtersPanel,
+  body[data-role="supervisor"] #filtersPanel,
+  body[data-role="supervisor_flotas"] #filtersPanel {
+    position: static !important;
+    top: auto !important;
+  }
+}
+
+
+/* V4.2.1 total compatibility layer */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body[data-role="admin"],
+body[data-role="operativo"],
+body[data-role="supervisor"],
+body[data-role="supervisor_flotas"] {
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: auto;
+}
+
+body[data-role="admin"] * ,
+body[data-role="operativo"] * ,
+body[data-role="supervisor"] * ,
+body[data-role="supervisor_flotas"] * {
+  box-sizing: border-box;
+}
+
+@media (max-width: 1100px) {
+  body[data-role="admin"] .nav-btn,
+  body[data-role="operativo"] .nav-btn,
+  body[data-role="supervisor"] .nav-btn,
+  body[data-role="supervisor_flotas"] .nav-btn {
+    white-space: normal !important;
+    word-break: break-word;
+  }
+
+  body[data-role="admin"] input,
+  body[data-role="admin"] select,
+  body[data-role="admin"] textarea,
+  body[data-role="operativo"] input,
+  body[data-role="operativo"] select,
+  body[data-role="operativo"] textarea,
+  body[data-role="supervisor"] input,
+  body[data-role="supervisor"] select,
+  body[data-role="supervisor"] textarea,
+  body[data-role="supervisor_flotas"] input,
+  body[data-role="supervisor_flotas"] select,
+  body[data-role="supervisor_flotas"] textarea {
+    font-size: 16px !important; /* avoids iOS zoom jump */
+  }
+
+  body[data-role="admin"] .panel,
+  body[data-role="operativo"] .panel,
+  body[data-role="supervisor"] .panel,
+  body[data-role="supervisor_flotas"] .panel {
+    scroll-margin-top: 8px;
+  }
+}
+
+@supports (-webkit-touch-callout: none) {
+  body[data-role="admin"],
+  body[data-role="operativo"],
+  body[data-role="supervisor"],
+  body[data-role="supervisor_flotas"] {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

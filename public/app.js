@@ -26,6 +26,7 @@ const state = {
   independentPartsRequests: [],
   editingGarantiaId: '',
   editingFirmaOriginal: '',
+  boardDirtyIds: new Set(),
 };
 
 const api = {
@@ -1283,7 +1284,7 @@ function renderGarantias() {
           </div>`;
         operationalBox.querySelector('.opStatus').value = item.estatusOperativo;
         operationalBox.querySelector('.opBtn').addEventListener('click', async () => {
-          try { await api.updateOperational(item.id, { estatusOperativo: operationalBox.querySelector('.opStatus').value, observacionesOperativo: operationalBox.querySelector('.opNotes').value.trim() }); notify('Flujo actualizado.'); await loadGarantias(); }
+          try { await api.updateOperational(item.id, { estatusOperativo: operationalBox.querySelector('.opStatus').value, observacionesOperativo: operationalBox.querySelector('.opNotes').value.trim() }); state.boardDirtyIds.clear(); notify('Flujo actualizado.'); await loadGarantias(); }
           catch (error) { notify(error.message, true); }
         });
         area.appendChild(operationalBox);
@@ -1514,10 +1515,29 @@ setInterval(async () => {
   if (!state.token || !state.user) return;
   try {
     await loadNotifications();
-    if (['board','schedule'].includes(state.activePanel)) await Promise.allSettled([loadGarantias(), loadSchedules('')]);
+    if (state.activePanel === 'board' && !state.boardDirtyIds.size) await Promise.allSettled([loadGarantias()]);
+    if (state.activePanel === 'schedule') await Promise.allSettled([loadSchedules('')]);
   } catch {}
 }, 5000);
 window.guardarCostoAdmin = guardarCostoAdmin;
 window.eliminarCostoAdmin = eliminarCostoAdmin;
+
+
+document.addEventListener('input', (e) => {
+  const card = e.target.closest('[data-garantia-id]');
+  if (!card) return;
+  const editable = e.target.matches('textarea, input, select');
+  if (!editable) return;
+  const cardId = card.getAttribute('data-garantia-id');
+  if (cardId) state.boardDirtyIds.add(cardId);
+});
+document.addEventListener('change', (e) => {
+  const card = e.target.closest('[data-garantia-id]');
+  if (!card) return;
+  const editable = e.target.matches('textarea, input, select');
+  if (!editable) return;
+  const cardId = card.getAttribute('data-garantia-id');
+  if (cardId) state.boardDirtyIds.add(cardId);
+});
 
 
