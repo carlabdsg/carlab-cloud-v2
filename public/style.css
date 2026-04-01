@@ -1664,3 +1664,79 @@ body.executive-mode.owner-focus .panel {
     height: calc(100vh - 0px) !important;
   }
 }
+
+
+/* V3.9.6 roles + fleet toggle + toolbar cleanup */
+body.executive-mode .nav-btn#navUsersBtn,
+body.executive-mode .nav-btn#navRequestsBtn,
+body.executive-mode .nav-btn#navCompaniesBtn {
+  display: flex;
+}
+body[data-role="supervisor_flotas"] .nav-btn#navUsersBtn,
+body[data-role="supervisor_flotas"] .nav-btn#navRequestsBtn,
+body[data-role="supervisor_flotas"] .nav-btn#navCompaniesBtn {
+  display: none !important;
+}
+
+body.executive-mode.owner-focus .fleet-admin-toolbar,
+body.executive-mode.owner-focus .fleet-line-filters {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+body.executive-mode.owner-focus .fleet-line-filters {
+  grid-template-columns: minmax(0,1fr) 96px 112px !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 10px !important;
+  background: #fff !important;
+  border: 1px solid rgba(16,24,40,.06) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 8px 18px rgba(16,24,40,.04) !important;
+}
+
+body.executive-mode.owner-focus .fleet-line-filters input,
+body.executive-mode.owner-focus .fleet-line-filters select,
+body.executive-mode.owner-focus .fleet-line-filters .btn {
+  min-height: 38px !important;
+  height: 38px !important;
+  margin: 0 !important;
+}
+
+body.executive-mode.owner-focus .fleet-layout {
+  margin-top: 12px !important;
+  align-items: start !important;
+}
+
+body.executive-mode.owner-focus .fleet-detail-premium {
+  padding-top: 16px !important;
+}
+
+body.executive-mode.owner-focus .fleet-detail-premium > *:first-child {
+  margin-top: 0 !important;
+}
+
+body.executive-mode.owner-focus .fleet-detail-empty {
+  min-height: 240px !important;
+  border: 1px dashed rgba(16,24,40,.10);
+  border-radius: 18px;
+  padding: 22px;
+  background: rgba(255,255,255,.72);
+}
+
+body.executive-mode.owner-focus .fleet-line-item,
+body.executive-mode.owner-focus .fleet-luxury-card {
+  cursor: pointer;
+}
+
+body.executive-mode.owner-focus .fleet-line-item.is-selected,
+body.executive-mode.owner-focus .fleet-luxury-card.is-selected {
+  border-color: rgba(37,99,235,.18) !important;
+  box-shadow: 0 14px 28px rgba(37,99,235,.08) !important;
+}
+
+@media (min-width: 1101px) {
+  body.executive-mode.owner-focus .fleet-layout {
+    grid-template-columns: 320px minmax(0,1fr) !important;
+  }
+}
