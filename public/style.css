@@ -1962,3 +1962,221 @@ body[data-role="supervisor_flotas"] .nav-btn#navNewReportBtn {
     display: none !important;
   }
 }
+
+
+/* V4.1 global clean for all non-operator users */
+@media (min-width: 1101px) {
+  body[data-role="admin"] .topbar,
+  body[data-role="admin"] #roleBrief,
+  body[data-role="admin"] #filtersPanel,
+  body[data-role="operativo"] .topbar,
+  body[data-role="operativo"] #roleBrief,
+  body[data-role="operativo"] #filtersPanel,
+  body[data-role="supervisor"] .topbar,
+  body[data-role="supervisor"] #roleBrief,
+  body[data-role="supervisor"] #filtersPanel,
+  body[data-role="supervisor_flotas"] .topbar,
+  body[data-role="supervisor_flotas"] #roleBrief,
+  body[data-role="supervisor_flotas"] #filtersPanel {
+    display: none !important;
+  }
+
+  body[data-role="admin"] .main-area,
+  body[data-role="operativo"] .main-area,
+  body[data-role="supervisor"] .main-area,
+  body[data-role="supervisor_flotas"] .main-area {
+    padding-top: 16px !important;
+    gap: 14px !important;
+  }
+
+  body[data-role="admin"] .main-area > *,
+  body[data-role="operativo"] .main-area > *,
+  body[data-role="supervisor"] .main-area > *,
+  body[data-role="supervisor_flotas"] .main-area > * {
+    margin-top: 0 !important;
+  }
+
+  body[data-role="admin"] #boardPanel,
+  body[data-role="admin"] #historyPanel,
+  body[data-role="admin"] #schedulePanel,
+  body[data-role="admin"] #fleetPanel,
+  body[data-role="admin"] #partsPanel,
+  body[data-role="admin"] #usersPanel,
+  body[data-role="admin"] #requestsPanel,
+  body[data-role="admin"] #companiesPanel,
+  body[data-role="operativo"] #boardPanel,
+  body[data-role="operativo"] #historyPanel,
+  body[data-role="operativo"] #schedulePanel,
+  body[data-role="operativo"] #fleetPanel,
+  body[data-role="operativo"] #partsPanel,
+  body[data-role="supervisor"] #boardPanel,
+  body[data-role="supervisor"] #historyPanel,
+  body[data-role="supervisor"] #schedulePanel,
+  body[data-role="supervisor_flotas"] #boardPanel,
+  body[data-role="supervisor_flotas"] #historyPanel,
+  body[data-role="supervisor_flotas"] #schedulePanel,
+  body[data-role="supervisor_flotas"] #fleetPanel,
+  body[data-role="supervisor_flotas"] #partsPanel {
+    margin-top: 0 !important;
+    padding-top: 18px !important;
+  }
+
+  body[data-role="admin"] .toolbar,
+  body[data-role="admin"] .history-search-box,
+  body[data-role="admin"] .schedule-toolbar,
+  body[data-role="admin"] .fleet-admin-toolbar,
+  body[data-role="admin"] .fleet-line-filters,
+  body[data-role="operativo"] .toolbar,
+  body[data-role="operativo"] .history-search-box,
+  body[data-role="operativo"] .schedule-toolbar,
+  body[data-role="operativo"] .fleet-admin-toolbar,
+  body[data-role="operativo"] .fleet-line-filters,
+  body[data-role="supervisor"] .toolbar,
+  body[data-role="supervisor"] .history-search-box,
+  body[data-role="supervisor"] .schedule-toolbar,
+  body[data-role="supervisor_flotas"] .toolbar,
+  body[data-role="supervisor_flotas"] .history-search-box,
+  body[data-role="supervisor_flotas"] .schedule-toolbar,
+  body[data-role="supervisor_flotas"] .fleet-admin-toolbar,
+  body[data-role="supervisor_flotas"] .fleet-line-filters {
+    position: static !important;
+    top: auto !important;
+    z-index: 1 !important;
+    margin: 0 0 16px 0 !important;
+    padding: 14px !important;
+    background: #fff !important;
+    border: 1px solid rgba(16,24,40,.08) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 12px 24px rgba(16,24,40,.04) !important;
+  }
+
+  body[data-role="admin"] .toolbar,
+  body[data-role="admin"] .schedule-toolbar,
+  body[data-role="operativo"] .toolbar,
+  body[data-role="operativo"] .schedule-toolbar,
+  body[data-role="supervisor"] .toolbar,
+  body[data-role="supervisor"] .schedule-toolbar,
+  body[data-role="supervisor_flotas"] .toolbar,
+  body[data-role="supervisor_flotas"] .schedule-toolbar {
+    display: grid !important;
+    grid-template-columns: minmax(0,1fr) 120px 130px !important;
+    gap: 12px !important;
+    align-items: center !important;
+  }
+
+  body[data-role="admin"] .history-search-box,
+  body[data-role="operativo"] .history-search-box,
+  body[data-role="supervisor"] .history-search-box,
+  body[data-role="supervisor_flotas"] .history-search-box {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0,1fr)) !important;
+    gap: 12px !important;
+    align-items: center !important;
+  }
+
+  body[data-role="admin"] .fleet-admin-toolbar,
+  body[data-role="operativo"] .fleet-admin-toolbar,
+  body[data-role="supervisor_flotas"] .fleet-admin-toolbar {
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    margin-bottom: 14px !important;
+  }
+
+  body[data-role="admin"] .fleet-line-filters,
+  body[data-role="operativo"] .fleet-line-filters,
+  body[data-role="supervisor_flotas"] .fleet-line-filters {
+    display: grid !important;
+    grid-template-columns: minmax(0,1fr) 110px 120px !important;
+    gap: 12px !important;
+    align-items: center !important;
+    width: 100% !important;
+  }
+
+  body[data-role="admin"] .toolbar input,
+  body[data-role="admin"] .toolbar select,
+  body[data-role="admin"] .toolbar .btn,
+  body[data-role="admin"] .history-search-box input,
+  body[data-role="admin"] .history-search-box select,
+  body[data-role="admin"] .history-search-box .btn,
+  body[data-role="admin"] .schedule-toolbar input,
+  body[data-role="admin"] .schedule-toolbar select,
+  body[data-role="admin"] .schedule-toolbar .btn,
+  body[data-role="admin"] .fleet-line-filters input,
+  body[data-role="admin"] .fleet-line-filters select,
+  body[data-role="admin"] .fleet-line-filters .btn,
+  body[data-role="operativo"] .toolbar input,
+  body[data-role="operativo"] .toolbar select,
+  body[data-role="operativo"] .toolbar .btn,
+  body[data-role="operativo"] .history-search-box input,
+  body[data-role="operativo"] .history-search-box select,
+  body[data-role="operativo"] .history-search-box .btn,
+  body[data-role="operativo"] .schedule-toolbar input,
+  body[data-role="operativo"] .schedule-toolbar select,
+  body[data-role="operativo"] .schedule-toolbar .btn,
+  body[data-role="operativo"] .fleet-line-filters input,
+  body[data-role="operativo"] .fleet-line-filters select,
+  body[data-role="operativo"] .fleet-line-filters .btn,
+  body[data-role="supervisor"] .toolbar input,
+  body[data-role="supervisor"] .toolbar select,
+  body[data-role="supervisor"] .toolbar .btn,
+  body[data-role="supervisor"] .history-search-box input,
+  body[data-role="supervisor"] .history-search-box select,
+  body[data-role="supervisor"] .history-search-box .btn,
+  body[data-role="supervisor"] .schedule-toolbar input,
+  body[data-role="supervisor"] .schedule-toolbar select,
+  body[data-role="supervisor"] .schedule-toolbar .btn,
+  body[data-role="supervisor_flotas"] .toolbar input,
+  body[data-role="supervisor_flotas"] .toolbar select,
+  body[data-role="supervisor_flotas"] .toolbar .btn,
+  body[data-role="supervisor_flotas"] .history-search-box input,
+  body[data-role="supervisor_flotas"] .history-search-box select,
+  body[data-role="supervisor_flotas"] .history-search-box .btn,
+  body[data-role="supervisor_flotas"] .schedule-toolbar input,
+  body[data-role="supervisor_flotas"] .schedule-toolbar select,
+  body[data-role="supervisor_flotas"] .schedule-toolbar .btn,
+  body[data-role="supervisor_flotas"] .fleet-line-filters input,
+  body[data-role="supervisor_flotas"] .fleet-line-filters select,
+  body[data-role="supervisor_flotas"] .fleet-line-filters .btn {
+    min-height: 40px !important;
+    height: 40px !important;
+    margin: 0 !important;
+  }
+}
+
+@media (max-width: 1100px) {
+  body[data-role="admin"] .topbar,
+  body[data-role="admin"] #roleBrief,
+  body[data-role="admin"] #filtersPanel,
+  body[data-role="operativo"] .topbar,
+  body[data-role="operativo"] #roleBrief,
+  body[data-role="operativo"] #filtersPanel,
+  body[data-role="supervisor"] .topbar,
+  body[data-role="supervisor"] #roleBrief,
+  body[data-role="supervisor"] #filtersPanel,
+  body[data-role="supervisor_flotas"] .topbar,
+  body[data-role="supervisor_flotas"] #roleBrief,
+  body[data-role="supervisor_flotas"] #filtersPanel {
+    display: none !important;
+  }
+
+  body[data-role="admin"] .toolbar,
+  body[data-role="admin"] .history-search-box,
+  body[data-role="admin"] .schedule-toolbar,
+  body[data-role="admin"] .fleet-line-filters,
+  body[data-role="operativo"] .toolbar,
+  body[data-role="operativo"] .history-search-box,
+  body[data-role="operativo"] .schedule-toolbar,
+  body[data-role="operativo"] .fleet-line-filters,
+  body[data-role="supervisor"] .toolbar,
+  body[data-role="supervisor"] .history-search-box,
+  body[data-role="supervisor"] .schedule-toolbar,
+  body[data-role="supervisor_flotas"] .toolbar,
+  body[data-role="supervisor_flotas"] .history-search-box,
+  body[data-role="supervisor_flotas"] .schedule-toolbar,
+  body[data-role="supervisor_flotas"] .fleet-line-filters {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+}
