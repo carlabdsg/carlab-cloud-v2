@@ -2526,3 +2526,170 @@ body[data-role="supervisor_flotas"] .profile-panel span {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* V4.1.9 Android navigation + scroll fix for all non-operator roles */
+html, body {
+  min-height: 100%;
+  height: auto !important;
+  overflow-x: hidden !important;
+}
+
+body[data-role="admin"],
+body[data-role="operativo"],
+body[data-role="supervisor"],
+body[data-role="supervisor_flotas"] {
+  overflow-y: auto !important;
+  overscroll-behavior-y: auto !important;
+  touch-action: pan-y !important;
+}
+
+body[data-role="admin"] .shell,
+body[data-role="operativo"] .shell,
+body[data-role="supervisor"] .shell,
+body[data-role="supervisor_flotas"] .shell {
+  min-height: 100vh !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+body[data-role="admin"] .main-area,
+body[data-role="operativo"] .main-area,
+body[data-role="supervisor"] .main-area,
+body[data-role="supervisor_flotas"] .main-area {
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: auto !important;
+  touch-action: pan-y !important;
+}
+
+body[data-role="admin"] .sidebar,
+body[data-role="operativo"] .sidebar,
+body[data-role="supervisor"] .sidebar,
+body[data-role="supervisor_flotas"] .sidebar {
+  overflow: visible !important;
+  max-height: none !important;
+  touch-action: pan-y !important;
+}
+
+body[data-role="admin"] .sidebar-top,
+body[data-role="operativo"] .sidebar-top,
+body[data-role="supervisor"] .sidebar-top,
+body[data-role="supervisor_flotas"] .sidebar-top {
+  overflow: visible !important;
+  max-height: none !important;
+}
+
+body[data-role="admin"] .panel,
+body[data-role="operativo"] .panel,
+body[data-role="supervisor"] .panel,
+body[data-role="supervisor_flotas"] .panel,
+body[data-role="admin"] #fleetUnitsList,
+body[data-role="operativo"] #fleetUnitsList,
+body[data-role="supervisor_flotas"] #fleetUnitsList,
+body[data-role="admin"] .table-list,
+body[data-role="operativo"] .table-list,
+body[data-role="supervisor"] .table-list,
+body[data-role="supervisor_flotas"] .table-list {
+  overflow: visible !important;
+  max-height: none !important;
+}
+
+@media (max-width: 1100px) {
+  body[data-role="admin"] .shell,
+  body[data-role="operativo"] .shell,
+  body[data-role="supervisor"] .shell,
+  body[data-role="supervisor_flotas"] .shell {
+    display: block !important;
+    min-height: auto !important;
+  }
+
+  body[data-role="admin"] .sidebar,
+  body[data-role="operativo"] .sidebar,
+  body[data-role="supervisor"] .sidebar,
+  body[data-role="supervisor_flotas"] .sidebar {
+    position: relative !important;
+    top: auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    margin: 0 0 10px 0 !important;
+    overflow: visible !important;
+    transform: none !important;
+  }
+
+  body[data-role="admin"] .sidebar-top,
+  body[data-role="operativo"] .sidebar-top,
+  body[data-role="supervisor"] .sidebar-top,
+  body[data-role="supervisor_flotas"] .sidebar-top {
+    display: block !important;
+  }
+
+  body[data-role="admin"] .nav-stack,
+  body[data-role="operativo"] .nav-stack,
+  body[data-role="supervisor"] .nav-stack,
+  body[data-role="supervisor_flotas"] .nav-stack {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  body[data-role="admin"] .nav-group,
+  body[data-role="operativo"] .nav-group,
+  body[data-role="supervisor"] .nav-group,
+  body[data-role="supervisor_flotas"] .nav-group {
+    display: contents !important;
+  }
+
+  body[data-role="admin"] .nav-group-label,
+  body[data-role="operativo"] .nav-group-label,
+  body[data-role="supervisor"] .nav-group-label,
+  body[data-role="supervisor_flotas"] .nav-group-label {
+    grid-column: 1 / -1 !important;
+    margin: 6px 0 2px !important;
+  }
+
+  body[data-role="admin"] .main-area,
+  body[data-role="operativo"] .main-area,
+  body[data-role="supervisor"] .main-area,
+  body[data-role="supervisor_flotas"] .main-area {
+    display: block !important;
+    padding: 12px !important;
+    overflow: visible !important;
+  }
+
+  body[data-role="admin"] .topbar,
+  body[data-role="operativo"] .topbar,
+  body[data-role="supervisor"] .topbar,
+  body[data-role="supervisor_flotas"] .topbar,
+  body[data-role="admin"] #roleBrief,
+  body[data-role="operativo"] #roleBrief,
+  body[data-role="supervisor"] #roleBrief,
+  body[data-role="supervisor_flotas"] #roleBrief,
+  body[data-role="admin"] #filtersPanel,
+  body[data-role="operativo"] #filtersPanel,
+  body[data-role="supervisor"] #filtersPanel,
+  body[data-role="supervisor_flotas"] #filtersPanel {
+    position: static !important;
+    top: auto !important;
+  }
+}
+
+@media (pointer: coarse) {
+  body[data-role="admin"] .main-area,
+  body[data-role="operativo"] .main-area,
+  body[data-role="supervisor"] .main-area,
+  body[data-role="supervisor_flotas"] .main-area,
+  body[data-role="admin"] .sidebar,
+  body[data-role="operativo"] .sidebar,
+  body[data-role="supervisor"] .sidebar,
+  body[data-role="supervisor_flotas"] .sidebar {
+    overflow-y: visible !important;
+  }
+}
