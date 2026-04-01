@@ -1672,6 +1672,36 @@ app.post('/api/parts/requests', authRequired, requireRoles('admin','supervisor_f
   }
 });
 
+
+app.patch('/api/parts/requests/:id', authRequired, requireRoles('admin','supervisor_flotas'), async (req, res) => {
+  try {
+    const status = String(req.body.status || '').trim() || 'pendiente';
+    const notes = String(req.body.notes || '').trim();
+    const allowed = ['pendiente', 'pedida', 'asignada', 'recibida', 'instalada', 'cancelada', 'cerrada'];
+    if (!allowed.includes(status)) return res.status(400).json({ error: 'Estatus inválido.' });
+
+    const params = [req.params.id, status, notes];
+    let where = 'id = $1';
+    if (req.user.role === 'supervisor_flotas') {
+      params.push(req.user.empresa || '');
+      where += ` AND empresa = $${params.length}`;
+    }
+
+    const result = await pool.query(
+      `UPDATE parts_requests
+       SET status = $2, notes = $3, updated_at = NOW()
+       WHERE ${where}
+       RETURNING id, empresa, numero_economico, solicitud, status, notes, created_at, updated_at`,
+      params
+    );
+    if (!result.rowCount) return res.status(404).json({ error: 'Solicitud no encontrada.' });
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error actualizando solicitud independiente de refacción:', error);
+    res.status(500).json({ error: 'No se pudo actualizar la solicitud.' });
+  }
+});
+
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });

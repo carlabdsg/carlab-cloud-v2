@@ -2335,3 +2335,139 @@ body[data-role="supervisor_flotas"] .profile-panel span {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* V4.1.3 polish reports/mobile/independent parts */
+@media (min-width: 1101px) {
+  body[data-role="admin"] #boardPanel .toolbar,
+  body[data-role="operativo"] #boardPanel .toolbar,
+  body[data-role="supervisor"] #boardPanel .toolbar,
+  body[data-role="supervisor_flotas"] #boardPanel .toolbar,
+  body[data-role="admin"] #reportsPanel .toolbar,
+  body[data-role="operativo"] #reportsPanel .toolbar,
+  body[data-role="supervisor"] #reportsPanel .toolbar,
+  body[data-role="supervisor_flotas"] #reportsPanel .toolbar {
+    display: grid !important;
+    grid-template-columns: minmax(0,1.5fr) 180px 180px !important;
+    gap: 12px !important;
+    align-items: center !important;
+    margin: 0 0 16px 0 !important;
+    padding: 14px !important;
+    background: #fff !important;
+    border: 1px solid rgba(16,24,40,.08) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 12px 24px rgba(16,24,40,.04) !important;
+  }
+}
+
+/* Mobile adaptive layout */
+@media (max-width: 980px) {
+  .shell {
+    grid-template-columns: 1fr !important;
+  }
+
+  .sidebar {
+    position: relative !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+    min-height: auto !important;
+    padding: 10px !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid rgba(16,24,40,.08) !important;
+  }
+
+  .sidebar-top {
+    overflow: visible !important;
+  }
+
+  .nav-stack {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .nav-group {
+    display: contents !important;
+  }
+
+  .nav-group-label {
+    grid-column: 1 / -1 !important;
+    margin-top: 6px !important;
+  }
+
+  .nav-btn {
+    min-height: 40px !important;
+    padding: 9px 10px !important;
+    font-size: 13px !important;
+  }
+
+  .profile-panel,
+  .stats {
+    display: none !important;
+  }
+
+  .sidebar-bottom {
+    position: static !important;
+    margin-top: 10px !important;
+    background: transparent !important;
+  }
+
+  .main-area {
+    padding: 12px !important;
+  }
+
+  .panel {
+    padding: 14px !important;
+    border-radius: 16px !important;
+  }
+
+  body[data-role="admin"] .toolbar,
+  body[data-role="operativo"] .toolbar,
+  body[data-role="supervisor"] .toolbar,
+  body[data-role="supervisor_flotas"] .toolbar,
+  body[data-role="admin"] .history-search-box,
+  body[data-role="operativo"] .history-search-box,
+  body[data-role="supervisor"] .history-search-box,
+  body[data-role="supervisor_flotas"] .history-search-box,
+  body[data-role="admin"] .schedule-toolbar,
+  body[data-role="operativo"] .schedule-toolbar,
+  body[data-role="supervisor"] .schedule-toolbar,
+  body[data-role="supervisor_flotas"] .schedule-toolbar,
+  body[data-role="admin"] .fleet-line-filters,
+  body[data-role="operativo"] .fleet-line-filters,
+  body[data-role="supervisor_flotas"] .fleet-line-filters {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  body[data-role="admin"] #fleetPanel .fleet-layout,
+  body[data-role="operativo"] #fleetPanel .fleet-layout,
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  body[data-role="admin"] #fleetPanel .fleet-detail-stats,
+  body[data-role="operativo"] #fleetPanel .fleet-detail-stats,
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-detail-stats,
+  body[data-role="admin"] #fleetPanel .fleet-detail-grid,
+  body[data-role="operativo"] #fleetPanel .fleet-detail-grid,
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-detail-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.independent-request-editor {
+  display: grid;
+  grid-template-columns: 160px 1fr auto;
+  gap: 8px;
+  margin-top: 12px;
+  align-items: center;
+}
+@media (max-width: 980px) {
+  .independent-request-editor {
+    grid-template-columns: 1fr;
+  }
+}

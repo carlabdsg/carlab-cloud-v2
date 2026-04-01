@@ -68,6 +68,7 @@ const api = {
   updateParts(id, payload) { return this.request(`/api/garantias/${id}/parts`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   getIndependentPartsRequests() { return this.request('/api/parts/requests'); },
   createIndependentPartsRequest(payload) { return this.request('/api/parts/requests', { method: 'POST', body: JSON.stringify(payload || {}) }); },
+  updateIndependentPartsRequest(id, payload) { return this.request(`/api/parts/requests/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   getNotifications() { return this.request('/api/notifications'); },
 
   getFleetSummary() { return this.request('/api/fleet/summary'); },
@@ -763,6 +764,20 @@ async function eliminarCostoAdmin(costId, unitId) {
   }
 }
 
+
+async function guardarSolicitudIndependiente(id) {
+  try {
+    const status = document.getElementById(`indReqStatus_${id}`)?.value || 'pendiente';
+    const notes = document.getElementById(`indReqNotes_${id}`)?.value || '';
+    await api.updateIndependentPartsRequest(id, { status, notes });
+    notify('Solicitud actualizada.');
+    await cargarSolicitudesIndependientes();
+    if (state.activePanel === 'parts') renderPartsPending();
+  } catch (error) {
+    notify(error.message, true);
+  }
+}
+
 async function cargarSolicitudesIndependientes() {
   if (!isRole('admin','supervisor_flotas')) return;
   try {
@@ -850,7 +865,14 @@ function renderPartsPending() {
       <div class="parts-piece">${escapeHtml(req.solicitud || '')}</div>
       <div class="parts-meta">
         <div><strong>Unidad</strong>${escapeHtml(req.numero_economico || 'Sin unidad ligada')}</div>
-        <div><strong>Notas</strong>${escapeHtml(req.notes || '—')}</div>
+        <div><strong>Creada</strong>${escapeHtml(fmtDate(req.created_at))}</div>
+      </div>
+      <div class="independent-request-editor">
+        <select id="indReqStatus_${req.id}">
+          ${['pendiente','pedida','asignada','recibida','instalada','cancelada','cerrada'].map(opt => `<option value="${opt}" ${req.status === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+        </select>
+        <input id="indReqNotes_${req.id}" value="${escapeHtml(req.notes || '')}" placeholder="Notas" />
+        <button class="btn btn-primary" type="button" onclick="guardarSolicitudIndependiente('${req.id}')">Guardar</button>
       </div>
     `;
     els.partsList.appendChild(extra);
