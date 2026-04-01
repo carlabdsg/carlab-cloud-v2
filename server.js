@@ -572,6 +572,17 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_garantias_reportado_por_id ON garantias(reportado_por_id);
     CREATE INDEX IF NOT EXISTS idx_garantias_numero_economico ON garantias(numero_economico);
     CREATE INDEX IF NOT EXISTS idx_garantias_refacciones_pendientes ON garantias (empresa, refaccion_status, created_at) WHERE solicita_refaccion = TRUE;
+    CREATE TABLE IF NOT EXISTS parts_requests (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      empresa TEXT NOT NULL,
+      numero_economico TEXT,
+      solicitud TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pendiente',
+      requested_by UUID REFERENCES users(id) ON DELETE SET NULL,
+      notes TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 
   await ensureUsersRoleConstraint();
@@ -1565,6 +1576,99 @@ app.patch('/api/schedules/:id/cancel', authRequired, requireRoles('admin','opera
   } catch (error) {
     console.error('Error cancelando cita:', error);
     res.status(500).json({ error: 'No se pudo cancelar la cita.' });
+  }
+});
+
+
+app.get('/api/fleet/units/:id/costs', authRequired, requireRoles('admin'), async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, tipo, concepto, monto, created_at
+       FROM fleet_unit_costs
+       WHERE unit_id = $1
+       ORDER BY created_at DESC`,
+      [req.params.id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error leyendo costos de unidad:', error);
+    res.status(500).json({ error: 'No se pudieron leer los costos.' });
+  }
+});
+
+app.patch('/api/fleet/costs/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  try {
+    const tipo = String(req.body.tipo || '').trim();
+    const concepto = String(req.body.concepto || '').trim();
+    const monto = Number(req.body.monto);
+    if (!tipo || !concepto || Number.isNaN(monto) || monto < 0) {
+      return res.status(400).json({ error: 'Datos de costo inválidos.' });
+    }
+    const result = await pool.query(
+      `UPDATE fleet_unit_costs
+       SET tipo = $2, concepto = $3, monto = $4
+       WHERE id = $1
+       RETURNING id, unit_id, tipo, concepto, monto, created_at`,
+      [req.params.id, tipo, concepto, monto]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: 'Costo no encontrado.' });
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error actualizando costo:', error);
+    res.status(500).json({ error: 'No se pudo actualizar el costo.' });
+  }
+});
+
+app.delete('/api/fleet/costs/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  try {
+    const result = await pool.query(`DELETE FROM fleet_unit_costs WHERE id = $1 RETURNING id`, [req.params.id]);
+    if (!result.rowCount) return res.status(404).json({ error: 'Costo no encontrado.' });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error eliminando costo:', error);
+    res.status(500).json({ error: 'No se pudo eliminar el costo.' });
+  }
+});
+
+app.get('/api/parts/requests', authRequired, requireRoles('admin','supervisor_flotas'), async (req, res) => {
+  try {
+    const params = [];
+    const where = [];
+    if (req.user.role === 'supervisor_flotas') {
+      params.push(req.user.empresa || '');
+      where.push(`empresa = $${params.length}`);
+    }
+    const result = await pool.query(
+      `SELECT id, empresa, numero_economico, solicitud, status, notes, created_at, updated_at
+       FROM parts_requests
+       ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+       ORDER BY updated_at DESC, created_at DESC`,
+      params
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error leyendo solicitudes independientes de refacción:', error);
+    res.status(500).json({ error: 'No se pudieron leer las solicitudes.' });
+  }
+});
+
+app.post('/api/parts/requests', authRequired, requireRoles('admin','supervisor_flotas'), async (req, res) => {
+  try {
+    const empresa = String(req.body.empresa || req.user.empresa || '').trim();
+    const numeroEconomico = String(req.body.numeroEconomico || '').trim();
+    const solicitud = String(req.body.solicitud || '').trim();
+    const notes = String(req.body.notes || '').trim();
+    if (!empresa || !solicitud) return res.status(400).json({ error: 'Empresa y solicitud son obligatorias.' });
+    const result = await pool.query(
+      `INSERT INTO parts_requests (empresa, numero_economico, solicitud, status, requested_by, notes)
+       VALUES ($1,$2,$3,'pendiente',$4,$5)
+       RETURNING id, empresa, numero_economico, solicitud, status, notes, created_at, updated_at`,
+      [empresa, numeroEconomico, solicitud, req.user.id, notes]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creando solicitud independiente de refacción:', error);
+    res.status(500).json({ error: 'No se pudo crear la solicitud.' });
   }
 });
 

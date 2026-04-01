@@ -22,6 +22,8 @@ const state = {
   partsCacheAt: 0,
   partsDirtyIds: new Set(),
   fleetDirty: false,
+  unitCostsAdmin: [],
+  independentPartsRequests: [],
 };
 
 const api = {
@@ -64,6 +66,8 @@ const api = {
   rescheduleSchedule(id, payload) { return this.request(`/api/schedules/${id}/reschedule`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   getPartsPending() { return this.request('/api/parts/pending'); },
   updateParts(id, payload) { return this.request(`/api/garantias/${id}/parts`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
+  getIndependentPartsRequests() { return this.request('/api/parts/requests'); },
+  createIndependentPartsRequest(payload) { return this.request('/api/parts/requests', { method: 'POST', body: JSON.stringify(payload || {}) }); },
   getNotifications() { return this.request('/api/notifications'); },
 
   getFleetSummary() { return this.request('/api/fleet/summary'); },
@@ -721,6 +725,70 @@ function renderSchedules() {
 
 
 
+
+async function loadAdminUnitCosts(unitId) {
+  if (!isRole('admin') || !unitId) return;
+  try {
+    state.unitCostsAdmin = await api.getFleetCosts(unitId);
+  } catch (error) {
+    state.unitCostsAdmin = [];
+    notify(error.message, true);
+  }
+}
+
+async function guardarCostoAdmin(costId, unitId) {
+  try {
+    const tipo = document.getElementById(`adminCostTipo_${costId}`)?.value || '';
+    const concepto = document.getElementById(`adminCostConcepto_${costId}`)?.value || '';
+    const monto = Number(document.getElementById(`adminCostMonto_${costId}`)?.value || 0);
+    await api.updateFleetCost(costId, { tipo, concepto, monto });
+    notify('Costo actualizado.');
+    await loadAdminUnitCosts(unitId);
+    renderFleetDetail();
+  } catch (error) {
+    notify(error.message, true);
+  }
+}
+
+async function eliminarCostoAdmin(costId, unitId) {
+  if (!window.confirm('¿Eliminar este costo?')) return;
+  try {
+    await api.deleteFleetCost(costId);
+    notify('Costo eliminado.');
+    await loadAdminUnitCosts(unitId);
+    await loadFleet();
+    renderFleetDetail();
+  } catch (error) {
+    notify(error.message, true);
+  }
+}
+
+async function cargarSolicitudesIndependientes() {
+  if (!isRole('admin','supervisor_flotas')) return;
+  try {
+    state.independentPartsRequests = await api.getIndependentPartsRequests();
+  } catch (error) {
+    state.independentPartsRequests = [];
+  }
+}
+
+async function crearSolicitudIndependienteRefaccion() {
+  try {
+    const empresa = window.prompt('Empresa:');
+    if (!empresa) return;
+    const numeroEconomico = window.prompt('Número económico (opcional):') || '';
+    const solicitud = window.prompt('Refacción solicitada:');
+    if (!solicitud) return;
+    const notes = window.prompt('Notas (opcional):') || '';
+    await api.createIndependentPartsRequest({ empresa, numeroEconomico, solicitud, notes });
+    notify('Solicitud de refacción creada.');
+    await cargarSolicitudesIndependientes();
+    if (state.activePanel === 'parts') renderPartsPending();
+  } catch (error) {
+    notify(error.message, true);
+  }
+}
+
 async function loadPartsPending(force = false) {
   if (!isRole('admin','supervisor_flotas')) return;
   if (!force && state.partsDirtyIds.size) return;
@@ -752,14 +820,41 @@ function renderPartsPending() {
       <article class="parts-summary-card"><strong>Unidades</strong><span>${unidades}</span></article>
       <article class="parts-summary-card"><strong>Empresas</strong><span>${empresas}</span></article>
     `;
+    if (isRole('admin','supervisor_flotas')) {
+      const actions = document.createElement('div');
+      actions.className = 'parts-actions-row';
+      actions.innerHTML = `<button id="newIndependentPartBtn" class="btn btn-primary" type="button">Solicitar refacción</button>`;
+      els.partsSummary.appendChild(actions);
+      document.getElementById('newIndependentPartBtn')?.addEventListener('click', crearSolicitudIndependienteRefaccion);
+    }
   }
 
-  if (!items.length) {
+  const extras = state.independentPartsRequests || [];
+  if (!items.length && !extras.length) {
     els.partsList.innerHTML = '<div class="parts-empty"><strong>No hay refacciones pendientes.</strong><div>Cuando una unidad quede a la espera de pieza o una refacción se marque pendiente, aparecerá aquí.</div></div>';
     return;
   }
 
   els.partsList.innerHTML = '';
+  extras.forEach(req => {
+    const extra = document.createElement('article');
+    extra.className = 'parts-card independent-parts-card';
+    extra.innerHTML = `
+      <div class="parts-card-head">
+        <div>
+          <div class="parts-kicker">${escapeHtml(req.empresa || '—')}</div>
+          <h4>Solicitud independiente</h4>
+        </div>
+        <span class="badge badge-waiting">${escapeHtml(req.status || 'pendiente')}</span>
+      </div>
+      <div class="parts-piece">${escapeHtml(req.solicitud || '')}</div>
+      <div class="parts-meta">
+        <div><strong>Unidad</strong>${escapeHtml(req.numero_economico || 'Sin unidad ligada')}</div>
+        <div><strong>Notas</strong>${escapeHtml(req.notes || '—')}</div>
+      </div>
+    `;
+    els.partsList.appendChild(extra);
+  });
   items.forEach(item => {
     const card = document.createElement('article');
     card.className = 'parts-card';
@@ -900,6 +995,7 @@ function renderFleet() {
           return;
         }
         state.selectedFleetUnit = await api.getFleetUnit(unit.id);
+        if (isRole('admin')) await loadAdminUnitCosts(unit.id);
         renderFleet();
         renderFleetDetail();
       } catch (error) { notify(error.message, true); }
@@ -1197,7 +1293,7 @@ els.navAnalyticsBtn?.addEventListener('click', () => switchPanel('analytics'));
 els.navHistoryBtn?.addEventListener('click', () => switchPanel('history'));
 els.navScheduleBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
 els.navFleetBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
-els.navPartsBtn?.addEventListener('click', async () => { await loadPartsPending(true); switchPanel('parts'); });
+els.navPartsBtn?.addEventListener('click', async () => { await cargarSolicitudesIndependientes(); await loadPartsPending(true); switchPanel('parts'); });
 els.navUsersBtn?.addEventListener('click', async () => { switchPanel('users'); await loadUsers(); });
 els.navRequestsBtn?.addEventListener('click', async () => { switchPanel('requests'); await loadRequests(); });
 els.navCompaniesBtn?.addEventListener('click', async () => { switchPanel('companies'); await loadCompanies(); });
@@ -1287,7 +1383,7 @@ els.companyForm?.addEventListener('submit', async (e) => {
     if (isRole('admin')) await Promise.allSettled([loadUsers(), loadRequests()]);
     if (isRole('admin','operativo','supervisor','supervisor_flotas','operador')) await Promise.allSettled([loadSchedules('')]);
     if (isRole('admin','operativo','supervisor_flotas')) await Promise.allSettled([loadFleet()]);
-    if (isRole('admin','supervisor_flotas')) await Promise.allSettled([loadPartsPending(true)]);
+    if (isRole('admin','supervisor_flotas')) await Promise.allSettled([cargarSolicitudesIndependientes(), loadPartsPending(true)]);
     resetReportForm(); resetCompanyForm(); resetFleetForm();
   } catch {
     localStorage.removeItem('carlabToken'); state.token = ''; showLogin();

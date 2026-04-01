@@ -2287,3 +2287,51 @@ body[data-role="supervisor_flotas"] .profile-panel span {
     display: none !important;
   }
 }
+
+
+/* V4.1.2 polish next */
+@media (min-width: 1101px) {
+  body[data-role="admin"] .toolbar,
+  body[data-role="operativo"] .toolbar,
+  body[data-role="supervisor"] .toolbar,
+  body[data-role="supervisor_flotas"] .toolbar {
+    grid-template-columns: minmax(0,1.5fr) 170px 170px !important;
+  }
+
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-layout {
+    grid-template-columns: 420px minmax(0,1fr) !important;
+  }
+
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-line-item,
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-luxury-card {
+    grid-template-columns: 88px 30px minmax(0,1fr) 120px !important;
+    grid-template-areas:
+      "num emoji main date"
+      "tags tags tags tags" !important;
+    min-height: 112px;
+  }
+}
+.parts-actions-row {
+  display:flex;
+  justify-content:flex-end;
+  margin-top:12px;
+}
+.independent-parts-card {
+  border-style:dashed !important;
+}
+.admin-cost-editor-list {
+  display:grid;
+  gap:10px;
+  margin-top:12px;
+}
+.admin-cost-editor-row {
+  display:grid;
+  grid-template-columns: 1fr 1.2fr .8fr auto auto;
+  gap:8px;
+  align-items:center;
+}
+@media (max-width: 1100px) {
+  .admin-cost-editor-row {
+    grid-template-columns: 1fr;
+  }
+}
