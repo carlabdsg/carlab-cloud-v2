@@ -2180,3 +2180,110 @@ body[data-role="supervisor_flotas"] .nav-btn#navNewReportBtn {
     grid-template-columns: 1fr !important;
   }
 }
+
+
+/* V4.1.1 requested polish */
+body[data-role="admin"] .profile-panel,
+body[data-role="operativo"] .profile-panel,
+body[data-role="supervisor"] .profile-panel,
+body[data-role="supervisor_flotas"] .profile-panel {
+  color: #111827 !important;
+}
+body[data-role="admin"] .profile-panel *,
+body[data-role="operativo"] .profile-panel *,
+body[data-role="supervisor"] .profile-panel *,
+body[data-role="supervisor_flotas"] .profile-panel * {
+  color: #111827 !important;
+  opacity: 1 !important;
+}
+body[data-role="admin"] .profile-panel .muted,
+body[data-role="operativo"] .profile-panel .muted,
+body[data-role="supervisor"] .profile-panel .muted,
+body[data-role="supervisor_flotas"] .profile-panel .muted,
+body[data-role="admin"] .profile-panel span,
+body[data-role="operativo"] .profile-panel span,
+body[data-role="supervisor"] .profile-panel span,
+body[data-role="supervisor_flotas"] .profile-panel span {
+  color: #475467 !important;
+}
+
+@media (min-width: 1101px) {
+  body[data-role="admin"] .toolbar,
+  body[data-role="operativo"] .toolbar,
+  body[data-role="supervisor"] .toolbar,
+  body[data-role="supervisor_flotas"] .toolbar {
+    display: grid !important;
+    grid-template-columns: minmax(0,1.5fr) 180px 180px !important;
+    gap: 12px !important;
+    align-items: center !important;
+    position: static !important;
+    margin: 0 0 16px 0 !important;
+    padding: 14px !important;
+    background: #fff !important;
+    border: 1px solid rgba(16,24,40,.08) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 12px 24px rgba(16,24,40,.04) !important;
+  }
+
+  body[data-role="supervisor_flotas"] .fleet-form-only,
+  body[data-role="supervisor_flotas"] #fleetPanel .history-search-box {
+    display: none !important;
+  }
+
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-line-filters {
+    margin-bottom: 14px !important;
+  }
+
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-layout {
+    grid-template-columns: 380px minmax(0,1fr) !important;
+    gap: 18px !important;
+  }
+
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-line-item,
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-luxury-card {
+    display: grid !important;
+    grid-template-columns: 88px 30px minmax(0,1fr) 120px !important;
+    grid-template-areas:
+      "num emoji main date"
+      "tags tags tags tags" !important;
+    gap: 10px 12px !important;
+    padding: 16px !important;
+    align-items: start !important;
+  }
+
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-line-num { grid-area: num !important; }
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-line-emoji { grid-area: emoji !important; }
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-line-main { grid-area: main !important; min-width: 0 !important; }
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-line-status {
+    grid-area: date !important;
+    text-align: right !important;
+    min-width: 0 !important;
+    font-size: 13px !important;
+    color: var(--muted) !important;
+  }
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-line-tags {
+    grid-area: tags !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-detail-stats {
+    grid-template-columns: repeat(3, minmax(0,1fr)) !important;
+  }
+}
+
+@media (max-width: 1100px) {
+  body[data-role="admin"] .toolbar,
+  body[data-role="operativo"] .toolbar,
+  body[data-role="supervisor"] .toolbar,
+  body[data-role="supervisor_flotas"] .toolbar {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  body[data-role="supervisor_flotas"] .fleet-form-only,
+  body[data-role="supervisor_flotas"] #fleetPanel .history-search-box {
+    display: none !important;
+  }
+}
