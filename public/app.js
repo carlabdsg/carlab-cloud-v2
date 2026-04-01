@@ -1443,3 +1443,7 @@ setInterval(async () => {
     if (['board','schedule'].includes(state.activePanel)) await Promise.allSettled([loadGarantias(), loadSchedules('')]);
   } catch {}
 }, 5000);
+window.guardarCostoAdmin = guardarCostoAdmin;
+window.eliminarCostoAdmin = eliminarCostoAdmin;
+
+

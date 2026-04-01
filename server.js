@@ -1621,9 +1621,14 @@ app.patch('/api/fleet/costs/:id', authRequired, requireRoles('admin'), async (re
 
 app.delete('/api/fleet/costs/:id', authRequired, requireRoles('admin'), async (req, res) => {
   try {
-    const result = await pool.query(`DELETE FROM fleet_cost_entries WHERE id = $1 RETURNING id`, [req.params.id]);
+    const result = await pool.query(
+      `DELETE FROM fleet_cost_entries
+       WHERE id = $1
+       RETURNING id, fleet_unit_id`,
+      [req.params.id]
+    );
     if (!result.rowCount) return res.status(404).json({ error: 'Costo no encontrado.' });
-    res.json({ ok: true });
+    res.json({ ok: true, deleted: result.rows[0] });
   } catch (error) {
     console.error('Error eliminando costo:', error);
     res.status(500).json({ error: 'No se pudo eliminar el costo.' });
