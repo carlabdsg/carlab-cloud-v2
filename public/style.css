@@ -1808,3 +1808,67 @@ body[data-role="supervisor_flotas"] .nav-btn#navNewReportBtn {
     margin: 0 !important;
   }
 }
+
+
+/* V3.9.8 relocate fleet search bar for supervisor_flotas on desktop */
+@media (min-width: 1101px) {
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-admin-toolbar,
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-line-filters {
+    position: static !important;
+    top: auto !important;
+    z-index: auto !important;
+  }
+
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-admin-toolbar {
+    margin: 0 0 16px 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-line-filters {
+    display: grid !important;
+    grid-template-columns: minmax(0,1fr) 120px 130px !important;
+    gap: 12px !important;
+    align-items: center !important;
+    width: 100% !important;
+    margin: 0 0 18px 0 !important;
+    padding: 14px !important;
+    background: #fff !important;
+    border: 1px solid rgba(16,24,40,.08) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 12px 24px rgba(16,24,40,.04) !important;
+  }
+
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-layout {
+    margin-top: 0 !important;
+    grid-template-columns: 320px minmax(0,1fr) !important;
+    align-items: start !important;
+  }
+
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-line-list {
+    position: relative !important;
+    z-index: 1 !important;
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+  }
+
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-line-item,
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-luxury-card {
+    position: relative !important;
+    z-index: 1 !important;
+    margin-top: 0 !important;
+  }
+
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-detail-premium {
+    margin-top: 0 !important;
+    align-self: start !important;
+  }
+
+  /* make unit cards start below the filter bar visually */
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-admin-toolbar + .fleet-layout,
+  body[data-role="supervisor_flotas"] #fleetPanel .fleet-line-filters + .fleet-layout {
+    margin-top: 8px !important;
+  }
+}
