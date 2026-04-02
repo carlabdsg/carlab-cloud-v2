@@ -680,7 +680,7 @@ async function initDb() {
     CREATE TABLE IF NOT EXISTS work_quotes (
       id TEXT PRIMARY KEY,
       folio TEXT NOT NULL UNIQUE,
-      garantia_id UUID REFERENCES garantias(id) ON DELETE SET NULL,
+      garantia_id TEXT,
       company_name TEXT,
       unit_number TEXT,
       client_name TEXT,
@@ -757,6 +757,8 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_stock_parts_sku ON stock_parts(sku);
     CREATE INDEX IF NOT EXISTS idx_stock_movements_part ON stock_movements(stock_part_id);
     CREATE INDEX IF NOT EXISTS idx_stock_movements_created_at ON stock_movements(created_at DESC);
+    ALTER TABLE work_quotes DROP CONSTRAINT IF EXISTS work_quotes_garantia_id_fkey;
+    ALTER TABLE work_quotes ALTER COLUMN garantia_id TYPE TEXT USING garantia_id::TEXT;
     CREATE INDEX IF NOT EXISTS idx_work_quotes_garantia ON work_quotes(garantia_id);
     CREATE INDEX IF NOT EXISTS idx_work_quotes_status ON work_quotes(status, payment_status, updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_work_quote_items_quote ON work_quote_items(quote_id);
