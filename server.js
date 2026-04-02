@@ -448,6 +448,7 @@ async function ensureUsersRoleConstraint() {
 }
 
 async function initDb() {
+  await pool.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto;`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS companies (
       id TEXT PRIMARY KEY,
@@ -605,7 +606,6 @@ async function initDb() {
     ALTER TABLE garantias ADD COLUMN IF NOT EXISTS refaccion_status TEXT NOT NULL DEFAULT 'pendiente';
     ALTER TABLE garantias ADD COLUMN IF NOT EXISTS refaccion_asignada TEXT;
     ALTER TABLE garantias ADD COLUMN IF NOT EXISTS refaccion_updated_at TIMESTAMPTZ;
-    ALTER TABLE parts_requests ADD COLUMN IF NOT EXISTS evidence_photos JSONB NOT NULL DEFAULT '[]'::jsonb;
 
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     CREATE INDEX IF NOT EXISTS idx_reg_requests_status ON registration_requests(status);
@@ -626,6 +626,46 @@ async function initDb() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS stock_parts (
+      id TEXT PRIMARY KEY,
+      nombre TEXT NOT NULL,
+      sku TEXT,
+      proveedor TEXT,
+      stock_actual NUMERIC(12,2) NOT NULL DEFAULT 0,
+      stock_minimo NUMERIC(12,2) NOT NULL DEFAULT 0,
+      costo_unitario NUMERIC(12,2) NOT NULL DEFAULT 0,
+      precio_venta NUMERIC(12,2) NOT NULL DEFAULT 0,
+      ubicacion TEXT,
+      notas TEXT,
+      created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS stock_movements (
+      id TEXT PRIMARY KEY,
+      stock_part_id TEXT NOT NULL REFERENCES stock_parts(id) ON DELETE CASCADE,
+      tipo TEXT NOT NULL CHECK (tipo IN ('entrada','salida_unidad','venta_directa','ajuste')),
+      cantidad NUMERIC(12,2) NOT NULL DEFAULT 0,
+      unidad TEXT,
+      empresa TEXT,
+      garantia_folio TEXT,
+      notas TEXT,
+      created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    ALTER TABLE parts_requests ADD COLUMN IF NOT EXISTS evidence_photos JSONB NOT NULL DEFAULT '[]'::jsonb;
+    CREATE INDEX IF NOT EXISTS idx_parts_requests_empresa ON parts_requests(empresa);
+    CREATE INDEX IF NOT EXISTS idx_parts_requests_status ON parts_requests(status);
+    CREATE INDEX IF NOT EXISTS idx_parts_requests_updated_at ON parts_requests(updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_stock_parts_nombre ON stock_parts(LOWER(nombre));
+    CREATE INDEX IF NOT EXISTS idx_stock_parts_sku ON stock_parts(sku);
+    CREATE INDEX IF NOT EXISTS idx_stock_movements_part ON stock_movements(stock_part_id);
+    CREATE INDEX IF NOT EXISTS idx_stock_movements_created_at ON stock_movements(created_at DESC);
   `);
 
   await ensureUsersRoleConstraint();
