@@ -293,6 +293,42 @@ function mapFleetCost(row) {
 }
 
 
+function mapStockPart(row) {
+  return {
+    id: row.id,
+    nombre: row.nombre || '',
+    sku: row.sku || '',
+    proveedor: row.proveedor || '',
+    stockActual: Number(row.stock_actual || 0),
+    stockMinimo: Number(row.stock_minimo || 0),
+    costoUnitario: Number(row.costo_unitario || 0),
+    precioVenta: Number(row.precio_venta || 0),
+    ubicacion: row.ubicacion || '',
+    notas: row.notas || '',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    movimientos: Number(row.movimientos || 0),
+    ultimoMovimientoAt: row.ultimo_movimiento_at || null
+  };
+}
+
+function mapStockMovement(row) {
+  return {
+    id: row.id,
+    stockPartId: row.stock_part_id,
+    tipo: row.tipo,
+    cantidad: Number(row.cantidad || 0),
+    unidad: row.unidad || '',
+    empresa: row.empresa || '',
+    garantiaFolio: row.garantia_folio || '',
+    notas: row.notas || '',
+    createdAt: row.created_at,
+    partName: row.nombre || '',
+    sku: row.sku || ''
+  };
+}
+
+
 function authRequired(req, res, next) {
   const auth = req.headers.authorization || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
@@ -512,6 +548,10 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_schedule_requests_telefono ON schedule_requests(telefono);
     CREATE INDEX IF NOT EXISTS idx_schedule_requests_status ON schedule_requests(status);
     CREATE INDEX IF NOT EXISTS idx_schedule_requests_scheduled_for ON schedule_requests(scheduled_for);
+    ALTER TABLE schedule_requests ADD COLUMN IF NOT EXISTS empresa TEXT;
+    ALTER TABLE schedule_requests ADD COLUMN IF NOT EXISTS numero_economico TEXT;
+    ALTER TABLE schedule_requests ADD COLUMN IF NOT EXISTS contacto_nombre TEXT;
+    ALTER TABLE schedule_requests ADD COLUMN IF NOT EXISTS folio_manual TEXT;
     CREATE TABLE IF NOT EXISTS fleet_units (
       id TEXT PRIMARY KEY,
       empresa TEXT NOT NULL,
@@ -1142,20 +1182,42 @@ app.get('/api/schedules', authRequired, requireRoles('admin', 'operativo', 'supe
   }
   if (SUPERVISOR_ROLES.includes(req.user.role)) {
     params.push(req.user.empresa || '');
-    where.push(`g.empresa = $${params.length}`);
+    where.push(`COALESCE(g.empresa, sr.empresa) = $${params.length}`);
   }
   if (req.user.role === 'operador') {
     params.push(req.user.id);
     where.push(`g.reportado_por_id = $${params.length}`);
   }
   const result = await pool.query(`
-    SELECT sr.*, g.folio, g.numero_economico, g.empresa, g.contacto_nombre
+    SELECT sr.*,
+      COALESCE(g.folio, sr.folio_manual) AS folio,
+      COALESCE(g.numero_economico, sr.numero_economico) AS numero_economico,
+      COALESCE(g.empresa, sr.empresa) AS empresa,
+      COALESCE(g.contacto_nombre, sr.contacto_nombre) AS contacto_nombre,
+      COALESCE(g.telefono, sr.telefono) AS telefono
     FROM schedule_requests sr
-    JOIN garantias g ON g.id = sr.garantia_id
+    LEFT LEFT JOIN garantias g ON g.id = sr.garantia_id
     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
     ORDER BY COALESCE(sr.scheduled_for, sr.proposed_at, sr.requested_at) ASC
   `, params);
   res.json(result.rows.map(scheduleSummary));
+});
+
+app.post('/api/schedules/manual', authRequired, requireRoles('admin','operativo'), async (req, res) => {
+  const empresa = String(req.body.empresa || '').trim();
+  const unidad = String(req.body.unidad || '').trim();
+  const telefono = normalizeMxPhone(req.body.telefono || '');
+  const folioManual = String(req.body.folio || '').trim();
+  const contactoNombre = String(req.body.contactoNombre || '').trim();
+  const scheduledFor = req.body.scheduledFor ? new Date(req.body.scheduledFor) : null;
+  const notes = String(req.body.notes || '').trim();
+  if (!empresa || !unidad || !scheduledFor || Number.isNaN(scheduledFor.getTime())) return res.status(400).json({ error: 'Completa empresa, unidad y fecha válida.' });
+  const result = await pool.query(`
+    INSERT INTO schedule_requests (id, garantia_id, telefono, status, notes, scheduled_for, confirmed_at, empresa, numero_economico, contacto_nombre, folio_manual)
+    VALUES ($1,NULL,$2,'confirmed',$3,$4,NOW(),$5,$6,$7,$8)
+    RETURNING *
+  `, [cryptoRandomId(), telefono, notes, scheduledFor.toISOString(), empresa, unidad, contactoNombre, folioManual]);
+  res.status(201).json(scheduleSummary(result.rows[0]));
 });
 
 app.post('/api/garantias/:id/request-schedule', authRequired, requireRoles('admin', 'operativo', 'supervisor_flotas'), async (req, res) => {
@@ -1186,7 +1248,7 @@ app.post('/api/garantias/:id/request-schedule', authRequired, requireRoles('admi
     console.error('Error solicitando programacion WhatsApp:', error.message);
   }
   await addAuditLog(req.params.id, req.user.id, 'solicitar_programacion', `${req.user.nombre} solicitó fecha de ingreso por WhatsApp`);
-  const joined = await pool.query(`SELECT sr.*, g.folio, g.numero_economico, g.empresa, g.contacto_nombre FROM schedule_requests sr JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id = $1`, [schedule.id]);
+  const joined = await pool.query(`SELECT sr.*, g.folio, g.numero_economico, g.empresa, g.contacto_nombre FROM schedule_requests sr LEFT JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id = $1`, [schedule.id]);
   res.status(201).json(scheduleSummary(joined.rows[0]));
 });
 
@@ -1789,13 +1851,135 @@ app.patch('/api/parts/requests/:id', authRequired, requireRoles('admin','supervi
   }
 });
 
+
+app.get('/api/stock/parts', authRequired, requireRoles('admin'), async (_req, res) => {
+  try {
+    const parts = await pool.query(
+      `SELECT sp.*, 
+              COUNT(sm.id)::int AS movimientos,
+              MAX(sm.created_at) AS ultimo_movimiento_at
+       FROM stock_parts sp
+       LEFT JOIN stock_movements sm ON sm.stock_part_id = sp.id
+       GROUP BY sp.id
+       ORDER BY LOWER(sp.nombre) ASC, sp.created_at DESC`
+    );
+    const movements = await pool.query(
+      `SELECT sm.*, sp.nombre, sp.sku
+       FROM stock_movements sm
+       JOIN stock_parts sp ON sp.id = sm.stock_part_id
+       ORDER BY sm.created_at DESC
+       LIMIT 120`
+    );
+    res.json({ parts: parts.rows.map(mapStockPart), movements: movements.rows.map(mapStockMovement) });
+  } catch (error) {
+    console.error('Error leyendo stock:', error);
+    res.status(500).json({ error: 'No se pudo cargar el stock.' });
+  }
+});
+
+app.post('/api/stock/parts', authRequired, requireRoles('admin'), async (req, res) => {
+  try {
+    const nombre = String(req.body.nombre || '').trim();
+    const sku = String(req.body.sku || '').trim();
+    const proveedor = String(req.body.proveedor || '').trim();
+    const stockActual = Number(req.body.stockActual || 0);
+    const stockMinimo = Number(req.body.stockMinimo || 0);
+    const costoUnitario = Number(req.body.costoUnitario || 0);
+    const precioVenta = Number(req.body.precioVenta || 0);
+    const ubicacion = String(req.body.ubicacion || '').trim();
+    const notas = String(req.body.notas || '').trim();
+    if (!nombre) return res.status(400).json({ error: 'Nombre de refacción requerido.' });
+    const result = await pool.query(
+      `INSERT INTO stock_parts (id, nombre, sku, proveedor, stock_actual, stock_minimo, costo_unitario, precio_venta, ubicacion, notas, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       RETURNING *`,
+      [cryptoRandomId(), nombre, sku, proveedor, stockActual, stockMinimo, costoUnitario, precioVenta, ubicacion, notas, req.user.id]
+    );
+    res.status(201).json(mapStockPart(result.rows[0]));
+  } catch (error) {
+    console.error('Error creando refacción de stock:', error);
+    res.status(500).json({ error: 'No se pudo crear la refacción.' });
+  }
+});
+
+app.patch('/api/stock/parts/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  try {
+    const nombre = String(req.body.nombre || '').trim();
+    const sku = String(req.body.sku || '').trim();
+    const proveedor = String(req.body.proveedor || '').trim();
+    const stockMinimo = Number(req.body.stockMinimo || 0);
+    const costoUnitario = Number(req.body.costoUnitario || 0);
+    const precioVenta = Number(req.body.precioVenta || 0);
+    const ubicacion = String(req.body.ubicacion || '').trim();
+    const notas = String(req.body.notas || '').trim();
+    if (!nombre) return res.status(400).json({ error: 'Nombre de refacción requerido.' });
+    const result = await pool.query(
+      `UPDATE stock_parts
+       SET nombre = $2, sku = $3, proveedor = $4, stock_minimo = $5, costo_unitario = $6, precio_venta = $7, ubicacion = $8, notas = $9, updated_at = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [req.params.id, nombre, sku, proveedor, stockMinimo, costoUnitario, precioVenta, ubicacion, notas]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: 'Refacción no encontrada.' });
+    res.json(mapStockPart(result.rows[0]));
+  } catch (error) {
+    console.error('Error actualizando refacción de stock:', error);
+    res.status(500).json({ error: 'No se pudo actualizar la refacción.' });
+  }
+});
+
+app.post('/api/stock/parts/:id/movements', authRequired, requireRoles('admin'), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const tipo = String(req.body.tipo || '').trim();
+    const cantidad = Number(req.body.cantidad || 0);
+    const unidad = String(req.body.unidad || '').trim();
+    const empresa = String(req.body.empresa || '').trim();
+    const garantiaFolio = String(req.body.garantiaFolio || '').trim();
+    const notas = String(req.body.notas || '').trim();
+    if (!['entrada','salida_unidad','venta_directa','ajuste'].includes(tipo)) return res.status(400).json({ error: 'Tipo de movimiento inválido.' });
+    if (Number.isNaN(cantidad) || cantidad <= 0) return res.status(400).json({ error: 'Cantidad inválida.' });
+
+    const found = await client.query(`SELECT * FROM stock_parts WHERE id = $1 FOR UPDATE`, [req.params.id]);
+    if (!found.rowCount) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Refacción no encontrada.' });
+    }
+    const part = found.rows[0];
+    let next_stock = Number(part.stock_actual || 0);
+    if (tipo === 'entrada') next_stock += cantidad;
+    else if (tipo === 'ajuste') next_stock = cantidad;
+    else next_stock -= cantidad;
+    if (next_stock < 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Stock insuficiente para esa salida.' });
+    }
+    await client.query(`UPDATE stock_parts SET stock_actual = $2, updated_at = NOW() WHERE id = $1`, [req.params.id, next_stock]);
+    const mov = await client.query(
+      `INSERT INTO stock_movements (id, stock_part_id, tipo, cantidad, unidad, empresa, garantia_folio, notas, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       RETURNING *`,
+      [cryptoRandomId(), req.params.id, tipo, cantidad, unidad, empresa, garantiaFolio, notas, req.user.id]
+    );
+    await client.query('COMMIT');
+    res.status(201).json({ movement: mapStockMovement({ ...mov.rows[0], nombre: part.nombre, sku: part.sku }), stockActual: next_stock });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error registrando movimiento de stock:', error);
+    res.status(500).json({ error: 'No se pudo registrar el movimiento.' });
+  } finally {
+    client.release();
+  }
+});
+
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 initDb()
   .then(() => {
-    app.listen(PORT, () => console.log(`CARLAB CLOUD V3 Fase 3 corriendo en puerto ${PORT}`));
+    app.listen(PORT, () => console.log(`CARLAB CLOUD V3 Fase Pro 3 corriendo en puerto ${PORT}`));
   })
   .catch((error) => {
     console.error('No se pudo inicializar la base:', error);

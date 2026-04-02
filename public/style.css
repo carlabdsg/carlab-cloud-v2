@@ -3194,3 +3194,96 @@ body.modal-open{overflow:hidden}
   .parts-request-modal{padding:20px 16px}
   .parts-request-head h3{font-size:28px}
 }
+
+.parts-list-grid {
+  display:grid;
+  grid-template-columns: repeat(auto-fit,minmax(420px,1fr));
+  gap:16px;
+  align-items:start;
+}
+.parts-card.pro-card {
+  display:grid;
+  gap:14px;
+  align-self:start;
+}
+.parts-premium-grid {
+  display:grid;
+  grid-template-columns: 1.1fr .9fr;
+  gap:12px;
+}
+.parts-field-grid.two-col { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.parts-edit-grid { display:grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap:12px; }
+.parts-edit-box.pro-editor, .independent-request-editor.pro-editor {
+  display:grid;
+  gap:12px;
+}
+.parts-edit-shell { border-top:1px solid var(--line); padding-top:12px; }
+.parts-stack-card { border:1px solid var(--line); border-radius:14px; padding:12px; background:#fff; }
+.parts-card-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+.parts-subcopy { margin:4px 0 0; color:var(--muted); }
+.schedule-card {
+  display:grid;
+  gap:12px;
+  padding:16px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:#fff;
+}
+.schedule-card-main, .schedule-card-meta {
+  display:grid;
+  grid-template-columns: 1.6fr auto;
+  gap:12px;
+  align-items:start;
+}
+.schedule-card-meta > div {
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:10px 12px;
+  background:#fcfcfd;
+}
+.stock-layout { display:grid; grid-template-columns: 1.1fr .9fr; gap:16px; margin-bottom:16px; }
+.stock-form-grid { display:grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap:12px; }
+.stock-form-grid label, .parts-edit-box label, .independent-request-editor label { display:grid; gap:6px; }
+.stock-form-grid .span-2 { grid-column: span 2; }
+.stock-form-actions { display:flex; gap:10px; align-items:center; }
+.stock-list-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(300px,1fr)); gap:16px; }
+.stock-card { display:grid; gap:12px; }
+.stock-card-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.fleet-line-item { cursor:pointer; }
+.fleet-line-item.selected { border-color:#c73779; box-shadow:0 0 0 3px rgba(199,55,121,.08); }
+#fleetDetail .muted { min-height:24px; }
+@media (max-width: 1100px) {
+  .parts-list-grid, .stock-list-grid, .stock-layout, .parts-premium-grid, .schedule-card-main, .schedule-card-meta, .stock-form-grid, .parts-edit-grid { grid-template-columns: 1fr; }
+}
+
+
+.schedule-toolbar-pro{align-items:end}
+.schedule-manual-card{margin:14px 0 16px}
+.schedule-manual-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.schedule-manual-grid label{display:grid;gap:6px}
+.schedule-manual-grid .span-2{grid-column:span 2}
+.schedule-manual-actions{display:flex;gap:10px;justify-content:flex-end;align-items:center}
+.schedule-summary-pro{grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.schedule-summary-pro .stat small{display:block;color:var(--muted);margin-top:4px}
+.schedule-list-pro{display:grid;gap:14px}
+.schedule-card-pro{border-radius:20px;box-shadow:0 18px 40px rgba(15,23,42,.05)}
+.schedule-card-meta-pro{grid-template-columns:repeat(3,minmax(0,1fr))}
+.schedule-actions-row{display:flex;flex-wrap:wrap;gap:10px}
+.parts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(520px,1fr));gap:18px;align-items:start}
+.parts-card.spaced{padding:18px 18px 16px}
+.parts-card .parts-media-label{margin-bottom:10px;font-weight:700}
+.parts-card .gallery-grid{margin-top:8px}
+.parts-edit-shell{margin-top:6px}
+.parts-edit-header{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:10px}
+.parts-field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.parts-trace-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.owner-list-row.parts-inline-row{display:grid;gap:8px}
+.stock-layout .owner-card{min-height:100%}
+.fleet-detail-summary article{min-width:0}
+.fleet-timeline-box{min-width:0}
+.fleet-dot{display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border-radius:999px;font-weight:700;border:1px solid var(--line);background:#fff}
+.fleet-dot.fleet-ok{color:#0f766e;background:#ecfdf5;border-color:#99f6e4}
+.fleet-dot.fleet-warn{color:#b45309;background:#fff7ed;border-color:#fdba74}
+.fleet-dot.fleet-bad{color:#b91c1c;background:#fef2f2;border-color:#fca5a5}
+.fleet-dot.fleet-info{color:#3730a3;background:#eef2ff;border-color:#c7d2fe}
+@media (max-width: 1100px){.schedule-manual-grid,.schedule-summary-pro,.schedule-card-meta-pro,.parts-grid,.parts-field-grid,.parts-trace-row{grid-template-columns:1fr}.schedule-manual-grid .span-2{grid-column:span 1}}

@@ -29,6 +29,8 @@ const state = {
   boardDirtyIds: new Set(),
   userEditing: false,
   activeEditorContext: '',
+  stockParts: [],
+  stockMovements: [],
 };
 
 const api = {
@@ -66,6 +68,7 @@ const api = {
   updateRequest(id, payload) { return this.request(`/api/registration-requests/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }); },
   getUnitHistory(numeroEconomico) { return this.request(`/api/history/unit/${encodeURIComponent(numeroEconomico)}`); },
   getSchedules(date='') { return this.request(`/api/schedules${date ? `?date=${encodeURIComponent(date)}` : ''}`); },
+  createManualSchedule(payload) { return this.request('/api/schedules/manual', { method: 'POST', body: JSON.stringify(payload || {}) }); },
   requestSchedule(id) { return this.request(`/api/garantias/${id}/request-schedule`, { method: 'POST' }); },
   confirmSchedule(id, payload) { return this.request(`/api/schedules/${id}/confirm`, { method: 'PATCH', body: JSON.stringify(payload) }); },
   cancelSchedule(id, payload) { return this.request(`/api/schedules/${id}/cancel`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
@@ -88,6 +91,10 @@ const api = {
   getFleetCosts(id) { return this.request(`/api/fleet/units/${id}/costs`); },
   updateFleetCost(id, payload) { return this.request(`/api/fleet/costs/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   deleteFleetCost(id) { return this.request(`/api/fleet/costs/${id}`, { method: 'DELETE' }); },
+  getStock() { return this.request('/api/stock/parts'); },
+  createStockPart(payload) { return this.request('/api/stock/parts', { method: 'POST', body: JSON.stringify(payload || {}) }); },
+  updateStockPart(id, payload) { return this.request(`/api/stock/parts/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
+  createStockMovement(id, payload) { return this.request(`/api/stock/parts/${id}/movements`, { method: 'POST', body: JSON.stringify(payload || {}) }); },
 
 };
 
@@ -96,14 +103,14 @@ function bind() {
   [
     'loginView','dashboardView','loginForm','loginEmail','loginPassword','loginError','registerForm','registerMessage','regNombre','regEmail','regTelefono','regEmpresa','regNumeroEconomico','regPassword',
     'tabLoginBtn','tabRegisterBtn','welcomeText','currentUserName','currentUserEmail','currentRoleBadge','avatarCircle','pageTitle','roleSummaryText','roleBrief','logoutBtn',
-    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navFleetBtn','navPartsBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel',
+    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navFleetBtn','navPartsBtn','navStockBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel','stockPanel',
     'reportForm','numeroObra','modelo','numeroEconomico','empresa','kilometraje','contactoNombre','telefono','descripcionFallo','solicitaRefaccion','refaccionFields','detalleRefaccion',
     'evidencias','evidenciasRefaccion','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn','searchInput','validationFilter','operationalFilter',
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
     'executiveDeck','executiveDeckGrid','liveRefreshBadge','topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistorySearchInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','partsPanel','partsRefreshBtn','partsSummary','partsList','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn','fleetOwnerDeck','imageLightbox','imageLightboxImg','imageLightboxClose',
     'navFleetBtn','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas','fleetNewBtn','fleetCancelBtn','fleetFormBox','fleetSearchInput','fleetStatusFilter',
-    'partsRequestModal','partsRequestClose','partsRequestCancel','partsRequestForm','partsRequestEmpresa','partsRequestUnidad','partsRequestSolicitud','partsRequestPriority','partsRequestNotes','partsRequestOwnerHint','imageLightboxCaption'
+    'partsRequestModal','partsRequestClose','partsRequestCancel','partsRequestForm','partsRequestEmpresa','partsRequestUnidad','partsRequestSolicitud','partsRequestPriority','partsRequestNotes','partsRequestOwnerHint','imageLightboxCaption','stockRefreshBtn','stockSummary','stockList','stockMovements','stockPartForm','stockPartId','stockNombre','stockSku','stockProveedor','stockActual','stockMinimo','stockCosto','stockPrecio','stockUbicacion','stockNotas','stockSaveBtn','stockCancelBtn','scheduleManualForm','scheduleManualEmpresa','scheduleManualUnidad','scheduleManualTelefono','scheduleManualFolio','scheduleManualDatetime','scheduleManualContacto','scheduleManualNotes','scheduleManualCancelBtn'
   ].forEach(id => els[id] = document.getElementById(id));
 }
 bind();
@@ -295,8 +302,30 @@ async function cancelarCita(id) {
   }
 }
 
+function resetScheduleManualForm(prefill = {}) {
+  if (!els.scheduleManualForm) return;
+  els.scheduleManualForm.reset();
+  if (els.scheduleManualEmpresa) {
+    const empresas = [...new Set((state.garantias || []).map(x => x.empresa).filter(Boolean))].sort();
+    els.scheduleManualEmpresa.innerHTML = '<option value="">Selecciona empresa</option>' + empresas.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+    els.scheduleManualEmpresa.value = prefill.empresa || '';
+  }
+  const units = (state.fleetUnits || []).filter(u => !els.scheduleManualEmpresa?.value || u.empresa === els.scheduleManualEmpresa.value);
+  if (els.scheduleManualUnidad) {
+    els.scheduleManualUnidad.innerHTML = '<option value="">Selecciona unidad</option>' + units.map(u => `<option value="${escapeHtml(u.numeroEconomico || '')}">${escapeHtml(u.numeroEconomico || '')} · ${escapeHtml(u.modelo || '')}</option>`).join('');
+    els.scheduleManualUnidad.value = prefill.unidad || '';
+  }
+  if (els.scheduleManualTelefono) els.scheduleManualTelefono.value = prefill.telefono || '';
+  if (els.scheduleManualFolio) els.scheduleManualFolio.value = prefill.folio || '';
+  if (els.scheduleManualDatetime) els.scheduleManualDatetime.value = prefill.scheduledFor || '';
+  if (els.scheduleManualContacto) els.scheduleManualContacto.value = prefill.contactoNombre || '';
+  if (els.scheduleManualNotes) els.scheduleManualNotes.value = prefill.notes || '';
+}
+
 async function reprogramarCita(id) {
-  const scheduledFor = window.prompt('Nueva fecha y hora (ejemplo: 2026-04-10 09:30)');
+  const item = (state.schedules || []).find(s => s.id === id);
+  const current = item?.confirmedFor || item?.scheduledFor || item?.proposedAt || '';
+  const scheduledFor = window.prompt('Nueva fecha y hora (ejemplo: 2026-04-10 09:30)', current ? String(current).slice(0,16).replace('T',' ') : '');
   if (!scheduledFor) return;
   const reason = window.prompt('Motivo de reprogramación:') || '';
   try {
@@ -439,7 +468,7 @@ function updateHeaderForRole() {
   if (els.roleBrief) els.roleBrief.innerHTML = copy.panels.map(([title, desc]) => `<article><strong>${escapeHtml(title)}</strong><span>${escapeHtml(desc)}</span></article>`).join('');
 }
 function setActiveNav(activeBtn) {
-  [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navScheduleBtn,els.navFleetBtn,els.navPartsBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
+  [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navScheduleBtn,els.navFleetBtn,els.navPartsBtn,els.navStockBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
   if (activeBtn && !activeBtn.classList.contains('hidden')) activeBtn.classList.add('active');
 }
 
@@ -457,8 +486,8 @@ function updateOperatorAppNav(panel) {
   if (panel === 'schedule') els.opNavScheduleBtn?.classList.add('active');
 }
 function switchPanel(panel) {
-  if (state.user?.role === 'supervisor_flotas' && ['users','requests','companies','report'].includes(panel)) panel = 'fleet';
-  if (state.user?.role === 'supervisor' && ['users','requests','companies','fleet','parts','report'].includes(panel)) panel = 'board';
+  if (state.user?.role === 'supervisor_flotas' && ['users','requests','companies','report','stock'].includes(panel)) panel = 'fleet';
+  if (state.user?.role === 'supervisor' && ['users','requests','companies','fleet','parts','report','stock'].includes(panel)) panel = 'board';
   state.activePanel = panel;
   document.getElementById('boardPanel')?.classList.toggle('hidden', panel !== 'board');
   els.reportFormPanel?.classList.toggle('hidden', panel !== 'report');
@@ -470,6 +499,7 @@ function switchPanel(panel) {
   els.schedulePanel?.classList.toggle('hidden', panel !== 'schedule');
   els.fleetPanel?.classList.toggle('hidden', panel !== 'fleet');
   els.partsPanel?.classList.toggle('hidden', panel !== 'parts');
+  els.stockPanel?.classList.toggle('hidden', panel !== 'stock');
   document.body.dataset.panel = panel;
   const board = panel === 'board';
   els.filtersPanel?.classList.toggle('hidden', !board);
@@ -477,6 +507,7 @@ function switchPanel(panel) {
   if (panel === 'schedule') loadSchedules('');
   if (panel === 'fleet') loadFleet();
   if (panel === 'parts') loadPartsPending();
+  if (panel === 'stock') loadStock();
   updateOperatorAppNav(panel);
   setActiveNav(
     panel === 'report' ? els.navNewReportBtn :
@@ -488,6 +519,7 @@ function switchPanel(panel) {
     panel === 'schedule' ? els.navScheduleBtn :
     panel === 'fleet' ? els.navFleetBtn :
     panel === 'parts' ? els.navPartsBtn :
+    panel === 'stock' ? els.navStockBtn :
     els.navBoardBtn
   );
   if (panel === 'report') window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -506,7 +538,8 @@ function showDashboard() {
   els.navHistoryBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo'));
   els.navScheduleBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo','operador'));
   els.navFleetBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas','operativo'));
-  els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas','operativo'));
+  els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas'));
+  els.navStockBtn?.classList.toggle('hidden', !isRole('admin'));
   if (state.user?.role === 'supervisor') {
     els.navFleetBtn?.classList.add('hidden');
     els.navPartsBtn?.classList.add('hidden');
@@ -519,6 +552,7 @@ function showDashboard() {
     els.navRequestsBtn?.classList.add('hidden');
     els.navCompaniesBtn?.classList.add('hidden');
     els.navNewReportBtn?.classList.add('hidden');
+    els.navStockBtn?.classList.add('hidden');
   }
   els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas'));
   updateHeaderForRole(); switchPanel(state.user?.role === 'operador' ? 'report' : (state.user?.role === 'supervisor_flotas' ? 'fleet' : 'board'));
@@ -740,6 +774,7 @@ async function loadSchedules(_date = '') {
       els.scheduleDateInput.value = preferred;
     }
   }
+  resetScheduleManualForm();
   renderSchedules();
 }
 
@@ -752,6 +787,7 @@ function renderSchedules() {
   const proposed = state.schedules.filter(item => item.status === 'proposed').length;
   const confirmed = state.schedules.filter(item => item.status === 'confirmed').length;
   const waiting = state.schedules.filter(item => item.status === 'waiting_operator').length;
+  const cancelled = state.schedules.filter(item => item.status === 'cancelled').length;
 
   const schedulesForDay = state.schedules.filter(item => {
     const raw = item.scheduledFor || item.proposedAt || item.requestedAt;
@@ -774,12 +810,14 @@ function renderSchedules() {
     for (let i = 0; i < startWeek; i++) days.push('<div class="calendar-cell empty"></div>');
     for (let d = 1; d <= last.getDate(); d++) {
       const iso = new Date(year, month, d).toISOString().slice(0,10);
-      const count = state.schedules.filter(item => {
+      const items = state.schedules.filter(item => {
         const raw = item.scheduledFor || item.proposedAt || item.requestedAt;
         return raw && String(raw).slice(0,10) === iso;
-      }).length;
+      });
+      const count = items.length;
       const cls = iso === selectedDate ? 'calendar-cell active' : 'calendar-cell';
-      days.push(`<button type="button" class="${cls}" data-date="${iso}"><span>${d}</span>${count ? `<strong>${count}</strong>` : '<em>·</em>'}</button>`);
+      const dot = items.some(x => x.status === 'confirmed') ? '<strong></strong>' : items.some(x => x.status === 'proposed') ? '<b></b>' : '<em>·</em>';
+      days.push(`<button type="button" class="${cls}" data-date="${iso}"><span>${d}</span>${count ? `<small>${count}</small>${dot}` : '<em>·</em>'}</button>`);
     }
     const chips = groupedDates.length
       ? `<div class="schedule-date-chips">${groupedDates.map(iso => {
@@ -789,11 +827,12 @@ function renderSchedules() {
         }).join('')}</div>`
       : '<div class="empty-state compact-empty"><strong>Sin fechas registradas.</strong><span>Cuando el operador proponga o se confirme una cita, aparecerá aquí.</span></div>';
     els.scheduleCalendar.innerHTML = `
-      <div class="schedule-summary">
-        <div class="stat"><span>Total</span><strong>${total}</strong></div>
-        <div class="stat"><span>Propuestas</span><strong>${proposed}</strong></div>
-        <div class="stat"><span>Confirmadas</span><strong>${confirmed}</strong></div>
-        <div class="stat"><span>Por responder</span><strong>${waiting}</strong></div>
+      <div class="schedule-summary schedule-summary-pro">
+        <div class="stat"><span>Total</span><strong>${total}</strong><small>Movimientos</small></div>
+        <div class="stat"><span>Propuestas</span><strong>${proposed}</strong><small>Pendientes</small></div>
+        <div class="stat"><span>Confirmadas</span><strong>${confirmed}</strong><small>Activas</small></div>
+        <div class="stat"><span>Por responder</span><strong>${waiting}</strong><small>WhatsApp</small></div>
+        <div class="stat"><span>Canceladas</span><strong>${cancelled}</strong><small>Histórico</small></div>
       </div>
       ${chips}
       <div class="calendar-head">${['L','M','M','J','V','S','D'].map(d=>`<span>${d}</span>`).join('')}</div>
@@ -807,25 +846,36 @@ function renderSchedules() {
 
   els.scheduleList.innerHTML = '';
   if (!schedulesForDay.length) {
-    els.scheduleList.innerHTML = '<div class="empty-state"><strong>Sin unidades programadas para esta fecha.</strong><span>Las propuestas y citas aparecerán automáticamente aquí.</span></div>';
+    els.scheduleList.innerHTML = '<div class="empty-state"><strong>Sin unidades programadas para esta fecha.</strong><span>Programa manualmente, confirma propuestas o reprograma desde aquí.</span></div>';
     return;
   }
 
   schedulesForDay.forEach(item => {
-    const row = document.createElement('div');
-    row.className = 'table-row schedule-row';
-    const whenText = item.originalText || fmtDate(item.scheduledFor || item.proposedAt || item.requestedAt);
-    row.innerHTML = `<div><strong>${escapeHtml(item.folio || '—')} · Unidad ${escapeHtml(item.unidad || '—')}</strong><div class="small muted">${escapeHtml(item.empresa || '—')} · ${escapeHtml(item.contactoNombre || '—')}</div></div><div><span class="badge ${item.status === 'confirmed' ? 'badge-accepted' : item.status === 'proposed' ? 'badge-review' : 'badge-info'}">${escapeHtml(item.status)}</span></div><div>${escapeHtml(whenText)}</div><div class="action-row"></div>`;
+    const row = document.createElement('article');
+    row.className = 'schedule-card schedule-card-pro';
+    const whenText = item.originalText || fmtDate(item.confirmedFor || item.scheduledFor || item.proposedAt || item.requestedAt);
+    row.innerHTML = `
+      <div class="schedule-card-main">
+        <div>
+          <div class="topbar-kicker">${escapeHtml(item.status || 'programada')}</div>
+          <strong>${escapeHtml(item.folio || 'MANUAL')} · Unidad ${escapeHtml(item.unidad || '—')}</strong>
+          <div class="small muted">${escapeHtml(item.empresa || '—')} · ${escapeHtml(item.contactoNombre || '—')}</div>
+        </div>
+        <span class="badge ${item.status === 'confirmed' ? 'badge-accepted' : item.status === 'proposed' ? 'badge-review' : item.status === 'cancelled' ? 'badge-rejected' : 'badge-info'}">${escapeHtml(item.status)}</span>
+      </div>
+      <div class="schedule-card-meta schedule-card-meta-pro">
+        <div><span class="label">Fecha / hora</span><strong>${escapeHtml(whenText)}</strong></div>
+        <div><span class="label">Teléfono</span><strong>${escapeHtml(item.telefono || '—')}</strong></div>
+        <div><span class="label">Notas</span><strong>${escapeHtml(item.notes || 'Sin notas')}</strong></div>
+      </div>
+      <div class="action-row schedule-actions-row"></div>`;
     const actions = row.querySelector('.action-row');
     if (isRole('admin','operativo') && item.status === 'proposed') {
       actions.appendChild(button('Confirmar', 'btn btn-primary', async () => {
         try {
           await api.confirmSchedule(item.id, { status:'confirmed', scheduledFor: item.scheduledFor || item.proposedAt, notes: item.notes || '' });
           notify('Cita confirmada.'); await loadSchedules(selectedDate); await loadNotifications();
-        } catch (error) {
-          if (String(error.message || '').includes('ocupado')) notify(error.message, true);
-          else notify(error.message, true);
-        }
+        } catch (error) { notify(error.message, true); }
       }));
       actions.appendChild(button('Recomendar +1h', 'btn btn-secondary', async () => {
         const base = new Date(item.scheduledFor || item.proposedAt || item.requestedAt);
@@ -835,6 +885,9 @@ function renderSchedules() {
           notify('Se confirmó con horario recomendado.'); await loadSchedules(selectedDate); await loadNotifications();
         } catch (error) { notify(error.message, true); }
       }));
+    }
+    if (isRole('admin','operativo') && item.status === 'waiting_operator') {
+      actions.appendChild(button('Programar manual', 'btn btn-primary', async () => { await reprogramarCita(item.id); }));
     }
     if (isRole('admin','operativo','supervisor_flotas') && ['proposed','confirmed','waiting_operator'].includes(item.status)) {
       actions.appendChild(button('Reprogramar', 'btn btn-secondary', async () => { await reprogramarCita(item.id); }));
@@ -1059,7 +1112,7 @@ function renderPartsPending() {
 
   items.forEach(item => {
     const card = document.createElement('article');
-    card.className = 'parts-card pro-card';
+    card.className = 'parts-card pro-card spaced';
     const photos = Array.isArray(item.evidenciasRefaccion) ? item.evidenciasRefaccion : [];
     const meta = partsStatusMeta(item.refaccionStatus || 'pendiente');
     const adminEditor = isRole('admin') ? `
@@ -1143,6 +1196,112 @@ function renderPartsPending() {
 }
 
 
+function resetStockForm() {
+  els.stockPartForm?.reset();
+  if (els.stockPartId) els.stockPartId.value = '';
+  if (els.stockSaveBtn) els.stockSaveBtn.textContent = 'Guardar refacción';
+  if (els.stockActual) els.stockActual.disabled = false;
+}
+
+function stockStatus(part) {
+  if (Number(part.stockActual || 0) <= 0) return { text:'Sin stock', cls:'badge-rejected' };
+  if (Number(part.stockActual || 0) <= Number(part.stockMinimo || 0)) return { text:'Stock bajo', cls:'badge-review' };
+  return { text:'Disponible', cls:'badge-accepted' };
+}
+
+async function loadStock(force = false) {
+  if (!isRole('admin')) return;
+  try {
+    const data = await api.getStock();
+    state.stockParts = data.parts || [];
+    state.stockMovements = data.movements || [];
+    renderStock();
+  } catch (error) {
+    notify(error.message, true);
+  }
+}
+
+function renderStock() {
+  if (els.stockSummary) {
+    const total = state.stockParts.length;
+    const bajas = state.stockParts.filter(p => Number(p.stockActual || 0) <= Number(p.stockMinimo || 0)).length;
+    const valor = state.stockParts.reduce((sum,p) => sum + (Number(p.stockActual || 0) * Number(p.costoUnitario || 0)), 0);
+    els.stockSummary.innerHTML = `
+      <article class="parts-summary-card glass-card"><strong>Catálogo</strong><span>${total}</span><small>Refacciones registradas</small></article>
+      <article class="parts-summary-card"><strong>Stock bajo</strong><span>${bajas}</span><small>Requieren atención</small></article>
+      <article class="parts-summary-card"><strong>Valor inventario</strong><span>${money(valor)}</span><small>Costo actual</small></article>
+      <article class="parts-summary-card"><strong>Movimientos</strong><span>${state.stockMovements.length}</span><small>Trazabilidad reciente</small></article>`;
+  }
+  if (els.stockMovements) {
+    els.stockMovements.innerHTML = state.stockMovements.length ? state.stockMovements.map(m => `
+      <div class="table-row rich-row">
+        <div><strong>${escapeHtml(m.partName || 'Refacción')}</strong><div class="small muted">${escapeHtml(m.tipo)} · ${escapeHtml(m.unidad || m.empresa || 'mostrador')}</div></div>
+        <div>${Number(m.cantidad || 0)}</div>
+        <div>${escapeHtml(fmtDate(m.createdAt))}</div>
+      </div>`).join('') : '<div class="muted">Sin movimientos todavía.</div>';
+  }
+  if (els.stockList) {
+    els.stockList.innerHTML = state.stockParts.length ? state.stockParts.map(part => {
+      const st = stockStatus(part);
+      return `
+      <article class="owner-card stock-card">
+        <div class="owner-card-head"><strong>${escapeHtml(part.nombre)}</strong><span class="badge ${st.cls}">${st.text}</span></div>
+        <div class="parts-field-grid two-col">
+          <div><span class="label">SKU</span><strong>${escapeHtml(part.sku || '—')}</strong></div>
+          <div><span class="label">Proveedor</span><strong>${escapeHtml(part.proveedor || '—')}</strong></div>
+          <div><span class="label">Stock</span><strong>${Number(part.stockActual || 0)}</strong></div>
+          <div><span class="label">Mínimo</span><strong>${Number(part.stockMinimo || 0)}</strong></div>
+          <div><span class="label">Costo</span><strong>${money(part.costoUnitario || 0)}</strong></div>
+          <div><span class="label">Venta</span><strong>${money(part.precioVenta || 0)}</strong></div>
+        </div>
+        <div class="stock-card-actions">
+          <button class="btn btn-secondary" type="button" data-stock-edit="${part.id}">Editar</button>
+          <button class="btn btn-primary" type="button" data-stock-in="${part.id}">Entrada</button>
+          <button class="btn btn-secondary" type="button" data-stock-unit="${part.id}">Poner a camión</button>
+          <button class="btn btn-ghost" type="button" data-stock-sale="${part.id}">Venta</button>
+        </div>
+        <div class="small muted">${escapeHtml(part.ubicacion || 'Sin ubicación')} · ${escapeHtml(part.notas || 'Sin notas')}</div>
+      </article>`;
+    }).join('') : '<div class="empty-state"><strong>Sin refacciones en stock.</strong><span>Da de alta las piezas que quieres controlar en inventario.</span></div>';
+
+    els.stockList.querySelectorAll('[data-stock-edit]').forEach(btn => btn.addEventListener('click', () => {
+      const part = state.stockParts.find(p => p.id === btn.dataset.stockEdit);
+      if (!part) return;
+      els.stockPartId.value = part.id;
+      els.stockNombre.value = part.nombre || '';
+      els.stockSku.value = part.sku || '';
+      els.stockProveedor.value = part.proveedor || '';
+      els.stockActual.value = Number(part.stockActual || 0);
+      els.stockActual.disabled = true;
+      els.stockMinimo.value = Number(part.stockMinimo || 0);
+      els.stockCosto.value = Number(part.costoUnitario || 0);
+      els.stockPrecio.value = Number(part.precioVenta || 0);
+      els.stockUbicacion.value = part.ubicacion || '';
+      els.stockNotas.value = part.notas || '';
+      els.stockSaveBtn.textContent = 'Actualizar refacción';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }));
+
+    const askMovement = async (id, tipo) => {
+      const cantidad = window.prompt(tipo === 'entrada' ? 'Cantidad de entrada:' : 'Cantidad:');
+      if (!cantidad) return;
+      const unidad = tipo === 'salida_unidad' ? (window.prompt('Número económico de unidad:') || '') : '';
+      const empresa = tipo === 'salida_unidad' ? (window.prompt('Empresa / flota:') || '') : '';
+      const garantiaFolio = tipo === 'salida_unidad' ? (window.prompt('Folio de garantía (opcional):') || '') : '';
+      const notas = window.prompt(tipo === 'venta_directa' ? 'Notas de venta / cliente:' : 'Notas del movimiento:') || '';
+      try {
+        await api.createStockMovement(id, { tipo, cantidad, unidad, empresa, garantiaFolio, notas });
+        notify('Movimiento registrado.');
+        await loadStock(true);
+      } catch (error) { notify(error.message, true); }
+    };
+    els.stockList.querySelectorAll('[data-stock-in]').forEach(btn => btn.addEventListener('click', () => askMovement(btn.dataset.stockIn, 'entrada')));
+    els.stockList.querySelectorAll('[data-stock-unit]').forEach(btn => btn.addEventListener('click', () => askMovement(btn.dataset.stockUnit, 'salida_unidad')));
+    els.stockList.querySelectorAll('[data-stock-sale]').forEach(btn => btn.addEventListener('click', () => askMovement(btn.dataset.stockSale, 'venta_directa')));
+  }
+}
+
+
 async function loadFleet() {
   try {
     const canManageFleet = isRole('admin','operativo');
@@ -1155,9 +1314,14 @@ async function loadFleet() {
     } else if (els.fleetEmpresa) {
       els.fleetEmpresa.disabled = false;
     }
-    const [summary, units] = await Promise.all([api.getFleetSummary(), api.getFleetUnits()]);
+    const [summary, units, schedules] = await Promise.all([api.getFleetSummary(), api.getFleetUnits(), api.getSchedules('')]);
     state.fleetSummary = summary || state.fleetSummary;
     state.fleetUnits = units || [];
+    state.schedules = schedules || state.schedules;
+    if (state.selectedFleetUnit?.unit?.id) {
+      const still = state.fleetUnits.find(u => u.id === state.selectedFleetUnit.unit.id);
+      if (still) state.selectedFleetUnit = await api.getFleetUnit(still.id);
+    }
     renderFleet();
   } catch (error) {
     notify(error.message, true);
@@ -1301,13 +1465,13 @@ function renderFleetDetail() {
   const timelineEvents = [
     ...reportsArr.map(r => ({ title:r.folio || 'GAR-—', text:r.descripcionFallo || 'Reporte levantado', date:r.createdAt, tag:r.estatusOperativo || 'sin iniciar' })),
     ...unitSchedules.map(s => ({ title:'Cita programada', text:s.confirmedFor ? `Agenda ${fmtDate(s.confirmedFor)}` : 'Solicitud de agenda', date:s.updatedAt || s.createdAt, tag:s.status || 'pendiente' })),
-    ...openParts.map(p => ({ title:'Refacción abierta', text:p.detalleRefaccion || 'Pendiente de pieza', date:p.updatedAt || p.createdAt, tag:p.refaccionStatus || 'pendiente' }))
+    ...unitParts.map(p => ({ title:'Refacción abierta', text:p.detalleRefaccion || 'Pendiente de pieza', date:p.refaccionUpdatedAt || p.updatedAt || p.createdAt, tag:p.refaccionStatus || 'pendiente' }))
   ].sort((a,b) => new Date(b.date || 0) - new Date(a.date || 0)).slice(0,7);
   const timeline = timelineEvents.map(evt => `<div class="timeline-item"><span class="timeline-dot"></span><div><strong>${escapeHtml(evt.title)}</strong><p>${escapeHtml(evt.text)}</p><small>${fmtDate(evt.date)} · ${escapeHtml(evt.tag || 'movimiento')}</small></div></div>`).join('') || '<div class="muted">Sin movimientos recientes.</div>';
   els.fleetDetail.innerHTML = `
     <div class="panel-head fleet-detail-head">
       <div><div class="topbar-kicker">EXPEDIENTE DE UNIDAD</div><h3>${escapeHtml(u.numeroEconomico)} · ${escapeHtml(u.empresa)}</h3><p class="muted">Vista premium para dueño: patrimonio, agenda, refacciones y evidencia visual en una sola ficha.</p></div>
-      <div class="stack-inline">${isRole('admin') ? '<button id="fleetEditInlineBtn" class="btn btn-ghost" type="button">Editar</button><button id="fleetDeleteInlineBtn" class="btn btn-ghost" type="button">Eliminar</button>' : ''}<span class="fleet-dot '+sem.cls+'">${sem.label}</span></div>
+      <div class="stack-inline">${isRole('admin') ? '<button id="fleetEditInlineBtn" class="btn btn-ghost" type="button">Editar</button><button id="fleetDeleteInlineBtn" class="btn btn-ghost" type="button">Eliminar</button>' : ''}<span class="fleet-dot ${sem.cls}">${sem.label}</span></div>
     </div>
     <div class="fleet-detail-summary">
       <article><span>Costo total</span><strong>${money(u.costoTotal)}</strong></article>
@@ -1814,6 +1978,30 @@ els.navHistoryBtn?.addEventListener('click', () => switchPanel('history'));
 els.navScheduleBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
 els.navFleetBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
 els.navPartsBtn?.addEventListener('click', async () => { await cargarSolicitudesIndependientes(); await loadPartsPending(true); switchPanel('parts'); });
+els.navStockBtn?.addEventListener('click', async () => { await loadStock(true); switchPanel('stock'); });
+els.stockRefreshBtn?.addEventListener('click', async () => { await loadStock(true); switchPanel('stock'); });
+els.stockCancelBtn?.addEventListener('click', resetStockForm);
+els.stockPartForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    const payload = {
+      nombre: els.stockNombre?.value || '',
+      sku: els.stockSku?.value || '',
+      proveedor: els.stockProveedor?.value || '',
+      stockActual: els.stockActual?.value || 0,
+      stockMinimo: els.stockMinimo?.value || 0,
+      costoUnitario: els.stockCosto?.value || 0,
+      precioVenta: els.stockPrecio?.value || 0,
+      ubicacion: els.stockUbicacion?.value || '',
+      notas: els.stockNotas?.value || ''
+    };
+    if (els.stockPartId?.value) await api.updateStockPart(els.stockPartId.value, payload);
+    else await api.createStockPart(payload);
+    notify('Refacción guardada en stock.');
+    resetStockForm();
+    await loadStock(true);
+  } catch (error) { notify(error.message, true); }
+});
 els.navUsersBtn?.addEventListener('click', async () => { switchPanel('users'); await loadUsers(); });
 els.navRequestsBtn?.addEventListener('click', async () => { switchPanel('requests'); await loadRequests(); });
 els.navCompaniesBtn?.addEventListener('click', async () => { switchPanel('companies'); await loadCompanies(); });

@@ -116,6 +116,7 @@
               <button id="navScheduleBtn" class="nav-btn hidden" type="button">Agenda</button>
               <button id="navFleetBtn" class="nav-btn hidden" type="button">Flotas</button>
               <button id="navPartsBtn" class="nav-btn hidden" type="button">Refacciones</button>
+              <button id="navStockBtn" class="nav-btn hidden" type="button">Stock</button>
             </div>
             <div class="nav-group">
               <div class="nav-group-label">Administración</div>
@@ -229,16 +230,32 @@
             </div>
             <span class="badge badge-info">Ingresos a taller</span>
           </div>
-          <div class="schedule-toolbar history-search-box history-panel-box">
+          <div class="schedule-toolbar history-search-box history-panel-box schedule-toolbar-pro">
             <div>
               <label>Fecha</label>
               <input id="scheduleDateInput" type="date" />
             </div>
             <button id="scheduleRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
           </div>
+          <div class="owner-card schedule-manual-card">
+            <div class="owner-card-head"><strong>Programar ingreso manual</strong><span class="badge badge-info">Admin / operativo</span></div>
+            <form id="scheduleManualForm" class="schedule-manual-grid">
+              <label><span>Empresa</span><select id="scheduleManualEmpresa"></select></label>
+              <label><span>Unidad</span><select id="scheduleManualUnidad"></select></label>
+              <label><span>Folio</span><input id="scheduleManualFolio" placeholder="Opcional" /></label>
+              <label><span>Contacto</span><input id="scheduleManualContacto" placeholder="Nombre de contacto" /></label>
+              <label><span>Teléfono</span><input id="scheduleManualTelefono" placeholder="521667..." /></label>
+              <label><span>Fecha y hora</span><input id="scheduleManualDatetime" type="datetime-local" required /></label>
+              <label class="span-2"><span>Notas</span><textarea id="scheduleManualNotes" rows="2" placeholder="Motivo, observaciones o logística"></textarea></label>
+              <div class="schedule-manual-actions span-2">
+                <button id="scheduleManualCancelBtn" class="btn btn-ghost" type="button">Limpiar</button>
+                <button class="btn btn-primary" type="submit">Programar ingreso</button>
+              </div>
+            </form>
+          </div>
           <div id="scheduleAlerts" class="schedule-alerts"></div>
           <div id="scheduleCalendar" class="schedule-calendar"></div>
-          <div id="scheduleList" class="table-list compact-list"></div>
+          <div id="scheduleList" class="table-list compact-list schedule-list-pro"></div>
         </section>
 
         <section id="filtersPanel" class="toolbar panel">
@@ -430,6 +447,44 @@
           <div id="partsSummary" class="parts-summary-row"></div>
           <div id="partsList" class="parts-grid"></div>
         </section>
+
+        <section id="stockPanel" class="panel hidden">
+          <div class="panel-head compact-panel-head">
+            <div>
+              <div class="topbar-kicker">INVENTARIO</div>
+              <h3>Stock y control de refacciones</h3>
+            </div>
+            <button id="stockRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
+          </div>
+          <div id="stockSummary" class="parts-summary-row"></div>
+          <div class="stock-layout">
+            <article class="owner-card">
+              <div class="owner-card-head"><strong>Alta / edición de refacción</strong><span class="badge badge-info">Solo admin</span></div>
+              <form id="stockPartForm" class="stock-form-grid">
+                <input id="stockPartId" type="hidden" />
+                <label><span>Nombre</span><input id="stockNombre" required /></label>
+                <label><span>SKU</span><input id="stockSku" /></label>
+                <label><span>Proveedor</span><input id="stockProveedor" /></label>
+                <label><span>Stock actual</span><input id="stockActual" type="number" min="0" step="1" value="0" /></label>
+                <label><span>Stock mínimo</span><input id="stockMinimo" type="number" min="0" step="1" value="0" /></label>
+                <label><span>Costo unitario</span><input id="stockCosto" type="number" min="0" step="0.01" value="0" /></label>
+                <label><span>Precio venta</span><input id="stockPrecio" type="number" min="0" step="0.01" value="0" /></label>
+                <label><span>Ubicación</span><input id="stockUbicacion" placeholder="Rack / pasillo / taller" /></label>
+                <label class="span-2"><span>Notas</span><textarea id="stockNotas" rows="3"></textarea></label>
+                <div class="stock-form-actions span-2">
+                  <button id="stockCancelBtn" class="btn btn-ghost" type="button">Limpiar</button>
+                  <button id="stockSaveBtn" class="btn btn-primary" type="submit">Guardar refacción</button>
+                </div>
+              </form>
+            </article>
+            <article class="owner-card">
+              <div class="owner-card-head"><strong>Movimientos recientes</strong><span class="badge badge-info">Trazabilidad</span></div>
+              <div id="stockMovements" class="table-list compact-list"></div>
+            </article>
+          </div>
+          <div id="stockList" class="stock-list-grid"></div>
+        </section>
+
 
         <section id="boardPanel" class="panel">
           <div class="panel-head"><div><div class="topbar-kicker" id="boardKicker">CENTRAL</div><h3 id="listTitle">Bandeja de garantías</h3></div></div>
