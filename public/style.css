@@ -2909,3 +2909,47 @@ body[data-role="supervisor_flotas"] * {
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
+
+.parts-card-actions {
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.parts-history-wrap {
+  margin-top: 18px;
+}
+.parts-history-grid {
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 16px;
+}
+.parts-history-card {
+  border: 1px solid rgba(16,24,40,.08);
+  border-radius: 18px;
+  padding: 16px;
+  background: #fff;
+  box-shadow: 0 12px 24px rgba(16,24,40,.04);
+}
+.parts-history-card h4 {
+  margin: 4px 0 12px;
+}
+.parts-history-list {
+  display:grid;
+  gap:10px;
+}
+.parts-history-row {
+  display:grid;
+  gap:4px;
+  border:1px solid rgba(16,24,40,.06);
+  border-radius:14px;
+  padding:12px;
+  background:#fff;
+}
+.parts-empty.small {
+  padding: 12px;
+}
+@media (max-width: 980px) {
+  .parts-history-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -572,6 +572,40 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_garantias_reportado_por_id ON garantias(reportado_por_id);
     CREATE INDEX IF NOT EXISTS idx_garantias_numero_economico ON garantias(numero_economico);
     CREATE INDEX IF NOT EXISTS idx_garantias_refacciones_pendientes ON garantias (empresa, refaccion_status, created_at) WHERE solicita_refaccion = TRUE;
+    CREATE TABLE IF NOT EXISTS refacciones_entradas (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      solicitud_id UUID REFERENCES garantias(id) ON DELETE SET NULL,
+      empresa TEXT NOT NULL,
+      numero_economico TEXT,
+      descripcion TEXT NOT NULL,
+      proveedor TEXT,
+      cantidad NUMERIC NOT NULL DEFAULT 1,
+      costo_unitario NUMERIC NOT NULL DEFAULT 0,
+      costo_total NUMERIC NOT NULL DEFAULT 0,
+      notas TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS refacciones_salidas (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      solicitud_id UUID REFERENCES garantias(id) ON DELETE SET NULL,
+      empresa TEXT NOT NULL,
+      numero_economico TEXT,
+      descripcion TEXT NOT NULL,
+      cantidad NUMERIC NOT NULL DEFAULT 1,
+      costo_compra NUMERIC NOT NULL DEFAULT 0,
+      precio_venta NUMERIC NOT NULL DEFAULT 0,
+      utilidad NUMERIC NOT NULL DEFAULT 0,
+      instalado_por TEXT,
+      notas TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_refacciones_entradas_empresa_fecha ON refacciones_entradas (empresa, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_refacciones_salidas_empresa_fecha ON refacciones_salidas (empresa, created_at DESC);
+
     CREATE TABLE IF NOT EXISTS parts_requests (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       empresa TEXT NOT NULL,
@@ -1778,6 +1812,131 @@ app.patch('/api/parts/requests/:id', authRequired, requireRoles('admin','supervi
   } catch (error) {
     console.error('Error actualizando solicitud independiente de refacción:', error);
     res.status(500).json({ error: 'No se pudo actualizar la solicitud.' });
+  }
+});
+
+
+app.get('/api/parts/control', authRequired, requireRoles('admin','supervisor_flotas'), async (req, res) => {
+  try {
+    const params = [];
+    let where = '';
+    if (req.user.role === 'supervisor_flotas') {
+      params.push(req.user.empresa || '');
+      where = 'WHERE empresa = $1';
+    }
+
+    const entradas = await pool.query(
+      `SELECT id, solicitud_id, empresa, numero_economico, descripcion, proveedor, cantidad, costo_unitario, costo_total, notas, created_at, updated_at
+       FROM refacciones_entradas
+       ${where}
+       ORDER BY created_at DESC
+       LIMIT 150`,
+      params
+    );
+
+    const salidas = await pool.query(
+      `SELECT id, solicitud_id, empresa, numero_economico, descripcion, cantidad, costo_compra, precio_venta, utilidad, instalado_por, notas, created_at, updated_at
+       FROM refacciones_salidas
+       ${where}
+       ORDER BY created_at DESC
+       LIMIT 150`,
+      params
+    );
+
+    res.json({
+      entradas: entradas.rows,
+      salidas: salidas.rows
+    });
+  } catch (error) {
+    console.error('Error leyendo control de refacciones:', error);
+    res.status(500).json({ error: 'No se pudo leer el control de refacciones.' });
+  }
+});
+
+app.post('/api/parts/:id/receive', authRequired, requireRoles('admin'), async (req, res) => {
+  try {
+    const proveedor = String(req.body.proveedor || '').trim();
+    const cantidad = Number(req.body.cantidad);
+    const costoUnitario = Number(req.body.costoUnitario);
+    const notas = String(req.body.notas || '').trim();
+
+    if (Number.isNaN(cantidad) || cantidad <= 0) return res.status(400).json({ error: 'Cantidad inválida.' });
+    if (Number.isNaN(costoUnitario) || costoUnitario < 0) return res.status(400).json({ error: 'Costo inválido.' });
+
+    const found = await pool.query(`SELECT * FROM garantias WHERE id = $1`, [req.params.id]);
+    if (!found.rowCount) return res.status(404).json({ error: 'Reporte no encontrado.' });
+
+    const g = found.rows[0];
+    const descripcion = String(g.detalle_refaccion || '').trim() || 'Refacción sin detalle';
+
+    const entry = await pool.query(
+      `INSERT INTO refacciones_entradas
+       (solicitud_id, empresa, numero_economico, descripcion, proveedor, cantidad, costo_unitario, costo_total, notas, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
+       RETURNING *`,
+      [g.id, g.empresa || '', g.numero_economico || '', descripcion, proveedor, cantidad, costoUnitario, cantidad * costoUnitario, notas]
+    );
+
+    const updated = await pool.query(
+      `UPDATE garantias
+       SET refaccion_status = 'recibida',
+           refaccion_updated_at = NOW(),
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [g.id]
+    );
+
+    res.json({ ok: true, entrada: entry.rows[0], garantia: mapGarantia(updated.rows[0]) });
+  } catch (error) {
+    console.error('Error recibiendo refacción:', error);
+    res.status(500).json({ error: 'No se pudo registrar la recepción.' });
+  }
+});
+
+app.post('/api/parts/:id/install', authRequired, requireRoles('admin','supervisor_flotas'), async (req, res) => {
+  try {
+    const cantidad = Number(req.body.cantidad);
+    const costoCompra = Number(req.body.costoCompra);
+    const precioVenta = Number(req.body.precioVenta);
+    const instaladoPor = String(req.body.instaladoPor || req.user.nombre || '').trim();
+    const notas = String(req.body.notas || '').trim();
+
+    if (Number.isNaN(cantidad) || cantidad <= 0) return res.status(400).json({ error: 'Cantidad inválida.' });
+    if (Number.isNaN(costoCompra) || costoCompra < 0) return res.status(400).json({ error: 'Costo compra inválido.' });
+    if (Number.isNaN(precioVenta) || precioVenta < 0) return res.status(400).json({ error: 'Precio venta inválido.' });
+
+    const found = await pool.query(`SELECT * FROM garantias WHERE id = $1`, [req.params.id]);
+    if (!found.rowCount) return res.status(404).json({ error: 'Reporte no encontrado.' });
+
+    const g = found.rows[0];
+    if (req.user.role === 'supervisor_flotas' && (g.empresa || '') !== (req.user.empresa || '')) {
+      return res.status(403).json({ error: 'No puedes instalar refacciones de otra empresa.' });
+    }
+
+    const descripcion = String(g.detalle_refaccion || '').trim() || 'Refacción sin detalle';
+    const salida = await pool.query(
+      `INSERT INTO refacciones_salidas
+       (solicitud_id, empresa, numero_economico, descripcion, cantidad, costo_compra, precio_venta, utilidad, instalado_por, notas, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())
+       RETURNING *`,
+      [g.id, g.empresa || '', g.numero_economico || '', descripcion, cantidad, costoCompra, precioVenta, (precioVenta - costoCompra) * cantidad, instaladoPor, notas]
+    );
+
+    const updated = await pool.query(
+      `UPDATE garantias
+       SET refaccion_status = 'instalada',
+           refaccion_updated_at = NOW(),
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [g.id]
+    );
+
+    res.json({ ok: true, salida: salida.rows[0], garantia: mapGarantia(updated.rows[0]) });
+  } catch (error) {
+    console.error('Error instalando refacción:', error);
+    res.status(500).json({ error: 'No se pudo registrar la instalación.' });
   }
 });
 
