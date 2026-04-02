@@ -205,8 +205,6 @@ function mapGarantia(row) {
     descripcionFallo: row.descripcion_fallo || '',
     solicitaRefaccion: row.solicita_refaccion,
     detalleRefaccion: row.detalle_refaccion || '',
-    refaccionStatus: row.refaccion_status || 'pendiente',
-    refaccionAsignada: row.refaccion_asignada || '',
     estatusValidacion: row.estatus_validacion,
     estatusOperativo: row.estatus_operativo,
     motivoDecision: row.motivo_decision || '',
@@ -386,30 +384,6 @@ async function tryBackfillLegacyReports() {
   }
 }
 
-async function ensureUsersRoleConstraint() {
-  await pool.query(`
-    DO $$
-    BEGIN
-      IF EXISTS (
-        SELECT 1
-        FROM pg_constraint c
-        JOIN pg_class t ON t.oid = c.conrelid
-        WHERE t.relname = 'users' AND c.conname = 'users_role_check'
-      ) THEN
-        ALTER TABLE users DROP CONSTRAINT users_role_check;
-      END IF;
-    EXCEPTION WHEN undefined_table THEN
-      NULL;
-    END $$;
-  `);
-
-  await pool.query(`
-    ALTER TABLE users
-    ADD CONSTRAINT users_role_check
-    CHECK (role IN ('admin','operador','operativo','supervisor','supervisor_flotas'))
-  `).catch(() => {});
-}
-
 async function initDb() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS companies (
@@ -523,9 +497,7 @@ async function initDb() {
       kilometraje TEXT,
       poliza_activa BOOLEAN NOT NULL DEFAULT FALSE,
       campaign_activa BOOLEAN NOT NULL DEFAULT FALSE,
-      manual_status TEXT CHECK (manual_status IN ('operando','en_taller','detenida','programada')),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (empresa, numero_economico)
     );
 
@@ -547,8 +519,8 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_fleet_cost_entries_garantia ON fleet_cost_entries(garantia_id);
 
     ALTER TABLE garantias ADD COLUMN IF NOT EXISTS fleet_unit_id TEXT;
-    ALTER TABLE fleet_units ADD COLUMN IF NOT EXISTS manual_status TEXT;
-    ALTER TABLE fleet_units ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+    ALTER TABLE fleet_units ADD COLUMN IF NOT EXISTS manual_status TEXT DEFAULT '';
+
 
     ALTER TABLE users ADD COLUMN IF NOT EXISTS empresa TEXT;
     ALTER TABLE companies ADD COLUMN IF NOT EXISTS contacto TEXT;
@@ -561,9 +533,6 @@ async function initDb() {
     ALTER TABLE garantias ADD COLUMN IF NOT EXISTS kilometraje TEXT;
     ALTER TABLE garantias ADD COLUMN IF NOT EXISTS contacto_nombre TEXT;
     ALTER TABLE garantias ADD COLUMN IF NOT EXISTS telefono TEXT;
-    ALTER TABLE garantias ADD COLUMN IF NOT EXISTS refaccion_status TEXT NOT NULL DEFAULT 'pendiente';
-    ALTER TABLE garantias ADD COLUMN IF NOT EXISTS refaccion_asignada TEXT;
-    ALTER TABLE garantias ADD COLUMN IF NOT EXISTS refaccion_updated_at TIMESTAMPTZ;
 
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     CREATE INDEX IF NOT EXISTS idx_reg_requests_status ON registration_requests(status);
@@ -571,21 +540,7 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_garantias_estatus_operativo ON garantias(estatus_operativo);
     CREATE INDEX IF NOT EXISTS idx_garantias_reportado_por_id ON garantias(reportado_por_id);
     CREATE INDEX IF NOT EXISTS idx_garantias_numero_economico ON garantias(numero_economico);
-    CREATE INDEX IF NOT EXISTS idx_garantias_refacciones_pendientes ON garantias (empresa, refaccion_status, created_at) WHERE solicita_refaccion = TRUE;
-    CREATE TABLE IF NOT EXISTS parts_requests (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      empresa TEXT NOT NULL,
-      numero_economico TEXT,
-      solicitud TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'pendiente',
-      requested_by TEXT REFERENCES users(id) ON DELETE SET NULL,
-      notes TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
   `);
-
-  await ensureUsersRoleConstraint();
 
   for (const name of DEFAULT_COMPANIES) {
     await pool.query(
@@ -806,7 +761,6 @@ app.get('/api/users', authRequired, requireRoles('admin'), async (_req, res) => 
 });
 
 app.post('/api/users', authRequired, requireRoles('admin'), async (req, res) => {
-  await ensureUsersRoleConstraint();
   const nombre = String(req.body.nombre || '').trim();
   const email = String(req.body.email || '').trim().toLowerCase();
   const password = String(req.body.password || '');
@@ -816,9 +770,6 @@ app.post('/api/users', authRequired, requireRoles('admin'), async (req, res) => 
 
   if (!nombre || !email || !password || !ALL_MANAGED_ROLES.includes(role)) {
     return res.status(400).json({ error: 'Datos de usuario incompletos o inválidos.' });
-  }
-  if (['operador','supervisor','supervisor_flotas'].includes(role) && !empresa) {
-    return res.status(400).json({ error: 'Ese rol necesita empresa ligada.' });
   }
 
   const exists = await pool.query('SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL', [email]);
@@ -837,7 +788,6 @@ app.post('/api/users', authRequired, requireRoles('admin'), async (req, res) => 
 });
 
 app.patch('/api/users/:id', authRequired, requireRoles('admin'), async (req, res) => {
-  await ensureUsersRoleConstraint();
   const current = await pool.query('SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL', [req.params.id]);
   if (!current.rowCount) return res.status(404).json({ error: 'Usuario no encontrado.' });
 
@@ -851,9 +801,6 @@ app.patch('/api/users/:id', authRequired, requireRoles('admin'), async (req, res
 
   if (!nombre || !email || !ALL_MANAGED_ROLES.includes(role)) {
     return res.status(400).json({ error: 'Datos de usuario incompletos o inválidos.' });
-  }
-  if (['operador','supervisor','supervisor_flotas'].includes(role) && !empresa) {
-    return res.status(400).json({ error: 'Ese rol necesita empresa ligada.' });
   }
 
   const exists = await pool.query('SELECT id FROM users WHERE email = $1 AND id <> $2 AND deleted_at IS NULL', [email, req.params.id]);
@@ -953,80 +900,6 @@ app.post('/api/garantias', authRequired, requireRoles('operador', 'admin'), asyn
   await addAuditLog(id, req.user.id, 'crear_reporte', `Reporte creado por ${req.user.nombre}`);
   notifyGarantiaWhatsApp('created', result.rows[0]).catch(() => {});
   res.status(201).json(mapGarantia(result.rows[0]));
-});
-
-
-app.patch('/api/garantias/:id', authRequired, requireRoles('admin'), async (req, res) => {
-  try {
-    const body = req.body || {};
-    const payload = {
-      numeroObra: String(body.numeroObra || '').trim(),
-      modelo: String(body.modelo || '').trim(),
-      numeroEconomico: String(body.numeroEconomico || '').trim(),
-      empresa: String(body.empresa || '').trim(),
-      kilometraje: String(body.kilometraje || '').trim(),
-      contactoNombre: String(body.contactoNombre || '').trim(),
-      telefono: normalizeMxPhone(body.telefono || ''),
-      tipoIncidente: String(body.tipoIncidente || '').trim(),
-      descripcionFallo: String(body.descripcionFallo || '').trim(),
-      solicitaRefaccion: !!body.solicitaRefaccion,
-      detalleRefaccion: String(body.detalleRefaccion || '').trim(),
-      evidencias: Array.isArray(body.evidencias) ? body.evidencias : [],
-      evidenciasRefaccion: Array.isArray(body.evidenciasRefaccion) ? body.evidenciasRefaccion : [],
-      firma: String(body.firma || '').trim()
-    };
-    const required = [payload.numeroObra, payload.modelo, payload.numeroEconomico, payload.empresa, payload.tipoIncidente, payload.descripcionFallo];
-    if (required.some(v => !v)) {
-      return res.status(400).json({ error: 'Faltan campos obligatorios del reporte.' });
-    }
-
-    const current = await pool.query('SELECT * FROM garantias WHERE id = $1', [req.params.id]);
-    if (!current.rowCount) return res.status(404).json({ error: 'Reporte no encontrado.' });
-
-    const result = await pool.query(
-      `UPDATE garantias SET
-        numero_obra = $2,
-        modelo = $3,
-        numero_economico = $4,
-        empresa = $5,
-        kilometraje = $6,
-        contacto_nombre = $7,
-        telefono = $8,
-        tipo_incidente = $9,
-        descripcion_fallo = $10,
-        solicita_refaccion = $11,
-        detalle_refaccion = $12,
-        evidencias = $13::jsonb,
-        evidencias_refaccion = $14::jsonb,
-        firma = $15,
-        updated_at = NOW()
-       WHERE id = $1
-       RETURNING *`,
-      [
-        req.params.id,
-        payload.numeroObra,
-        payload.modelo,
-        payload.numeroEconomico,
-        payload.empresa,
-        payload.kilometraje,
-        payload.contactoNombre,
-        payload.telefono,
-        payload.tipoIncidente,
-        payload.descripcionFallo,
-        payload.solicitaRefaccion,
-        payload.detalleRefaccion,
-        JSON.stringify(payload.evidencias || []),
-        JSON.stringify(payload.evidenciasRefaccion || []),
-        payload.firma
-      ]
-    );
-
-    await addAuditLog(req.params.id, req.user.id, 'editar_reporte', `${req.user.nombre} editó el reporte ${result.rows[0].folio || ''}`.trim());
-    res.json(mapGarantia(result.rows[0]));
-  } catch (error) {
-    console.error('Error actualizando reporte:', error);
-    res.status(500).json({ error: 'No se pudo actualizar el reporte.' });
-  }
 });
 
 app.patch('/api/garantias/:id/review', authRequired, requireRoles('operativo', 'admin'), async (req, res) => {
@@ -1129,7 +1002,7 @@ app.get('/api/history/unit/:numeroEconomico', authRequired, requireRoles('admin'
 });
 
 
-app.get('/api/schedules', authRequired, requireRoles('admin', 'operativo', 'supervisor', 'supervisor_flotas', 'operador'), async (req, res) => {
+app.get('/api/schedules', authRequired, requireRoles('admin', 'operativo', 'supervisor', 'operador'), async (req, res) => {
   const date = String(req.query.date || '').trim();
   const params = [];
   let where = [];
@@ -1155,7 +1028,7 @@ app.get('/api/schedules', authRequired, requireRoles('admin', 'operativo', 'supe
   res.json(result.rows.map(scheduleSummary));
 });
 
-app.post('/api/garantias/:id/request-schedule', authRequired, requireRoles('admin', 'operativo', 'supervisor_flotas'), async (req, res) => {
+app.post('/api/garantias/:id/request-schedule', authRequired, requireRoles('admin', 'operativo'), async (req, res) => {
   const current = await pool.query('SELECT * FROM garantias WHERE id = $1', [req.params.id]);
   if (!current.rowCount) return res.status(404).json({ error: 'Garantía no encontrada.' });
   const garantia = current.rows[0];
@@ -1329,7 +1202,7 @@ app.get('/api/fleet/summary', authRequired, requireRoles('admin','operativo','su
   const sem = await pool.query(`
     WITH base AS (
       SELECT fu.id, fu.empresa, fu.numero_economico,
-             COALESCE(fu.manual_status,(
+             COALESCE((
                SELECT CASE
                  WHEN g.estatus_operativo = 'terminada' THEN 'operando'
                  WHEN g.estatus_operativo = 'en proceso' THEN 'en_taller'
@@ -1366,7 +1239,7 @@ app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supe
   }
   const result = await pool.query(`
     SELECT fu.*,
-      COALESCE(fu.manual_status,(
+      COALESCE((
         SELECT g.estatus_operativo
         FROM garantias g
         WHERE g.empresa = fu.empresa AND g.numero_economico = fu.numero_economico
@@ -1378,7 +1251,6 @@ app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supe
         FROM garantias g
         WHERE g.empresa = fu.empresa AND g.numero_economico = fu.numero_economico
       ) AS last_report_at,
-      COALESCE((SELECT COUNT(*) FROM garantias g WHERE g.empresa = fu.empresa AND g.numero_economico = fu.numero_economico),0) AS reportes_count,
       COALESCE((SELECT SUM(CASE WHEN tipo='refaccion' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_refacciones,
       COALESCE((SELECT SUM(CASE WHEN tipo='mano_obra' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_mano_obra,
       COALESCE((SELECT SUM(monto) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_total
@@ -1406,8 +1278,7 @@ app.post('/api/fleet/units', authRequired, requireRoles('admin','operativo'), as
       anio = EXCLUDED.anio,
       kilometraje = EXCLUDED.kilometraje,
       poliza_activa = EXCLUDED.poliza_activa,
-      campaign_activa = EXCLUDED.campaign_activa,
-      updated_at = NOW()
+      campaign_activa = EXCLUDED.campaign_activa
     RETURNING *
   `, [
     cryptoRandomId(),
@@ -1423,37 +1294,6 @@ app.post('/api/fleet/units', authRequired, requireRoles('admin','operativo'), as
     !!body.campaignActiva
   ]);
   res.status(201).json(mapFleetUnit(result.rows[0]));
-});
-
-app.patch('/api/fleet/units/:id', authRequired, requireRoles('admin'), async (req, res) => {
-  const current = await pool.query('SELECT * FROM fleet_units WHERE id = $1', [req.params.id]);
-  if (!current.rowCount) return res.status(404).json({ error: 'Unidad no encontrada.' });
-  const body = req.body || {};
-  const empresa = String(body.empresa || '').trim();
-  const numeroEconomico = String(body.numeroEconomico || '').trim();
-  if (!empresa || !numeroEconomico) return res.status(400).json({ error: 'Empresa y número económico son obligatorios.' });
-  const result = await pool.query(`
-    UPDATE fleet_units
-    SET empresa=$2, nombre_flota=$3, numero_economico=$4, numero_obra=$5, marca=$6, modelo=$7, anio=$8, kilometraje=$9,
-        poliza_activa=$10, campaign_activa=$11, manual_status=COALESCE($12, manual_status), updated_at=NOW()
-    WHERE id=$1
-    RETURNING *
-  `,[req.params.id, empresa, String(body.nombreFlota||'').trim(), numeroEconomico, String(body.numeroObra||'').trim(), String(body.marca||'').trim(), String(body.modelo||'').trim(), String(body.anio||'').trim(), String(body.kilometraje||'').trim(), !!body.polizaActiva, !!body.campaignActiva, body.manualStatus ? String(body.manualStatus).trim() : null]);
-  res.json(mapFleetUnit(result.rows[0]));
-});
-
-app.patch('/api/fleet/units/:id/status', authRequired, requireRoles('admin'), async (req, res) => {
-  const status = String(req.body.status || '').trim();
-  if (!['operando','en_taller','detenida','programada',''].includes(status)) return res.status(400).json({ error: 'Estado inválido.' });
-  const result = await pool.query(`UPDATE fleet_units SET manual_status = $2, updated_at = NOW() WHERE id = $1 RETURNING *`, [req.params.id, status || null]);
-  if (!result.rowCount) return res.status(404).json({ error: 'Unidad no encontrada.' });
-  res.json(mapFleetUnit(result.rows[0]));
-});
-
-app.delete('/api/fleet/units/:id', authRequired, requireRoles('admin'), async (req, res) => {
-  const result = await pool.query('DELETE FROM fleet_units WHERE id = $1 RETURNING id', [req.params.id]);
-  if (!result.rowCount) return res.status(404).json({ error: 'Unidad no encontrada.' });
-  res.json({ ok: true });
 });
 
 app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
@@ -1482,31 +1322,40 @@ app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','
     WHERE fleet_unit_id = $1
     ORDER BY created_at DESC
   `, [u.id]);
-  const installedParts = await pool.query(`
-    SELECT *
-    FROM part_installations
-    WHERE empresa = $1 AND numero_economico = $2
-    ORDER BY created_at DESC
-  `, [u.empresa, u.numero_economico]);
   res.json({
     unit: mapFleetUnit(u),
     reports: reports.rows.map(mapGarantia),
-    costs: costs.rows.map(mapFleetCost),
-    installedParts: installedParts.rows.map(row => ({
-      id: row.id,
-      partId: row.part_id || '',
-      garantiaId: row.garantia_id || '',
-      descripcion: row.descripcion || '',
-      cantidad: Number(row.cantidad || 0),
-      costoCompra: Number(row.costo_compra || 0),
-      precioVenta: Number(row.precio_venta || 0),
-      utilidad: Number(row.utilidad || 0),
-      imagenRefaccion: row.imagen_refaccion || '',
-      instaladoPor: row.instalado_por || '',
-      notas: row.notas || '',
-      createdAt: row.created_at
-    }))
+    costs: costs.rows.map(mapFleetCost)
   });
+});
+
+app.patch('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo'), async (req, res) => {
+  const current = await pool.query('SELECT * FROM fleet_units WHERE id = $1', [req.params.id]);
+  if (!current.rows.length) return res.status(404).json({ error: 'Unidad no encontrada.' });
+  const row = current.rows[0];
+  const empresa = String(req.body.empresa ?? row.empresa ?? '').trim();
+  const nombreFlota = String(req.body.nombreFlota ?? row.nombre_flota ?? '').trim();
+  const numeroEconomico = String(req.body.numeroEconomico ?? row.numero_economico ?? '').trim();
+  const numeroObra = String(req.body.numeroObra ?? row.numero_obra ?? '').trim();
+  const marca = String(req.body.marca ?? row.marca ?? '').trim();
+  const modelo = String(req.body.modelo ?? row.modelo ?? '').trim();
+  const anio = String(req.body.anio ?? row.anio ?? '').trim();
+  const kilometraje = String(req.body.kilometraje ?? row.kilometraje ?? '').trim();
+  const polizaActiva = req.body.polizaActiva ?? row.poliza_activa;
+  const campaignActiva = req.body.campaignActiva ?? row.campaign_activa;
+  const manualStatus = String(req.body.manualStatus ?? row.manual_status ?? '').trim();
+  const updated = await pool.query(
+    `UPDATE fleet_units
+     SET empresa = $2, nombre_flota = $3, numero_economico = $4, numero_obra = $5, marca = $6, modelo = $7, anio = $8, kilometraje = $9, poliza_activa = $10, campaign_activa = $11, manual_status = $12, updated_at = NOW()
+     WHERE id = $1 RETURNING *`,
+    [req.params.id, empresa, nombreFlota, numeroEconomico, numeroObra, marca, modelo, anio, kilometraje, !!polizaActiva, !!campaignActiva, manualStatus]
+  );
+  res.json(updated.rows[0]);
+});
+
+app.delete('/api/fleet/units/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  await pool.query('DELETE FROM fleet_units WHERE id = $1', [req.params.id]);
+  res.json({ ok: true });
 });
 
 app.post('/api/fleet/units/:id/costs', authRequired, requireRoles('admin'), async (req, res) => {
@@ -1514,9 +1363,9 @@ app.post('/api/fleet/units/:id/costs', authRequired, requireRoles('admin'), asyn
   if (!unit.rowCount) return res.status(404).json({ error: 'Unidad no encontrada.' });
   const tipo = String(req.body.tipo || '').trim();
   const concepto = String(req.body.concepto || '').trim();
-  const monto = Number(req.body.monto);
+  const monto = Number(req.body.monto || 0);
   const garantiaId = String(req.body.garantiaId || '').trim() || null;
-  if (!['refaccion','mano_obra'].includes(tipo) || Number.isNaN(monto) || monto < 0) return res.status(400).json({ error: 'Costo inválido.' });
+  if (!['refaccion','mano_obra'].includes(tipo) || !monto) return res.status(400).json({ error: 'Costo inválido.' });
   const result = await pool.query(`
     INSERT INTO fleet_cost_entries (id, fleet_unit_id, garantia_id, tipo, concepto, monto, created_by_id, created_by_nombre)
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
@@ -1525,281 +1374,6 @@ app.post('/api/fleet/units/:id/costs', authRequired, requireRoles('admin'), asyn
   res.status(201).json(mapFleetCost(result.rows[0]));
 });
 
-
-
-
-app.get('/api/parts/pending', authRequired, requireRoles('admin','supervisor_flotas'), async (req, res) => {
-  try {
-    const params = [];
-    const where = [
-      `solicita_refaccion = TRUE`,
-      `COALESCE(refaccion_status, 'pendiente') <> 'instalada'`,
-      `COALESCE(estatus_operativo, 'sin iniciar') <> 'terminada'`
-    ];
-    if (req.user.role === 'supervisor_flotas') {
-      params.push(req.user.empresa || '');
-      where.push(`empresa = $${params.length}`);
-    }
-    const result = await pool.query(
-      `SELECT
-         id, folio, numero_obra, modelo, numero_economico, empresa,
-         detalle_refaccion, refaccion_status, refaccion_asignada,
-         estatus_operativo, created_at, updated_at, refaccion_updated_at
-       FROM garantias
-       WHERE ${where.join(' AND ')}
-       ORDER BY COALESCE(refaccion_updated_at, updated_at, created_at) DESC`,
-      params
-    );
-    res.json(result.rows.map(row => ({
-      id: row.id,
-      folio: row.folio || '',
-      numeroObra: row.numero_obra || '',
-      modelo: row.modelo || '',
-      numeroEconomico: row.numero_economico || '',
-      empresa: row.empresa || '',
-      detalleRefaccion: row.detalle_refaccion || '',
-      refaccionStatus: row.refaccion_status || 'pendiente',
-      refaccionAsignada: row.refaccion_asignada || '',
-      estatusOperativo: row.estatus_operativo || 'sin iniciar',
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      refaccionUpdatedAt: row.refaccion_updated_at
-    })));
-  } catch (error) {
-    console.error('Error cargando refacciones pendientes:', error);
-    res.status(500).json({ error: 'No se pudieron cargar las refacciones pendientes.' });
-  }
-});
-
-app.patch('/api/garantias/:id/parts', authRequired, requireRoles('admin'), async (req, res) => {
-  try {
-    const detalleRefaccion = String(req.body.detalleRefaccion || '').trim();
-    const refaccionStatus = String(req.body.refaccionStatus || 'pendiente').trim();
-    const refaccionAsignada = String(req.body.refaccionAsignada || '').trim();
-
-    if (!['pendiente','asignada','en_compra','recibida','instalada'].includes(refaccionStatus)) {
-      return res.status(400).json({ error: 'Estado de refacción inválido.' });
-    }
-
-    const result = await pool.query(
-      `UPDATE garantias
-       SET detalle_refaccion = $2,
-           refaccion_status = $3,
-           refaccion_asignada = $4,
-           refaccion_updated_at = NOW(),
-           updated_at = NOW()
-       WHERE id = $1
-       RETURNING *`,
-      [req.params.id, detalleRefaccion, refaccionStatus, refaccionAsignada]
-    );
-
-    if (!result.rowCount) return res.status(404).json({ error: 'Garantía no encontrada.' });
-    res.json(mapGarantia(result.rows[0]));
-  } catch (error) {
-    console.error('Error actualizando refacción:', error);
-    res.status(500).json({ error: 'No se pudo actualizar la refacción.' });
-  }
-});
-
-app.patch('/api/schedules/:id/reschedule', authRequired, requireRoles('admin','operativo','supervisor_flotas'), async (req, res) => {
-  try {
-    const scheduledFor = req.body.scheduledFor ? new Date(req.body.scheduledFor) : null;
-    const reason = String(req.body.reason || '').trim();
-    if (!scheduledFor || Number.isNaN(scheduledFor.getTime())) return res.status(400).json({ error: 'Fecha inválida.' });
-
-    const found = await pool.query(
-      `SELECT sr.*, g.empresa
-       FROM schedule_requests sr
-       JOIN garantias g ON g.id = sr.garantia_id
-       WHERE sr.id = $1`,
-      [req.params.id]
-    );
-    if (!found.rowCount) return res.status(404).json({ error: 'Programación no encontrada.' });
-
-    const current = found.rows[0];
-    if (req.user.role === 'supervisor_flotas' && current.empresa !== (req.user.empresa || '')) {
-      return res.status(403).json({ error: 'No puedes reprogramar citas de otra empresa.' });
-    }
-
-    await pool.query(
-      `UPDATE schedule_requests
-       SET scheduled_for = $2,
-           status = 'confirmed',
-           confirmed_at = NOW(),
-           notes = CASE WHEN COALESCE(notes, '') = '' THEN $3 ELSE notes || E'\n' || $3 END,
-           updated_at = NOW()
-       WHERE id = $1`,
-      [req.params.id, scheduledFor.toISOString(), reason ? `Reprogramada: ${reason}` : 'Reprogramada manualmente']
-    );
-
-    res.json({ ok: true });
-  } catch (error) {
-    console.error('Error reprogramando cita:', error);
-    res.status(500).json({ error: 'No se pudo reprogramar la cita.' });
-  }
-});
-
-app.patch('/api/schedules/:id/cancel', authRequired, requireRoles('admin','operativo','supervisor_flotas'), async (req, res) => {
-  try {
-    const reason = String(req.body.reason || '').trim();
-    const found = await pool.query(
-      `SELECT sr.*, g.empresa
-       FROM schedule_requests sr
-       JOIN garantias g ON g.id = sr.garantia_id
-       WHERE sr.id = $1`,
-      [req.params.id]
-    );
-    if (!found.rowCount) return res.status(404).json({ error: 'Programación no encontrada.' });
-
-    const current = found.rows[0];
-    if (req.user.role === 'supervisor_flotas' && current.empresa !== (req.user.empresa || '')) {
-      return res.status(403).json({ error: 'No puedes cancelar citas de otra empresa.' });
-    }
-
-    await pool.query(
-      `UPDATE schedule_requests
-       SET status = 'cancelled',
-           scheduled_for = NULL,
-           notes = CASE WHEN COALESCE(notes, '') = '' THEN $2 ELSE notes || E'\n' || $2 END,
-           updated_at = NOW()
-       WHERE id = $1`,
-      [req.params.id, reason ? `Cancelada: ${reason}` : 'Cancelada manualmente']
-    );
-
-    res.json({ ok: true });
-  } catch (error) {
-    console.error('Error cancelando cita:', error);
-    res.status(500).json({ error: 'No se pudo cancelar la cita.' });
-  }
-});
-
-
-app.get('/api/fleet/units/:id/costs', authRequired, requireRoles('admin'), async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT id, tipo, concepto, monto, created_at
-       FROM fleet_cost_entries
-       WHERE fleet_unit_id = $1
-       ORDER BY created_at DESC`,
-      [req.params.id]
-    );
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error leyendo costos de unidad:', error);
-    res.status(500).json({ error: 'No se pudieron leer los costos.' });
-  }
-});
-
-app.patch('/api/fleet/costs/:id', authRequired, requireRoles('admin'), async (req, res) => {
-  try {
-    const tipo = String(req.body.tipo || '').trim();
-    const concepto = String(req.body.concepto || '').trim();
-    const monto = Number(req.body.monto);
-    if (!tipo || !concepto || Number.isNaN(monto) || monto < 0) {
-      return res.status(400).json({ error: 'Datos de costo inválidos.' });
-    }
-    const result = await pool.query(
-      `UPDATE fleet_cost_entries
-       SET tipo = $2, concepto = $3, monto = $4
-       WHERE id = $1
-       RETURNING id, fleet_unit_id, tipo, concepto, monto, created_at`,
-      [req.params.id, tipo, concepto, monto]
-    );
-    if (!result.rowCount) return res.status(404).json({ error: 'Costo no encontrado.' });
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error actualizando costo:', error);
-    res.status(500).json({ error: 'No se pudo actualizar el costo.' });
-  }
-});
-
-app.delete('/api/fleet/costs/:id', authRequired, requireRoles('admin'), async (req, res) => {
-  try {
-    const result = await pool.query(
-      `DELETE FROM fleet_cost_entries
-       WHERE id = $1
-       RETURNING id, fleet_unit_id`,
-      [req.params.id]
-    );
-    if (!result.rowCount) return res.status(404).json({ error: 'Costo no encontrado.' });
-    res.json({ ok: true, deleted: result.rows[0] });
-  } catch (error) {
-    console.error('Error eliminando costo:', error);
-    res.status(500).json({ error: 'No se pudo eliminar el costo.' });
-  }
-});
-
-app.get('/api/parts/requests', authRequired, requireRoles('admin','supervisor_flotas'), async (req, res) => {
-  try {
-    const params = [];
-    const where = [];
-    if (req.user.role === 'supervisor_flotas') {
-      params.push(req.user.empresa || '');
-      where.push(`empresa = $${params.length}`);
-    }
-    const result = await pool.query(
-      `SELECT id, empresa, numero_economico, solicitud, status, notes, created_at, updated_at
-       FROM parts_requests
-       ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
-       ORDER BY updated_at DESC, created_at DESC`,
-      params
-    );
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error leyendo solicitudes independientes de refacción:', error);
-    res.status(500).json({ error: 'No se pudieron leer las solicitudes.' });
-  }
-});
-
-app.post('/api/parts/requests', authRequired, requireRoles('admin','supervisor_flotas'), async (req, res) => {
-  try {
-    const empresa = String(req.body.empresa || req.user.empresa || '').trim();
-    const numeroEconomico = String(req.body.numeroEconomico || '').trim();
-    const solicitud = String(req.body.solicitud || '').trim();
-    const notes = String(req.body.notes || '').trim();
-    if (!empresa || !solicitud) return res.status(400).json({ error: 'Empresa y solicitud son obligatorias.' });
-    const result = await pool.query(
-      `INSERT INTO parts_requests (empresa, numero_economico, solicitud, status, requested_by, notes)
-       VALUES ($1,$2,$3,'pendiente',$4,$5)
-       RETURNING id, empresa, numero_economico, solicitud, status, notes, created_at, updated_at`,
-      [empresa, numeroEconomico, solicitud, req.user.id, notes]
-    );
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error creando solicitud independiente de refacción:', error);
-    res.status(500).json({ error: 'No se pudo crear la solicitud.' });
-  }
-});
-
-
-app.patch('/api/parts/requests/:id', authRequired, requireRoles('admin','supervisor_flotas'), async (req, res) => {
-  try {
-    const status = String(req.body.status || '').trim() || 'pendiente';
-    const notes = String(req.body.notes || '').trim();
-    const allowed = ['pendiente', 'pedida', 'asignada', 'recibida', 'instalada', 'cancelada', 'cerrada'];
-    if (!allowed.includes(status)) return res.status(400).json({ error: 'Estatus inválido.' });
-
-    const params = [req.params.id, status, notes];
-    let where = 'id = $1';
-    if (req.user.role === 'supervisor_flotas') {
-      params.push(req.user.empresa || '');
-      where += ` AND empresa = $${params.length}`;
-    }
-
-    const result = await pool.query(
-      `UPDATE parts_requests
-       SET status = $2, notes = $3, updated_at = NOW()
-       WHERE ${where}
-       RETURNING id, empresa, numero_economico, solicitud, status, notes, created_at, updated_at`,
-      params
-    );
-    if (!result.rowCount) return res.status(404).json({ error: 'Solicitud no encontrada.' });
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error actualizando solicitud independiente de refacción:', error);
-    res.status(500).json({ error: 'No se pudo actualizar la solicitud.' });
-  }
-});
 
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
