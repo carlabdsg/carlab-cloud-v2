@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CARLAB CLOUD V3 | Fase 3</title>
+  <title>CARLAB CLOUD V3 | Cobranza 2</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -117,6 +117,7 @@
               <button id="navFleetBtn" class="nav-btn hidden" type="button">Flotas</button>
               <button id="navPartsBtn" class="nav-btn hidden" type="button">Refacciones</button>
               <button id="navStockBtn" class="nav-btn hidden" type="button">Stock</button>
+              <button id="navCobranzaBtn" class="nav-btn hidden" type="button">Cobranza</button>
             </div>
             <div class="nav-group">
               <div class="nav-group-label">Administración</div>
@@ -146,7 +147,7 @@
       <main class="main-area">
         <header class="topbar panel">
           <div>
-            <div class="topbar-kicker">CARLAB CLOUD V3 · FASE 3</div>
+            <div class="topbar-kicker">CARLAB CLOUD V3 · COBRANZA 2</div>
             <h1 id="pageTitle">Bandeja general</h1>
             <p id="statusLegend" class="muted">Operación más venta, con control y lectura por unidad.</p>
           </div>
@@ -485,6 +486,52 @@
           <div id="stockList" class="stock-list-grid"></div>
         </section>
 
+
+        <section id="cobranzaPanel" class="panel hidden">
+          <div class="panel-head compact-panel-head">
+            <div>
+              <div class="topbar-kicker">COBRANZA</div>
+              <h3>Autorización, cobro y ventas directas</h3>
+            </div>
+            <button id="cobranzaRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
+          </div>
+          <div id="cobranzaSummary" class="parts-summary-row"></div>
+          <div class="cobranza-layout">
+            <article class="owner-card cobranza-col">
+              <div class="owner-card-head"><strong>Cobros de reportes terminados</strong><span class="badge badge-info">PDF comercial</span></div>
+              <div id="cobranzaQuotesList" class="table-list compact-list"></div>
+            </article>
+            <article class="owner-card cobranza-col wide">
+              <div class="owner-card-head"><strong>Editor comercial</strong><span class="badge badge-info">Admin</span></div>
+              <div id="cobranzaQuoteDetail" class="muted">Selecciona un reporte terminado o prepara un cobro desde la bandeja.</div>
+            </article>
+          </div>
+          <div class="cobranza-layout second">
+            <article class="owner-card cobranza-col wide">
+              <div class="owner-card-head"><strong>Venta directa desde stock</strong><span class="badge badge-info">Mostrador / salida</span></div>
+              <form id="directSaleForm" class="direct-sale-grid">
+                <label><span>Cliente</span><input id="directSaleCustomer" required placeholder="Nombre o razón social" /></label>
+                <label><span>Teléfono</span><input id="directSalePhone" placeholder="521667..." /></label>
+                <label><span>Empresa</span><input id="directSaleCompany" placeholder="Opcional" /></label>
+                <label><span>Unidad</span><input id="directSaleUnit" placeholder="Opcional" /></label>
+                <label class="span-2"><span>Producto desde stock</span><select id="directSaleStockPart"></select></label>
+                <label><span>Cantidad</span><input id="directSaleQty" type="number" min="1" step="1" value="1" /></label>
+                <label><span>Precio unitario</span><input id="directSalePrice" type="number" min="0" step="0.01" value="0" /></label>
+                <label><span>Método de pago</span><input id="directSaleMethod" placeholder="Transferencia / efectivo" /></label>
+                <label><span>Estatus de pago</span><select id="directSalePaymentStatus"><option value="pendiente">Pendiente</option><option value="pagado_parcial">Pago parcial</option><option value="pagada">Pagada</option></select></label>
+                <label class="span-2"><span>Notas</span><textarea id="directSaleNotes" rows="2" placeholder="Observaciones, cliente o salida a mostrador"></textarea></label>
+                <div class="stock-form-actions span-2">
+                  <button id="directSaleResetBtn" class="btn btn-ghost" type="button">Limpiar</button>
+                  <button class="btn btn-primary" type="submit">Registrar venta directa</button>
+                </div>
+              </form>
+            </article>
+            <article class="owner-card cobranza-col">
+              <div class="owner-card-head"><strong>Ventas recientes</strong><span class="badge badge-info">Trazabilidad</span></div>
+              <div id="directSalesList" class="table-list compact-list"></div>
+            </article>
+          </div>
+        </section>
 
         <section id="boardPanel" class="panel">
           <div class="panel-head"><div><div class="topbar-kicker" id="boardKicker">CENTRAL</div><h3 id="listTitle">Bandeja de garantías</h3></div></div>

@@ -31,6 +31,11 @@ const state = {
   activeEditorContext: '',
   stockParts: [],
   stockMovements: [],
+  cobranzaOverview: null,
+  cobranzaQuotes: [],
+  directSales: [],
+  selectedQuoteId: '',
+  directSaleDraftPartId: '',
 };
 
 const api = {
@@ -40,8 +45,14 @@ const api = {
     if (state.token) headers.Authorization = `Bearer ${state.token}`;
     const response = await fetch(url, { ...options, headers: { ...headers, 'Cache-Control': 'no-store, no-cache, max-age=0', Pragma: 'no-cache' }, cache: 'no-store' });
     const text = await response.text();
-    const data = text ? JSON.parse(text) : null;
-    if (!response.ok) throw new Error(data?.error || 'Algo salió mal.');
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch (_error) {
+      if (!response.ok) throw new Error(`Error ${response.status}: el servidor respondió fuera de formato JSON.`);
+      throw new Error('La respuesta del servidor no se pudo interpretar.');
+    }
+    if (!response.ok) throw new Error(data?.error || `Error ${response.status}.`);
     return data;
   },
   login(email, password) { return this.request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }); },
@@ -95,6 +106,14 @@ const api = {
   createStockPart(payload) { return this.request('/api/stock/parts', { method: 'POST', body: JSON.stringify(payload || {}) }); },
   updateStockPart(id, payload) { return this.request(`/api/stock/parts/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   createStockMovement(id, payload) { return this.request(`/api/stock/parts/${id}/movements`, { method: 'POST', body: JSON.stringify(payload || {}) }); },
+  getCobranzaOverview() { return this.request('/api/cobranza/overview'); },
+  getCobranzaQuotes() { return this.request('/api/cobranza/quotes'); },
+  createQuoteFromReport(id) { return this.request(`/api/cobranza/quotes/from-report/${id}`, { method: 'POST' }); },
+  updateQuote(id, payload) { return this.request(`/api/cobranza/quotes/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
+  replaceQuoteItems(id, payload) { return this.request(`/api/cobranza/quotes/${id}/items`, { method: 'PUT', body: JSON.stringify(payload || {}) }); },
+  getDirectSales() { return this.request('/api/cobranza/direct-sales'); },
+  createDirectSale(payload) { return this.request('/api/cobranza/direct-sales', { method: 'POST', body: JSON.stringify(payload || {}) }); },
+  updateDirectSale(id, payload) { return this.request(`/api/cobranza/direct-sales/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
 
 };
 
@@ -103,14 +122,14 @@ function bind() {
   [
     'loginView','dashboardView','loginForm','loginEmail','loginPassword','loginError','registerForm','registerMessage','regNombre','regEmail','regTelefono','regEmpresa','regNumeroEconomico','regPassword',
     'tabLoginBtn','tabRegisterBtn','welcomeText','currentUserName','currentUserEmail','currentRoleBadge','avatarCircle','pageTitle','roleSummaryText','roleBrief','logoutBtn',
-    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navFleetBtn','navPartsBtn','navStockBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel','stockPanel',
+    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navFleetBtn','navPartsBtn','navStockBtn','navCobranzaBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel','stockPanel','cobranzaPanel',
     'reportForm','numeroObra','modelo','numeroEconomico','empresa','kilometraje','contactoNombre','telefono','descripcionFallo','solicitaRefaccion','refaccionFields','detalleRefaccion',
     'evidencias','evidenciasRefaccion','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn','searchInput','validationFilter','operationalFilter',
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
     'executiveDeck','executiveDeckGrid','liveRefreshBadge','topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistorySearchInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','partsPanel','partsRefreshBtn','partsSummary','partsList','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn','fleetOwnerDeck','imageLightbox','imageLightboxImg','imageLightboxClose',
     'navFleetBtn','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas','fleetNewBtn','fleetCancelBtn','fleetFormBox','fleetSearchInput','fleetStatusFilter',
-    'partsRequestModal','partsRequestClose','partsRequestCancel','partsRequestForm','partsRequestEmpresa','partsRequestUnidad','partsRequestSolicitud','partsRequestPriority','partsRequestNotes','partsRequestOwnerHint','imageLightboxCaption','stockRefreshBtn','stockSummary','stockList','stockMovements','stockPartForm','stockPartId','stockNombre','stockSku','stockProveedor','stockActual','stockMinimo','stockCosto','stockPrecio','stockUbicacion','stockNotas','stockSaveBtn','stockCancelBtn','scheduleManualForm','scheduleManualEmpresa','scheduleManualUnidad','scheduleManualTelefono','scheduleManualFolio','scheduleManualDatetime','scheduleManualContacto','scheduleManualNotes','scheduleManualCancelBtn'
+    'partsRequestModal','partsRequestClose','partsRequestCancel','partsRequestForm','partsRequestEmpresa','partsRequestUnidad','partsRequestSolicitud','partsRequestPriority','partsRequestNotes','partsRequestOwnerHint','imageLightboxCaption','stockRefreshBtn','stockSummary','stockList','stockMovements','stockPartForm','stockPartId','stockNombre','stockSku','stockProveedor','stockActual','stockMinimo','stockCosto','stockPrecio','stockUbicacion','stockNotas','stockSaveBtn','stockCancelBtn','scheduleManualForm','scheduleManualEmpresa','scheduleManualUnidad','scheduleManualTelefono','scheduleManualFolio','scheduleManualDatetime','scheduleManualContacto','scheduleManualNotes','scheduleManualCancelBtn','cobranzaRefreshBtn','cobranzaSummary','cobranzaQuotesList','cobranzaQuoteDetail','directSaleForm','directSaleCustomer','directSalePhone','directSaleCompany','directSaleUnit','directSaleStockPart','directSaleQty','directSalePrice','directSaleMethod','directSalePaymentStatus','directSaleNotes','directSaleResetBtn','directSalesList'
   ].forEach(id => els[id] = document.getElementById(id));
 }
 bind();
@@ -468,7 +487,7 @@ function updateHeaderForRole() {
   if (els.roleBrief) els.roleBrief.innerHTML = copy.panels.map(([title, desc]) => `<article><strong>${escapeHtml(title)}</strong><span>${escapeHtml(desc)}</span></article>`).join('');
 }
 function setActiveNav(activeBtn) {
-  [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navScheduleBtn,els.navFleetBtn,els.navPartsBtn,els.navStockBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
+  [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navScheduleBtn,els.navFleetBtn,els.navPartsBtn,els.navStockBtn,els.navCobranzaBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
   if (activeBtn && !activeBtn.classList.contains('hidden')) activeBtn.classList.add('active');
 }
 
@@ -486,8 +505,8 @@ function updateOperatorAppNav(panel) {
   if (panel === 'schedule') els.opNavScheduleBtn?.classList.add('active');
 }
 function switchPanel(panel) {
-  if (state.user?.role === 'supervisor_flotas' && ['users','requests','companies','report','stock'].includes(panel)) panel = 'fleet';
-  if (state.user?.role === 'supervisor' && ['users','requests','companies','fleet','parts','report','stock'].includes(panel)) panel = 'board';
+  if (state.user?.role === 'supervisor_flotas' && ['users','requests','companies','report','stock','cobranza'].includes(panel)) panel = 'fleet';
+  if (state.user?.role === 'supervisor' && ['users','requests','companies','fleet','parts','report','stock','cobranza'].includes(panel)) panel = 'board';
   state.activePanel = panel;
   document.getElementById('boardPanel')?.classList.toggle('hidden', panel !== 'board');
   els.reportFormPanel?.classList.toggle('hidden', panel !== 'report');
@@ -500,6 +519,7 @@ function switchPanel(panel) {
   els.fleetPanel?.classList.toggle('hidden', panel !== 'fleet');
   els.partsPanel?.classList.toggle('hidden', panel !== 'parts');
   els.stockPanel?.classList.toggle('hidden', panel !== 'stock');
+  els.cobranzaPanel?.classList.toggle('hidden', panel !== 'cobranza');
   document.body.dataset.panel = panel;
   const board = panel === 'board';
   els.filtersPanel?.classList.toggle('hidden', !board);
@@ -508,6 +528,7 @@ function switchPanel(panel) {
   if (panel === 'fleet') loadFleet();
   if (panel === 'parts') loadPartsPending();
   if (panel === 'stock') loadStock();
+  if (panel === 'cobranza') loadCobranza();
   updateOperatorAppNav(panel);
   setActiveNav(
     panel === 'report' ? els.navNewReportBtn :
@@ -520,6 +541,7 @@ function switchPanel(panel) {
     panel === 'fleet' ? els.navFleetBtn :
     panel === 'parts' ? els.navPartsBtn :
     panel === 'stock' ? els.navStockBtn :
+    panel === 'cobranza' ? els.navCobranzaBtn :
     els.navBoardBtn
   );
   if (panel === 'report') window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -540,9 +562,11 @@ function showDashboard() {
   els.navFleetBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas','operativo'));
   els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas'));
   els.navStockBtn?.classList.toggle('hidden', !isRole('admin'));
+  els.navCobranzaBtn?.classList.toggle('hidden', !isRole('admin'));
   if (state.user?.role === 'supervisor') {
     els.navFleetBtn?.classList.add('hidden');
     els.navPartsBtn?.classList.add('hidden');
+    els.navCobranzaBtn?.classList.add('hidden');
     els.navUsersBtn?.classList.add('hidden');
     els.navRequestsBtn?.classList.add('hidden');
     els.navCompaniesBtn?.classList.add('hidden');
@@ -1297,7 +1321,270 @@ function renderStock() {
     };
     els.stockList.querySelectorAll('[data-stock-in]').forEach(btn => btn.addEventListener('click', () => askMovement(btn.dataset.stockIn, 'entrada')));
     els.stockList.querySelectorAll('[data-stock-unit]').forEach(btn => btn.addEventListener('click', () => askMovement(btn.dataset.stockUnit, 'salida_unidad')));
-    els.stockList.querySelectorAll('[data-stock-sale]').forEach(btn => btn.addEventListener('click', () => askMovement(btn.dataset.stockSale, 'venta_directa')));
+    els.stockList.querySelectorAll('[data-stock-sale]').forEach(btn => btn.addEventListener('click', () => launchDirectSaleWithPart(btn.dataset.stockSale)));
+  }
+}
+
+
+function resetDirectSaleForm() {
+  els.directSaleForm?.reset();
+  if (els.directSaleQty) els.directSaleQty.value = '1';
+  if (els.directSalePrice) els.directSalePrice.value = '0';
+  if (els.directSalePaymentStatus) els.directSalePaymentStatus.value = 'pendiente';
+  state.directSaleDraftPartId = '';
+  syncDirectSalePartDefaults();
+}
+
+function syncDirectSalePartDefaults() {
+  if (!els.directSaleStockPart) return;
+  const selectedId = state.directSaleDraftPartId || els.directSaleStockPart.value;
+  if (selectedId) els.directSaleStockPart.value = selectedId;
+  const part = state.stockParts.find(p => p.id === (els.directSaleStockPart?.value || ''));
+  if (part && els.directSalePrice && (!Number(els.directSalePrice.value || 0) || state.directSaleDraftPartId)) {
+    els.directSalePrice.value = Number(part.precioVenta || 0).toFixed(2);
+  }
+}
+
+function quoteStatusBadge(status) {
+  return ({ borrador:'badge-info', enviada:'badge-review', pendiente_autorizacion:'badge-review', autorizada:'badge-accepted', rechazada:'badge-rejected', cancelada:'badge-rejected' })[status] || 'badge-info';
+}
+function quotePaymentBadge(status) {
+  return ({ pendiente_pago:'badge-review', anticipo_recibido:'badge-info', pago_parcial:'badge-progress', pagada:'badge-done', cancelada:'badge-rejected' })[status] || 'badge-info';
+}
+function salePaymentBadge(status) {
+  return ({ pendiente:'badge-review', pagado_parcial:'badge-progress', pagada:'badge-done', cancelada:'badge-rejected' })[status] || 'badge-info';
+}
+function selectedQuote() { return state.cobranzaQuotes.find(q => q.id === state.selectedQuoteId) || null; }
+
+async function loadCobranza(force = false) {
+  if (!isRole('admin')) return;
+  try {
+    const [overview, quotes, sales] = await Promise.all([
+      api.getCobranzaOverview(),
+      api.getCobranzaQuotes(),
+      api.getDirectSales(),
+      (!state.stockParts.length || force) ? loadStock(true) : Promise.resolve()
+    ]);
+    state.cobranzaOverview = overview;
+    state.cobranzaQuotes = quotes || [];
+    state.directSales = sales || [];
+    if (!state.selectedQuoteId && state.cobranzaQuotes[0]) state.selectedQuoteId = state.cobranzaQuotes[0].id;
+    if (state.selectedQuoteId && !state.cobranzaQuotes.find(q => q.id === state.selectedQuoteId)) state.selectedQuoteId = state.cobranzaQuotes[0]?.id || '';
+    renderCobranza();
+  } catch (error) {
+    notify(error.message, true);
+  }
+}
+
+function renderCobranza() {
+  const overview = state.cobranzaOverview || { quotes:{}, directSales:{}, stock:{} };
+  if (els.cobranzaSummary) {
+    els.cobranzaSummary.innerHTML = `
+      <article class="parts-summary-card glass-card"><strong>Cobros</strong><span>${Number(overview.quotes?.total || 0)}</span><small>Reportes llevados a propuesta</small></article>
+      <article class="parts-summary-card"><strong>Por autorizar</strong><span>${Number(overview.quotes?.pendingAuthorization || 0)}</span><small>Esperando visto bueno del cliente</small></article>
+      <article class="parts-summary-card"><strong>Por cobrar</strong><span>${money(overview.quotes?.amountOpen || 0)}</span><small>Saldo abierto</small></article>
+      <article class="parts-summary-card"><strong>Ventas directas</strong><span>${Number(overview.directSales?.total || 0)}</span><small>${money(overview.directSales?.amount || 0)}</small></article>
+      <article class="parts-summary-card"><strong>Terminados</strong><span>${Number(overview.finishedReports || 0)}</span><small>Listos para preparar cobro</small></article>
+      <article class="parts-summary-card"><strong>Valor stock</strong><span>${money(overview.stock?.value || 0)}</span><small>${Number(overview.stock?.catalog || 0)} piezas activas</small></article>`;
+  }
+  if (els.cobranzaQuotesList) {
+    els.cobranzaQuotesList.innerHTML = state.cobranzaQuotes.length ? state.cobranzaQuotes.map(q => `
+      <button type="button" class="cobranza-quote-row ${q.id === state.selectedQuoteId ? 'active' : ''}" data-quote-open="${q.id}">
+        <div><strong>${escapeHtml(q.folio || 'COB-—')}</strong><div class="small muted">${escapeHtml(q.companyName || 'Sin empresa')} · unidad ${escapeHtml(q.unitNumber || '—')}</div></div>
+        <div class="cobranza-row-side"><span class="badge ${quoteStatusBadge(q.status)}">${escapeHtml(q.status.replaceAll('_',' '))}</span><strong>${money(q.total || 0)}</strong></div>
+      </button>`).join('') : '<div class="muted">Todavía no hay cobros preparados. Usa “Preparar cobro” desde un reporte terminado.</div>';
+    els.cobranzaQuotesList.querySelectorAll('[data-quote-open]').forEach(btn => btn.addEventListener('click', () => {
+      state.selectedQuoteId = btn.dataset.quoteOpen;
+      renderCobranza();
+    }));
+  }
+  renderQuoteDetail();
+  fillSelect(els.directSaleStockPart, state.stockParts.map(part => ({ id: part.id, nombre: `${part.nombre} · ${part.sku || 'sin SKU'} · stock ${part.stockActual}` })), 'Selecciona refacción de stock');
+  syncDirectSalePartDefaults();
+  if (els.directSalesList) {
+    els.directSalesList.innerHTML = state.directSales.length ? state.directSales.map(sale => `
+      <div class="table-row rich-row sale-row">
+        <div><strong>${escapeHtml(sale.folio)}</strong><div class="small muted">${escapeHtml(sale.customerName)} · ${escapeHtml(sale.companyName || 'mostrador')}</div></div>
+        <div><span class="badge ${salePaymentBadge(sale.paymentStatus)}">${escapeHtml(sale.paymentStatus.replaceAll('_',' '))}</span><div class="small muted">${escapeHtml(sale.paymentMethod || 'sin método')}</div></div>
+        <div><strong>${money(sale.total || 0)}</strong><div class="small muted">${fmtDate(sale.createdAt)}</div></div>
+      </div>`).join('') : '<div class="muted">Sin ventas directas registradas todavía.</div>';
+  }
+}
+
+function renderQuoteDetail() {
+  if (!els.cobranzaQuoteDetail) return;
+  const quote = selectedQuote();
+  if (!quote) {
+    els.cobranzaQuoteDetail.innerHTML = '<div class="muted">Selecciona una cobranza para editar conceptos, estatus y PDF comercial.</div>';
+    return;
+  }
+  const stockOptions = ['<option value="">Sin ligar a stock</option>', ...state.stockParts.map(part => `<option value="${part.id}">${escapeHtml(part.nombre)} · ${escapeHtml(part.sku || 'sin SKU')} · ${Number(part.stockActual || 0)} pzas</option>`)].join('');
+  const itemsRows = (quote.items?.length ? quote.items : [{ type:'mano_obra', description:'', qty:1, unitPrice:0, stockPartId:'' }]).map((item, index) => `
+    <tr>
+      <td><select data-quote-type="${index}"><option value="mano_obra" ${item.type === 'mano_obra' ? 'selected' : ''}>Mano de obra</option><option value="refaccion" ${item.type === 'refaccion' ? 'selected' : ''}>Refacción</option><option value="extra" ${item.type === 'extra' ? 'selected' : ''}>Extra</option></select></td>
+      <td><input data-quote-description="${index}" value="${escapeHtml(item.description || '')}" placeholder="Concepto" /></td>
+      <td><input data-quote-qty="${index}" type="number" min="0" step="0.01" value="${Number(item.qty || 0)}" /></td>
+      <td><input data-quote-price="${index}" type="number" min="0" step="0.01" value="${Number(item.unitPrice || 0)}" /></td>
+      <td><select data-quote-stock="${index}">${stockOptions}</select></td>
+      <td><strong>${money(item.total || (Number(item.qty || 0) * Number(item.unitPrice || 0)))}</strong></td>
+      <td><button type="button" class="btn btn-ghost" data-quote-remove="${index}">×</button></td>
+    </tr>`).join('');
+  els.cobranzaQuoteDetail.innerHTML = `
+    <div class="quote-shell">
+      <div class="quote-headline">
+        <div>
+          <div class="topbar-kicker">${escapeHtml(quote.reportFolio || quote.folio)}</div>
+          <h4>${escapeHtml(quote.companyName || 'Sin empresa')} · unidad ${escapeHtml(quote.unitNumber || '—')}</h4>
+          <p class="muted">${escapeHtml(quote.reportDescription || 'Documento comercial basado en el reporte terminado.')}</p>
+        </div>
+        <div class="badge-stack"><span class="badge ${quoteStatusBadge(quote.status)}">${escapeHtml(quote.status.replaceAll('_',' '))}</span><span class="badge ${quotePaymentBadge(quote.paymentStatus)}">${escapeHtml(quote.paymentStatus.replaceAll('_',' '))}</span></div>
+      </div>
+      <div class="quote-meta-grid">
+        <label><span>Empresa</span><input id="quoteCompanyName" value="${escapeHtml(quote.companyName || '')}" /></label>
+        <label><span>Unidad</span><input id="quoteUnitNumber" value="${escapeHtml(quote.unitNumber || '')}" /></label>
+        <label><span>Cliente</span><input id="quoteClientName" value="${escapeHtml(quote.clientName || '')}" /></label>
+        <label><span>Teléfono</span><input id="quoteClientPhone" value="${escapeHtml(quote.clientPhone || '')}" /></label>
+        <label><span>Estatus comercial</span><select id="quoteStatus"><option value="borrador">Borrador</option><option value="enviada">Enviada</option><option value="pendiente_autorizacion">Pendiente autorización</option><option value="autorizada">Autorizada</option><option value="rechazada">Rechazada</option><option value="cancelada">Cancelada</option></select></label>
+        <label><span>Estatus de pago</span><select id="quotePaymentStatus"><option value="pendiente_pago">Pendiente pago</option><option value="anticipo_recibido">Anticipo recibido</option><option value="pago_parcial">Pago parcial</option><option value="pagada">Pagada</option><option value="cancelada">Cancelada</option></select></label>
+        <label><span>Descuento</span><input id="quoteDiscount" type="number" min="0" step="0.01" value="${Number(quote.discount || 0)}" /></label>
+        <label><span>IVA</span><input id="quoteIva" type="number" min="0" step="0.01" value="${Number(quote.iva || 0)}" /></label>
+        <label><span>Anticipo</span><input id="quoteAnticipo" type="number" min="0" step="0.01" value="${Number(quote.anticipo || 0)}" /></label>
+        <label><span>Método de pago</span><input id="quotePaymentMethod" value="${escapeHtml(quote.paymentMethod || '')}" placeholder="Transferencia / efectivo" /></label>
+        <label><span>Referencia</span><input id="quotePaymentReference" value="${escapeHtml(quote.paymentReference || '')}" placeholder="Folio bancario o nota" /></label>
+        <label><span>Vigencia</span><input id="quoteDueAt" type="date" value="${quote.dueAt ? String(quote.dueAt).slice(0,10) : ''}" /></label>
+      </div>
+      <label class="quote-notes"><span>Notas comerciales</span><textarea id="quoteNotes" rows="3">${escapeHtml(quote.notes || '')}</textarea></label>
+      <div class="quote-items-head"><strong>Conceptos del cobro</strong><button id="quoteAddItemBtn" class="btn btn-secondary" type="button">Agregar concepto</button></div>
+      <div class="quote-table-wrap"><table class="quote-items-table"><thead><tr><th>Tipo</th><th>Descripción</th><th>Cant.</th><th>P. unitario</th><th>Stock</th><th>Total</th><th></th></tr></thead><tbody id="quoteItemsTbody">${itemsRows}</tbody></table></div>
+      <div class="quote-totals-strip"><article><span>Subtotal</span><strong>${money(quote.subtotal || 0)}</strong></article><article><span>Total</span><strong>${money(quote.total || 0)}</strong></article><article><span>Saldo</span><strong>${money(quote.saldo || 0)}</strong></article></div>
+      <div class="stock-form-actions"><button id="quotePdfBtn" class="btn btn-ghost" type="button">PDF comercial</button><button id="quoteSaveBtn" class="btn btn-primary" type="button">Guardar cobranza</button></div>
+    </div>`;
+  document.getElementById('quoteStatus').value = quote.status || 'borrador';
+  document.getElementById('quotePaymentStatus').value = quote.paymentStatus || 'pendiente_pago';
+  quote.items?.forEach((item, index) => {
+    const select = document.querySelector(`[data-quote-stock="${index}"]`);
+    if (select) select.value = item.stockPartId || '';
+  });
+  document.querySelectorAll('[data-quote-remove]').forEach(btn => btn.addEventListener('click', () => {
+    quote.items.splice(Number(btn.dataset.quoteRemove), 1);
+    renderQuoteDetail();
+  }));
+  document.getElementById('quoteAddItemBtn')?.addEventListener('click', () => {
+    quote.items.push({ type:'extra', description:'', qty:1, unitPrice:0, stockPartId:'' });
+    renderQuoteDetail();
+  });
+  document.getElementById('quotePdfBtn')?.addEventListener('click', () => exportCommercialPdf(quote));
+  document.getElementById('quoteSaveBtn')?.addEventListener('click', saveSelectedQuote);
+}
+
+function quoteItemsFromDom() {
+  const rows = [...document.querySelectorAll('#quoteItemsTbody tr')];
+  return rows.map((row, index) => ({
+    type: document.querySelector(`[data-quote-type="${index}"]`)?.value || 'extra',
+    description: document.querySelector(`[data-quote-description="${index}"]`)?.value || '',
+    qty: Number(document.querySelector(`[data-quote-qty="${index}"]`)?.value || 0),
+    unitPrice: Number(document.querySelector(`[data-quote-price="${index}"]`)?.value || 0),
+    stockPartId: document.querySelector(`[data-quote-stock="${index}"]`)?.value || '',
+  })).filter(item => item.description.trim() && item.qty > 0);
+}
+
+async function saveSelectedQuote() {
+  const quote = selectedQuote();
+  if (!quote) return;
+  try {
+    const items = quoteItemsFromDom();
+    const payload = {
+      companyName: document.getElementById('quoteCompanyName')?.value || '',
+      unitNumber: document.getElementById('quoteUnitNumber')?.value || '',
+      clientName: document.getElementById('quoteClientName')?.value || '',
+      clientPhone: document.getElementById('quoteClientPhone')?.value || '',
+      status: document.getElementById('quoteStatus')?.value || 'borrador',
+      paymentStatus: document.getElementById('quotePaymentStatus')?.value || 'pendiente_pago',
+      discount: document.getElementById('quoteDiscount')?.value || 0,
+      iva: document.getElementById('quoteIva')?.value || 0,
+      anticipo: document.getElementById('quoteAnticipo')?.value || 0,
+      paymentMethod: document.getElementById('quotePaymentMethod')?.value || '',
+      paymentReference: document.getElementById('quotePaymentReference')?.value || '',
+      dueAt: document.getElementById('quoteDueAt')?.value || null,
+      notes: document.getElementById('quoteNotes')?.value || ''
+    };
+    await api.replaceQuoteItems(quote.id, { items, discount: payload.discount, iva: payload.iva, anticipo: payload.anticipo });
+    await api.updateQuote(quote.id, payload);
+    notify('Cobranza guardada.');
+    await loadCobranza(true);
+  } catch (error) {
+    notify(error.message, true);
+  }
+}
+
+async function openQuoteFromReport(reportId) {
+  try {
+    const quote = await api.createQuoteFromReport(reportId);
+    state.selectedQuoteId = quote?.id || state.selectedQuoteId;
+    await loadCobranza(true);
+    switchPanel('cobranza');
+  } catch (error) {
+    notify(error.message, true);
+  }
+}
+
+function launchDirectSaleWithPart(partId) {
+  state.directSaleDraftPartId = partId || '';
+  switchPanel('cobranza');
+  setTimeout(() => {
+    syncDirectSalePartDefaults();
+    els.directSaleCustomer?.focus();
+  }, 80);
+}
+
+function exportCommercialPdf(quote) {
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:'pt', format:'letter' });
+    const margin = 42;
+    let y = 52;
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(22);
+    doc.text('CARLAB CLOUD · AUTORIZACIÓN DE COBRO', margin, y);
+    y += 22;
+    doc.setFontSize(10);
+    doc.setFont('helvetica','normal');
+    doc.text(`Folio comercial: ${quote.folio || '—'} · Reporte base: ${quote.reportFolio || '—'}`, margin, y);
+    y += 16;
+    doc.text(`Empresa: ${quote.companyName || '—'} · Unidad: ${quote.unitNumber || '—'}`, margin, y);
+    y += 16;
+    doc.text(`Cliente: ${quote.clientName || '—'} · Tel: ${quote.clientPhone || '—'}`, margin, y);
+    y += 22;
+    doc.setFont('helvetica','bold');
+    doc.text('Resumen técnico', margin, y);
+    y += 14;
+    doc.setFont('helvetica','normal');
+    const desc = doc.splitTextToSize(quote.reportDescription || 'Sin descripción técnica.', 520);
+    doc.text(desc, margin, y);
+    y += desc.length * 12 + 16;
+    doc.setFont('helvetica','bold');
+    doc.text('Conceptos', margin, y); y += 16;
+    doc.setFont('helvetica','normal');
+    (quote.items || []).forEach(item => {
+      const line = `${item.type.replace('_',' ')} · ${item.description} · ${Number(item.qty || 0)} x ${money(item.unitPrice || 0)} = ${money(item.total || 0)}`;
+      const parts = doc.splitTextToSize(line, 520);
+      doc.text(parts, margin, y);
+      y += parts.length * 12 + 8;
+    });
+    y += 8;
+    doc.setFont('helvetica','bold');
+    doc.text(`Subtotal: ${money(quote.subtotal || 0)}`, margin, y); y += 14;
+    doc.text(`Descuento: ${money(quote.discount || 0)} · IVA: ${money(quote.iva || 0)}`, margin, y); y += 14;
+    doc.text(`Total: ${money(quote.total || 0)} · Anticipo: ${money(quote.anticipo || 0)} · Saldo: ${money(quote.saldo || 0)}`, margin, y); y += 18;
+    doc.setFont('helvetica','normal');
+    const notes = doc.splitTextToSize(quote.notes || 'Documento enviado para autorización y pago.', 520);
+    doc.text(notes, margin, y);
+    y += notes.length * 12 + 16;
+    doc.setFont('helvetica','bold');
+    doc.text(`Estatus: ${(quote.status || '').replaceAll('_',' ')} · Pago: ${(quote.paymentStatus || '').replaceAll('_',' ')}`, margin, y);
+    doc.save(`${quote.folio || 'cobro'}_${quote.unitNumber || 'unidad'}.pdf`);
+  } catch (error) {
+    notify('No se pudo generar el PDF comercial.', true);
   }
 }
 
@@ -1664,7 +1951,7 @@ function renderGarantias() {
       const div = document.createElement('div'); div.innerHTML = `<strong>${escapeHtml(label)}</strong>${escapeHtml(String(value || '—'))}`; miniGrid.appendChild(div);
     });
     const strip = node.querySelector('.evidence-strip'); [...(item.evidencias || []), ...(item.evidenciasRefaccion || [])].slice(0,6).forEach(src => { const img = document.createElement('img'); img.src = src; strip.appendChild(img); }); if (item.firma) { const img = document.createElement('img'); img.src = item.firma; strip.appendChild(img); }
-    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin')) baseRow.appendChild(button('Editar', 'btn btn-secondary', async () => { await editarReporteAdmin(item); })); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
+    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin') && item.estatusOperativo === 'terminada') baseRow.appendChild(button('Preparar cobro', 'btn btn-primary', async () => { await openQuoteFromReport(item.id); })); if (isRole('admin')) baseRow.appendChild(button('Editar', 'btn btn-secondary', async () => { await editarReporteAdmin(item); })); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
     if (isRole('operativo','admin')) {
       const reviewBox = document.createElement('div'); reviewBox.innerHTML = `
         <label>Decisión operativa</label>
@@ -1964,7 +2251,7 @@ function logoutSession() {
 }
 
 els.logoutBtn?.addEventListener('click', logoutSession);
-els.globalRefreshBtn?.addEventListener('click', async () => { await Promise.allSettled([loadGarantias(), loadSchedules(''), loadNotifications(), loadFleet(), loadPartsPending(true)]); renderExecutiveDeck(); notify('Datos actualizados.'); });
+els.globalRefreshBtn?.addEventListener('click', async () => { await Promise.allSettled([loadGarantias(), loadSchedules(''), loadNotifications(), loadFleet(), loadPartsPending(true), isRole('admin') ? loadStock(true) : Promise.resolve(), isRole('admin') ? loadCobranza(true) : Promise.resolve()]); renderExecutiveDeck(); notify('Datos actualizados.'); });
 els.opNavHomeBtn?.addEventListener('click', () => switchPanel('board'));
 els.opNavNewBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); });
 els.opNavScheduleBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
@@ -1979,8 +2266,11 @@ els.navScheduleBtn?.addEventListener('click', async () => { await loadSchedules(
 els.navFleetBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
 els.navPartsBtn?.addEventListener('click', async () => { await cargarSolicitudesIndependientes(); await loadPartsPending(true); switchPanel('parts'); });
 els.navStockBtn?.addEventListener('click', async () => { await loadStock(true); switchPanel('stock'); });
+els.navCobranzaBtn?.addEventListener('click', async () => { await loadCobranza(true); switchPanel('cobranza'); });
 els.stockRefreshBtn?.addEventListener('click', async () => { await loadStock(true); switchPanel('stock'); });
+els.cobranzaRefreshBtn?.addEventListener('click', async () => { await loadCobranza(true); switchPanel('cobranza'); });
 els.stockCancelBtn?.addEventListener('click', resetStockForm);
+
 els.stockPartForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
   try {
@@ -2000,6 +2290,33 @@ els.stockPartForm?.addEventListener('submit', async (e) => {
     notify('Refacción guardada en stock.');
     resetStockForm();
     await loadStock(true);
+  } catch (error) { notify(error.message, true); }
+});
+els.directSaleStockPart?.addEventListener('change', () => { state.directSaleDraftPartId = els.directSaleStockPart.value || ''; syncDirectSalePartDefaults(); });
+els.directSaleResetBtn?.addEventListener('click', resetDirectSaleForm);
+els.directSaleForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    const part = state.stockParts.find(item => item.id === (els.directSaleStockPart?.value || ''));
+    const payload = {
+      customerName: els.directSaleCustomer?.value || '',
+      customerPhone: els.directSalePhone?.value || '',
+      companyName: els.directSaleCompany?.value || '',
+      unitNumber: els.directSaleUnit?.value || '',
+      paymentMethod: els.directSaleMethod?.value || '',
+      paymentStatus: els.directSalePaymentStatus?.value || 'pendiente',
+      notes: els.directSaleNotes?.value || '',
+      items: [{
+        stockPartId: els.directSaleStockPart?.value || '',
+        description: part?.nombre || 'Venta directa',
+        qty: Number(els.directSaleQty?.value || 0),
+        unitPrice: Number(els.directSalePrice?.value || 0)
+      }]
+    };
+    await api.createDirectSale(payload);
+    notify('Venta directa registrada.');
+    resetDirectSaleForm();
+    await Promise.all([loadCobranza(true), loadStock(true)]);
   } catch (error) { notify(error.message, true); }
 });
 els.navUsersBtn?.addEventListener('click', async () => { switchPanel('users'); await loadUsers(); });

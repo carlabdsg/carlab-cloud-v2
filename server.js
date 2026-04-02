@@ -2028,6 +2028,344 @@ app.post('/api/stock/parts/:id/movements', authRequired, requireRoles('admin'), 
   }
 });
 
+async function fetchQuotesForAdmin() {
+  const result = await pool.query(`
+    SELECT q.*, g.folio AS report_folio, g.descripcion_fallo AS report_description, g.estatus_validacion AS report_validation, g.estatus_operativo AS report_operational,
+           COALESCE(
+             json_agg(
+               json_build_object(
+                 'id', qi.id,
+                 'quote_id', qi.quote_id,
+                 'type', qi.type,
+                 'description', qi.description,
+                 'qty', qi.qty,
+                 'unit_price', qi.unit_price,
+                 'total', qi.total,
+                 'stock_part_id', qi.stock_part_id,
+                 'stock_part_name', sp.nombre,
+                 'created_at', qi.created_at
+               ) ORDER BY qi.created_at ASC
+             ) FILTER (WHERE qi.id IS NOT NULL), '[]'::json
+           ) AS items
+    FROM work_quotes q
+    LEFT JOIN garantias g ON g.id = q.garantia_id
+    LEFT JOIN work_quote_items qi ON qi.quote_id = q.id
+    LEFT JOIN stock_parts sp ON sp.id = qi.stock_part_id
+    GROUP BY q.id, g.folio, g.descripcion_fallo, g.estatus_validacion, g.estatus_operativo
+    ORDER BY q.updated_at DESC
+  `);
+  return result.rows.map(mapWorkQuote);
+}
+
+async function fetchDirectSalesForAdmin() {
+  const result = await pool.query(`
+    SELECT s.*,
+           COALESCE(
+             json_agg(
+               json_build_object(
+                 'id', si.id,
+                 'sale_id', si.sale_id,
+                 'stock_part_id', si.stock_part_id,
+                 'description', si.description,
+                 'qty', si.qty,
+                 'unit_price', si.unit_price,
+                 'total', si.total,
+                 'stock_part_name', sp.nombre,
+                 'created_at', si.created_at
+               ) ORDER BY si.created_at ASC
+             ) FILTER (WHERE si.id IS NOT NULL), '[]'::json
+           ) AS items
+    FROM direct_sales s
+    LEFT JOIN direct_sale_items si ON si.sale_id = s.id
+    LEFT JOIN stock_parts sp ON sp.id = si.stock_part_id
+    GROUP BY s.id
+    ORDER BY s.updated_at DESC
+  `);
+  return result.rows.map(mapDirectSale);
+}
+
+app.get('/api/cobranza/overview', authRequired, requireRoles('admin'), async (_req, res) => {
+  try {
+    const [quotes, sales, readyReports, stock] = await Promise.all([
+      fetchQuotesForAdmin(),
+      fetchDirectSalesForAdmin(),
+      pool.query(`SELECT COUNT(*)::int AS total FROM garantias WHERE estatus_operativo = 'terminada'`),
+      pool.query(`SELECT COALESCE(SUM(stock_actual * costo_unitario),0)::numeric(12,2) AS valor, COUNT(*)::int AS catalogo FROM stock_parts`),
+    ]);
+    res.json({
+      quotes: {
+        total: quotes.length,
+        pendingAuthorization: quotes.filter(q => ['enviada','pendiente_autorizacion'].includes(q.status)).length,
+        pendingPayment: quotes.filter(q => ['pendiente_pago','anticipo_recibido','pago_parcial'].includes(q.paymentStatus)).length,
+        paid: quotes.filter(q => q.paymentStatus === 'pagada').length,
+        amountOpen: quotes.filter(q => q.paymentStatus !== 'pagada').reduce((sum,q) => sum + Number(q.saldo || q.total || 0), 0),
+      },
+      directSales: {
+        total: sales.length,
+        amount: sales.reduce((sum,s) => sum + Number(s.total || 0), 0),
+      },
+      finishedReports: readyReports.rows[0]?.total || 0,
+      stock: {
+        catalog: stock.rows[0]?.catalogo || 0,
+        value: Number(stock.rows[0]?.valor || 0),
+      }
+    });
+  } catch (error) {
+    console.error('Error cargando overview de cobranza:', error);
+    res.status(500).json({ error: 'No se pudo cargar cobranza.' });
+  }
+});
+
+app.get('/api/cobranza/quotes', authRequired, requireRoles('admin'), async (_req, res) => {
+  try {
+    res.json(await fetchQuotesForAdmin());
+  } catch (error) {
+    console.error('Error cargando cotizaciones:', error);
+    res.status(500).json({ error: 'No se pudieron cargar las cotizaciones.' });
+  }
+});
+
+app.post('/api/cobranza/quotes/from-report/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const existing = await client.query(`SELECT * FROM work_quotes WHERE garantia_id = $1`, [req.params.id]);
+    if (existing.rowCount) {
+      await client.query('COMMIT');
+      const quotes = await fetchQuotesForAdmin();
+      return res.json(quotes.find(q => q.id === existing.rows[0].id));
+    }
+    const report = await client.query(`SELECT * FROM garantias WHERE id = $1`, [req.params.id]);
+    if (!report.rowCount) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Reporte no encontrado.' });
+    }
+    const g = report.rows[0];
+    const folio = await nextManagedFolio('quote');
+    const quoteId = cryptoRandomId();
+    await client.query(
+      `INSERT INTO work_quotes (id, folio, garantia_id, company_name, unit_number, client_name, client_phone, status, payment_status, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,'borrador','pendiente_pago',$8)`,
+      [quoteId, folio, g.id, g.empresa || '', g.numero_economico || '', g.contacto_nombre || '', g.telefono || '', req.user.id]
+    );
+    const defaultItems = [
+      { type:'mano_obra', description:`Servicio correctivo ${g.folio || ''} · unidad ${g.numero_economico || ''}`.trim(), qty:1, unitPrice:0 },
+    ];
+    if (g.detalle_refaccion || g.refaccion_asignada) {
+      defaultItems.push({ type:'refaccion', description:g.refaccion_asignada || g.detalle_refaccion || 'Refacción ligada al reporte', qty:1, unitPrice:0 });
+    }
+    for (const item of defaultItems) {
+      const total = Number(item.qty || 0) * Number(item.unitPrice || 0);
+      await client.query(
+        `INSERT INTO work_quote_items (id, quote_id, type, description, qty, unit_price, total)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [cryptoRandomId(), quoteId, item.type, item.description, item.qty, item.unitPrice, total]
+      );
+    }
+    await client.query('COMMIT');
+    const quotes = await fetchQuotesForAdmin();
+    const created = quotes.find(q => q.id === quoteId);
+    if (g.id) await addAuditLog(g.id, req.user.id, 'preparar_cobro', `Cobranza ${folio} creada desde reporte.`);
+    res.status(201).json(created);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error creando cobranza desde reporte:', error);
+    res.status(500).json({ error: 'No se pudo preparar la cobranza.' });
+  } finally {
+    client.release();
+  }
+});
+
+app.patch('/api/cobranza/quotes/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  try {
+    const status = String(req.body.status || 'borrador').trim();
+    const paymentStatus = String(req.body.paymentStatus || 'pendiente_pago').trim();
+    if (!['borrador','enviada','pendiente_autorizacion','autorizada','rechazada','cancelada'].includes(status)) return res.status(400).json({ error:'Estado comercial inválido.' });
+    if (!['pendiente_pago','anticipo_recibido','pago_parcial','pagada','cancelada'].includes(paymentStatus)) return res.status(400).json({ error:'Estado de pago inválido.' });
+    const currentItems = await pool.query(`SELECT total FROM work_quote_items WHERE quote_id = $1`, [req.params.id]);
+    const recomputed = computeCommercialTotals(currentItems.rows.map(r => ({ total:r.total })), req.body.discount, req.body.iva, req.body.anticipo);
+    const result = await pool.query(
+      `UPDATE work_quotes
+       SET company_name = $2,
+           unit_number = $3,
+           client_name = $4,
+           client_phone = $5,
+           status = $6,
+           payment_status = $7,
+           discount = $8,
+           iva = $9,
+           total = $10,
+           anticipo = $11,
+           saldo = $12,
+           subtotal = $13,
+           notes = $14,
+           payment_method = $15,
+           payment_reference = $16,
+           due_at = $17,
+           sent_at = CASE WHEN $6 IN ('enviada','pendiente_autorizacion') THEN COALESCE(sent_at, NOW()) ELSE sent_at END,
+           approved_at = CASE WHEN $6 = 'autorizada' THEN COALESCE(approved_at, NOW()) ELSE approved_at END,
+           paid_at = CASE WHEN $7 = 'pagada' THEN COALESCE(paid_at, NOW()) ELSE paid_at END,
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [req.params.id, String(req.body.companyName || '').trim(), String(req.body.unitNumber || '').trim(), String(req.body.clientName || '').trim(), normalizeMxPhone(req.body.clientPhone || ''), status, paymentStatus, recomputed.discount, recomputed.iva, recomputed.total, recomputed.anticipo, recomputed.saldo, recomputed.subtotal, String(req.body.notes || '').trim(), String(req.body.paymentMethod || '').trim(), String(req.body.paymentReference || '').trim(), req.body.dueAt || null]
+    );
+    if (!result.rowCount) return res.status(404).json({ error:'Cobranza no encontrada.' });
+    const quotes = await fetchQuotesForAdmin();
+    const quote = quotes.find(q => q.id === req.params.id);
+    if (quote?.garantiaId) await addAuditLog(quote.garantiaId, req.user.id, 'actualizar_cobro', `Cobranza ${quote.folio} actualizada.`);
+    res.json(quote);
+  } catch (error) {
+    console.error('Error actualizando cobranza:', error);
+    res.status(500).json({ error:'No se pudo actualizar la cobranza.' });
+  }
+});
+
+app.put('/api/cobranza/quotes/:id/items', authRequired, requireRoles('admin'), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const found = await client.query(`SELECT * FROM work_quotes WHERE id = $1 FOR UPDATE`, [req.params.id]);
+    if (!found.rowCount) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error:'Cobranza no encontrada.' });
+    }
+    const items = Array.isArray(req.body.items) ? req.body.items : [];
+    await client.query(`DELETE FROM work_quote_items WHERE quote_id = $1`, [req.params.id]);
+    const normalized = [];
+    for (const item of items) {
+      const description = String(item.description || '').trim();
+      const type = String(item.type || 'extra').trim();
+      const qty = Number(item.qty || 0);
+      const unitPrice = Number(item.unitPrice || 0);
+      if (!description || qty <= 0) continue;
+      const total = Number((qty * unitPrice).toFixed(2));
+      normalized.push({ total });
+      await client.query(
+        `INSERT INTO work_quote_items (id, quote_id, type, description, qty, unit_price, total, stock_part_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [cryptoRandomId(), req.params.id, ['mano_obra','refaccion','extra'].includes(type) ? type : 'extra', description, qty, unitPrice, total, item.stockPartId || null]
+      );
+    }
+    const totals = computeCommercialTotals(normalized, req.body.discount, req.body.iva, req.body.anticipo);
+    await client.query(
+      `UPDATE work_quotes SET subtotal = $2, discount = $3, iva = $4, total = $5, anticipo = $6, saldo = $7, updated_at = NOW() WHERE id = $1`,
+      [req.params.id, totals.subtotal, totals.discount, totals.iva, totals.total, totals.anticipo, totals.saldo]
+    );
+    await client.query('COMMIT');
+    const quotes = await fetchQuotesForAdmin();
+    res.json(quotes.find(q => q.id === req.params.id));
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error guardando conceptos de cobranza:', error);
+    res.status(500).json({ error:'No se pudieron guardar los conceptos.' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get('/api/cobranza/direct-sales', authRequired, requireRoles('admin'), async (_req, res) => {
+  try {
+    res.json(await fetchDirectSalesForAdmin());
+  } catch (error) {
+    console.error('Error cargando ventas directas:', error);
+    res.status(500).json({ error:'No se pudieron cargar las ventas.' });
+  }
+});
+
+app.post('/api/cobranza/direct-sales', authRequired, requireRoles('admin'), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const customerName = String(req.body.customerName || '').trim();
+    const customerPhone = normalizeMxPhone(req.body.customerPhone || '');
+    const companyName = String(req.body.companyName || '').trim();
+    const unitNumber = String(req.body.unitNumber || '').trim();
+    const notes = String(req.body.notes || '').trim();
+    const paymentStatus = ['pendiente','pagado_parcial','pagada','cancelada'].includes(String(req.body.paymentStatus || 'pendiente')) ? String(req.body.paymentStatus) : 'pendiente';
+    const paymentMethod = String(req.body.paymentMethod || '').trim();
+    const paymentReference = String(req.body.paymentReference || '').trim();
+    const items = Array.isArray(req.body.items) ? req.body.items : [];
+    if (!customerName) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error:'Cliente requerido.' });
+    }
+    const folio = await nextManagedFolio('sale');
+    const saleId = cryptoRandomId();
+    let subtotal = 0;
+    for (const item of items) {
+      const qty = Number(item.qty || 0);
+      const unitPrice = Number(item.unitPrice || 0);
+      const stockPartId = item.stockPartId || null;
+      const description = String(item.description || '').trim();
+      if (!description || qty <= 0) continue;
+      if (stockPartId) {
+        const locked = await client.query(`SELECT * FROM stock_parts WHERE id = $1 FOR UPDATE`, [stockPartId]);
+        if (!locked.rowCount) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error:'Una refacción ya no existe en stock.' });
+        }
+        const part = locked.rows[0];
+        const nextStock = Number(part.stock_actual || 0) - qty;
+        if (nextStock < 0) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error:`Stock insuficiente para ${part.nombre}.` });
+        }
+        await client.query(`UPDATE stock_parts SET stock_actual = $2, updated_at = NOW() WHERE id = $1`, [stockPartId, nextStock]);
+        await client.query(
+          `INSERT INTO stock_movements (id, stock_part_id, tipo, cantidad, unidad, empresa, garantia_folio, notas, created_by)
+           VALUES ($1,$2,'venta_directa',$3,$4,$5,$6,$7,$8)`,
+          [cryptoRandomId(), stockPartId, qty, unitNumber, companyName, folio, `Venta directa ${folio} · ${customerName}${notes ? ` · ${notes}` : ''}`, req.user.id]
+        );
+      }
+      const total = Number((qty * unitPrice).toFixed(2));
+      subtotal += total;
+      await client.query(
+        `INSERT INTO direct_sale_items (id, sale_id, stock_part_id, description, qty, unit_price, total)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [cryptoRandomId(), saleId, stockPartId, description, qty, unitPrice, total]
+      );
+    }
+    await client.query(
+      `INSERT INTO direct_sales (id, folio, customer_name, customer_phone, company_name, unit_number, status, payment_status, subtotal, total, notes, payment_method, payment_reference, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,'cerrada',$7,$8,$8,$9,$10,$11,$12)`,
+      [saleId, folio, customerName, customerPhone, companyName, unitNumber, paymentStatus, subtotal, notes, paymentMethod, paymentReference, req.user.id]
+    );
+    await client.query('COMMIT');
+    const sales = await fetchDirectSalesForAdmin();
+    res.status(201).json(sales.find(s => s.id === saleId));
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error creando venta directa:', error);
+    res.status(500).json({ error:'No se pudo crear la venta.' });
+  } finally {
+    client.release();
+  }
+});
+
+app.patch('/api/cobranza/direct-sales/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  try {
+    const result = await pool.query(
+      `UPDATE direct_sales
+       SET status = $2,
+           payment_status = $3,
+           payment_method = $4,
+           payment_reference = $5,
+           notes = $6,
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [req.params.id, ['borrador','cerrada','cancelada'].includes(String(req.body.status || 'cerrada')) ? String(req.body.status) : 'cerrada', ['pendiente','pagado_parcial','pagada','cancelada'].includes(String(req.body.paymentStatus || 'pendiente')) ? String(req.body.paymentStatus) : 'pendiente', String(req.body.paymentMethod || '').trim(), String(req.body.paymentReference || '').trim(), String(req.body.notes || '').trim()]
+    );
+    if (!result.rowCount) return res.status(404).json({ error:'Venta no encontrada.' });
+    const sales = await fetchDirectSalesForAdmin();
+    res.json(sales.find(s => s.id === req.params.id));
+  } catch (error) {
+    console.error('Error actualizando venta directa:', error);
+    res.status(500).json({ error:'No se pudo actualizar la venta.' });
+  }
+});
+
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });

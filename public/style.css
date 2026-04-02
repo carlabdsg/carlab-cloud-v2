@@ -3287,3 +3287,44 @@ body.modal-open{overflow:hidden}
 .fleet-dot.fleet-bad{color:#b91c1c;background:#fef2f2;border-color:#fca5a5}
 .fleet-dot.fleet-info{color:#3730a3;background:#eef2ff;border-color:#c7d2fe}
 @media (max-width: 1100px){.schedule-manual-grid,.schedule-summary-pro,.schedule-card-meta-pro,.parts-grid,.parts-field-grid,.parts-trace-row{grid-template-columns:1fr}.schedule-manual-grid .span-2{grid-column:span 1}}
+
+/* Cobranza + stock empresarial */
+.cobranza-layout {
+  display:grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  gap:20px;
+  margin-top:18px;
+}
+.cobranza-layout.second { grid-template-columns: minmax(0, 1.15fr) 0.85fr; }
+.cobranza-col { min-width:0; }
+.cobranza-col.wide { min-width:0; }
+.cobranza-quote-row {
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  width:100%; border:1px solid rgba(14,20,34,.08); border-radius:18px; padding:14px 16px;
+  background:#fff; text-align:left; transition:.18s ease; margin-bottom:10px;
+}
+.cobranza-quote-row:hover, .cobranza-quote-row.active { border-color:rgba(32,39,80,.18); box-shadow:0 10px 24px rgba(15,23,42,.07); transform:translateY(-1px); }
+.cobranza-row-side { display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
+.quote-shell { display:grid; gap:16px; }
+.quote-headline { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; }
+.quote-meta-grid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; }
+.quote-meta-grid label, .direct-sale-grid label, .quote-notes { display:grid; gap:6px; font-size:13px; color:#5f6379; }
+.quote-meta-grid input, .quote-meta-grid select, .direct-sale-grid input, .direct-sale-grid select, .direct-sale-grid textarea, .quote-notes textarea { width:100%; }
+.quote-items-head { display:flex; justify-content:space-between; align-items:center; gap:14px; }
+.quote-table-wrap { overflow:auto; border:1px solid rgba(14,20,34,.08); border-radius:18px; }
+.quote-items-table { width:100%; border-collapse:collapse; min-width:860px; }
+.quote-items-table th, .quote-items-table td { padding:12px; border-bottom:1px solid rgba(14,20,34,.06); vertical-align:middle; }
+.quote-items-table th { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:#6d7387; }
+.quote-items-table td input, .quote-items-table td select { width:100%; min-width:110px; }
+.quote-items-table td:nth-child(2) input { min-width:220px; }
+.quote-totals-strip { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px; }
+.quote-totals-strip article { border:1px solid rgba(14,20,34,.08); border-radius:16px; padding:12px 14px; background:rgba(252,252,255,.9); }
+.quote-totals-strip span { display:block; font-size:12px; color:#72768a; text-transform:uppercase; letter-spacing:.08em; }
+.quote-totals-strip strong { display:block; margin-top:4px; font-size:20px; }
+.direct-sale-grid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; }
+.direct-sale-grid .span-2 { grid-column:span 2; }
+.sale-row { grid-template-columns: 1.2fr .8fr .7fr; }
+@media (max-width: 1160px) {
+  .cobranza-layout, .cobranza-layout.second, .quote-meta-grid, .direct-sale-grid { grid-template-columns:1fr; }
+  .direct-sale-grid .span-2 { grid-column:auto; }
+}
