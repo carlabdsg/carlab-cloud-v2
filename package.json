@@ -1,7 +1,7 @@
 {
-  "name": "carlab-cloud-v2-rescate-whatsapp",
-  "version": "4.0.0",
-  "description": "CARLAB CLOUD V3.7 - Rescate estable con WhatsApp y telefonos normalizados",
+  "name": "carlab-cloud-rebuild-1",
+  "version": "4.1.0",
+  "description": "CARLAB CLOUD REBUILD 1 - base autorizada con cabina ejecutiva y pulso operativo",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

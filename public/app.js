@@ -17,6 +17,16 @@ const state = {
   fleetSummary: { total:0, operando:0, enTaller:0, detenidas:0, programadas:0 },
   selectedFleetUnit: null,
   editingFleetUnitId: '',
+  unitHistoryRows: [],
+  partsPending: [],
+  partsCacheAt: 0,
+  partsDirtyIds: new Set(),
+  fleetDirty: false,
+  unitCostsAdmin: [],
+  independentPartsRequests: [],
+  editingGarantiaId: '',
+  editingFirmaOriginal: '',
+  boardDirtyIds: new Set(),
 };
 
 const api = {
@@ -24,10 +34,9 @@ const api = {
     const headers = { ...(options.headers || {}) };
     if (!(options.body instanceof FormData)) headers['Content-Type'] = headers['Content-Type'] || 'application/json';
     if (state.token) headers.Authorization = `Bearer ${state.token}`;
-    const response = await fetch(url, { ...options, headers, cache: 'no-store' });
-    const raw = await response.text();
-    let data = null;
-    try { data = raw ? JSON.parse(raw) : null; } catch { data = { error: raw || 'Respuesta inválida del servidor.' }; }
+    const response = await fetch(url, { ...options, headers: { ...headers, 'Cache-Control': 'no-store, no-cache, max-age=0', Pragma: 'no-cache' }, cache: 'no-store' });
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : null;
     if (!response.ok) throw new Error(data?.error || 'Algo salió mal.');
     return data;
   },
@@ -37,6 +46,7 @@ const api = {
   registerOperator(payload) { return this.request('/api/public/register-operator', { method: 'POST', body: JSON.stringify(payload) }); },
   getGarantias() { return this.request('/api/garantias'); },
   createGarantia(payload) { return this.request('/api/garantias', { method: 'POST', body: JSON.stringify(payload) }); },
+  updateGarantia(id, payload) { return this.request(`/api/garantias/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   deleteGarantia(id) { return this.request(`/api/garantias/${id}`, { method: 'DELETE' }); },
   reviewGarantia(id, payload) { return this.request(`/api/garantias/${id}/review`, { method: 'PATCH', body: JSON.stringify(payload) }); },
   updateOperational(id, payload) { return this.request(`/api/garantias/${id}/operational`, { method: 'PATCH', body: JSON.stringify(payload) }); },
@@ -56,6 +66,13 @@ const api = {
   getSchedules(date='') { return this.request(`/api/schedules${date ? `?date=${encodeURIComponent(date)}` : ''}`); },
   requestSchedule(id) { return this.request(`/api/garantias/${id}/request-schedule`, { method: 'POST' }); },
   confirmSchedule(id, payload) { return this.request(`/api/schedules/${id}/confirm`, { method: 'PATCH', body: JSON.stringify(payload) }); },
+  cancelSchedule(id, payload) { return this.request(`/api/schedules/${id}/cancel`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
+  rescheduleSchedule(id, payload) { return this.request(`/api/schedules/${id}/reschedule`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
+  getPartsPending() { return this.request('/api/parts/pending'); },
+  updateParts(id, payload) { return this.request(`/api/garantias/${id}/parts`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
+  getIndependentPartsRequests() { return this.request('/api/parts/requests'); },
+  createIndependentPartsRequest(payload) { return this.request('/api/parts/requests', { method: 'POST', body: JSON.stringify(payload || {}) }); },
+  updateIndependentPartsRequest(id, payload) { return this.request(`/api/parts/requests/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   getNotifications() { return this.request('/api/notifications'); },
 
   getFleetSummary() { return this.request('/api/fleet/summary'); },
@@ -63,8 +80,12 @@ const api = {
   getFleetUnit(id) { return this.request(`/api/fleet/units/${id}`); },
   createFleetUnit(payload) { return this.request('/api/fleet/units', { method: 'POST', body: JSON.stringify(payload) }); },
   updateFleetUnit(id, payload) { return this.request(`/api/fleet/units/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }); },
+  updateFleetStatus(id, payload) { return this.request(`/api/fleet/units/${id}/status`, { method: 'PATCH', body: JSON.stringify(payload) }); },
   deleteFleetUnit(id) { return this.request(`/api/fleet/units/${id}`, { method: 'DELETE' }); },
   createFleetCost(id, payload) { return this.request(`/api/fleet/units/${id}/costs`, { method: 'POST', body: JSON.stringify(payload) }); },
+  getFleetCosts(id) { return this.request(`/api/fleet/units/${id}/costs`); },
+  updateFleetCost(id, payload) { return this.request(`/api/fleet/costs/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
+  deleteFleetCost(id) { return this.request(`/api/fleet/costs/${id}`, { method: 'DELETE' }); },
 
 };
 
@@ -73,13 +94,13 @@ function bind() {
   [
     'loginView','dashboardView','loginForm','loginEmail','loginPassword','loginError','registerForm','registerMessage','regNombre','regEmail','regTelefono','regEmpresa','regNumeroEconomico','regPassword',
     'tabLoginBtn','tabRegisterBtn','welcomeText','currentUserName','currentUserEmail','currentRoleBadge','avatarCircle','pageTitle','roleSummaryText','roleBrief','logoutBtn',
-    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel',
+    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navFleetBtn','navPartsBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel',
     'reportForm','numeroObra','modelo','numeroEconomico','empresa','kilometraje','contactoNombre','telefono','descripcionFallo','solicitaRefaccion','refaccionFields','detalleRefaccion',
     'evidencias','evidenciasRefaccion','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn','searchInput','validationFilter','operationalFilter',
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
-    'topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn',
-    'navFleetBtn','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas'
+    'executiveDeck','executiveDeckGrid','liveRefreshBadge','topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistorySearchInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','partsPanel','partsRefreshBtn','partsSummary','partsList','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn',
+    'navFleetBtn','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas','fleetNewBtn','fleetCancelBtn','fleetFormBox','fleetSearchInput','fleetStatusFilter'
   ].forEach(id => els[id] = document.getElementById(id));
 }
 bind();
@@ -107,13 +128,30 @@ function notify(message, isError = false) {
 function badgeClassValidation(status) { return ({ 'nueva':'badge-new','pendiente de revisión':'badge-review','aceptada':'badge-accepted','rechazada':'badge-rejected' })[status] || 'badge-info'; }
 function badgeClassOperational(status) { return ({ 'sin iniciar':'badge-info','en proceso':'badge-progress','espera refacción':'badge-waiting','terminada':'badge-done' })[status] || 'badge-info'; }
 
+function normalizeText(value='') {
+  return String(value || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
 function fleetSemaforo(unit) {
-  const st = unit.estatusOperativo || '';
-  if (st === 'terminada' || st === 'sin actividad') return { label: 'Operando', cls: 'fleet-ok' };
-  if (st === 'en proceso') return { label: 'En taller', cls: 'fleet-warn' };
-  if (st === 'espera refacción') return { label: 'Detenida', cls: 'fleet-bad' };
-  if (st === 'aceptada') return { label: 'Programada', cls: 'fleet-info' };
-  return { label: 'Operando', cls: 'fleet-ok' };
+  const st = unit.manualStatus || unit.estatusOperativo || '';
+  if (st === 'terminada' || st === 'sin actividad' || st === 'operando') return { key:'operando', label: 'Operando', cls: 'fleet-ok' };
+  if (st === 'en proceso' || st === 'en_taller') return { key:'en_taller', label: 'En taller', cls: 'fleet-warn' };
+  if (st === 'espera refacción' || st === 'detenida') return { key:'detenida', label: 'Detenida', cls: 'fleet-bad' };
+  if (st === 'aceptada' || st === 'programada') return { key:'programada', label: 'Programada', cls: 'fleet-info' };
+  return { key:'operando', label: 'Operando', cls: 'fleet-ok' };
+}
+function fleetStatusLuxury(unit) {
+  const sem = fleetSemaforo(unit);
+  if (sem.key === 'operando') return { emoji:'🟢', text:'Sin pendientes', chip:'good' };
+  if (sem.key === 'programada') return { emoji:'🟠', text:'Espera programación', chip:'warn' };
+  if (sem.key === 'en_taller') return { emoji:'🔴', text:'En taller', chip:'bad' };
+  return { emoji:'🟠', text:'Espera refacción', chip:'warn' };
+}
+function fleetTagPoliza(unit) {
+  return unit.polizaActiva ? { text:'Póliza activa', cls:'good' } : { text:'Sin póliza', cls:'neutral' };
+}
+function fleetTagCampania(unit) {
+  return unit.campaignActiva ? { text:'Campaña activa', cls:'warn' } : { text:'Sin campaña', cls:'neutral' };
 }
 function countBy(items, getter) {
   const map = new Map();
@@ -135,6 +173,17 @@ function resetSignature() {
   state.hasSignature = false;
 }
 resetSignature();
+
+function loadSignatureFromDataUrl(src) {
+  if (!ctx || !els.firmaCanvas || !src) return;
+  const img = new Image();
+  img.onload = () => {
+    resetSignature();
+    ctx.drawImage(img, 0, 0, els.firmaCanvas.width, els.firmaCanvas.height);
+    state.hasSignature = true;
+  };
+  img.src = src;
+}
 function pointerPos(e) { const rect = els.firmaCanvas.getBoundingClientRect(); const point = e.touches ? e.touches[0] : e; return { x: (point.clientX - rect.left) * (els.firmaCanvas.width / rect.width), y: (point.clientY - rect.top) * (els.firmaCanvas.height / rect.height) }; }
 function startDraw(e) { state.drawing = true; state.hasSignature = true; const { x, y } = pointerPos(e); ctx.beginPath(); ctx.moveTo(x, y); }
 function moveDraw(e) { if (!state.drawing) return; e.preventDefault(); const { x, y } = pointerPos(e); ctx.lineTo(x, y); ctx.stroke(); }
@@ -155,6 +204,34 @@ async function fileToCompressedDataUrl(file, maxSide = 1600, quality = 0.78) {
   const cx = canvas.getContext('2d'); cx.drawImage(img, 0, 0, canvas.width, canvas.height);
   return canvas.toDataURL('image/jpeg', quality);
 }
+
+async function cancelarCita(id) {
+  const reason = window.prompt('Motivo de cancelación:');
+  if (reason === null) return;
+  try {
+    await api.cancelSchedule(id, { reason });
+    notify('Cita cancelada.');
+    await loadSchedules('');
+    await loadNotifications();
+  } catch (error) {
+    notify(error.message, true);
+  }
+}
+
+async function reprogramarCita(id) {
+  const scheduledFor = window.prompt('Nueva fecha y hora (ejemplo: 2026-04-10 09:30)');
+  if (!scheduledFor) return;
+  const reason = window.prompt('Motivo de reprogramación:') || '';
+  try {
+    await api.rescheduleSchedule(id, { scheduledFor, reason });
+    notify('Cita reprogramada.');
+    await loadSchedules('');
+    await loadNotifications();
+  } catch (error) {
+    notify(error.message, true);
+  }
+}
+
 function drawPreviews(container, items, target = 'evidence') {
   if (!container) return;
   container.innerHTML = '';
@@ -193,6 +270,17 @@ function resetReportForm() {
   if (isRole('operador') && els.contactoNombre) els.contactoNombre.value = state.user?.nombre || '';
   if (isRole('operador') && els.telefono) els.telefono.value = state.user?.telefono || '';
   resetSignature();
+
+function loadSignatureFromDataUrl(src) {
+  if (!ctx || !els.firmaCanvas || !src) return;
+  const img = new Image();
+  img.onload = () => {
+    resetSignature();
+    ctx.drawImage(img, 0, 0, els.firmaCanvas.width, els.firmaCanvas.height);
+    state.hasSignature = true;
+  };
+  img.src = src;
+}
 }
 function resetUserForm() {
   state.editingUserId = '';
@@ -209,11 +297,43 @@ function resetCompanyForm() {
   if (els.companySubmitBtn) els.companySubmitBtn.textContent = 'Guardar empresa';
   els.companyCancelEditBtn?.classList.add('hidden');
 }
+function toggleFleetForm(show = false) {
+  els.fleetFormBox?.classList.toggle('hidden', !show);
+  els.fleetCancelBtn?.classList.toggle('hidden', !show);
+  if (els.fleetNewBtn) els.fleetNewBtn.textContent = show ? (state.editingFleetUnitId ? 'Editando unidad' : 'Nueva unidad') : 'Nueva unidad';
+}
+function resetFleetForm() {
+  state.fleetDirty = false;
+  state.editingFleetUnitId = '';
+  ['fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota'].forEach(id => { if (els[id]) els[id].value = ''; });
+  if (els.fleetPolizaActiva) els.fleetPolizaActiva.checked = false;
+  if (els.fleetCampaignActiva) els.fleetCampaignActiva.checked = false;
+  if (els.fleetSaveBtn) els.fleetSaveBtn.textContent = 'Guardar unidad';
+  toggleFleetForm(false);
+  if (els.fleetEmpresa && !['supervisor','supervisor_flotas'].includes(state.user?.role)) els.fleetEmpresa.value = ''; 
+}
+function beginFleetEdit(unit) {
+  state.editingFleetUnitId = unit.id;
+  if (els.fleetEmpresa) els.fleetEmpresa.value = unit.empresa || '';
+  if (els.fleetNumeroEconomico) els.fleetNumeroEconomico.value = unit.numeroEconomico || '';
+  if (els.fleetNumeroObra) els.fleetNumeroObra.value = unit.numeroObra || '';
+  if (els.fleetMarca) els.fleetMarca.value = unit.marca || '';
+  if (els.fleetModelo) els.fleetModelo.value = unit.modelo || '';
+  if (els.fleetAnio) els.fleetAnio.value = unit.anio || '';
+  if (els.fleetKilometraje) els.fleetKilometraje.value = unit.kilometraje || '';
+  if (els.fleetNombreFlota) els.fleetNombreFlota.value = unit.nombreFlota || '';
+  if (els.fleetPolizaActiva) els.fleetPolizaActiva.checked = !!unit.polizaActiva;
+  if (els.fleetCampaignActiva) els.fleetCampaignActiva.checked = !!unit.campaignActiva;
+  if (els.fleetSaveBtn) els.fleetSaveBtn.textContent = 'Guardar cambios';
+  toggleFleetForm(true);
+  els.fleetNumeroEconomico?.focus();
+}
+
 function reportPayload() {
   return {
     numeroObra: els.numeroObra?.value.trim(), modelo: els.modelo?.value.trim(), numeroEconomico: els.numeroEconomico?.value.trim(), empresa: els.empresa?.value.trim(), kilometraje: els.kilometraje?.value.trim(),
     contactoNombre: els.contactoNombre?.value.trim(), telefono: els.telefono?.value.trim(), tipoIncidente: selectedRadio('tipoIncidente'), descripcionFallo: els.descripcionFallo?.value.trim(), solicitaRefaccion: els.solicitaRefaccion?.checked,
-    detalleRefaccion: els.detalleRefaccion?.value.trim(), evidencias: state.currentEvidence, evidenciasRefaccion: state.currentRefEvidence, firma: state.hasSignature ? els.firmaCanvas.toDataURL('image/jpeg', 0.95) : '',
+    detalleRefaccion: els.detalleRefaccion?.value.trim(), evidencias: state.currentEvidence, evidenciasRefaccion: state.currentRefEvidence, firma: state.hasSignature ? els.firmaCanvas.toDataURL('image/jpeg', 0.95) : (state.editingGarantiaId ? state.editingFirmaOriginal : ''),
   };
 }
 
@@ -223,7 +343,7 @@ function roleCopy(role) {
     operador: { title:'Portal de operador', summary:'Reportas fallas, subes evidencia y ves el estatus sin depender de llamadas.', panels:[['Levantar incidencia','Captura la falla con datos, fotos, refacción y firma.'],['Seguimiento','Consulta si fue aceptada, rechazada o quedó pendiente.'],['Sin cruces','Solo ves tus reportes. No puedes decidir ni alterar revisiones.']], boardKicker:'OPERADOR', listTitle:'Mis reportes de garantía', legend:'Aquí ves solo tus reportes y su estatus actual.' },
     operativo: { title:'Mesa de validación operativa', summary:'Revisas reportes, decides si proceden y mueves el trabajo hasta terminar.', panels:[['Decisión','Acepta, rechaza o marca pendiente de revisión.'],['Flujo','Mueve el trabajo a en proceso, espera refacción o terminada.'],['Patrones','También ves unidades reincidentes para atacar la raíz.']], boardKicker:'OPERATIVO', listTitle:'Bandeja operativa', legend:'Aquí validas, autorizas y avanzas el trabajo.' },
     supervisor: { title:'Portal de supervisor', summary:'Consulta únicamente la información de tu empresa en modo corporativo de solo lectura.', panels:[['Visibilidad','Revisa empresas, unidades, evidencias y avances.'],['Lectura ejecutiva','Historial por unidad y top de fallas sin tocar procesos.'],['Sin edición','No cambias decisiones ni alteras procesos.']], boardKicker:'SUPERVISOR', listTitle:'Bandeja supervisada', legend:'Monitoreo integral con lectura operativa y comercial.' },
-    supervisor_flotas: { title:'Cabina ejecutiva de flota', summary:'Vista premium para dueños de unidades. Semáforo vivo, historial por unidad y lectura ejecutiva limpia, sin ruido operativo.', panels:[['Radar ejecutivo','Tus unidades, su estado y los movimientos recientes en una vista clara.'],['Lectura por unidad','Historial, costos y reportes conectados al instante.'],['Sin ruido','No ves usuarios ni validaciones ajenas. Solo lo que importa para la flota.']], boardKicker:'CABINA FLOTAS', listTitle:'Tablero ejecutivo de unidades', legend:'Monitoreo premium para propietarios y supervisión de flota.' },
+    supervisor_flotas: { title:'Centro de flotas Carlab', summary:'Supervisión de unidades, semáforo vivo, historial y lectura por empresa sin tocar usuarios ni validaciones.', panels:[['Semáforo vivo','Detecta qué unidad opera, cuál cayó al taller y cuál reincide.'],['Lectura por unidad','Historial de reportes, costos y último movimiento en una sola vista.'],['Control enfocado','Supervisa flotas sin entrar a módulos ajenos.']], boardKicker:'FLOTAS', listTitle:'Radar de unidades', legend:'Tablero ejecutivo para seguir flota, carga histórica y reincidencia por empresa.' },
   }[role];
 }
 
@@ -242,7 +362,7 @@ function updateHeaderForRole() {
   if (els.roleBrief) els.roleBrief.innerHTML = copy.panels.map(([title, desc]) => `<article><strong>${escapeHtml(title)}</strong><span>${escapeHtml(desc)}</span></article>`).join('');
 }
 function setActiveNav(activeBtn) {
-  [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navScheduleBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn,els.navFleetBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
+  [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navScheduleBtn,els.navFleetBtn,els.navPartsBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
   if (activeBtn && !activeBtn.classList.contains('hidden')) activeBtn.classList.add('active');
 }
 
@@ -257,6 +377,8 @@ function updateOperatorAppNav(panel) {
   if (panel === 'schedule') els.opNavScheduleBtn?.classList.add('active');
 }
 function switchPanel(panel) {
+  if (state.user?.role === 'supervisor_flotas' && ['users','requests','companies','report'].includes(panel)) panel = 'fleet';
+  if (state.user?.role === 'supervisor' && ['users','requests','companies','fleet','parts','report'].includes(panel)) panel = 'board';
   state.activePanel = panel;
   document.getElementById('boardPanel')?.classList.toggle('hidden', panel !== 'board');
   els.reportFormPanel?.classList.toggle('hidden', panel !== 'report');
@@ -267,10 +389,14 @@ function switchPanel(panel) {
   els.historyPanel?.classList.toggle('hidden', panel !== 'history');
   els.schedulePanel?.classList.toggle('hidden', panel !== 'schedule');
   els.fleetPanel?.classList.toggle('hidden', panel !== 'fleet');
+  els.partsPanel?.classList.toggle('hidden', panel !== 'parts');
+  document.body.dataset.panel = panel;
   const board = panel === 'board';
   els.filtersPanel?.classList.toggle('hidden', !board);
+  els.executiveDeck?.classList.toggle('hidden', !board);
   if (panel === 'schedule') loadSchedules('');
   if (panel === 'fleet') loadFleet();
+  if (panel === 'parts') loadPartsPending();
   updateOperatorAppNav(panel);
   setActiveNav(
     panel === 'report' ? els.navNewReportBtn :
@@ -281,6 +407,7 @@ function switchPanel(panel) {
     panel === 'history' ? els.navHistoryBtn :
     panel === 'schedule' ? els.navScheduleBtn :
     panel === 'fleet' ? els.navFleetBtn :
+    panel === 'parts' ? els.navPartsBtn :
     els.navBoardBtn
   );
   if (panel === 'report') window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -288,6 +415,9 @@ function switchPanel(panel) {
 
 function showDashboard() {
   els.loginView?.classList.add('hidden'); els.dashboardView?.classList.remove('hidden');
+  document.body.classList.toggle('operator-mode', state.user?.role === 'operador');
+  document.body.classList.toggle('executive-mode', state.user?.role !== 'operador');
+  document.body.dataset.role = state.user?.role || ''; 
   els.navNewReportBtn?.classList.toggle('hidden', !isRole('operador','admin'));
   els.navUsersBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navRequestsBtn?.classList.toggle('hidden', !isRole('admin'));
@@ -296,11 +426,24 @@ function showDashboard() {
   els.navHistoryBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo'));
   els.navScheduleBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo','operador'));
   els.navFleetBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas','operativo'));
-  updateHeaderForRole();
-  const initialPanel = state.user?.role === 'operador' ? 'report' : (state.user?.role === 'supervisor_flotas' ? 'fleet' : 'board');
-  switchPanel(initialPanel);
+  els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas','operativo'));
+  if (state.user?.role === 'supervisor') {
+    els.navFleetBtn?.classList.add('hidden');
+    els.navPartsBtn?.classList.add('hidden');
+    els.navUsersBtn?.classList.add('hidden');
+    els.navRequestsBtn?.classList.add('hidden');
+    els.navCompaniesBtn?.classList.add('hidden');
+  }
+  if (state.user?.role === 'supervisor_flotas') {
+    els.navUsersBtn?.classList.add('hidden');
+    els.navRequestsBtn?.classList.add('hidden');
+    els.navCompaniesBtn?.classList.add('hidden');
+    els.navNewReportBtn?.classList.add('hidden');
+  }
+  els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas'));
+  updateHeaderForRole(); switchPanel(state.user?.role === 'operador' ? 'report' : 'board');
 }
-function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); }
+function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); document.body.classList.remove('executive-mode','operator-mode'); document.body.dataset.role=''; document.body.dataset.panel='login'; }
 
 function filteredGarantias() {
   const search = els.searchInput?.value.trim().toLowerCase() || '';
@@ -432,6 +575,8 @@ function button(text, className, onClick) { const btn = document.createElement('
 
 function renderUsers() {
   if (!els.usersList) return;
+  const currentRole = els.userRole?.value || 'operador';
+  if (els.userEmpresa) els.userEmpresa.disabled = !['operador','supervisor','supervisor_flotas'].includes(currentRole);
   els.usersList.innerHTML = '';
   state.users.forEach(user => {
     const row = document.createElement('div'); row.className = 'table-row';
@@ -591,9 +736,8 @@ function renderSchedules() {
           await api.confirmSchedule(item.id, { status:'confirmed', scheduledFor: item.scheduledFor || item.proposedAt, notes: item.notes || '' });
           notify('Cita confirmada.'); await loadSchedules(selectedDate); await loadNotifications();
         } catch (error) {
-          if (String(error.message || '').includes('ocupado')) {
-            notify(error.message, true);
-          } else notify(error.message, true);
+          if (String(error.message || '').includes('ocupado')) notify(error.message, true);
+          else notify(error.message, true);
         }
       }));
       actions.appendChild(button('Recomendar +1h', 'btn btn-secondary', async () => {
@@ -605,16 +749,250 @@ function renderSchedules() {
         } catch (error) { notify(error.message, true); }
       }));
     }
+    if (isRole('admin','operativo','supervisor_flotas') && ['proposed','confirmed','waiting_operator'].includes(item.status)) {
+      actions.appendChild(button('Reprogramar', 'btn btn-secondary', async () => { await reprogramarCita(item.id); }));
+      actions.appendChild(button('Cancelar', 'btn btn-ghost', async () => { await cancelarCita(item.id); }));
+    }
     els.scheduleList.appendChild(row);
   });
 }
 
 
+
+
+async function loadAdminUnitCosts(unitId) {
+  if (!isRole('admin') || !unitId) return;
+  try {
+    state.unitCostsAdmin = await api.getFleetCosts(unitId);
+  } catch (error) {
+    state.unitCostsAdmin = [];
+    notify(error.message, true);
+  }
+}
+
+async function guardarCostoAdmin(costId, unitId) {
+  try {
+    const tipo = document.getElementById(`adminCostTipo_${costId}`)?.value || '';
+    const concepto = document.getElementById(`adminCostConcepto_${costId}`)?.value || '';
+    const monto = Number(document.getElementById(`adminCostMonto_${costId}`)?.value || 0);
+    await api.updateFleetCost(costId, { tipo, concepto, monto });
+    notify('Costo actualizado.');
+    await loadAdminUnitCosts(unitId);
+    renderFleetDetail();
+  } catch (error) {
+    notify(error.message, true);
+  }
+}
+
+async function eliminarCostoAdmin(costId, unitId) {
+  if (!window.confirm('¿Eliminar este costo?')) return;
+  try {
+    await api.deleteFleetCost(costId);
+    notify('Costo eliminado.');
+    await loadAdminUnitCosts(unitId);
+    await loadFleet();
+    renderFleetDetail();
+  } catch (error) {
+    notify(error.message, true);
+  }
+}
+
+
+async function guardarSolicitudIndependiente(id) {
+  try {
+    const status = document.getElementById(`indReqStatus_${id}`)?.value || 'pendiente';
+    const notes = document.getElementById(`indReqNotes_${id}`)?.value || '';
+    await api.updateIndependentPartsRequest(id, { status, notes });
+    notify('Solicitud actualizada.');
+    await cargarSolicitudesIndependientes();
+    if (state.activePanel === 'parts') renderPartsPending();
+  } catch (error) {
+    notify(error.message, true);
+  }
+}
+
+async function cargarSolicitudesIndependientes() {
+  if (!isRole('admin','supervisor_flotas')) return;
+  try {
+    state.independentPartsRequests = await api.getIndependentPartsRequests();
+  } catch (error) {
+    state.independentPartsRequests = [];
+  }
+}
+
+async function crearSolicitudIndependienteRefaccion() {
+  try {
+    const empresa = window.prompt('Empresa:');
+    if (!empresa) return;
+    const numeroEconomico = window.prompt('Número económico (opcional):') || '';
+    const solicitud = window.prompt('Refacción solicitada:');
+    if (!solicitud) return;
+    const notes = window.prompt('Notas (opcional):') || '';
+    await api.createIndependentPartsRequest({ empresa, numeroEconomico, solicitud, notes });
+    notify('Solicitud de refacción creada.');
+    await cargarSolicitudesIndependientes();
+    if (state.activePanel === 'parts') renderPartsPending();
+  } catch (error) {
+    notify(error.message, true);
+  }
+}
+
+async function loadPartsPending(force = false) {
+  if (!isRole('admin','supervisor_flotas')) return;
+  if (!force && state.partsDirtyIds.size) return;
+  const now = Date.now();
+  if (!force && state.partsPending.length && now - state.partsCacheAt < 30000) {
+    renderPartsPending();
+    return;
+  }
+  try {
+    if (els.partsList) els.partsList.innerHTML = '<div class="parts-empty">Cargando refacciones pendientes…</div>';
+    const data = await api.getPartsPending();
+    state.partsPending = data || [];
+    state.partsCacheAt = Date.now();
+    renderPartsPending();
+  } catch (error) {
+    notify(error.message, true);
+  }
+}
+
+function renderPartsPending() {
+  if (!els.partsList) return;
+  const items = state.partsPending || [];
+  const unidades = [...new Set(items.map(item => item.numeroEconomico).filter(Boolean))].length;
+  const empresas = [...new Set(items.map(item => item.empresa).filter(Boolean))].length;
+
+  if (els.partsSummary) {
+    els.partsSummary.innerHTML = `
+      <article class="parts-summary-card"><strong>Pendientes</strong><span>${items.length}</span></article>
+      <article class="parts-summary-card"><strong>Unidades</strong><span>${unidades}</span></article>
+      <article class="parts-summary-card"><strong>Empresas</strong><span>${empresas}</span></article>
+    `;
+    if (isRole('admin','supervisor_flotas')) {
+      const actions = document.createElement('div');
+      actions.className = 'parts-actions-row';
+      actions.innerHTML = `<button id="newIndependentPartBtn" class="btn btn-primary" type="button">Solicitar refacción</button>`;
+      els.partsSummary.appendChild(actions);
+      document.getElementById('newIndependentPartBtn')?.addEventListener('click', crearSolicitudIndependienteRefaccion);
+    }
+  }
+
+  const extras = (state.independentPartsRequests || []).filter(req => !['instalada','cerrada','cancelada'].includes(String(req.status || '').toLowerCase()));
+  if (!items.length && !extras.length) {
+    els.partsList.innerHTML = '<div class="parts-empty"><strong>No hay refacciones pendientes.</strong><div>Cuando una unidad quede a la espera de pieza o una refacción se marque pendiente, aparecerá aquí.</div></div>';
+    return;
+  }
+
+  els.partsList.innerHTML = '';
+  extras.forEach(req => {
+    const extra = document.createElement('article');
+    extra.className = 'parts-card independent-parts-card';
+    extra.innerHTML = `
+      <div class="parts-card-head">
+        <div>
+          <div class="parts-kicker">${escapeHtml(req.empresa || '—')}</div>
+          <h4>Solicitud independiente</h4>
+        </div>
+        <span class="badge badge-waiting">${escapeHtml(req.status || 'pendiente')}</span>
+      </div>
+      <div class="parts-piece">${escapeHtml(req.solicitud || '')}</div>
+      <div class="parts-meta">
+        <div><strong>Unidad</strong>${escapeHtml(req.numero_economico || 'Sin unidad ligada')}</div>
+        <div><strong>Creada</strong>${escapeHtml(fmtDate(req.created_at))}</div>
+      </div>
+      <div class="independent-request-editor">
+        <select id="indReqStatus_${req.id}">
+          ${['pendiente','pedida','asignada','recibida','instalada','cancelada','cerrada'].map(opt => `<option value="${opt}" ${req.status === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+        </select>
+        <input id="indReqNotes_${req.id}" value="${escapeHtml(req.notes || '')}" placeholder="Notas" />
+        <button class="btn btn-primary" type="button" onclick="guardarSolicitudIndependiente('${req.id}')">Guardar</button>
+      </div>
+    `;
+    els.partsList.appendChild(extra);
+  });
+  items.forEach(item => {
+    const card = document.createElement('article');
+    card.className = 'parts-card';
+    const statusLabel = ({
+      pendiente:'Pendiente',
+      asignada:'Asignada',
+      en_compra:'En compra',
+      recibida:'Recibida',
+      instalada:'Instalada'
+    })[item.refaccionStatus || 'pendiente'] || 'Pendiente';
+
+    const adminEditor = isRole('admin') ? `
+      <div class="parts-edit-box">
+        <textarea id="partsDetail_${item.id}" rows="3" placeholder="Detalle de refacción">${escapeHtml(item.detalleRefaccion || '')}</textarea>
+        <input id="partsAssigned_${item.id}" placeholder="Refacción asignada" value="${escapeHtml(item.refaccionAsignada || '')}" />
+        <div class="stack-inline">
+          <select id="partsStatus_${item.id}">
+            <option value="pendiente" ${(item.refaccionStatus || 'pendiente') === 'pendiente' ? 'selected' : ''}>Pendiente</option>
+            <option value="asignada" ${item.refaccionStatus === 'asignada' ? 'selected' : ''}>Asignada</option>
+            <option value="en_compra" ${item.refaccionStatus === 'en_compra' ? 'selected' : ''}>En compra</option>
+            <option value="recibida" ${item.refaccionStatus === 'recibida' ? 'selected' : ''}>Recibida</option>
+            <option value="instalada" ${item.refaccionStatus === 'instalada' ? 'selected' : ''}>Instalada</option>
+          </select>
+          <button class="btn btn-primary" data-parts-save="${item.id}" type="button">Guardar</button>
+        </div>
+      </div>
+    ` : '';
+
+    card.innerHTML = `
+      <div class="parts-card-head">
+        <div>
+          <div class="parts-kicker">${escapeHtml(item.empresa || '—')}</div>
+          <h4>Unidad ${escapeHtml(item.numeroEconomico || '—')}</h4>
+        </div>
+        <span class="badge badge-waiting">${escapeHtml(statusLabel)}</span>
+      </div>
+      <div class="parts-piece">${escapeHtml(item.detalleRefaccion || 'Refacción pendiente sin detalle específico')}</div>
+      <div class="parts-meta">
+        <div><strong>Folio</strong>${escapeHtml(item.folio || '—')}</div>
+        <div><strong>Modelo</strong>${escapeHtml(item.modelo || '—')}</div>
+        <div><strong>Estado operativo</strong>${escapeHtml(item.estatusOperativo || 'sin iniciar')}</div>
+        <div><strong>Asignada</strong>${escapeHtml(item.refaccionAsignada || 'Sin asignar')}</div>
+      </div>
+      ${adminEditor}
+    `;
+    els.partsList.appendChild(card);
+
+    if (isRole('admin')) {
+      const detailInput = card.querySelector(`#partsDetail_${item.id}`);
+      const assignedInput = card.querySelector(`#partsAssigned_${item.id}`);
+      const statusInput = card.querySelector(`#partsStatus_${item.id}`);
+      [detailInput, assignedInput, statusInput].forEach(el => {
+        el?.addEventListener('input', () => state.partsDirtyIds.add(item.id));
+        el?.addEventListener('change', () => state.partsDirtyIds.add(item.id));
+      });
+
+      card.querySelector(`[data-parts-save="${item.id}"]`)?.addEventListener('click', async () => {
+        try {
+          await api.updateParts(item.id, {
+            detalleRefaccion: document.getElementById(`partsDetail_${item.id}`)?.value || '',
+            refaccionAsignada: document.getElementById(`partsAssigned_${item.id}`)?.value || '',
+            refaccionStatus: document.getElementById(`partsStatus_${item.id}`)?.value || 'pendiente'
+          });
+          state.partsDirtyIds.delete(item.id);
+          notify('Refacción actualizada.');
+          await loadPartsPending(true);
+          await loadGarantias();
+          if (state.activePanel === 'fleet') await loadFleet();
+        } catch (error) {
+          notify(error.message, true);
+        }
+      });
+    }
+  });
+}
+
 async function loadFleet() {
   try {
-    if (isRole('admin','operativo')) els.fleetSaveBtn?.classList.remove('hidden');
-    else els.fleetSaveBtn?.classList.add('hidden');
-    if (['supervisor_flotas'].includes(state.user?.role) && els.fleetEmpresa) {
+    const canManageFleet = isRole('admin','operativo');
+    els.fleetSaveBtn?.classList.toggle('hidden', !canManageFleet);
+    document.querySelectorAll('.fleet-form-only').forEach(el => el.classList.toggle('hidden', !canManageFleet));
+    if (!canManageFleet) toggleFleetForm(false);
+    if (['supervisor','supervisor_flotas'].includes(state.user?.role) && els.fleetEmpresa) {
       els.fleetEmpresa.value = state.user.empresa || '';
       els.fleetEmpresa.disabled = true;
     } else if (els.fleetEmpresa) {
@@ -630,36 +1008,54 @@ async function loadFleet() {
 }
 
 function renderFleet() {
-  if (els.fleetTotal) els.fleetTotal.textContent = state.fleetSummary.total || 0;
-  if (els.fleetOperando) els.fleetOperando.textContent = state.fleetSummary.operando || 0;
-  if (els.fleetTaller) els.fleetTaller.textContent = state.fleetSummary.enTaller || 0;
-  if (els.fleetDetenidas) els.fleetDetenidas.textContent = state.fleetSummary.detenidas || 0;
-  if (els.fleetProgramadas) els.fleetProgramadas.textContent = state.fleetSummary.programadas || 0;
-
   if (els.fleetUnitsList) els.fleetUnitsList.innerHTML = '';
-  state.fleetUnits.forEach(unit => {
+  const fleetQuery = normalizeText(els.fleetSearchInput?.value || '');
+  const fleetStatus = els.fleetStatusFilter?.value || 'todos';
+  const visibleUnits = state.fleetUnits.filter(unit => {
     const sem = fleetSemaforo(unit);
-    const card = document.createElement('article');
-    card.className = 'card fleet-card';
-    card.innerHTML = `
-      <div class="card-top">
-        <div><h4>Unidad ${escapeHtml(unit.numeroEconomico)}</h4><p class="meta">${escapeHtml(unit.empresa)}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}</p></div>
-        <span class="fleet-dot ${sem.cls}">${sem.label}</span>
+    const hayTexto = !fleetQuery || normalizeText([unit.numeroEconomico, unit.empresa, unit.marca, unit.modelo, unit.numeroObra, unit.nombreFlota].join(' ')).includes(fleetQuery);
+    const hayEstado = fleetStatus === 'todos' || sem.key === fleetStatus;
+    return hayTexto && hayEstado;
+  });
+
+  if (!visibleUnits.length && els.fleetUnitsList) {
+    els.fleetUnitsList.innerHTML = '<div class="empty-state"><strong>Sin coincidencias.</strong><span>Ajusta búsqueda o estado para encontrar la unidad correcta.</span></div>';
+  }
+
+  visibleUnits.forEach(unit => {
+    const status = fleetStatusLuxury(unit);
+    const poliza = fleetTagPoliza(unit);
+    const camp = fleetTagCampania(unit);
+    const row = document.createElement('article');
+    row.className = 'fleet-line-item';
+    row.innerHTML = `
+      <div class="fleet-line-num">${escapeHtml(unit.numeroEconomico || '—')}</div>
+      <div class="fleet-line-emoji">${status.emoji}</div>
+      <div class="fleet-line-main">
+        <strong>${escapeHtml(status.text)}</strong>
+        <div class="fleet-line-sub">${escapeHtml(unit.empresa || '—')}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}${unit.marca ? ' · ' + escapeHtml(unit.marca) : ''}</div>
       </div>
-      <div class="mini-grid fleet-mini-grid">
-        <div><span class="label">Último estado</span><strong>${sem.label}</strong></div>
-        <div><span class="label">Reportes</span><strong>${unit.reportesCount || 0}</strong></div>
+      <div class="fleet-line-tags">
+        <span class="fleet-chip ${poliza.cls}">${poliza.text}</span>
+        <span class="fleet-chip ${camp.cls}">${camp.text}</span>
       </div>
-      <div class="action-area"></div>
+      <div class="fleet-line-status">${unit.lastReportAt ? fmtDate(unit.lastReportAt) : 'Sin movimiento'}</div>
     `;
-    const act = card.querySelector('.action-area');
-    act.appendChild(button('Ver unidad', 'btn btn-secondary', async () => {
+    row.addEventListener('click', async () => {
       try {
+        if (state.selectedFleetUnit?.unit?.id === unit.id) {
+          state.selectedFleetUnit = null;
+          renderFleet();
+          renderFleetDetail();
+          return;
+        }
         state.selectedFleetUnit = await api.getFleetUnit(unit.id);
+        if (isRole('admin')) await loadAdminUnitCosts(unit.id);
+        renderFleet();
         renderFleetDetail();
       } catch (error) { notify(error.message, true); }
-    }));
-    els.fleetUnitsList?.appendChild(card);
+    });
+    els.fleetUnitsList?.appendChild(row);
   });
   renderFleetDetail();
 }
@@ -687,6 +1083,22 @@ function renderFleetDetail() {
       <div>${escapeHtml(c.createdByNombre || '—')}</div>
     </div>
   `).join('') || '<div class="muted">Sin costos capturados.</div>';
+  const adminCostsEditor = isRole('admin') ? `
+    <div class="admin-cost-editor-list">
+      ${(state.unitCostsAdmin || []).map(c => `
+        <div class="admin-cost-editor-row">
+          <select id="adminCostTipo_${c.id}">
+            <option value="refaccion" ${c.tipo === 'refaccion' ? 'selected' : ''}>Refacción</option>
+            <option value="mano_obra" ${c.tipo === 'mano_obra' ? 'selected' : ''}>Mano de obra</option>
+          </select>
+          <input id="adminCostConcepto_${c.id}" value="${escapeHtml(c.concepto || '')}" placeholder="Concepto" />
+          <input id="adminCostMonto_${c.id}" type="number" step="0.01" min="0" value="${Number(c.monto || 0).toFixed(2)}" placeholder="Monto" />
+          <button class="btn btn-secondary" type="button" onclick="guardarCostoAdmin('${c.id}','${u.id}')">Guardar</button>
+          <button class="btn btn-ghost" type="button" onclick="eliminarCostoAdmin('${c.id}','${u.id}')">Eliminar</button>
+        </div>
+      `).join('')}
+    </div>
+  ` : '';
   const costForm = isRole('admin') ? `
     <div class="fleet-cost-form">
       <h4>Registrar costo</h4>
@@ -715,18 +1127,19 @@ function renderFleetDetail() {
   const timeline = (data.reports || []).slice(0,6).map(r => `<div class="timeline-item"><span class="timeline-dot"></span><div><strong>${escapeHtml(r.folio || 'GAR-—')}</strong><p>${escapeHtml(r.descripcionFallo || 'Sin descripción')}</p><small>${fmtDate(r.createdAt)} · ${escapeHtml(r.estatusOperativo || 'sin iniciar')}</small></div></div>`).join('') || '<div class="muted">Sin movimientos recientes.</div>';
   els.fleetDetail.innerHTML = `
     <div class="panel-head fleet-detail-head">
-      <div><div class="topbar-kicker">UNIDAD</div><h3>${escapeHtml(u.numeroEconomico)} · ${escapeHtml(u.empresa)}</h3></div>
-      <span class="fleet-dot ${sem.cls}">${sem.label}</span>
+      <div><div class="topbar-kicker">EXPEDIENTE DE UNIDAD</div><h3>${escapeHtml(u.numeroEconomico)} · ${escapeHtml(u.empresa)}</h3><p class="muted">Lectura patrimonial, operativa y de costo en una sola vista.</p></div>
+      <div class="stack-inline">${isRole('admin') ? '<button id="fleetEditInlineBtn" class="btn btn-ghost" type="button">Editar</button><button id="fleetDeleteInlineBtn" class="btn btn-ghost" type="button">Eliminar</button>' : ''}<span class="fleet-dot '+sem.cls+'">'+sem.label+'</span></div>
     </div>
     <div class="fleet-hero">
       <div class="fleet-hero-main">
         <div class="mini-grid fleet-meta-grid">
+          <div><span class="label">Costo total</span><strong>${money(u.costoTotal)}</strong></div>
           <div><span class="label">Marca</span><strong>${escapeHtml(u.marca || '—')}</strong></div>
           <div><span class="label">Modelo</span><strong>${escapeHtml(u.modelo || '—')}</strong></div>
           <div><span class="label">Año</span><strong>${escapeHtml(u.anio || '—')}</strong></div>
           <div><span class="label">KM</span><strong>${escapeHtml(u.kilometraje || '—')}</strong></div>
-          <div><span class="label">Póliza</span><strong>${u.polizaActiva ? 'Activa' : 'No'}</strong></div>
-          <div><span class="label">Campaña</span><strong>${u.campaignActiva ? 'Sí' : 'No'}</strong></div>
+          <div><span class="label">Póliza</span><strong>${u.polizaActiva ? 'Póliza activa' : 'Sin póliza'}</strong></div>
+          <div><span class="label">Campaña</span><strong>${u.campaignActiva ? 'Campaña activa' : 'Sin campaña'}</strong></div>
           <div><span class="label">Refacciones</span><strong>${money(u.costoRefacciones)}</strong></div>
           <div><span class="label">Mano de obra</span><strong>${money(u.costoManoObra)}</strong></div>
         </div>
@@ -737,44 +1150,28 @@ function renderFleetDetail() {
     </div>
     <div class="fleet-columns">
       <section><div class="topbar-kicker">REPORTES</div><div class="table-list compact-list">${reports}</div></section>
-      <section><div class="topbar-kicker">COSTOS</div><div class="table-list compact-list">${costs}</div></section>
+      <section><div class="topbar-kicker">COSTOS</div><div class="table-list compact-list">${costs}</div>${adminCostsEditor}</section>
     </div>
   `;
   if (isRole('admin')) {
-    document.getElementById('fleetManualStatus').value = (u.manualStatus || u.manual_status || sem.key || 'operando');
+    document.getElementById('fleetManualStatus').value = ({ operando:'operando', 'en_taller':'en_taller', detenida:'detenida', programada:'programada' })[sem.key || 'operando'] || 'operando';
     document.getElementById('fleetApplyStatusBtn')?.addEventListener('click', async () => {
       try {
-        await api.updateFleetUnit(u.id, { manualStatus: document.getElementById('fleetManualStatus').value });
-        notify('Estado de unidad actualizado.');
-        await loadFleet();
+        await api.updateFleetStatus(u.id, { status: document.getElementById('fleetManualStatus').value });
         state.selectedFleetUnit = await api.getFleetUnit(u.id);
-        renderFleetDetail();
+        await loadFleet();
+        notify('Estado de unidad actualizado.');
       } catch (error) { notify(error.message, true); }
     });
-    document.getElementById('fleetEditBtn')?.addEventListener('click', () => {
-      state.editingFleetUnitId = u.id;
-      if (els.fleetEmpresa) els.fleetEmpresa.value = u.empresa || '';
-      if (els.fleetNombreFlota) els.fleetNombreFlota.value = u.nombreFlota || '';
-      if (els.fleetNumeroEconomico) els.fleetNumeroEconomico.value = u.numeroEconomico || '';
-      if (els.fleetNumeroObra) els.fleetNumeroObra.value = u.numeroObra || '';
-      if (els.fleetMarca) els.fleetMarca.value = u.marca || '';
-      if (els.fleetModelo) els.fleetModelo.value = u.modelo || '';
-      if (els.fleetAnio) els.fleetAnio.value = u.anio || '';
-      if (els.fleetKilometraje) els.fleetKilometraje.value = u.kilometraje || '';
-      if (els.fleetPolizaActiva) els.fleetPolizaActiva.checked = !!u.polizaActiva;
-      if (els.fleetCampaignActiva) els.fleetCampaignActiva.checked = !!u.campaignActiva;
-      if (els.fleetSaveBtn) els.fleetSaveBtn.textContent = 'Actualizar unidad';
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-    document.getElementById('fleetDeleteBtn')?.addEventListener('click', async () => {
-      if (!confirm(`¿Eliminar la unidad ${u.numeroEconomico || ''}?`)) return;
+    document.getElementById('fleetEditInlineBtn')?.addEventListener('click', () => beginFleetEdit(u));
+    document.getElementById('fleetDeleteInlineBtn')?.addEventListener('click', async () => {
+      if (!confirm(`¿Eliminar unidad ${u.numeroEconomico}?`)) return;
       try {
         await api.deleteFleetUnit(u.id);
-        notify('Unidad eliminada.');
         state.selectedFleetUnit = null;
-        state.editingFleetUnitId = '';
-        if (els.fleetSaveBtn) els.fleetSaveBtn.textContent = 'Guardar unidad';
+        resetFleetForm();
         await loadFleet();
+        notify('Unidad eliminada.');
       } catch (error) { notify(error.message, true); }
     });
     document.getElementById('fleetCostSaveBtn')?.addEventListener('click', async () => {
@@ -786,6 +1183,7 @@ function renderFleetDetail() {
         });
         notify('Costo guardado.');
         state.selectedFleetUnit = await api.getFleetUnit(u.id);
+        await loadAdminUnitCosts(u.id);
         renderFleetDetail();
         const summary = await api.getFleetSummary(); state.fleetSummary = summary; renderFleet();
       } catch (error) { notify(error.message, true); }
@@ -798,8 +1196,104 @@ function money(v) {
   return new Intl.NumberFormat('es-MX', { style:'currency', currency:'MXN', maximumFractionDigits:2 }).format(n);
 }
 
+
+async function editarReporteAdmin(item) {
+  try {
+    resetReportForm();
+    state.editingGarantiaId = item.id;
+    state.editingFirmaOriginal = item.firma || '';
+    if (els.numeroObra) els.numeroObra.value = item.numeroObra || '';
+    if (els.modelo) els.modelo.value = item.modelo || '';
+    if (els.numeroEconomico) els.numeroEconomico.value = item.numeroEconomico || '';
+    if (els.empresa) els.empresa.value = item.empresa || '';
+    if (els.kilometraje) els.kilometraje.value = item.kilometraje || '';
+    if (els.contactoNombre) els.contactoNombre.value = item.contactoNombre || '';
+    if (els.telefono) els.telefono.value = item.telefono || '';
+    const radio = document.querySelector(`input[name="tipoIncidente"][value="${item.tipoIncidente || 'daño'}"]`);
+    if (radio) radio.checked = true;
+    if (els.descripcionFallo) els.descripcionFallo.value = item.descripcionFallo || '';
+    if (els.solicitaRefaccion) els.solicitaRefaccion.checked = !!item.solicitaRefaccion;
+    els.refaccionFields?.classList.toggle('hidden', !els.solicitaRefaccion?.checked);
+    if (els.detalleRefaccion) els.detalleRefaccion.value = item.detalleRefaccion || '';
+    state.currentEvidence = Array.isArray(item.evidencias) ? [...item.evidencias] : [];
+    state.currentRefEvidence = Array.isArray(item.evidenciasRefaccion) ? [...item.evidenciasRefaccion] : [];
+    drawPreviews(els.previewEvidencias, state.currentEvidence, 'evidence');
+    drawPreviews(els.previewRefaccion, state.currentRefEvidence, 'ref');
+    if (item.firma) loadSignatureFromDataUrl(item.firma);
+    const submitBtn = els.reportForm?.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.textContent = 'Guardar cambios';
+    const title = els.reportFormPanel?.querySelector('.panel-head h3');
+    if (title) title.textContent = `Editar reporte ${item.folio || ''}`.trim();
+    const kicker = els.reportFormPanel?.querySelector('.panel-head .topbar-kicker');
+    if (kicker) kicker.textContent = 'ADMINISTRACIÓN';
+    const badge = els.reportFormPanel?.querySelector('.panel-head .badge');
+    if (badge) badge.textContent = 'Edición total';
+    switchPanel('report');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (error) {
+    notify(error.message, true);
+  }
+}
+
+function computeExecutiveMetrics() {
+  const items = Array.isArray(state.garantias) ? state.garantias : [];
+  const total = items.length;
+  const nuevas = items.filter(i => i.estatusValidacion === 'nueva').length;
+  const revision = items.filter(i => i.estatusValidacion === 'pendiente de revisión').length;
+  const aceptadas = items.filter(i => i.estatusValidacion === 'aceptada').length;
+  const rechazadas = items.filter(i => i.estatusValidacion === 'rechazada').length;
+  const proceso = items.filter(i => i.estatusOperativo === 'en proceso').length;
+  const espera = items.filter(i => i.estatusOperativo === 'espera refacción').length;
+  const terminadas = items.filter(i => i.estatusOperativo === 'terminada').length;
+  const empresas = new Set(items.map(i => i.empresa).filter(Boolean)).size;
+  const unidades = new Set(items.map(i => i.numeroEconomico).filter(Boolean)).size;
+  const reincidentesMap = new Map();
+  items.forEach(i => {
+    const key = String(i.numeroEconomico || '').trim();
+    if (!key) return;
+    reincidentesMap.set(key, (reincidentesMap.get(key) || 0) + 1);
+  });
+  const reincidentes = [...reincidentesMap.values()].filter(v => v > 1).length;
+  return { total, nuevas, revision, aceptadas, rechazadas, proceso, espera, terminadas, empresas, unidades, reincidentes };
+}
+
+function renderExecutiveDeck() {
+  if (!els.executiveDeckGrid) return;
+  const m = computeExecutiveMetrics();
+  const role = state.user?.role || '';
+  const cards = [
+    { kicker:'Pulso general', value:m.total, text:`${m.empresas} empresas activas · ${m.unidades} unidades con historial`, chip:`${m.nuevas} nuevas`, cls:'focus-card', actions:[['Ver reportes', () => switchPanel('board')], role !== 'operador' ? ['Agenda', async () => { await loadSchedules(''); switchPanel('schedule'); }] : null].filter(Boolean) },
+    { kicker:'Validación', value:m.aceptadas, text:`${m.revision} en revisión · ${m.rechazadas} rechazadas`, chip:'Bandeja viva', actions:[['Filtrar aceptadas', () => { if (els.validationFilter) els.validationFilter.value='aceptada'; renderGarantias(); }], ['Pendientes', () => { if (els.validationFilter) els.validationFilter.value='pendiente de revisión'; renderGarantias(); }]] },
+    { kicker:'Ejecución', value:m.proceso + m.espera, text:`${m.proceso} en proceso · ${m.espera} esperando refacción · ${m.terminadas} terminadas`, chip:'Operación', actions:[['En proceso', () => { if (els.operationalFilter) els.operationalFilter.value='en proceso'; renderGarantias(); }], ['Terminadas', () => { if (els.operationalFilter) els.operationalFilter.value='terminada'; renderGarantias(); }]] },
+    { kicker:'Reincidencia', value:m.reincidentes, text:'Unidades con más de una incidencia registrada. Excelente punto para control y venta.', chip:'Lectura comercial', actions:[ isRole('admin','operativo','supervisor','supervisor_flotas') ? ['Historial', () => switchPanel('history')] : null, isRole('admin','operativo','supervisor_flotas') ? ['Flotas', async () => { await loadFleet(); switchPanel('fleet'); }] : null].filter(Boolean) }
+  ];
+  if (role === 'operador') {
+    cards[1] = { kicker:'Seguimiento', value:m.aceptadas, text:`${m.revision} reportes siguen en análisis y ${m.terminadas} ya quedaron listos.`, chip:'Mi avance', actions:[['Nuevo reporte', () => { resetReportForm(); switchPanel('report'); }], ['Mi agenda', async () => { await loadSchedules(''); switchPanel('schedule'); }]] };
+    cards[3] = { kicker:'Refacciones', value:m.espera, text:'Tus reportes que requieren pieza quedan visibles para seguimiento.', chip:'Trazabilidad', actions:[['Ver reportes', () => switchPanel('board')]] };
+  }
+  els.executiveDeckGrid.innerHTML = cards.map(card => `
+    <article class="executive-card ${card.cls || ''}">
+      <div class="executive-kicker">${escapeHtml(card.kicker)}</div>
+      <strong>${escapeHtml(String(card.value))}</strong>
+      <p>${escapeHtml(card.text)}</p>
+      <div class="executive-meta">
+        <span class="executive-chip">${escapeHtml(card.chip)}</span>
+      </div>
+      <div class="executive-actions"></div>
+    </article>
+  `).join('');
+  [...els.executiveDeckGrid.querySelectorAll('.executive-card')].forEach((cardEl, idx) => {
+    const actionsWrap = cardEl.querySelector('.executive-actions');
+    (cards[idx].actions || []).forEach(([label, fn]) => actionsWrap.appendChild(button(label, idx === 0 ? 'btn btn-secondary' : 'btn btn-ghost', fn)));
+  });
+  if (els.liveRefreshBadge) {
+    const now = new Date();
+    els.liveRefreshBadge.textContent = `Última lectura ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  }
+}
+
 function renderGarantias() {
-  updateStats(); renderAnalytics();
+  updateStats(); renderAnalytics(); renderExecutiveDeck();
   const items = filteredGarantias();
   if (els.garantiasList) els.garantiasList.innerHTML = '';
   els.emptyState?.classList.toggle('hidden', items.length > 0);
@@ -815,7 +1309,7 @@ function renderGarantias() {
       const div = document.createElement('div'); div.innerHTML = `<strong>${escapeHtml(label)}</strong>${escapeHtml(String(value || '—'))}`; miniGrid.appendChild(div);
     });
     const strip = node.querySelector('.evidence-strip'); [...(item.evidencias || []), ...(item.evidenciasRefaccion || [])].slice(0,6).forEach(src => { const img = document.createElement('img'); img.src = src; strip.appendChild(img); }); if (item.firma) { const img = document.createElement('img'); img.src = item.firma; strip.appendChild(img); }
-    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
+    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin')) baseRow.appendChild(button('Editar', 'btn btn-secondary', async () => { await editarReporteAdmin(item); })); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
     if (isRole('operativo','admin')) {
       const reviewBox = document.createElement('div'); reviewBox.innerHTML = `
         <label>Decisión operativa</label>
@@ -836,7 +1330,7 @@ function renderGarantias() {
       area.appendChild(reviewBox);
       if (item.estatusValidacion === 'aceptada') {
         const scheduleRow = document.createElement('div'); scheduleRow.className = 'action-row';
-        if (isRole('admin','operativo')) scheduleRow.appendChild(button('Programar unidad', 'btn btn-primary', async () => { try { await api.requestSchedule(item.id); notify('Solicitud enviada por WhatsApp.'); await loadSchedules(); switchPanel('schedule'); } catch (error) { notify(error.message, true); } }));
+        if (isRole('admin','operativo','supervisor_flotas')) scheduleRow.appendChild(button('Solicitar servicio', 'btn btn-primary', async () => { try { await api.requestSchedule(item.id); notify('Solicitud enviada por WhatsApp.'); await loadSchedules(); switchPanel('schedule'); } catch (error) { notify(error.message, true); } }));
         if (isRole('operador')) scheduleRow.appendChild(button('Ver mi agenda', 'btn btn-secondary', async () => { await loadSchedules(); switchPanel('schedule'); }));
         if (scheduleRow.children.length) area.appendChild(scheduleRow);
         const operationalBox = document.createElement('div'); operationalBox.innerHTML = `
@@ -848,7 +1342,7 @@ function renderGarantias() {
           </div>`;
         operationalBox.querySelector('.opStatus').value = item.estatusOperativo;
         operationalBox.querySelector('.opBtn').addEventListener('click', async () => {
-          try { await api.updateOperational(item.id, { estatusOperativo: operationalBox.querySelector('.opStatus').value, observacionesOperativo: operationalBox.querySelector('.opNotes').value.trim() }); notify('Flujo actualizado.'); await loadGarantias(); }
+          try { await api.updateOperational(item.id, { estatusOperativo: operationalBox.querySelector('.opStatus').value, observacionesOperativo: operationalBox.querySelector('.opNotes').value.trim() }); state.boardDirtyIds.clear(); notify('Flujo actualizado.'); await loadGarantias(); }
           catch (error) { notify(error.message, true); }
         });
         area.appendChild(operationalBox);
@@ -911,12 +1405,18 @@ async function loadUsers() { if (!isRole('admin')) return; state.users = await a
 async function loadCompanies() { state.companies = isRole('admin') ? await api.getCompanies() : await api.getPublicCompanies(); renderCompanies(); }
 async function loadRequests() { if (!isRole('admin')) return; state.registrationRequests = await api.getRequests(); renderRequests(); }
 
+function paintUnitHistory(history) {
+  const q = normalizeText(els.unitHistorySearchInput?.value || '');
+  const filtered = !q ? history : history.filter(item => normalizeText([item.numeroObra, item.modelo, item.empresa, item.tipoIncidente, item.descripcionFallo].join(' ')).includes(q));
+  els.unitHistoryResult.innerHTML = filtered.length ? filtered.map(item => `<div class="table-row"><div><strong>Obra ${escapeHtml(item.numeroObra)}</strong><div class="small muted">${escapeHtml(item.modelo)} · ${escapeHtml(item.empresa)}</div><div class="small muted">${escapeHtml(item.descripcionFallo || '')}</div></div><div>${escapeHtml(item.tipoIncidente)}</div><div><span class="badge ${badgeClassValidation(item.estatusValidacion)}">${escapeHtml(item.estatusValidacion)}</span></div><div>${fmtDate(item.createdAt)}</div></div>`).join('') : '<div class="empty-state"><strong>Sin historial.</strong><span>No hay coincidencias para esa unidad.</span></div>';
+}
+
 async function renderUnitHistory() {
   const numero = els.unitHistoryInput?.value.trim();
   if (!numero) return notify('Escribe un número económico.');
   try {
-    const history = await api.getUnitHistory(numero);
-    els.unitHistoryResult.innerHTML = history.length ? history.map(item => `<div class="table-row"><div><strong>Obra ${escapeHtml(item.numeroObra)}</strong><div class="small muted">${escapeHtml(item.modelo)} · ${escapeHtml(item.empresa)}</div></div><div>${escapeHtml(item.tipoIncidente)}</div><div><span class="badge ${badgeClassValidation(item.estatusValidacion)}">${escapeHtml(item.estatusValidacion)}</span></div><div>${fmtDate(item.createdAt)}</div></div>`).join('') : '<div class="empty-state"><strong>Sin historial.</strong><span>No hay reportes para esa unidad.</span></div>';
+    state.unitHistoryRows = await api.getUnitHistory(numero);
+    paintUnitHistory(state.unitHistoryRows);
   } catch (error) { notify(error.message, true); }
 }
 
@@ -936,7 +1436,7 @@ els.loginForm?.addEventListener('submit', async (e) => {
   try {
     const data = await api.login(els.loginEmail.value.trim(), els.loginPassword.value);
     state.token = data.token; localStorage.setItem('carlabToken', state.token); state.user = data.user; showDashboard();
-    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); await loadSchedules(''); await loadNotifications(); await loadFleet(); resetReportForm(); resetCompanyForm(); notify(`Bienvenido, ${state.user.nombre}.`);
+    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); await loadSchedules(''); await loadNotifications(); await loadFleet(); resetReportForm(); resetCompanyForm(); resetFleetForm(); notify(`Bienvenido, ${state.user.nombre}.`);
   } catch (error) { if (els.loginError) { els.loginError.textContent = error.message; els.loginError.classList.remove('hidden'); } else notify(error.message,true); }
 });
 
@@ -950,7 +1450,7 @@ els.registerForm?.addEventListener('submit', async (e) => {
 });
 
 els.logoutBtn?.addEventListener('click', () => { localStorage.removeItem('carlabToken'); state.token = ''; state.user = null; showLogin(); });
-els.globalRefreshBtn?.addEventListener('click', async () => { await Promise.all([loadGarantias(), loadSchedules(''), loadNotifications(), loadFleet()]); notify('Datos actualizados.'); });
+els.globalRefreshBtn?.addEventListener('click', async () => { await Promise.allSettled([loadGarantias(), loadSchedules(''), loadNotifications(), loadFleet(), loadPartsPending(true)]); renderExecutiveDeck(); notify('Datos actualizados.'); });
 els.opNavHomeBtn?.addEventListener('click', () => switchPanel('board'));
 els.opNavNewBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); });
 els.opNavScheduleBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
@@ -961,27 +1461,33 @@ els.navAnalyticsBtn?.addEventListener('click', () => switchPanel('analytics'));
 els.navHistoryBtn?.addEventListener('click', () => switchPanel('history'));
 els.navScheduleBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
 els.navFleetBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
+els.navPartsBtn?.addEventListener('click', async () => { await cargarSolicitudesIndependientes(); await loadPartsPending(true); switchPanel('parts'); });
 els.navUsersBtn?.addEventListener('click', async () => { switchPanel('users'); await loadUsers(); });
 els.navRequestsBtn?.addEventListener('click', async () => { switchPanel('requests'); await loadRequests(); });
 els.navCompaniesBtn?.addEventListener('click', async () => { switchPanel('companies'); await loadCompanies(); });
 els.cancelReportBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('board'); });
 els.userCancelEditBtn?.addEventListener('click', resetUserForm);
 els.companyCancelEditBtn?.addEventListener('click', resetCompanyForm);
+els.fleetNewBtn?.addEventListener('click', () => { if (!isRole('admin','operativo')) return; state.editingFleetUnitId = ''; toggleFleetForm(true); if (els.fleetSaveBtn) els.fleetSaveBtn.textContent = 'Guardar unidad'; });
+els.fleetCancelBtn?.addEventListener('click', resetFleetForm);
+els.userRole?.addEventListener('change', () => {
+  const role = els.userRole.value;
+  const needsEmpresa = ['operador','supervisor','supervisor_flotas'].includes(role);
+  if (els.userEmpresa) { els.userEmpresa.disabled = !needsEmpresa; if (!needsEmpresa) els.userEmpresa.value = ''; }
+});
 els.unitHistoryBtn?.addEventListener('click', renderUnitHistory);
+els.unitHistorySearchInput?.addEventListener('input', () => paintUnitHistory(state.unitHistoryRows || []));
 els.scheduleRefreshBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
 
 els.fleetRefreshBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
-els.fleetClearBtn?.addEventListener('click', () => {
-  state.editingFleetUnitId = '';
-  ['fleetEmpresa','fleetNombreFlota','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el && !el.disabled) el.value = '';
-  });
-  if (els.fleetPolizaActiva) els.fleetPolizaActiva.checked = false;
-  if (els.fleetCampaignActiva) els.fleetCampaignActiva.checked = false;
-  if (els.fleetSaveBtn) els.fleetSaveBtn.textContent = 'Guardar unidad';
+els.partsRefreshBtn?.addEventListener('click', async () => { await loadPartsPending(true); switchPanel('parts'); });
+els.fleetSearchInput?.addEventListener('input', renderFleet);
+els.fleetStatusFilter?.addEventListener('change', renderFleet);
+['fleetEmpresa','fleetNombreFlota','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetPolizaActiva','fleetCampaignActiva'].forEach(id => {
+  const el = document.getElementById(id);
+  el?.addEventListener('input', () => state.fleetDirty = true);
+  el?.addEventListener('change', () => state.fleetDirty = true);
 });
-
 els.fleetSaveBtn?.addEventListener('click', async () => {
   try {
     const payload = {
@@ -996,15 +1502,10 @@ els.fleetSaveBtn?.addEventListener('click', async () => {
       polizaActiva: !!els.fleetPolizaActiva?.checked,
       campaignActiva: !!els.fleetCampaignActiva?.checked
     };
-    if (state.editingFleetUnitId) {
-      await api.updateFleetUnit(state.editingFleetUnitId, payload);
-      notify('Unidad actualizada.');
-      state.editingFleetUnitId = '';
-      if (els.fleetSaveBtn) els.fleetSaveBtn.textContent = 'Guardar unidad';
-    } else {
-      await api.createFleetUnit(payload);
-      notify('Unidad de flota guardada.');
-    }
+    if (state.editingFleetUnitId) { await api.updateFleetUnit(state.editingFleetUnitId, payload); notify('Unidad actualizada.'); }
+    else { await api.createFleetUnit(payload); notify('Unidad de flota guardada.'); }
+    state.fleetDirty = false;
+    resetFleetForm();
     await loadFleet();
   } catch (error) { notify(error.message, true); }
 });
@@ -1012,14 +1513,25 @@ els.fleetSaveBtn?.addEventListener('click', async () => {
 
 els.reportForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
-  try { await api.createGarantia(reportPayload()); notify('Reporte enviado. Ya cayó al sistema.'); resetReportForm(); switchPanel('board'); await loadGarantias(); }
-  catch (error) { notify(error.message, true); }
+  try {
+    if (state.editingGarantiaId) {
+      await api.updateGarantia(state.editingGarantiaId, reportPayload());
+      notify('Reporte actualizado.');
+    } else {
+      await api.createGarantia(reportPayload());
+      notify('Reporte enviado. Ya cayó al sistema.');
+    }
+    resetReportForm();
+    switchPanel('board');
+    await loadGarantias();
+  } catch (error) { notify(error.message, true); }
 });
 
 els.userForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
   try {
-    const payload = { nombre: els.userNombre.value.trim(), email: els.userEmail.value.trim(), role: els.userRole.value, empresa: els.userEmpresa.value.trim(), telefono: els.userTelefono.value.trim(), password: els.userPassword.value };
+    const role = els.userRole.value;
+    const payload = { nombre: els.userNombre.value.trim(), email: els.userEmail.value.trim(), role, empresa: ['operador','supervisor','supervisor_flotas'].includes(role) ? els.userEmpresa.value.trim() : '', telefono: els.userTelefono.value.trim(), password: els.userPassword.value };
     if (state.editingUserId) { await api.updateUser(state.editingUserId, payload); notify('Usuario actualizado.'); }
     else { await api.createUser(payload); notify('Usuario creado.'); }
     resetUserForm(); await loadUsers();
@@ -1045,7 +1557,12 @@ els.companyForm?.addEventListener('submit', async (e) => {
   if (!state.token) return showLogin();
   try {
     const data = await api.me(); state.user = data.user; showDashboard();
-    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); await loadSchedules(''); await loadNotifications(); await loadFleet(); resetReportForm(); resetCompanyForm();
+    await Promise.allSettled([loadCompanies(), loadGarantias(), loadNotifications()]);
+    if (isRole('admin')) await Promise.allSettled([loadUsers(), loadRequests()]);
+    if (isRole('admin','operativo','supervisor','supervisor_flotas','operador')) await Promise.allSettled([loadSchedules('')]);
+    if (isRole('admin','operativo','supervisor_flotas')) await Promise.allSettled([loadFleet()]);
+    if (isRole('admin','supervisor_flotas')) await Promise.allSettled([cargarSolicitudesIndependientes(), loadPartsPending(true)]);
+    resetReportForm(); resetCompanyForm(); resetFleetForm();
   } catch {
     localStorage.removeItem('carlabToken'); state.token = ''; showLogin();
   }
@@ -1055,11 +1572,17 @@ els.companyForm?.addEventListener('submit', async (e) => {
 setInterval(async () => {
   if (!state.token || !state.user) return;
   try {
-    const me = await api.me();
-    state.user = me.user;
     await loadNotifications();
-    if (state.activePanel === 'schedule') await loadSchedules('');
-    if (state.activePanel === 'fleet' || state.user.role === 'supervisor_flotas') await loadFleet();
-    await loadGarantias();
+    if (['board','analytics','history'].includes(state.activePanel)) await Promise.allSettled([loadGarantias()]);
+    if (state.activePanel === 'schedule') await Promise.allSettled([loadSchedules('')]);
+    if (state.activePanel === 'fleet') await Promise.allSettled([loadFleet()]);
+    if (state.activePanel === 'parts') await Promise.allSettled([loadPartsPending(true)]);
+    renderExecutiveDeck();
   } catch {}
-}, 5000);
+}, 15000);
+window.guardarCostoAdmin = guardarCostoAdmin;
+window.eliminarCostoAdmin = eliminarCostoAdmin;
+
+
+
+

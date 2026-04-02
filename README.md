@@ -1,44 +1,26 @@
-# CARLAB CLOUD V2 | Fase 2
+# CARLAB CLOUD REBUILD 1
 
-Versión sencilla y lista para internet del flujo de garantías con usuarios y roles.
+Reconstrucción sobre la base estable de rescate, enfocada en mantener lo que ya funciona y elevar la experiencia visual y operativa para Render.
 
-## Qué trae
-- Login
-- Roles: admin, operador, operativo, supervisor
-- Operador crea reportes con evidencias, refacción y firma
-- Operativo acepta, rechaza o deja pendiente
-- Operativo mueve el flujo a en proceso, espera refacción o terminada
-- Supervisor solo ve
-- Admin crea usuarios
-- Historial básico por movimiento
-- PDF por reporte
-- PostgreSQL central para que abra donde abra se vea lo mismo
+## Qué trae en esta iteración
+- Cabina administrativa y operativa más limpia
+- Centro de mando con métricas vivas
+- Vista de reportes con lectura más ejecutiva
+- Flotas y refacciones integradas a la misma línea visual
+- Auto refresco inteligente para tablero, agenda, flotas y refacciones
+- Misma base funcional de auth, roles, garantías, agenda y WhatsApp
+
+## Roles
+- Admin: control total
+- Operativo: validación y flujo operativo
+- Supervisor: consulta corporativa
+- Supervisor de flotas: enfoque en unidades, historial y refacciones
+- Operador: captura directa y seguimiento
 
 ## Acceso inicial
 Al primer deploy se crea este admin automático:
 - Correo: `admin@carlab.local`
 - Contraseña: `Admin123*`
-
-Cámbialo creando tus usuarios reales desde el panel.
-
-## Roles
-### Operador
-- crea reportes
-- ve solo sus reportes
-
-### Operativo
-- ve todo
-- acepta, rechaza o deja pendiente
-- cambia estatus operativo
-
-### Supervisor
-- ve todo
-- no modifica
-
-### Admin
-- ve todo
-- crea usuarios
-- puede revisar igual que operativo
 
 ## Variables de entorno
 - `DATABASE_URL`
@@ -48,22 +30,19 @@ Cámbialo creando tus usuarios reales desde el panel.
 - `ADMIN_NAME`
 - `ADMIN_EMAIL`
 - `ADMIN_PASSWORD`
+- Variables de Twilio/WhatsApp si ya las usas en producción
 
 ## Correr local
 ```bash
 npm install
-cp .env.example .env
-# edita .env si quieres
 npm start
 ```
 
 ## Deploy en Render
-1. Sube esta carpeta a GitHub.
-2. En Render usa **New + → Blueprint**.
-3. Selecciona el repo.
-4. Espera a que cree app + PostgreSQL.
-5. Entra con el admin inicial.
+1. Sube esta carpeta al repo.
+2. Haz deploy con `render.yaml` o usa Blueprint.
+3. Verifica variables de entorno y conexión PostgreSQL.
+4. Entra con el admin inicial y revisa cabinas por rol.
 
-## Nota práctica
-Esta fase 1 está hecha para ser fácil de levantar y operar.
-No trae permisos rebuscados ni módulos extras. Solo lo necesario para que jale bien.
+## Línea de construcción
+Esta versión ya va orientada a reconstrucción precisa: mejor lectura visual, mejor centro de mando y base lista para seguir con flotas, refacciones y permisos finos sin volver a la versión azul vieja.
