@@ -84,6 +84,18 @@ function buildWhatsappFrom(raw) {
   return value.startsWith('+') ? `whatsapp:${value}` : `whatsapp:+${value.replace(/^\+?/, '')}`;
 }
 
+function computeCommercialTotals(items = [], discount = 0, iva = 0, anticipo = 0) {
+  const subtotal = Number(items.reduce((sum, item) => sum + Number(item.total || (Number(item.qty || 0) * Number(item.unitPrice || item.unit_price || 0)) || 0), 0).toFixed(2));
+  const safeDiscount = Math.max(0, Number(discount || 0));
+  const base = Math.max(0, subtotal - safeDiscount);
+  const ivaPercent = Math.max(0, Number(iva || 0));
+  const ivaAmount = Number((base * (ivaPercent / 100)).toFixed(2));
+  const total = Number((base + ivaAmount).toFixed(2));
+  const safeAnticipo = Math.max(0, Number(anticipo || 0));
+  const saldo = Number(Math.max(0, total - safeAnticipo).toFixed(2));
+  return { subtotal, discount: Number(safeDiscount.toFixed(2)), iva: ivaPercent, ivaAmount, total, anticipo: Number(safeAnticipo.toFixed(2)), saldo };
+}
+
 async function sendWhatsAppTemplate({ telefono, contentSid, variables }) {
   const from = buildWhatsappFrom(TWILIO_WHATSAPP_NUMBER);
   if (!twilioClient || !from || !contentSid) return;

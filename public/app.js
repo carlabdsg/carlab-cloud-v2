@@ -36,6 +36,7 @@ const state = {
   directSales: [],
   selectedQuoteId: '',
   directSaleDraftPartId: '',
+  quoteDrafts: {},
 };
 
 const api = {
@@ -578,8 +579,8 @@ function showDashboard() {
     els.navRequestsBtn?.classList.add('hidden');
     els.navCompaniesBtn?.classList.add('hidden');
     els.navNewReportBtn?.classList.add('hidden');
-    els.navStockBtn?.classList.add('hidden');
-    els.navCobranzaBtn?.classList.add('hidden');
+    if (els.navStockBtn) { els.navStockBtn.classList.add('hidden'); els.navStockBtn.style.display = 'none'; }
+    if (els.navCobranzaBtn) { els.navCobranzaBtn.classList.add('hidden'); els.navCobranzaBtn.style.display = 'none'; }
   }
   els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas'));
   updateHeaderForRole(); switchPanel(state.user?.role === 'operador' ? 'report' : (state.user?.role === 'supervisor_flotas' ? 'fleet' : 'board'));
@@ -1357,7 +1358,6 @@ function quotePaymentBadge(status) {
 function salePaymentBadge(status) {
   return ({ pendiente:'badge-review', pagado_parcial:'badge-progress', pagada:'badge-done', cancelada:'badge-rejected' })[status] || 'badge-info';
 }
-function selectedQuote() { return state.cobranzaQuotes.find(q => q.id === state.selectedQuoteId) || null; }
 
 async function loadCobranza(force = false) {
   if (!isRole('admin')) return;
@@ -1414,6 +1414,94 @@ function renderCobranza() {
   }
 }
 
+
+function selectedQuote() { return state.cobranzaQuotes.find(q => q.id === state.selectedQuoteId) || null; }
+function cloneQuoteItems(items = []) {
+  return (items || []).map(item => ({
+    id: item.id || '',
+    type: item.type || 'extra',
+    description: item.description || '',
+    qty: Number(item.qty || 0),
+    unitPrice: Number(item.unitPrice || item.unit_price || 0),
+    total: Number(item.total || 0),
+    stockPartId: item.stockPartId || item.stock_part_id || ''
+  }));
+}
+function ensureQuoteDraft(quote) {
+  if (!quote) return null;
+  if (!state.quoteDrafts[quote.id]) {
+    state.quoteDrafts[quote.id] = {
+      companyName: quote.companyName || '',
+      unitNumber: quote.unitNumber || '',
+      clientName: quote.clientName || '',
+      clientPhone: quote.clientPhone || '',
+      status: quote.status || 'borrador',
+      paymentStatus: quote.paymentStatus || 'pendiente_pago',
+      discount: Number(quote.discount || 0),
+      iva: Number(quote.iva || 0),
+      anticipo: Number(quote.anticipo || 0),
+      paymentMethod: quote.paymentMethod || '',
+      paymentReference: quote.paymentReference || '',
+      dueAt: quote.dueAt ? String(quote.dueAt).slice(0,10) : '',
+      notes: quote.notes || '',
+      items: cloneQuoteItems(quote.items?.length ? quote.items : [{ type:'mano_obra', description:'', qty:1, unitPrice:0, stockPartId:'' }])
+    };
+  }
+  return state.quoteDrafts[quote.id];
+}
+function computeQuoteDraftTotals(draft) {
+  const subtotal = Number((draft.items || []).reduce((sum, item) => sum + ((Number(item.qty || 0) * Number(item.unitPrice || 0)) || 0), 0).toFixed(2));
+  const discount = Math.max(0, Number(draft.discount || 0));
+  const base = Math.max(0, subtotal - discount);
+  const ivaPercent = Math.max(0, Number(draft.iva || 0));
+  const ivaAmount = Number((base * (ivaPercent / 100)).toFixed(2));
+  const total = Number((base + ivaAmount).toFixed(2));
+  const anticipo = Math.max(0, Number(draft.anticipo || 0));
+  const saldo = Number(Math.max(0, total - anticipo).toFixed(2));
+  return { subtotal, total, saldo, ivaAmount, discount, anticipo };
+}
+function syncQuoteDraftFromDom(quoteId) {
+  const quote = state.cobranzaQuotes.find(q => q.id === quoteId);
+  const draft = ensureQuoteDraft(quote);
+  if (!draft) return null;
+  draft.companyName = document.getElementById('quoteCompanyName')?.value || '';
+  draft.unitNumber = document.getElementById('quoteUnitNumber')?.value || '';
+  draft.clientName = document.getElementById('quoteClientName')?.value || '';
+  draft.clientPhone = document.getElementById('quoteClientPhone')?.value || '';
+  draft.status = document.getElementById('quoteStatus')?.value || 'borrador';
+  draft.paymentStatus = document.getElementById('quotePaymentStatus')?.value || 'pendiente_pago';
+  draft.discount = Number(document.getElementById('quoteDiscount')?.value || 0);
+  draft.iva = Number(document.getElementById('quoteIva')?.value || 0);
+  draft.anticipo = Number(document.getElementById('quoteAnticipo')?.value || 0);
+  draft.paymentMethod = document.getElementById('quotePaymentMethod')?.value || '';
+  draft.paymentReference = document.getElementById('quotePaymentReference')?.value || '';
+  draft.dueAt = document.getElementById('quoteDueAt')?.value || '';
+  draft.notes = document.getElementById('quoteNotes')?.value || '';
+  draft.items = [...document.querySelectorAll('#quoteItemsTbody tr')].map((row, index) => ({
+    id: row.dataset.quoteItemId || '',
+    type: row.querySelector(`[data-quote-type="${index}"]`)?.value || 'extra',
+    description: row.querySelector(`[data-quote-description="${index}"]`)?.value || '',
+    qty: Number(row.querySelector(`[data-quote-qty="${index}"]`)?.value || 0),
+    unitPrice: Number(row.querySelector(`[data-quote-price="${index}"]`)?.value || 0),
+    stockPartId: row.querySelector(`[data-quote-stock="${index}"]`)?.value || ''
+  }));
+  draft.items.forEach(item => { item.total = Number(((Number(item.qty || 0) * Number(item.unitPrice || 0)) || 0).toFixed(2)); });
+  return draft;
+}
+function updateQuoteTotalsPreview(quoteId) {
+  const draft = syncQuoteDraftFromDom(quoteId);
+  if (!draft) return;
+  const totals = computeQuoteDraftTotals(draft);
+  document.querySelectorAll('#quoteItemsTbody tr').forEach((row, index) => {
+    const item = draft.items[index];
+    const totalEl = row.querySelector('[data-quote-row-total]');
+    if (totalEl) totalEl.textContent = money(item?.total || 0);
+  });
+  const s = document.getElementById('quoteSubtotalPreview'); if (s) s.textContent = money(totals.subtotal);
+  const t = document.getElementById('quoteTotalPreview'); if (t) t.textContent = money(totals.total);
+  const sd = document.getElementById('quoteSaldoPreview'); if (sd) sd.textContent = money(totals.saldo);
+}
+
 function renderQuoteDetail() {
   if (!els.cobranzaQuoteDetail) return;
   const quote = selectedQuote();
@@ -1423,13 +1511,13 @@ function renderQuoteDetail() {
   }
   const stockOptions = ['<option value="">Sin ligar a stock</option>', ...state.stockParts.map(part => `<option value="${part.id}">${escapeHtml(part.nombre)} · ${escapeHtml(part.sku || 'sin SKU')} · ${Number(part.stockActual || 0)} pzas</option>`)].join('');
   const itemsRows = (quote.items?.length ? quote.items : [{ type:'mano_obra', description:'', qty:1, unitPrice:0, stockPartId:'' }]).map((item, index) => `
-    <tr>
+    <tr data-quote-item-id="${escapeHtml(item.id || '')}">
       <td><select data-quote-type="${index}"><option value="mano_obra" ${item.type === 'mano_obra' ? 'selected' : ''}>Mano de obra</option><option value="refaccion" ${item.type === 'refaccion' ? 'selected' : ''}>Refacción</option><option value="extra" ${item.type === 'extra' ? 'selected' : ''}>Extra</option></select></td>
       <td><input data-quote-description="${index}" value="${escapeHtml(item.description || '')}" placeholder="Concepto" /></td>
       <td><input data-quote-qty="${index}" type="number" min="0" step="0.01" value="${Number(item.qty || 0)}" /></td>
       <td><input data-quote-price="${index}" type="number" min="0" step="0.01" value="${Number(item.unitPrice || 0)}" /></td>
       <td><select data-quote-stock="${index}">${stockOptions}</select></td>
-      <td><strong>${money(item.total || (Number(item.qty || 0) * Number(item.unitPrice || 0)))}</strong></td>
+      <td><strong data-quote-row-total>${money(item.total || (Number(item.qty || 0) * Number(item.unitPrice || 0)))}</strong></td>
       <td><button type="button" class="btn btn-ghost" data-quote-remove="${index}">×</button></td>
     </tr>`).join('');
   els.cobranzaQuoteDetail.innerHTML = `
@@ -1437,45 +1525,51 @@ function renderQuoteDetail() {
       <div class="quote-headline">
         <div>
           <div class="topbar-kicker">${escapeHtml(quote.reportFolio || quote.folio)}</div>
-          <h4>${escapeHtml(quote.companyName || 'Sin empresa')} · unidad ${escapeHtml(quote.unitNumber || '—')}</h4>
+          <h4>${escapeHtml(draft.companyName || 'Sin empresa')} · unidad ${escapeHtml(draft.unitNumber || '—')}</h4>
           <p class="muted">${escapeHtml(quote.reportDescription || 'Documento comercial basado en el reporte terminado.')}</p>
         </div>
         <div class="badge-stack"><span class="badge ${quoteStatusBadge(quote.status)}">${escapeHtml(quote.status.replaceAll('_',' '))}</span><span class="badge ${quotePaymentBadge(quote.paymentStatus)}">${escapeHtml(quote.paymentStatus.replaceAll('_',' '))}</span></div>
       </div>
       <div class="quote-meta-grid">
-        <label><span>Empresa</span><input id="quoteCompanyName" value="${escapeHtml(quote.companyName || '')}" /></label>
-        <label><span>Unidad</span><input id="quoteUnitNumber" value="${escapeHtml(quote.unitNumber || '')}" /></label>
-        <label><span>Cliente</span><input id="quoteClientName" value="${escapeHtml(quote.clientName || '')}" /></label>
-        <label><span>Teléfono</span><input id="quoteClientPhone" value="${escapeHtml(quote.clientPhone || '')}" /></label>
+        <label><span>Empresa</span><input id="quoteCompanyName" value="${escapeHtml(draft.companyName || '')}" /></label>
+        <label><span>Unidad</span><input id="quoteUnitNumber" value="${escapeHtml(draft.unitNumber || '')}" /></label>
+        <label><span>Cliente</span><input id="quoteClientName" value="${escapeHtml(draft.clientName || '')}" /></label>
+        <label><span>Teléfono</span><input id="quoteClientPhone" value="${escapeHtml(draft.clientPhone || '')}" /></label>
         <label><span>Estatus comercial</span><select id="quoteStatus"><option value="borrador">Borrador</option><option value="enviada">Enviada</option><option value="pendiente_autorizacion">Pendiente autorización</option><option value="autorizada">Autorizada</option><option value="rechazada">Rechazada</option><option value="cancelada">Cancelada</option></select></label>
         <label><span>Estatus de pago</span><select id="quotePaymentStatus"><option value="pendiente_pago">Pendiente pago</option><option value="anticipo_recibido">Anticipo recibido</option><option value="pago_parcial">Pago parcial</option><option value="pagada">Pagada</option><option value="cancelada">Cancelada</option></select></label>
-        <label><span>Descuento</span><input id="quoteDiscount" type="number" min="0" step="0.01" value="${Number(quote.discount || 0)}" /></label>
-        <label><span>IVA</span><input id="quoteIva" type="number" min="0" step="0.01" value="${Number(quote.iva || 0)}" /></label>
-        <label><span>Anticipo</span><input id="quoteAnticipo" type="number" min="0" step="0.01" value="${Number(quote.anticipo || 0)}" /></label>
-        <label><span>Método de pago</span><input id="quotePaymentMethod" value="${escapeHtml(quote.paymentMethod || '')}" placeholder="Transferencia / efectivo" /></label>
-        <label><span>Referencia</span><input id="quotePaymentReference" value="${escapeHtml(quote.paymentReference || '')}" placeholder="Folio bancario o nota" /></label>
-        <label><span>Vigencia</span><input id="quoteDueAt" type="date" value="${quote.dueAt ? String(quote.dueAt).slice(0,10) : ''}" /></label>
+        <label><span>Descuento</span><input id="quoteDiscount" type="number" min="0" step="0.01" value="${Number(draft.discount || 0)}" /></label>
+        <label><span>IVA</span><input id="quoteIva" type="number" min="0" step="0.01" value="${Number(draft.iva || 0)}" /></label>
+        <label><span>Anticipo</span><input id="quoteAnticipo" type="number" min="0" step="0.01" value="${Number(draft.anticipo || 0)}" /></label>
+        <label><span>Método de pago</span><input id="quotePaymentMethod" value="${escapeHtml(draft.paymentMethod || '')}" placeholder="Transferencia / efectivo" /></label>
+        <label><span>Referencia</span><input id="quotePaymentReference" value="${escapeHtml(draft.paymentReference || '')}" placeholder="Folio bancario o nota" /></label>
+        <label><span>Vigencia</span><input id="quoteDueAt" type="date" value="${draft.dueAt || ''}" /></label>
       </div>
-      <label class="quote-notes"><span>Notas comerciales</span><textarea id="quoteNotes" rows="3">${escapeHtml(quote.notes || '')}</textarea></label>
+      <label class="quote-notes"><span>Notas comerciales</span><textarea id="quoteNotes" rows="3">${escapeHtml(draft.notes || '')}</textarea></label>
       <div class="quote-items-head"><strong>Conceptos del cobro</strong><button id="quoteAddItemBtn" class="btn btn-secondary" type="button">Agregar concepto</button></div>
       <div class="quote-table-wrap"><table class="quote-items-table"><thead><tr><th>Tipo</th><th>Descripción</th><th>Cant.</th><th>P. unitario</th><th>Stock</th><th>Total</th><th></th></tr></thead><tbody id="quoteItemsTbody">${itemsRows}</tbody></table></div>
-      <div class="quote-totals-strip"><article><span>Subtotal</span><strong>${money(quote.subtotal || 0)}</strong></article><article><span>Total</span><strong>${money(quote.total || 0)}</strong></article><article><span>Saldo</span><strong>${money(quote.saldo || 0)}</strong></article></div>
+      <div class="quote-totals-strip"><article><span>Subtotal</span><strong id="quoteSubtotalPreview">${money(totals.subtotal || 0)}</strong></article><article><span>Total</span><strong id="quoteTotalPreview">${money(totals.total || 0)}</strong></article><article><span>Saldo</span><strong id="quoteSaldoPreview">${money(totals.saldo || 0)}</strong></article></div>
       <div class="stock-form-actions"><button id="quotePdfBtn" class="btn btn-ghost" type="button">PDF comercial</button><button id="quoteSaveBtn" class="btn btn-primary" type="button">Guardar cobranza</button></div>
     </div>`;
-  document.getElementById('quoteStatus').value = quote.status || 'borrador';
-  document.getElementById('quotePaymentStatus').value = quote.paymentStatus || 'pendiente_pago';
-  quote.items?.forEach((item, index) => {
+  document.getElementById('quoteStatus').value = draft.status || 'borrador';
+  document.getElementById('quotePaymentStatus').value = draft.paymentStatus || 'pendiente_pago';
+  draft.items?.forEach((item, index) => {
     const select = document.querySelector(`[data-quote-stock="${index}"]`);
     if (select) select.value = item.stockPartId || '';
   });
   document.querySelectorAll('[data-quote-remove]').forEach(btn => btn.addEventListener('click', () => {
-    quote.items.splice(Number(btn.dataset.quoteRemove), 1);
+    draft.items.splice(Number(btn.dataset.quoteRemove), 1);
     renderQuoteDetail();
   }));
   document.getElementById('quoteAddItemBtn')?.addEventListener('click', () => {
-    quote.items.push({ type:'extra', description:'', qty:1, unitPrice:0, stockPartId:'' });
+    syncQuoteDraftFromDom(quote.id);
+    draft.items.push({ type:'extra', description:'', qty:1, unitPrice:0, stockPartId:'' });
     renderQuoteDetail();
   });
+  document.querySelectorAll('#quoteCompanyName,#quoteUnitNumber,#quoteClientName,#quoteClientPhone,#quoteStatus,#quotePaymentStatus,#quoteDiscount,#quoteIva,#quoteAnticipo,#quotePaymentMethod,#quotePaymentReference,#quoteDueAt,#quoteNotes,#quoteItemsTbody input,#quoteItemsTbody select').forEach(el => {
+    el.addEventListener('input', () => updateQuoteTotalsPreview(quote.id));
+    el.addEventListener('change', () => updateQuoteTotalsPreview(quote.id));
+  });
+  updateQuoteTotalsPreview(quote.id);
   document.getElementById('quotePdfBtn')?.addEventListener('click', () => exportCommercialPdf(quote));
   document.getElementById('quoteSaveBtn')?.addEventListener('click', saveSelectedQuote);
 }
@@ -1495,24 +1589,30 @@ async function saveSelectedQuote() {
   const quote = selectedQuote();
   if (!quote) return;
   try {
-    const items = quoteItemsFromDom();
+    const draft = syncQuoteDraftFromDom(quote.id);
+    const items = (draft.items || []).filter(item => item.description.trim() && Number(item.qty || 0) > 0).map(item => ({
+      ...item,
+      total: Number(((Number(item.qty || 0) * Number(item.unitPrice || 0)) || 0).toFixed(2))
+    }));
+    if (!items.length) throw new Error('Agrega al menos un concepto válido.');
     const payload = {
-      companyName: document.getElementById('quoteCompanyName')?.value || '',
-      unitNumber: document.getElementById('quoteUnitNumber')?.value || '',
-      clientName: document.getElementById('quoteClientName')?.value || '',
-      clientPhone: document.getElementById('quoteClientPhone')?.value || '',
-      status: document.getElementById('quoteStatus')?.value || 'borrador',
-      paymentStatus: document.getElementById('quotePaymentStatus')?.value || 'pendiente_pago',
-      discount: document.getElementById('quoteDiscount')?.value || 0,
-      iva: document.getElementById('quoteIva')?.value || 0,
-      anticipo: document.getElementById('quoteAnticipo')?.value || 0,
-      paymentMethod: document.getElementById('quotePaymentMethod')?.value || '',
-      paymentReference: document.getElementById('quotePaymentReference')?.value || '',
-      dueAt: document.getElementById('quoteDueAt')?.value || null,
-      notes: document.getElementById('quoteNotes')?.value || ''
+      companyName: draft.companyName || '',
+      unitNumber: draft.unitNumber || '',
+      clientName: draft.clientName || '',
+      clientPhone: draft.clientPhone || '',
+      status: draft.status || 'borrador',
+      paymentStatus: draft.paymentStatus || 'pendiente_pago',
+      discount: draft.discount || 0,
+      iva: draft.iva || 0,
+      anticipo: draft.anticipo || 0,
+      paymentMethod: draft.paymentMethod || '',
+      paymentReference: draft.paymentReference || '',
+      dueAt: draft.dueAt || null,
+      notes: draft.notes || ''
     };
     await api.replaceQuoteItems(quote.id, { items, discount: payload.discount, iva: payload.iva, anticipo: payload.anticipo });
     await api.updateQuote(quote.id, payload);
+    delete state.quoteDrafts[quote.id];
     notify('Cobranza guardada.');
     await loadCobranza(true);
   } catch (error) {
@@ -1540,57 +1640,92 @@ function launchDirectSaleWithPart(partId) {
   }, 80);
 }
 
-function exportCommercialPdf(quote) {
+async function exportCommercialPdf(quote) {
   try {
+    const report = state.garantias.find(item => item.id === quote.garantiaId) || null;
+    const draft = state.quoteDrafts[quote.id] || ensureQuoteDraft(quote) || quote;
+    const items = (draft.items || quote.items || []).map(item => ({ ...item, total: Number(((Number(item.qty || 0) * Number(item.unitPrice || 0)) || item.total || 0).toFixed(2)) }));
+    const totals = computeQuoteDraftTotals({ items, discount: Number(draft.discount || 0), iva: Number(draft.iva || 0), anticipo: Number(draft.anticipo || 0) });
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit:'pt', format:'letter' });
-    const margin = 42;
-    let y = 52;
+    const doc = new jsPDF();
+    const logo = await getImageData('/logo.jpg');
+    let y = 20;
+    const textLine = (text, gap = 7, x = 14) => { doc.text(String(text), x, y); y += gap; };
+
+    doc.setFillColor(255, 255, 255); doc.rect(0, 0, 210, 297, 'F');
+    if (logo) await addPdfImage(doc, logo, 14, 12, 42, 42);
+    doc.setTextColor(30, 30, 30);
+    doc.setFontSize(18); doc.text('REPORTE DE GARANTÍA / COBRO', 62, 24);
+    doc.setFontSize(10); doc.setTextColor(100, 100, 100); doc.text('CARLAB SERVICIOS INTEGRALES', 62, 31);
+    doc.setFontSize(10); doc.setTextColor(120, 120, 120); doc.text(`Folio: ${quote.reportFolio || report?.folio || '—'}`, 196, 20, { align: 'right' });
+    doc.text(`Cobranza: ${quote.folio || '—'}`, 196, 27, { align: 'right' });
+
+    const item = report || {};
+    y = 50;
+    doc.setFontSize(11); doc.setTextColor(40, 40, 40);
+    doc.roundedRect(14, 44, 182, 38, 4, 4);
+    doc.text(`Empresa: ${draft.companyName || item.empresa || '—'}`, 18, 54);
+    doc.text(`Unidad: ${draft.unitNumber || item.numeroEconomico || '—'}`, 18, 62);
+    doc.text(`Modelo: ${item.modelo || '—'}`, 18, 70);
+    doc.text(`Obra: ${item.numeroObra || '—'}`, 105, 54);
+    doc.text(`KM: ${item.kilometraje || '—'}`, 105, 62);
+    doc.text(`Estatus: ${(item.estatusValidacion || '—')} / ${(item.estatusOperativo || '—')}`, 105, 70);
+
+    y = 92;
+    doc.roundedRect(14, 86, 182, 24, 4, 4);
+    doc.text(`Nombre: ${draft.clientName || item.contactoNombre || '—'}`, 18, 96);
+    doc.text(`Teléfono: ${draft.clientPhone || item.telefono || '—'}`, 105, 96);
+    doc.text(`Reportó: ${item.reportadoPorNombre || '—'}`, 18, 104);
+    doc.text(`Revisó: ${item.revisadoPorNombre || '—'}`, 105, 104);
+
+    y = 122;
+    doc.setFontSize(12); doc.setTextColor(20, 20, 20); textLine('Descripción de la falla', 8);
+    doc.setFontSize(10); doc.setTextColor(55,55,55);
+    let split = doc.splitTextToSize(item.descripcionFallo || quote.reportDescription || '—', 178);
+    doc.text(split, 14, y); y += split.length * 6 + 6;
+
+    const images = [ ...(item.evidencias || []), ...(item.evidenciasRefaccion || []) ];
+    if (images.length) {
+      y = ensurePdfSpace(doc, y, 52); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Evidencias fotográficas', 8);
+      let x = 14; let rowHeight = 0;
+      for (const src of images.slice(0, 6)) {
+        if (x > 136) { x = 14; y += rowHeight + 8; rowHeight = 0; }
+        y = ensurePdfSpace(doc, y, 48);
+        doc.roundedRect(x, y, 56, 42, 3, 3);
+        await addPdfImage(doc, src, x + 1, y + 1, 54, 40);
+        x += 60; rowHeight = Math.max(rowHeight, 42);
+      }
+      y += rowHeight + 8;
+    }
+    if (item.firma) {
+      y = ensurePdfSpace(doc, y, 42); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Firma', 8);
+      doc.roundedRect(14, y, 90, 28, 3, 3); await addPdfImage(doc, item.firma, 16, y + 2, 86, 24); y += 34;
+    }
+
+    y = ensurePdfSpace(doc, y, 60);
+    doc.setFontSize(13); doc.setTextColor(20,20,20); textLine('Propuesta económica', 9);
+    doc.setFontSize(10); doc.setTextColor(55,55,55);
+    for (const row of items) {
+      const line = `${row.type.replace('_',' ')} · ${row.description} · ${Number(row.qty || 0)} x ${money(row.unitPrice || 0)} = ${money(row.total || 0)}`;
+      split = doc.splitTextToSize(line, 178);
+      y = ensurePdfSpace(doc, y, split.length * 6 + 8);
+      doc.text(split, 14, y); y += split.length * 6 + 6;
+    }
+    y += 4;
     doc.setFont('helvetica','bold');
-    doc.setFontSize(22);
-    doc.text('CARLAB CLOUD · AUTORIZACIÓN DE COBRO', margin, y);
-    y += 22;
-    doc.setFontSize(10);
+    doc.text(`Subtotal: ${money(totals.subtotal || 0)}`, 14, y); y += 7;
+    doc.text(`Descuento: ${money(totals.discount || 0)} · IVA ${Number(draft.iva || 0)}%`, 14, y); y += 7;
+    doc.text(`Total: ${money(totals.total || 0)} · Anticipo: ${money(totals.anticipo || 0)} · Saldo: ${money(totals.saldo || 0)}`, 14, y); y += 10;
     doc.setFont('helvetica','normal');
-    doc.text(`Folio comercial: ${quote.folio || '—'} · Reporte base: ${quote.reportFolio || '—'}`, margin, y);
-    y += 16;
-    doc.text(`Empresa: ${quote.companyName || '—'} · Unidad: ${quote.unitNumber || '—'}`, margin, y);
-    y += 16;
-    doc.text(`Cliente: ${quote.clientName || '—'} · Tel: ${quote.clientPhone || '—'}`, margin, y);
-    y += 22;
-    doc.setFont('helvetica','bold');
-    doc.text('Resumen técnico', margin, y);
-    y += 14;
-    doc.setFont('helvetica','normal');
-    const desc = doc.splitTextToSize(quote.reportDescription || 'Sin descripción técnica.', 520);
-    doc.text(desc, margin, y);
-    y += desc.length * 12 + 16;
-    doc.setFont('helvetica','bold');
-    doc.text('Conceptos', margin, y); y += 16;
-    doc.setFont('helvetica','normal');
-    (quote.items || []).forEach(item => {
-      const line = `${item.type.replace('_',' ')} · ${item.description} · ${Number(item.qty || 0)} x ${money(item.unitPrice || 0)} = ${money(item.total || 0)}`;
-      const parts = doc.splitTextToSize(line, 520);
-      doc.text(parts, margin, y);
-      y += parts.length * 12 + 8;
-    });
-    y += 8;
-    doc.setFont('helvetica','bold');
-    doc.text(`Subtotal: ${money(quote.subtotal || 0)}`, margin, y); y += 14;
-    doc.text(`Descuento: ${money(quote.discount || 0)} · IVA: ${money(quote.iva || 0)}`, margin, y); y += 14;
-    doc.text(`Total: ${money(quote.total || 0)} · Anticipo: ${money(quote.anticipo || 0)} · Saldo: ${money(quote.saldo || 0)}`, margin, y); y += 18;
-    doc.setFont('helvetica','normal');
-    const notes = doc.splitTextToSize(quote.notes || 'Documento enviado para autorización y pago.', 520);
-    doc.text(notes, margin, y);
-    y += notes.length * 12 + 16;
-    doc.setFont('helvetica','bold');
-    doc.text(`Estatus: ${(quote.status || '').replaceAll('_',' ')} · Pago: ${(quote.paymentStatus || '').replaceAll('_',' ')}`, margin, y);
-    doc.save(`${quote.folio || 'cobro'}_${quote.unitNumber || 'unidad'}.pdf`);
+    split = doc.splitTextToSize(draft.notes || 'Documento enviado para autorización y pago.', 178);
+    doc.text(split, 14, y); y += split.length * 6 + 6;
+    doc.text(`Estatus comercial: ${(draft.status || quote.status || 'borrador').replaceAll('_',' ')} · Pago: ${(draft.paymentStatus || quote.paymentStatus || 'pendiente_pago').replaceAll('_',' ')}`, 14, y);
+
+    doc.save(`${quote.folio || 'cobro'}_${draft.unitNumber || item.numeroEconomico || 'unidad'}.pdf`);
   } catch (error) {
     notify('No se pudo generar el PDF comercial.', true);
   }
 }
-
 
 async function loadFleet() {
   try {
