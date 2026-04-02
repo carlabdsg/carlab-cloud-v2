@@ -1509,8 +1509,25 @@ function renderQuoteDetail() {
     els.cobranzaQuoteDetail.innerHTML = '<div class="muted">Selecciona una cobranza para editar conceptos, estatus y PDF comercial.</div>';
     return;
   }
+  const draft = ensureQuoteDraft(quote) || {
+    items: [{ type:'mano_obra', description:'', qty:1, unitPrice:0, stockPartId:'' }],
+    companyName: quote.companyName || quote.empresa || '',
+    unitNumber: quote.unitNumber || quote.numeroEconomico || '',
+    clientName: quote.clientName || quote.contactoNombre || '',
+    clientPhone: quote.clientPhone || quote.telefono || '',
+    status: quote.status || 'borrador',
+    paymentStatus: quote.paymentStatus || 'pendiente_pago',
+    discount: Number(quote.discount || 0),
+    iva: Number(quote.iva || 0),
+    anticipo: Number(quote.anticipo || 0),
+    paymentMethod: quote.paymentMethod || '',
+    paymentReference: quote.paymentReference || '',
+    dueAt: quote.dueAt || '',
+    notes: quote.notes || ''
+  };
+  const totals = computeQuoteDraftTotals(draft);
   const stockOptions = ['<option value="">Sin ligar a stock</option>', ...state.stockParts.map(part => `<option value="${part.id}">${escapeHtml(part.nombre)} · ${escapeHtml(part.sku || 'sin SKU')} · ${Number(part.stockActual || 0)} pzas</option>`)].join('');
-  const itemsRows = (quote.items?.length ? quote.items : [{ type:'mano_obra', description:'', qty:1, unitPrice:0, stockPartId:'' }]).map((item, index) => `
+  const itemsRows = ((draft.items && draft.items.length) ? draft.items : [{ type:'mano_obra', description:'', qty:1, unitPrice:0, stockPartId:'' }]).map((item, index) => `
     <tr data-quote-item-id="${escapeHtml(item.id || '')}">
       <td><select data-quote-type="${index}"><option value="mano_obra" ${item.type === 'mano_obra' ? 'selected' : ''}>Mano de obra</option><option value="refaccion" ${item.type === 'refaccion' ? 'selected' : ''}>Refacción</option><option value="extra" ${item.type === 'extra' ? 'selected' : ''}>Extra</option></select></td>
       <td><input data-quote-description="${index}" value="${escapeHtml(item.description || '')}" placeholder="Concepto" /></td>
