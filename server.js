@@ -338,6 +338,86 @@ function mapStockMovement(row) {
   };
 }
 
+function mapWorkQuote(row) {
+  const items = Array.isArray(row.items) ? row.items : [];
+  return {
+    id: row.id,
+    folio: row.folio || '',
+    garantiaId: row.garantia_id || '',
+    companyName: row.company_name || '',
+    unitNumber: row.unit_number || '',
+    clientName: row.client_name || '',
+    clientPhone: row.client_phone || '',
+    status: row.status || 'borrador',
+    paymentStatus: row.payment_status || 'pendiente_pago',
+    subtotal: Number(row.subtotal || 0),
+    discount: Number(row.discount || 0),
+    iva: Number(row.iva || 0),
+    total: Number(row.total || 0),
+    anticipo: Number(row.anticipo || 0),
+    saldo: Number(row.saldo || 0),
+    notes: row.notes || '',
+    paymentMethod: row.payment_method || '',
+    paymentReference: row.payment_reference || '',
+    dueAt: row.due_at || null,
+    sentAt: row.sent_at || null,
+    approvedAt: row.approved_at || null,
+    paidAt: row.paid_at || null,
+    createdBy: row.created_by || '',
+    createdAt: row.created_at || null,
+    updatedAt: row.updated_at || null,
+    reportFolio: row.report_folio || '',
+    reportDescription: row.report_description || '',
+    reportValidation: row.report_validation || '',
+    reportOperational: row.report_operational || '',
+    items: items.map(item => ({
+      id: item.id,
+      quoteId: item.quote_id || row.id,
+      type: item.type || 'extra',
+      description: item.description || '',
+      qty: Number(item.qty || 0),
+      unitPrice: Number(item.unit_price || item.unitPrice || 0),
+      total: Number(item.total || 0),
+      stockPartId: item.stock_part_id || item.stockPartId || '',
+      stockPartName: item.stock_part_name || item.stockPartName || '',
+      createdAt: item.created_at || null,
+    })),
+  };
+}
+
+function mapDirectSale(row) {
+  const items = Array.isArray(row.items) ? row.items : [];
+  return {
+    id: row.id,
+    folio: row.folio || '',
+    customerName: row.customer_name || '',
+    customerPhone: row.customer_phone || '',
+    companyName: row.company_name || '',
+    unitNumber: row.unit_number || '',
+    status: row.status || 'cerrada',
+    paymentStatus: row.payment_status || 'pendiente',
+    subtotal: Number(row.subtotal || 0),
+    total: Number(row.total || 0),
+    notes: row.notes || '',
+    paymentMethod: row.payment_method || '',
+    paymentReference: row.payment_reference || '',
+    createdBy: row.created_by || '',
+    createdAt: row.created_at || null,
+    updatedAt: row.updated_at || null,
+    items: items.map(item => ({
+      id: item.id,
+      saleId: item.sale_id || row.id,
+      stockPartId: item.stock_part_id || '',
+      description: item.description || '',
+      qty: Number(item.qty || 0),
+      unitPrice: Number(item.unit_price || item.unitPrice || 0),
+      total: Number(item.total || 0),
+      stockPartName: item.stock_part_name || '',
+      createdAt: item.created_at || null,
+    })),
+  };
+}
+
 
 function authRequired(req, res, next) {
   const auth = req.headers.authorization || '';

@@ -579,6 +579,7 @@ function showDashboard() {
     els.navCompaniesBtn?.classList.add('hidden');
     els.navNewReportBtn?.classList.add('hidden');
     els.navStockBtn?.classList.add('hidden');
+    els.navCobranzaBtn?.classList.add('hidden');
   }
   els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas'));
   updateHeaderForRole(); switchPanel(state.user?.role === 'operador' ? 'report' : (state.user?.role === 'supervisor_flotas' ? 'fleet' : 'board'));
