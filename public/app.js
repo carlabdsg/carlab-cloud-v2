@@ -108,7 +108,7 @@ function bind() {
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
     'topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistorySearchInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','partsPanel','partsRefreshBtn','partsSummary','partsList','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn',
-    'navFleetBtn','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas','fleetNewBtn','fleetCancelBtn','fleetFormBox','fleetSearchInput','fleetStatusFilter'
+    'navFleetBtn','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas','fleetNewBtn','fleetCancelBtn','fleetFormBox','fleetSearchInput','fleetStatusFilter','fleetOpsHub'
   ].forEach(id => els[id] = document.getElementById(id));
 }
 bind();
@@ -163,50 +163,6 @@ function fleetTagCampania(unit) {
 }
 function countBy(items, getter) {
   const map = new Map();
-
-  const inventorySection = document.createElement('section');
-  inventorySection.className = 'parts-inventory-wrap';
-  inventorySection.innerHTML = `
-    <div class="parts-history-grid">
-      <article class="parts-history-card">
-        <div class="parts-kicker">INVENTARIO</div>
-        <h4>Refacciones con stock</h4>
-        <div class="inventory-grid">
-          ${(state.inventoryParts || []).slice(0, 30).map(part => `
-            <div class="inventory-card">
-              <div class="inventory-thumb">${part.fotoUrl ? `<img src="${escapeHtml(part.fotoUrl)}" alt="${escapeHtml(part.nombre)}" />` : `<div class="inventory-thumb-empty">Sin foto</div>`}</div>
-              <div class="inventory-copy">
-                <strong>${escapeHtml(part.nombre || '')}</strong>
-                <span>${escapeHtml(part.numeroParte || 'Sin número de parte')}</span>
-                <span>Stock: ${Number(part.stockActual || 0)}</span>
-                <span>Compra: ${money(Number(part.costoCompra || 0))}</span>
-                <span>Venta: ${money(Number(part.precioVenta || 0))}</span>
-              </div>
-              <div class="inventory-actions">
-                ${isRole('admin') ? `<button class="btn btn-secondary" type="button" data-inv-edit="${part.id}">Editar</button><button class="btn btn-secondary" type="button" data-inv-entry="${part.id}">Entrada</button>` : ``}
-                ${isRole('admin','supervisor_flotas') ? `<button class="btn btn-primary" type="button" data-inv-install="${part.id}">Asignar / instalar</button>` : ``}
-              </div>
-            </div>
-          `).join('') || '<div class="parts-empty small">Sin inventario capturado.</div>'}
-        </div>
-      </article>
-      <article class="parts-history-card">
-        <div class="parts-kicker">KARDEX</div>
-        <h4>Entradas y salidas</h4>
-        <div class="parts-history-list">
-          ${(state.inventoryKardex || []).slice(0, 24).map(row => `
-            <div class="parts-history-row">
-              <strong>${escapeHtml(row.nombre || 'Refacción')}</strong>
-              <span>${escapeHtml(row.tipo || '')} · Cantidad: ${Number(row.cantidad || 0)}</span>
-              <span>${escapeHtml(row.empresa || '')}${row.numeroEconomico ? ' · Unidad ' + escapeHtml(row.numeroEconomico) : ''}</span>
-              <span>Stock: ${Number(row.stockResultante || 0)} · Compra: ${money(Number(row.costoCompra || 0))}${Number(row.precioVenta || 0) ? ' · Venta: ' + money(Number(row.precioVenta || 0)) : ''}</span>
-            </div>
-          `).join('') || '<div class="parts-empty small">Sin movimientos todavía.</div>'}
-        </div>
-      </article>
-    </div>
-  `;
-
   items.forEach(item => {
     const key = getter(item) || '—';
     map.set(key, (map.get(key) || 0) + 1);
@@ -492,7 +448,7 @@ function showDashboard() {
     els.navNewReportBtn?.classList.add('hidden');
   }
   els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas'));
-  updateHeaderForRole(); switchPanel(state.user?.role === 'operador' ? 'report' : 'board');
+  updateHeaderForRole(); switchPanel(state.user?.role === 'operador' ? 'report' : state.user?.role === 'supervisor_flotas' ? 'fleet' : 'board');
 }
 function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); document.body.classList.remove('executive-mode','operator-mode'); document.body.dataset.role=''; document.body.dataset.panel='login'; }
 
@@ -852,19 +808,11 @@ async function eliminarCostoAdmin(costId, unitId) {
 
 async function loadInventoryParts() {
   if (!isRole('admin','supervisor_flotas')) return;
-  try {
-    state.inventoryParts = await api.getInventoryParts();
-  } catch (error) {
-    state.inventoryParts = [];
-  }
+  try { state.inventoryParts = await api.getInventoryParts(); } catch { state.inventoryParts = []; }
 }
 async function loadInventoryKardex() {
   if (!isRole('admin','supervisor_flotas')) return;
-  try {
-    state.inventoryKardex = await api.getInventoryKardex();
-  } catch (error) {
-    state.inventoryKardex = [];
-  }
+  try { state.inventoryKardex = await api.getInventoryKardex(); } catch { state.inventoryKardex = []; }
 }
 async function crearRefaccionInventario() {
   try {
@@ -878,38 +826,34 @@ async function crearRefaccionInventario() {
     const stockMinimo = Number(window.prompt('Stock mínimo:', '0') || 0);
     const costoCompra = Number(window.prompt('Costo compra unitario:', '0') || 0);
     const precioVenta = Number(window.prompt('Precio venta manual:', '0') || 0);
-    const fotoUrl = window.prompt('Imagen de la refacción (pega imagen/base64 o URL, opcional):') || '';
+    const fotoUrl = window.prompt('Imagen opcional de la refacción (URL/base64):') || '';
     const notas = window.prompt('Notas (opcional):') || '';
     await api.createInventoryPart({ nombre, numeroParte, marca, categoria, proveedor, stockActual, stockMinimo, costoCompra, precioVenta, fotoUrl, notas });
     notify('Refacción agregada al inventario.');
     await Promise.all([loadInventoryParts(), loadInventoryKardex()]);
     renderPartsPending();
-  } catch (error) {
-    notify(error.message, true);
-  }
+  } catch (error) { notify(error.message, true); }
 }
 async function editarRefaccionInventario(item) {
   try {
-    const nombre = window.prompt('Nombre de la refacción:', item.nombre || '');
+    const nombre = window.prompt('Nombre:', item.nombre || '');
     if (!nombre) return;
     const numeroParte = window.prompt('Número de parte:', item.numeroParte || '') || '';
     const marca = window.prompt('Marca:', item.marca || '') || '';
     const categoria = window.prompt('Categoría:', item.categoria || '') || '';
     const proveedor = window.prompt('Proveedor:', item.proveedor || '') || '';
     const stockMinimo = Number(window.prompt('Stock mínimo:', String(item.stockMinimo || 0)) || 0);
-    const costoCompra = Number(window.prompt('Costo compra unitario:', String(item.costoCompra || 0)) || 0);
+    const costoCompra = Number(window.prompt('Costo compra:', String(item.costoCompra || 0)) || 0);
     const precioVenta = Number(window.prompt('Precio venta manual:', String(item.precioVenta || 0)) || 0);
-    const fotoUrl = window.prompt('Imagen de la refacción (URL/base64):', item.fotoUrl || '') || '';
+    const fotoUrl = window.prompt('Imagen (URL/base64):', item.fotoUrl || '') || '';
     const notas = window.prompt('Notas:', item.notas || '') || '';
     await api.updateInventoryPart(item.id, { nombre, numeroParte, marca, categoria, proveedor, stockMinimo, costoCompra, precioVenta, fotoUrl, notas, activo: true });
     notify('Refacción actualizada.');
     await Promise.all([loadInventoryParts(), loadInventoryKardex()]);
     renderPartsPending();
-  } catch (error) {
-    notify(error.message, true);
-  }
+  } catch (error) { notify(error.message, true); }
 }
-async function recibirInventario(item) {
+async function registrarEntradaInventario(item) {
   try {
     const cantidad = Number(window.prompt('Cantidad recibida:', '1') || 0);
     if (!cantidad) return;
@@ -921,9 +865,7 @@ async function recibirInventario(item) {
     notify('Entrada registrada.');
     await Promise.all([loadInventoryParts(), loadInventoryKardex()]);
     renderPartsPending();
-  } catch (error) {
-    notify(error.message, true);
-  }
+  } catch (error) { notify(error.message, true); }
 }
 async function instalarDesdeInventario(item) {
   try {
@@ -941,14 +883,79 @@ async function instalarDesdeInventario(item) {
     await api.installInventoryPart(item.id, { empresa, numeroEconomico, garantiaId, cantidad, costoCompra, precioVenta, instaladoPor, notas });
     notify('Refacción instalada y ligada a unidad.');
     await Promise.all([loadInventoryParts(), loadInventoryKardex(), loadPartsPending(true), loadFleet()]);
-    if (state.selectedFleetUnit?.unit?.numeroEconomico === numeroEconomico && state.selectedFleetUnit?.unit?.empresa === empresa) {
+    if (state.selectedFleetUnit?.unit?.empresa === empresa && state.selectedFleetUnit?.unit?.numeroEconomico === numeroEconomico) {
       state.selectedFleetUnit = await api.getFleetUnit(state.selectedFleetUnit.unit.id);
       renderFleetDetail();
     }
     renderPartsPending();
-  } catch (error) {
-    notify(error.message, true);
+  } catch (error) { notify(error.message, true); }
+}
+function renderFleetOpsHub(visibleUnits) {
+  if (!els.fleetOpsHub) return;
+  if (state.user?.role !== 'supervisor_flotas') {
+    els.fleetOpsHub.innerHTML = '';
+    els.fleetOpsHub.classList.add('hidden');
+    return;
   }
+  els.fleetOpsHub.classList.remove('hidden');
+  const all = Array.isArray(state.fleetUnits) ? state.fleetUnits : [];
+  const counts = { operando: 0, programada: 0, detenida: 0, en_taller: 0 };
+  all.forEach(unit => {
+    const sem = fleetSemaforo(unit);
+    if (counts[sem.key] !== undefined) counts[sem.key] += 1;
+  });
+  const total = all.length || 0;
+  const dominant = Object.entries(counts).sort((a,b) => b[1]-a[1])[0] || ['operando',0];
+  const dominantMap = {
+    operando: { label: 'Flota estable', cls: 'ok', tone: 'green' },
+    programada: { label: 'Carga por programar', cls: 'warn', tone: 'orange' },
+    detenida: { label: 'Pendientes críticos', cls: 'alert', tone: 'amber' },
+    en_taller: { label: 'Unidades en taller', cls: 'danger', tone: 'red' }
+  };
+  const dominantInfo = dominantMap[dominant[0]];
+  const activeFilter = els.fleetStatusFilter?.value || 'todos';
+  const bar = key => {
+    if (!total) return 0;
+    const pct = Math.round((counts[key] / total) * 100);
+    return Math.max(6, pct);
+  };
+  els.fleetOpsHub.innerHTML = `
+    <section class="ops-orbit-card ops-${dominantInfo.tone}">
+      <div class="ops-orbit-main">
+        <div class="ops-kicker">CENTRO DE OPERACIONES</div>
+        <h3>Supervisor de flotas</h3>
+        <p>Una cabina visual para leer presión operativa, unidades detenidas y piezas instaladas en tiempo real.</p>
+        <div class="ops-dominant-pill ${dominantInfo.cls}">
+          <span class="ops-dot"></span>
+          <strong>${dominantInfo.label}</strong>
+          <small>${dominant[1]} de ${total} unidades</small>
+        </div>
+      </div>
+      <div class="ops-radar-wrap">
+        <div class="ops-radar-track">
+          <span class="seg seg-green" style="width:${bar('operando')}%"></span>
+          <span class="seg seg-orange" style="width:${bar('programada')}%"></span>
+          <span class="seg seg-amber" style="width:${bar('detenida')}%"></span>
+          <span class="seg seg-red" style="width:${bar('en_taller')}%"></span>
+        </div>
+        <div class="ops-pills-grid">
+          <button type="button" class="ops-pill ${activeFilter === 'todos' ? 'active' : ''}" data-ops-filter="todos"><span>Total</span><strong>${total}</strong></button>
+          <button type="button" class="ops-pill green ${activeFilter === 'operando' ? 'active' : ''}" data-ops-filter="operando"><span>🟢 Sin pendiente</span><strong>${counts.operando}</strong></button>
+          <button type="button" class="ops-pill orange ${activeFilter === 'programada' ? 'active' : ''}" data-ops-filter="programada"><span>🟠 Programar</span><strong>${counts.programada}</strong></button>
+          <button type="button" class="ops-pill amber ${activeFilter === 'detenida' ? 'active' : ''}" data-ops-filter="detenida"><span>🟠 Refacción / detenida</span><strong>${counts.detenida}</strong></button>
+          <button type="button" class="ops-pill red ${activeFilter === 'en_taller' ? 'active' : ''}" data-ops-filter="en_taller"><span>🔴 Taller</span><strong>${counts.en_taller}</strong></button>
+        </div>
+      </div>
+    </section>
+  `;
+  els.fleetOpsHub.querySelectorAll('[data-ops-filter]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (els.fleetStatusFilter) {
+        els.fleetStatusFilter.value = btn.dataset.opsFilter || 'todos';
+        renderFleet();
+      }
+    });
+  });
 }
 
 async function guardarSolicitudIndependiente(id) {
@@ -1009,17 +1016,24 @@ async function loadPartsPending(force = false) {
   }
 }
 
+
 function renderPartsPending() {
   if (!els.partsList) return;
-  const items = state.partsPending || [];
-  const unidades = [...new Set(items.map(item => item.numeroEconomico).filter(Boolean))].length;
-  const empresas = [...new Set(items.map(item => item.empresa).filter(Boolean))].length;
+  const pendingItems = state.partsPending || [];
+  const openRequests = (state.independentPartsRequests || []).filter(req => !['instalada','cerrada','cancelada'].includes(String(req.status || '').toLowerCase()));
+  const inventory = state.inventoryParts || [];
+  const kardex = state.inventoryKardex || [];
+
+  const lowStock = inventory.filter(p => Number(p.stockActual || 0) <= Number(p.stockMinimo || 0)).length;
+  const photos = inventory.filter(p => p.fotoUrl).length;
 
   if (els.partsSummary) {
     els.partsSummary.innerHTML = `
-      <article class="parts-summary-card"><strong>Pendientes</strong><span>${items.length}</span></article>
-      <article class="parts-summary-card"><strong>Unidades</strong><span>${unidades}</span></article>
-      <article class="parts-summary-card"><strong>Empresas</strong><span>${empresas}</span></article>
+      <article class="parts-summary-card"><strong>Pendientes</strong><span>${pendingItems.length}</span></article>
+      <article class="parts-summary-card"><strong>Inventario</strong><span>${inventory.length}</span></article>
+      <article class="parts-summary-card"><strong>Kardex</strong><span>${kardex.length}</span></article>
+      <article class="parts-summary-card"><strong>Stock bajo</strong><span>${lowStock}</span></article>
+      <article class="parts-summary-card"><strong>Con foto</strong><span>${photos}</span></article>
     `;
     if (isRole('admin','supervisor_flotas')) {
       const actions = document.createElement('div');
@@ -1031,17 +1045,54 @@ function renderPartsPending() {
     }
   }
 
-  const extras = (state.independentPartsRequests || []).filter(req => !['instalada','cerrada','cancelada'].includes(String(req.status || '').toLowerCase()));
-  if (!items.length && !extras.length) {
-    els.partsList.innerHTML = '<div class="parts-empty"><strong>No hay refacciones pendientes.</strong><div>Cuando una unidad quede a la espera de pieza o una refacción se marque pendiente, aparecerá aquí.</div></div>';
-    return;
-  }
+  const inventoryCards = inventory.slice(0, 30).map(part => `
+    <article class="inventory-card">
+      <div class="inventory-thumb">${part.fotoUrl ? `<img src="${escapeHtml(part.fotoUrl)}" alt="${escapeHtml(part.nombre)}" />` : `<div class="inventory-thumb-empty">Sin foto</div>`}</div>
+      <div class="inventory-copy">
+        <strong>${escapeHtml(part.nombre || '')}</strong>
+        <span>${escapeHtml(part.numeroParte || 'Sin número de parte')}</span>
+        <span>${escapeHtml(part.marca || 'Sin marca')} · ${escapeHtml(part.categoria || 'Sin categoría')}</span>
+        <span>Proveedor: ${escapeHtml(part.proveedor || '—')}</span>
+        <span>Stock: ${Number(part.stockActual || 0)} / mínimo ${Number(part.stockMinimo || 0)}</span>
+        <span>Compra: ${money(Number(part.costoCompra || 0))} · Venta: ${money(Number(part.precioVenta || 0))}</span>
+      </div>
+      <div class="inventory-actions">
+        ${isRole('admin') ? `<button class="btn btn-secondary" type="button" data-inv-edit="${part.id}">Editar</button><button class="btn btn-secondary" type="button" data-inv-entry="${part.id}">Entrada</button>` : ``}
+        ${isRole('admin','supervisor_flotas') ? `<button class="btn btn-primary" type="button" data-inv-install="${part.id}">Instalar</button>` : ``}
+      </div>
+    </article>
+  `).join('') || '<div class="parts-empty small">Sin inventario capturado.</div>';
 
-  els.partsList.innerHTML = '';
-  extras.forEach(req => {
-    const extra = document.createElement('article');
-    extra.className = 'parts-card independent-parts-card';
-    extra.innerHTML = `
+  const pendingCards = pendingItems.map(item => {
+    const statusLabel = ({
+      pendiente:'Pendiente',
+      asignada:'Asignada',
+      en_compra:'En compra',
+      recibida:'Recibida',
+      instalada:'Instalada'
+    })[item.refaccionStatus || 'pendiente'] || 'Pendiente';
+    return `
+      <article class="parts-card mission-card">
+        <div class="parts-card-head">
+          <div>
+            <div class="parts-kicker">${escapeHtml(item.empresa || '—')}</div>
+            <h4>Unidad ${escapeHtml(item.numeroEconomico || '—')}</h4>
+          </div>
+          <span class="badge badge-waiting">${escapeHtml(statusLabel)}</span>
+        </div>
+        <div class="parts-piece">${escapeHtml(item.detalleRefaccion || 'Refacción pendiente sin detalle específico')}</div>
+        <div class="parts-meta">
+          <div><strong>Folio</strong>${escapeHtml(item.folio || '—')}</div>
+          <div><strong>Modelo</strong>${escapeHtml(item.modelo || '—')}</div>
+          <div><strong>Estado operativo</strong>${escapeHtml(item.estatusOperativo || 'sin iniciar')}</div>
+          <div><strong>Asignada</strong>${escapeHtml(item.refaccionAsignada || 'Sin asignar')}</div>
+        </div>
+      </article>
+    `;
+  }).join('') || '<div class="parts-empty small">Sin pendientes.</div>';
+
+  const requestCards = openRequests.map(req => `
+    <article class="parts-card independent-parts-card">
       <div class="parts-card-head">
         <div>
           <div class="parts-kicker">${escapeHtml(req.empresa || '—')}</div>
@@ -1061,689 +1112,82 @@ function renderPartsPending() {
         <input id="indReqNotes_${req.id}" value="${escapeHtml(req.notes || '')}" placeholder="Notas" />
         <button class="btn btn-primary" type="button" onclick="guardarSolicitudIndependiente('${req.id}')">Guardar</button>
       </div>
-    `;
-    els.partsList.appendChild(extra);
-  });
-  items.forEach(item => {
-    const card = document.createElement('article');
-    card.className = 'parts-card';
-    const statusLabel = ({
-      pendiente:'Pendiente',
-      asignada:'Asignada',
-      en_compra:'En compra',
-      recibida:'Recibida',
-      instalada:'Instalada'
-    })[item.refaccionStatus || 'pendiente'] || 'Pendiente';
+    </article>
+  `).join('') || '<div class="parts-empty small">Sin solicitudes abiertas.</div>';
 
-    const adminEditor = isRole('admin') ? `
-      <div class="parts-edit-box">
-        <textarea id="partsDetail_${item.id}" rows="3" placeholder="Detalle de refacción">${escapeHtml(item.detalleRefaccion || '')}</textarea>
-        <input id="partsAssigned_${item.id}" placeholder="Refacción asignada" value="${escapeHtml(item.refaccionAsignada || '')}" />
-        <div class="stack-inline">
-          <select id="partsStatus_${item.id}">
-            <option value="pendiente" ${(item.refaccionStatus || 'pendiente') === 'pendiente' ? 'selected' : ''}>Pendiente</option>
-            <option value="asignada" ${item.refaccionStatus === 'asignada' ? 'selected' : ''}>Asignada</option>
-            <option value="en_compra" ${item.refaccionStatus === 'en_compra' ? 'selected' : ''}>En compra</option>
-            <option value="recibida" ${item.refaccionStatus === 'recibida' ? 'selected' : ''}>Recibida</option>
-            <option value="instalada" ${item.refaccionStatus === 'instalada' ? 'selected' : ''}>Instalada</option>
-          </select>
-          <button class="btn btn-primary" data-parts-save="${item.id}" type="button">Guardar</button>
+  const kardexRows = kardex.slice(0, 40).map(row => `
+    <div class="parts-history-row">
+      <strong>${escapeHtml(row.nombre || 'Refacción')}</strong>
+      <span>${escapeHtml(row.tipo || '')} · Cantidad: ${Number(row.cantidad || 0)}</span>
+      <span>${escapeHtml(row.empresa || '')}${row.numeroEconomico ? ' · Unidad ' + escapeHtml(row.numeroEconomico) : ''}</span>
+      <span>Stock: ${Number(row.stockResultante || 0)} · Compra: ${money(Number(row.costoCompra || 0))}${Number(row.precioVenta || 0) ? ' · Venta: ' + money(Number(row.precioVenta || 0)) : ''}</span>
+    </div>
+  `).join('') || '<div class="parts-empty small">Sin movimientos todavía.</div>';
+
+  els.partsList.innerHTML = `
+    <section class="parts-command-grid">
+      <article class="parts-stage-card">
+        <div class="parts-stage-head">
+          <div><div class="parts-kicker">PENDIENTES</div><h4>Misiones abiertas</h4></div>
+          <span class="parts-stage-badge">${pendingItems.length}</span>
         </div>
-      </div>
-    ` : '';
+        <div class="parts-stage-body parts-card-column">${pendingCards}</div>
+      </article>
 
-    card.innerHTML = `
-      <div class="parts-card-head">
-        <div>
-          <div class="parts-kicker">${escapeHtml(item.empresa || '—')}</div>
-          <h4>Unidad ${escapeHtml(item.numeroEconomico || '—')}</h4>
+      <article class="parts-stage-card">
+        <div class="parts-stage-head">
+          <div><div class="parts-kicker">SOLICITUDES</div><h4>Solicitudes manuales</h4></div>
+          <span class="parts-stage-badge">${openRequests.length}</span>
         </div>
-        <span class="badge badge-waiting">${escapeHtml(statusLabel)}</span>
+        <div class="parts-stage-body parts-card-column">${requestCards}</div>
+      </article>
+    </section>
+
+    <section class="parts-stage-card inventory-stage">
+      <div class="parts-stage-head">
+        <div><div class="parts-kicker">INVENTARIO</div><h4>Stock visual de refacciones</h4></div>
+        <span class="parts-stage-badge">${inventory.length}</span>
       </div>
-      <div class="parts-piece">${escapeHtml(item.detalleRefaccion || 'Refacción pendiente sin detalle específico')}</div>
-      <div class="parts-meta">
-        <div><strong>Folio</strong>${escapeHtml(item.folio || '—')}</div>
-        <div><strong>Modelo</strong>${escapeHtml(item.modelo || '—')}</div>
-        <div><strong>Estado operativo</strong>${escapeHtml(item.estatusOperativo || 'sin iniciar')}</div>
-        <div><strong>Asignada</strong>${escapeHtml(item.refaccionAsignada || 'Sin asignar')}</div>
-      </div>
-      ${adminEditor}
-      <div class="parts-card-actions">
-        ${isRole('admin') ? `<button class="btn btn-secondary" type="button" data-part-edit="${item.id}">Editar</button><button class="btn btn-secondary" type="button" data-part-receive="${item.id}">Marcar recibida</button>` : ``}
-        ${isRole('admin','supervisor_flotas') ? `<button class="btn btn-primary" type="button" data-part-install="${item.id}">Instalar</button>` : ``}
-      </div>
-    `;
-    els.partsList.appendChild(card);
-    card.querySelector(`[data-part-edit="${item.id}"]`)?.addEventListener('click', async () => {
-      try {
-        const detalleRefaccion = window.prompt('Detalle de refacción:', item.detalleRefaccion || '') || '';
-        const refaccionAsignada = window.prompt('Refacción asignada:', item.refaccionAsignada || '') || '';
-        const refaccionStatus = window.prompt('Estado (pendiente/asignada/en_compra/recibida/instalada):', item.refaccionStatus || 'pendiente') || 'pendiente';
-        await api.updateParts(item.id, { detalleRefaccion, refaccionAsignada, refaccionStatus });
-        await loadPartsPending(true);
-        renderPartsPending();
-      } catch (error) { notify(error.message, true); }
-    });
-    card.querySelector(`[data-part-receive="${item.id}"]`)?.addEventListener('click', async () => {
-      try {
-        const proveedor = window.prompt('Proveedor:', '') || '';
-        const cantidad = Number(window.prompt('Cantidad recibida:', '1') || 0);
-        const costoUnitario = Number(window.prompt('Costo compra unitario:', '0') || 0);
-        const fotoUrl = window.prompt('Imagen de la refacción (URL/base64, opcional):', '') || '';
-        const notas = window.prompt('Notas (opcional):', '') || '';
-        await api.createInventoryPart({
-          nombre: item.detalleRefaccion || 'Refacción sin nombre',
-          numeroParte: '',
-          marca: '',
-          categoria: 'Ligada a reporte',
-          proveedor,
-          stockActual: 0,
-          stockMinimo: 0,
-          costoCompra: costoUnitario,
-          precioVenta: 0,
-          fotoUrl,
-          notas
-        }).then(async created => {
-          await api.receiveInventoryPart(created.id, { cantidad, costoUnitario, proveedor, fotoUrl, notas });
-          await api.updateParts(item.id, { detalleRefaccion: item.detalleRefaccion || '', refaccionAsignada: created.nombre || (item.detalleRefaccion || ''), refaccionStatus: 'recibida' });
-        });
-        notify('Refacción recibida e ingresada a inventario.');
-        await Promise.all([loadInventoryParts(), loadInventoryKardex(), loadPartsPending(true)]);
-        renderPartsPending();
-      } catch (error) { notify(error.message, true); }
-    });
-    card.querySelector(`[data-part-install="${item.id}"]`)?.addEventListener('click', async () => {
-      try {
-        const cantidad = Number(window.prompt('Cantidad a instalar:', '1') || 0);
-        const costoCompra = Number(window.prompt('Costo compra unitario:', '0') || 0);
-        const precioVenta = Number(window.prompt('Precio venta manual:', '0') || 0);
-        const instaladoPor = window.prompt('Instalado por:', state.user?.nombre || '') || '';
-        const notas = window.prompt('Notas (opcional):', '') || '';
-        // install from virtual inventory if not selected from stock
-        await api.installInventoryPart(state.inventoryParts[0]?.id || '', { empresa: item.empresa, numeroEconomico: item.numeroEconomico, garantiaId: item.id, cantidad, costoCompra, precioVenta, instaladoPor, notas });
-      } catch (error) {
-        notify('Para instalar directo desde pendiente, primero usa una refacción del inventario en la sección Inventario.', true);
-      }
-    });
+      <div class="inventory-grid">${inventoryCards}</div>
+    </section>
 
-    if (isRole('admin')) {
-      const detailInput = card.querySelector(`#partsDetail_${item.id}`);
-      const assignedInput = card.querySelector(`#partsAssigned_${item.id}`);
-      const statusInput = card.querySelector(`#partsStatus_${item.id}`);
-      [detailInput, assignedInput, statusInput].forEach(el => {
-        el?.addEventListener('input', () => state.partsDirtyIds.add(item.id));
-        el?.addEventListener('change', () => state.partsDirtyIds.add(item.id));
-      });
-
-      card.querySelector(`[data-parts-save="${item.id}"]`)?.addEventListener('click', async () => {
-        try {
-          await api.updateParts(item.id, {
-            detalleRefaccion: document.getElementById(`partsDetail_${item.id}`)?.value || '',
-            refaccionAsignada: document.getElementById(`partsAssigned_${item.id}`)?.value || '',
-            refaccionStatus: document.getElementById(`partsStatus_${item.id}`)?.value || 'pendiente'
-          });
-          state.partsDirtyIds.delete(item.id);
-          notify('Refacción actualizada.');
-          await loadPartsPending(true);
-          await loadGarantias();
-          if (state.activePanel === 'fleet') await loadFleet();
-        } catch (error) {
-          notify(error.message, true);
-        }
-      });
-    }
-  });
-}
-
-async function loadFleet() {
-  try {
-    const canManageFleet = isRole('admin','operativo');
-    els.fleetSaveBtn?.classList.toggle('hidden', !canManageFleet);
-    document.querySelectorAll('.fleet-form-only').forEach(el => el.classList.toggle('hidden', !canManageFleet));
-    if (!canManageFleet) toggleFleetForm(false);
-    if (['supervisor','supervisor_flotas'].includes(state.user?.role) && els.fleetEmpresa) {
-      els.fleetEmpresa.value = state.user.empresa || '';
-      els.fleetEmpresa.disabled = true;
-    } else if (els.fleetEmpresa) {
-      els.fleetEmpresa.disabled = false;
-    }
-    const [summary, units] = await Promise.all([api.getFleetSummary(), api.getFleetUnits()]);
-    state.fleetSummary = summary || state.fleetSummary;
-    state.fleetUnits = units || [];
-    renderFleet();
-  } catch (error) {
-    notify(error.message, true);
-  }
-}
-
-function renderFleet() {
-  if (els.fleetUnitsList) els.fleetUnitsList.innerHTML = '';
-  const fleetQuery = normalizeText(els.fleetSearchInput?.value || '');
-  const fleetStatus = els.fleetStatusFilter?.value || 'todos';
-  const visibleUnits = state.fleetUnits.filter(unit => {
-    const sem = fleetSemaforo(unit);
-    const hayTexto = !fleetQuery || normalizeText([unit.numeroEconomico, unit.empresa, unit.marca, unit.modelo, unit.numeroObra, unit.nombreFlota].join(' ')).includes(fleetQuery);
-    const hayEstado = fleetStatus === 'todos' || sem.key === fleetStatus;
-    return hayTexto && hayEstado;
-  });
-
-  if (!visibleUnits.length && els.fleetUnitsList) {
-    els.fleetUnitsList.innerHTML = '<div class="empty-state"><strong>Sin coincidencias.</strong><span>Ajusta búsqueda o estado para encontrar la unidad correcta.</span></div>';
-  }
-
-  visibleUnits.forEach(unit => {
-    const status = fleetStatusLuxury(unit);
-    const poliza = fleetTagPoliza(unit);
-    const camp = fleetTagCampania(unit);
-    const row = document.createElement('article');
-    row.className = 'fleet-line-item';
-    row.innerHTML = `
-      <div class="fleet-line-num">${escapeHtml(unit.numeroEconomico || '—')}</div>
-      <div class="fleet-line-emoji">${status.emoji}</div>
-      <div class="fleet-line-main">
-        <strong>${escapeHtml(status.text)}</strong>
-        <div class="fleet-line-sub">${escapeHtml(unit.empresa || '—')}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}${unit.marca ? ' · ' + escapeHtml(unit.marca) : ''}</div>
-      </div>
-      <div class="fleet-line-tags">
-        <span class="fleet-chip ${poliza.cls}">${poliza.text}</span>
-        <span class="fleet-chip ${camp.cls}">${camp.text}</span>
-      </div>
-      <div class="fleet-line-status">${unit.lastReportAt ? fmtDate(unit.lastReportAt) : 'Sin movimiento'}</div>
-    `;
-    row.addEventListener('click', async () => {
-      try {
-        if (state.selectedFleetUnit?.unit?.id === unit.id) {
-          state.selectedFleetUnit = null;
-          renderFleet();
-          renderFleetDetail();
-          return;
-        }
-        state.selectedFleetUnit = await api.getFleetUnit(unit.id);
-        if (isRole('admin')) await loadAdminUnitCosts(unit.id);
-        renderFleet();
-        renderFleetDetail();
-      } catch (error) { notify(error.message, true); }
-    });
-    els.fleetUnitsList?.appendChild(row);
-  });
-  renderFleetDetail();
-}
-
-function renderFleetDetail() {
-  if (!els.fleetDetail) return;
-  const data = state.selectedFleetUnit;
-  if (!data?.unit) {
-    els.fleetDetail.innerHTML = '<div class="muted">Selecciona una unidad para ver historial, reportes y costos.</div>';
-    return;
-  }
-  const u = data.unit;
-  const sem = fleetSemaforo(u);
-  const reports = (data.reports || []).map(r => `
-    <div class="table-row">
-      <div><strong>${escapeHtml(r.folio || 'GAR-—')}</strong><div class="small muted">${escapeHtml(r.descripcionFallo || 'Sin descripción')}</div></div>
-      <div><span class="badge ${badgeClassValidation(r.estatusValidacion || 'nueva')}">${escapeHtml(r.estatusValidacion || '—')}</span></div>
-      <div><span class="badge ${badgeClassOperational(r.estatusOperativo || 'sin iniciar')}">${escapeHtml(r.estatusOperativo || '—')}</span></div>
-    </div>
-  `).join('') || '<div class="muted">Sin reportes ligados.</div>';
-  const costs = (data.costs || []).map(c => `
-    <div class="table-row">
-      <div><strong>${escapeHtml(c.tipo)}</strong><div class="small muted">${escapeHtml(c.concepto || 'Sin concepto')}</div></div>
-      <div>${money(c.monto)}</div>
-      <div>${escapeHtml(c.createdByNombre || '—')}</div>
-    </div>
-  `).join('') || '<div class="muted">Sin costos capturados.</div>';
-  const installedParts = (data.installedParts || []).map(p => `
-    <div class="installed-part-card">
-      <div class="installed-thumb">${p.imagenRefaccion ? `<img src="${escapeHtml(p.imagenRefaccion)}" alt="${escapeHtml(p.descripcion || '')}" />` : `<div class="inventory-thumb-empty">Sin foto</div>`}</div>
-      <div class="installed-copy">
-        <strong>${escapeHtml(p.descripcion || 'Refacción')}</strong>
-        <span>Cantidad: ${Number(p.cantidad || 0)}</span>
-        <span>Compra: ${money(Number(p.costoCompra || 0))} · Venta: ${money(Number(p.precioVenta || 0))}</span>
-        <span>Instalada: ${escapeHtml(fmtDate(p.createdAt))}</span>
-        <span>Por: ${escapeHtml(p.instaladoPor || '—')}</span>
-      </div>
-    </div>
-  `).join('') || '<div class="muted">Sin refacciones instaladas.</div>';
-
-  const adminCostsEditor = isRole('admin') ? `
-    <div class="admin-cost-editor-list">
-      ${(state.unitCostsAdmin || []).map(c => `
-        <div class="admin-cost-editor-row">
-          <select id="adminCostTipo_${c.id}">
-            <option value="refaccion" ${c.tipo === 'refaccion' ? 'selected' : ''}>Refacción</option>
-            <option value="mano_obra" ${c.tipo === 'mano_obra' ? 'selected' : ''}>Mano de obra</option>
-          </select>
-          <input id="adminCostConcepto_${c.id}" value="${escapeHtml(c.concepto || '')}" placeholder="Concepto" />
-          <input id="adminCostMonto_${c.id}" type="number" step="0.01" min="0" value="${Number(c.monto || 0).toFixed(2)}" placeholder="Monto" />
-          <button class="btn btn-secondary" type="button" onclick="guardarCostoAdmin('${c.id}','${u.id}')">Guardar</button>
-          <button class="btn btn-ghost" type="button" onclick="eliminarCostoAdmin('${c.id}','${u.id}')">Eliminar</button>
+    <section class="parts-history-grid parts-history-wrap">
+      <article class="parts-history-card">
+        <div class="parts-kicker">KARDEX</div>
+        <h4>Entradas y salidas</h4>
+        <div class="parts-history-list">${kardexRows}</div>
+      </article>
+      <article class="parts-history-card">
+        <div class="parts-kicker">RUTA DE USO</div>
+        <h4>Qué sucede aquí</h4>
+        <div class="parts-journey">
+          <div class="journey-step"><strong>1</strong><span>Se detecta una refacción pendiente desde reporte o solicitud manual.</span></div>
+          <div class="journey-step"><strong>2</strong><span>Admin la recibe en inventario con foto, proveedor, costo y cantidad.</span></div>
+          <div class="journey-step"><strong>3</strong><span>Se instala a una unidad con precio de venta manual y queda en kardex.</span></div>
+          <div class="journey-step"><strong>4</strong><span>Supervisor de flotas ve la refacción instalada con imagen real en el expediente.</span></div>
         </div>
-      `).join('')}
-    </div>
-  ` : '';
-  const costForm = isRole('admin') ? `
-    <div class="fleet-cost-form">
-      <h4>Registrar costo</h4>
-      <div class="stack-inline">
-        <select id="fleetCostTipo"><option value="refaccion">Refacción</option><option value="mano_obra">Mano de obra</option></select>
-        <input id="fleetCostConcepto" placeholder="Concepto" />
-        <input id="fleetCostMonto" type="number" step="0.01" placeholder="Monto" />
-        <button id="fleetCostSaveBtn" class="btn btn-primary" type="button">Guardar costo</button>
-      </div>
-    </div>
-  ` : '';
-  const statusControl = isRole('admin') ? `
-    <div class="fleet-status-admin">
-      <label>Estado manual de unidad</label>
-      <div class="stack-inline">
-        <select id="fleetManualStatus">
-          <option value="operando">Operando</option>
-          <option value="en_taller">En taller</option>
-          <option value="detenida">Detenida</option>
-          <option value="programada">Programada</option>
-        </select>
-        <button id="fleetApplyStatusBtn" class="btn btn-secondary" type="button">Aplicar</button>
-      </div>
-    </div>
-  ` : '';
-  const timeline = (data.reports || []).slice(0,6).map(r => `<div class="timeline-item"><span class="timeline-dot"></span><div><strong>${escapeHtml(r.folio || 'GAR-—')}</strong><p>${escapeHtml(r.descripcionFallo || 'Sin descripción')}</p><small>${fmtDate(r.createdAt)} · ${escapeHtml(r.estatusOperativo || 'sin iniciar')}</small></div></div>`).join('') || '<div class="muted">Sin movimientos recientes.</div>';
-  els.fleetDetail.innerHTML = `
-    <div class="panel-head fleet-detail-head">
-      <div><div class="topbar-kicker">EXPEDIENTE DE UNIDAD</div><h3>${escapeHtml(u.numeroEconomico)} · ${escapeHtml(u.empresa)}</h3><p class="muted">Lectura patrimonial, operativa y de costo en una sola vista.</p></div>
-      <div class="stack-inline">${isRole('admin') ? '<button id="fleetEditInlineBtn" class="btn btn-ghost" type="button">Editar</button><button id="fleetDeleteInlineBtn" class="btn btn-ghost" type="button">Eliminar</button>' : ''}<span class="fleet-dot '+sem.cls+'">'+sem.label+'</span></div>
-    </div>
-    <div class="fleet-hero">
-      <div class="fleet-hero-main">
-        <div class="mini-grid fleet-meta-grid">
-          <div><span class="label">Costo total</span><strong>${money(u.costoTotal)}</strong></div>
-          <div><span class="label">Marca</span><strong>${escapeHtml(u.marca || '—')}</strong></div>
-          <div><span class="label">Modelo</span><strong>${escapeHtml(u.modelo || '—')}</strong></div>
-          <div><span class="label">Año</span><strong>${escapeHtml(u.anio || '—')}</strong></div>
-          <div><span class="label">KM</span><strong>${escapeHtml(u.kilometraje || '—')}</strong></div>
-          <div><span class="label">Póliza</span><strong>${u.polizaActiva ? 'Póliza activa' : 'Sin póliza'}</strong></div>
-          <div><span class="label">Campaña</span><strong>${u.campaignActiva ? 'Campaña activa' : 'Sin campaña'}</strong></div>
-          <div><span class="label">Refacciones</span><strong>${money(u.costoRefacciones)}</strong></div>
-          <div><span class="label">Mano de obra</span><strong>${money(u.costoManoObra)}</strong></div>
-        </div>
-        ${statusControl}
-        ${costForm}
-      </div>
-      <aside class="fleet-timeline-box"><div class="topbar-kicker">MOVIMIENTO RECIENTE</div>${timeline}</aside>
-    </div>
-    <div class="fleet-columns">
-      <section><div class="topbar-kicker">REPORTES</div><div class="table-list compact-list">${reports}</div></section>
-      <section><div class="topbar-kicker">COSTOS</div><div class="table-list compact-list">${costs}</div>${adminCostsEditor}</section>
-    </div>
+      </article>
+    </section>
   `;
-  if (isRole('admin')) {
-    document.getElementById('fleetManualStatus').value = ({ operando:'operando', 'en_taller':'en_taller', detenida:'detenida', programada:'programada' })[sem.key || 'operando'] || 'operando';
-    document.getElementById('fleetApplyStatusBtn')?.addEventListener('click', async () => {
-      try {
-        await api.updateFleetStatus(u.id, { status: document.getElementById('fleetManualStatus').value });
-        state.selectedFleetUnit = await api.getFleetUnit(u.id);
-        await loadFleet();
-        notify('Estado de unidad actualizado.');
-      } catch (error) { notify(error.message, true); }
-    });
-    document.getElementById('fleetEditInlineBtn')?.addEventListener('click', () => beginFleetEdit(u));
-    document.getElementById('fleetDeleteInlineBtn')?.addEventListener('click', async () => {
-      if (!confirm(`¿Eliminar unidad ${u.numeroEconomico}?`)) return;
-      try {
-        await api.deleteFleetUnit(u.id);
-        state.selectedFleetUnit = null;
-        resetFleetForm();
-        await loadFleet();
-        notify('Unidad eliminada.');
-      } catch (error) { notify(error.message, true); }
-    });
-    document.getElementById('fleetCostSaveBtn')?.addEventListener('click', async () => {
-      try {
-        await api.createFleetCost(u.id, {
-          tipo: document.getElementById('fleetCostTipo').value,
-          concepto: document.getElementById('fleetCostConcepto').value.trim(),
-          monto: document.getElementById('fleetCostMonto').value
-        });
-        notify('Costo guardado.');
-        state.selectedFleetUnit = await api.getFleetUnit(u.id);
-        await loadAdminUnitCosts(u.id);
-        renderFleetDetail();
-        const summary = await api.getFleetSummary(); state.fleetSummary = summary; renderFleet();
-      } catch (error) { notify(error.message, true); }
-    });
-  }
-}
 
-function money(v) {
-  const n = Number(v || 0);
-  return new Intl.NumberFormat('es-MX', { style:'currency', currency:'MXN', maximumFractionDigits:2 }).format(n);
-}
-
-
-async function editarReporteAdmin(item) {
-  try {
-    resetReportForm();
-    state.editingGarantiaId = item.id;
-    state.editingFirmaOriginal = item.firma || '';
-    if (els.numeroObra) els.numeroObra.value = item.numeroObra || '';
-    if (els.modelo) els.modelo.value = item.modelo || '';
-    if (els.numeroEconomico) els.numeroEconomico.value = item.numeroEconomico || '';
-    if (els.empresa) els.empresa.value = item.empresa || '';
-    if (els.kilometraje) els.kilometraje.value = item.kilometraje || '';
-    if (els.contactoNombre) els.contactoNombre.value = item.contactoNombre || '';
-    if (els.telefono) els.telefono.value = item.telefono || '';
-    const radio = document.querySelector(`input[name="tipoIncidente"][value="${item.tipoIncidente || 'daño'}"]`);
-    if (radio) radio.checked = true;
-    if (els.descripcionFallo) els.descripcionFallo.value = item.descripcionFallo || '';
-    if (els.solicitaRefaccion) els.solicitaRefaccion.checked = !!item.solicitaRefaccion;
-    els.refaccionFields?.classList.toggle('hidden', !els.solicitaRefaccion?.checked);
-    if (els.detalleRefaccion) els.detalleRefaccion.value = item.detalleRefaccion || '';
-    state.currentEvidence = Array.isArray(item.evidencias) ? [...item.evidencias] : [];
-    state.currentRefEvidence = Array.isArray(item.evidenciasRefaccion) ? [...item.evidenciasRefaccion] : [];
-    drawPreviews(els.previewEvidencias, state.currentEvidence, 'evidence');
-    drawPreviews(els.previewRefaccion, state.currentRefEvidence, 'ref');
-    if (item.firma) loadSignatureFromDataUrl(item.firma);
-    const submitBtn = els.reportForm?.querySelector('button[type="submit"]');
-    if (submitBtn) submitBtn.textContent = 'Guardar cambios';
-    const title = els.reportFormPanel?.querySelector('.panel-head h3');
-    if (title) title.textContent = `Editar reporte ${item.folio || ''}`.trim();
-    const kicker = els.reportFormPanel?.querySelector('.panel-head .topbar-kicker');
-    if (kicker) kicker.textContent = 'ADMINISTRACIÓN';
-    const badge = els.reportFormPanel?.querySelector('.panel-head .badge');
-    if (badge) badge.textContent = 'Edición total';
-    switchPanel('report');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  } catch (error) {
-    notify(error.message, true);
-  }
-}
-
-function renderGarantias() {
-  updateStats(); renderAnalytics();
-  const items = filteredGarantias();
-  if (els.garantiasList) els.garantiasList.innerHTML = '';
-  els.emptyState?.classList.toggle('hidden', items.length > 0);
-  items.forEach(item => {
-    const node = els.garantiaCardTemplate.content.cloneNode(true);
-    node.querySelector('.title').textContent = `${item.folio || 'GAR-—'} · Unidad ${item.numeroEconomico} · Obra ${item.numeroObra}`;
-    node.querySelector('.meta').textContent = `${item.empresa} · ${item.modelo} · Reportó ${item.reportadoPorNombre || '—'} · ${fmtDate(item.createdAt)}`;
-    node.querySelector('.description').textContent = item.descripcionFallo;
-    const validationBadge = node.querySelector('.validation-badge'); validationBadge.textContent = item.estatusValidacion; validationBadge.classList.add(badgeClassValidation(item.estatusValidacion));
-    const operationalBadge = node.querySelector('.operational-badge'); operationalBadge.textContent = item.estatusOperativo; operationalBadge.classList.add(badgeClassOperational(item.estatusOperativo));
-    const miniGrid = node.querySelector('.mini-grid');
-    [ ['Incidencia', item.tipoIncidente], ['Solicita refacción', item.solicitaRefaccion ? 'Sí' : 'No'], ['KM', item.kilometraje || '—'], ['Contacto', item.contactoNombre || '—'], ['Teléfono', item.telefono || '—'], ['Revisó', item.revisadoPorNombre || 'Pendiente'], ['Último cambio', fmtDate(item.updatedAt)], ['Obs. operativo', item.observacionesOperativo || '—'], ['Motivo decisión', item.motivoDecision || '—'] ].forEach(([label, value]) => {
-      const div = document.createElement('div'); div.innerHTML = `<strong>${escapeHtml(label)}</strong>${escapeHtml(String(value || '—'))}`; miniGrid.appendChild(div);
+  els.partsList.querySelectorAll('[data-inv-edit]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const item = (state.inventoryParts || []).find(p => p.id === btn.dataset.invEdit);
+      if (item) await editarRefaccionInventario(item);
     });
-    const strip = node.querySelector('.evidence-strip'); [...(item.evidencias || []), ...(item.evidenciasRefaccion || [])].slice(0,6).forEach(src => { const img = document.createElement('img'); img.src = src; strip.appendChild(img); }); if (item.firma) { const img = document.createElement('img'); img.src = item.firma; strip.appendChild(img); }
-    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin')) baseRow.appendChild(button('Editar', 'btn btn-secondary', async () => { await editarReporteAdmin(item); })); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
-    if (isRole('operativo','admin')) {
-      const reviewBox = document.createElement('div'); reviewBox.innerHTML = `
-        <label>Decisión operativa</label>
-        <div class="action-row">
-          <select class="reviewStatus"><option value="pendiente de revisión">Pendiente de revisión</option><option value="aceptada">Aceptada</option><option value="rechazada">Rechazada</option></select>
-          <input class="reviewReason" placeholder="Motivo o comentario" />
-          <button class="btn btn-primary reviewBtn" type="button">Guardar decisión</button>
-        </div>`;
-      reviewBox.querySelector('.reviewStatus').value = item.estatusValidacion === 'nueva' ? 'pendiente de revisión' : item.estatusValidacion;
-      reviewBox.querySelector('.reviewReason').value = item.estatusValidacion === 'rechazada' ? item.motivoDecision : item.observacionesOperativo;
-      reviewBox.querySelector('.reviewBtn').addEventListener('click', async () => {
-        try {
-          const status = reviewBox.querySelector('.reviewStatus').value; const text = reviewBox.querySelector('.reviewReason').value.trim();
-          await api.reviewGarantia(item.id, { estatusValidacion: status, observacionesOperativo: status !== 'rechazada' ? text : '', motivoDecision: status === 'rechazada' ? text : '' });
-          notify('Decisión guardada.'); await loadGarantias();
-        } catch (error) { notify(error.message, true); }
-      });
-      area.appendChild(reviewBox);
-      if (item.estatusValidacion === 'aceptada') {
-        const scheduleRow = document.createElement('div'); scheduleRow.className = 'action-row';
-        if (isRole('admin','operativo','supervisor_flotas')) scheduleRow.appendChild(button('Solicitar servicio', 'btn btn-primary', async () => { try { await api.requestSchedule(item.id); notify('Solicitud enviada por WhatsApp.'); await loadSchedules(); switchPanel('schedule'); } catch (error) { notify(error.message, true); } }));
-        if (isRole('operador')) scheduleRow.appendChild(button('Ver mi agenda', 'btn btn-secondary', async () => { await loadSchedules(); switchPanel('schedule'); }));
-        if (scheduleRow.children.length) area.appendChild(scheduleRow);
-        const operationalBox = document.createElement('div'); operationalBox.innerHTML = `
-          <label>Flujo del trabajo</label>
-          <div class="action-row">
-            <select class="opStatus"><option value="sin iniciar">Sin iniciar</option><option value="en proceso">En proceso</option><option value="espera refacción">Espera refacción</option><option value="terminada">Terminada</option></select>
-            <input class="opNotes" placeholder="Observación operativa" value="${escapeHtml(item.observacionesOperativo || '')}" />
-            <button class="btn btn-secondary opBtn" type="button">Actualizar trabajo</button>
-          </div>`;
-        operationalBox.querySelector('.opStatus').value = item.estatusOperativo;
-        operationalBox.querySelector('.opBtn').addEventListener('click', async () => {
-          try { await api.updateOperational(item.id, { estatusOperativo: operationalBox.querySelector('.opStatus').value, observacionesOperativo: operationalBox.querySelector('.opNotes').value.trim() }); state.boardDirtyIds.clear(); notify('Flujo actualizado.'); await loadGarantias(); }
-          catch (error) { notify(error.message, true); }
-        });
-        area.appendChild(operationalBox);
-      }
-    }
-    els.garantiasList?.appendChild(node);
+  });
+  els.partsList.querySelectorAll('[data-inv-entry]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const item = (state.inventoryParts || []).find(p => p.id === btn.dataset.invEntry);
+      if (item) await registrarEntradaInventario(item);
+    });
+  });
+  els.partsList.querySelectorAll('[data-inv-install]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const item = (state.inventoryParts || []).find(p => p.id === btn.dataset.invInstall);
+      if (item) await instalarDesdeInventario(item);
+    });
   });
 }
-
-
-function renderCompanies() {
-  if (els.companiesList) els.companiesList.innerHTML = '';
-  const all = Array.isArray(state.companies) ? state.companies : [];
-  const activeCompanies = all.filter(item => item.activo !== false);
-
-  if (els.companiesList) {
-    all.forEach(item => {
-      const row = document.createElement('div');
-      row.className = 'table-row';
-      row.innerHTML = `<div><strong>${escapeHtml(item.nombre)}</strong><div class="small muted">${escapeHtml(item.contacto || 'Sin contacto')} · ${escapeHtml(item.telefono || 'Sin teléfono')}</div><div class="small muted">${escapeHtml(item.email || 'Sin correo')}</div></div><div>${item.activo ? 'Activa' : 'Inactiva'}</div><div>${escapeHtml(item.notas || '—')}</div><div class="action-row"></div>`;
-      const actions = row.querySelector('.action-row');
-      if (isRole('admin')) {
-        actions.appendChild(button('Editar', 'btn btn-secondary', () => beginCompanyEdit(item)));
-        actions.appendChild(button(item.activo ? 'Desactivar' : 'Activar', 'btn btn-ghost', async () => {
-          try {
-            if (item.activo) {
-              if (!confirm(`¿Desactivar ${item.nombre}?`)) return;
-              await api.deactivateCompany(item.id);
-              notify('Empresa desactivada.');
-            } else {
-              await api.updateCompany(item.id, { ...item, activo: true });
-              notify('Empresa activada.');
-            }
-            await loadCompanies();
-          } catch (error) { notify(error.message, true); }
-        }));
-        actions.appendChild(button('Eliminar', 'btn btn-ghost', async () => {
-          if (!confirm(`¿Eliminar ${item.nombre}? Solo funciona si no tiene historial.`)) return;
-          try { await api.deleteCompany(item.id); notify('Empresa eliminada.'); await loadCompanies(); }
-          catch (error) { notify(error.message, true); }
-        }));
-      }
-      els.companiesList.appendChild(row);
-    });
-  }
-
-  fillSelect(els.empresa, activeCompanies, 'Selecciona empresa');
-  fillSelect(els.regEmpresa, activeCompanies, 'Selecciona empresa');
-  fillSelect(els.userEmpresa, activeCompanies, 'Sin empresa');
-
-  // conservar selección del operador si ya tiene empresa
-  if (isRole('operador') && state.user?.empresa && els.empresa && !els.empresa.value) {
-    els.empresa.value = state.user.empresa;
-  }
-}
-
-
-async function loadGarantias() { state.garantias = await api.getGarantias(); renderGarantias(); await loadNotifications(); }
-async function loadUsers() { if (!isRole('admin')) return; state.users = await api.getUsers(); renderUsers(); }
-async function loadCompanies() { state.companies = isRole('admin') ? await api.getCompanies() : await api.getPublicCompanies(); renderCompanies(); }
-async function loadRequests() { if (!isRole('admin')) return; state.registrationRequests = await api.getRequests(); renderRequests(); }
-
-function paintUnitHistory(history) {
-  const q = normalizeText(els.unitHistorySearchInput?.value || '');
-  const filtered = !q ? history : history.filter(item => normalizeText([item.numeroObra, item.modelo, item.empresa, item.tipoIncidente, item.descripcionFallo].join(' ')).includes(q));
-  els.unitHistoryResult.innerHTML = filtered.length ? filtered.map(item => `<div class="table-row"><div><strong>Obra ${escapeHtml(item.numeroObra)}</strong><div class="small muted">${escapeHtml(item.modelo)} · ${escapeHtml(item.empresa)}</div><div class="small muted">${escapeHtml(item.descripcionFallo || '')}</div></div><div>${escapeHtml(item.tipoIncidente)}</div><div><span class="badge ${badgeClassValidation(item.estatusValidacion)}">${escapeHtml(item.estatusValidacion)}</span></div><div>${fmtDate(item.createdAt)}</div></div>`).join('') : '<div class="empty-state"><strong>Sin historial.</strong><span>No hay coincidencias para esa unidad.</span></div>';
-}
-
-async function renderUnitHistory() {
-  const numero = els.unitHistoryInput?.value.trim();
-  if (!numero) return notify('Escribe un número económico.');
-  try {
-    state.unitHistoryRows = await api.getUnitHistory(numero);
-    paintUnitHistory(state.unitHistoryRows);
-  } catch (error) { notify(error.message, true); }
-}
-
-els.tabLoginBtn?.addEventListener('click', () => {
-  document.getElementById('loginPane')?.classList.remove('hidden');
-  document.getElementById('registerPane')?.classList.add('hidden');
-  els.tabLoginBtn.className = 'btn btn-primary'; if (els.tabRegisterBtn) els.tabRegisterBtn.className = 'btn btn-ghost';
-});
-els.tabRegisterBtn?.addEventListener('click', () => {
-  document.getElementById('loginPane')?.classList.add('hidden');
-  document.getElementById('registerPane')?.classList.remove('hidden');
-  els.tabLoginBtn.className = 'btn btn-ghost'; els.tabRegisterBtn.className = 'btn btn-primary';
-});
-
-els.loginForm?.addEventListener('submit', async (e) => {
-  e.preventDefault(); els.loginError?.classList.add('hidden');
-  try {
-    const data = await api.login(els.loginEmail.value.trim(), els.loginPassword.value);
-    state.token = data.token; localStorage.setItem('carlabToken', state.token); state.user = data.user; showDashboard();
-    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); await loadSchedules(''); await loadNotifications(); await loadFleet(); resetReportForm(); resetCompanyForm(); resetFleetForm(); notify(`Bienvenido, ${state.user.nombre}.`);
-  } catch (error) { if (els.loginError) { els.loginError.textContent = error.message; els.loginError.classList.remove('hidden'); } else notify(error.message,true); }
-});
-
-els.registerForm?.addEventListener('submit', async (e) => {
-  e.preventDefault(); els.registerMessage?.classList.add('hidden');
-  try {
-    const data = await api.registerOperator({ nombre: els.regNombre.value.trim(), email: els.regEmail.value.trim(), telefono: els.regTelefono.value.trim(), empresa: els.regEmpresa.value.trim(), numeroEconomico: els.regNumeroEconomico.value.trim(), password: els.regPassword.value });
-    if (els.registerMessage) { els.registerMessage.textContent = data.message; els.registerMessage.classList.remove('hidden'); }
-    els.registerForm.reset();
-  } catch (error) { if (els.registerMessage) { els.registerMessage.textContent = error.message; els.registerMessage.classList.remove('hidden'); } else notify(error.message,true); }
-});
-
-els.logoutBtn?.addEventListener('click', () => { localStorage.removeItem('carlabToken'); state.token = ''; state.user = null; showLogin(); });
-els.globalRefreshBtn?.addEventListener('click', async () => { await Promise.all([loadGarantias(), loadSchedules(''), loadNotifications(), loadFleet()]); notify('Datos actualizados.'); });
-els.opNavHomeBtn?.addEventListener('click', () => switchPanel('board'));
-els.opNavNewBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); });
-els.opNavScheduleBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
-els.opNavLogoutBtn?.addEventListener('click', () => { localStorage.removeItem('carlabToken'); state.token = ''; state.user = null; showLogin(); });
-els.navBoardBtn?.addEventListener('click', () => switchPanel('board'));
-els.navNewReportBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); });
-els.navAnalyticsBtn?.addEventListener('click', () => switchPanel('analytics'));
-els.navHistoryBtn?.addEventListener('click', () => switchPanel('history'));
-els.navScheduleBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
-els.navFleetBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
-els.navPartsBtn?.addEventListener('click', async () => { await Promise.all([cargarSolicitudesIndependientes(), loadPartsPending(true), loadInventoryParts(), loadInventoryKardex()]); switchPanel('parts'); });
-els.navUsersBtn?.addEventListener('click', async () => { switchPanel('users'); await loadUsers(); });
-els.navRequestsBtn?.addEventListener('click', async () => { switchPanel('requests'); await loadRequests(); });
-els.navCompaniesBtn?.addEventListener('click', async () => { switchPanel('companies'); await loadCompanies(); });
-els.cancelReportBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('board'); });
-els.userCancelEditBtn?.addEventListener('click', resetUserForm);
-els.companyCancelEditBtn?.addEventListener('click', resetCompanyForm);
-els.fleetNewBtn?.addEventListener('click', () => { if (!isRole('admin','operativo')) return; state.editingFleetUnitId = ''; toggleFleetForm(true); if (els.fleetSaveBtn) els.fleetSaveBtn.textContent = 'Guardar unidad'; });
-els.fleetCancelBtn?.addEventListener('click', resetFleetForm);
-els.userRole?.addEventListener('change', () => {
-  const role = els.userRole.value;
-  const needsEmpresa = ['operador','supervisor','supervisor_flotas'].includes(role);
-  if (els.userEmpresa) { els.userEmpresa.disabled = !needsEmpresa; if (!needsEmpresa) els.userEmpresa.value = ''; }
-});
-els.unitHistoryBtn?.addEventListener('click', renderUnitHistory);
-els.unitHistorySearchInput?.addEventListener('input', () => paintUnitHistory(state.unitHistoryRows || []));
-els.scheduleRefreshBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
-
-els.fleetRefreshBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
-els.partsRefreshBtn?.addEventListener('click', async () => { await loadPartsPending(true); switchPanel('parts'); });
-els.fleetSearchInput?.addEventListener('input', renderFleet);
-els.fleetStatusFilter?.addEventListener('change', renderFleet);
-['fleetEmpresa','fleetNombreFlota','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetPolizaActiva','fleetCampaignActiva'].forEach(id => {
-  const el = document.getElementById(id);
-  el?.addEventListener('input', () => state.fleetDirty = true);
-  el?.addEventListener('change', () => state.fleetDirty = true);
-});
-els.fleetSaveBtn?.addEventListener('click', async () => {
-  try {
-    const payload = {
-      empresa: els.fleetEmpresa?.value.trim(),
-      nombreFlota: els.fleetNombreFlota?.value.trim(),
-      numeroEconomico: els.fleetNumeroEconomico?.value.trim(),
-      numeroObra: els.fleetNumeroObra?.value.trim(),
-      marca: els.fleetMarca?.value.trim(),
-      modelo: els.fleetModelo?.value.trim(),
-      anio: els.fleetAnio?.value.trim(),
-      kilometraje: els.fleetKilometraje?.value.trim(),
-      polizaActiva: !!els.fleetPolizaActiva?.checked,
-      campaignActiva: !!els.fleetCampaignActiva?.checked
-    };
-    if (state.editingFleetUnitId) { await api.updateFleetUnit(state.editingFleetUnitId, payload); notify('Unidad actualizada.'); }
-    else { await api.createFleetUnit(payload); notify('Unidad de flota guardada.'); }
-    state.fleetDirty = false;
-    resetFleetForm();
-    await loadFleet();
-  } catch (error) { notify(error.message, true); }
-});
-
-
-els.reportForm?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  try {
-    if (state.editingGarantiaId) {
-      await api.updateGarantia(state.editingGarantiaId, reportPayload());
-      notify('Reporte actualizado.');
-    } else {
-      await api.createGarantia(reportPayload());
-      notify('Reporte enviado. Ya cayó al sistema.');
-    }
-    resetReportForm();
-    switchPanel('board');
-    await loadGarantias();
-  } catch (error) { notify(error.message, true); }
-});
-
-els.userForm?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  try {
-    const role = els.userRole.value;
-    const payload = { nombre: els.userNombre.value.trim(), email: els.userEmail.value.trim(), role, empresa: ['operador','supervisor','supervisor_flotas'].includes(role) ? els.userEmpresa.value.trim() : '', telefono: els.userTelefono.value.trim(), password: els.userPassword.value };
-    if (state.editingUserId) { await api.updateUser(state.editingUserId, payload); notify('Usuario actualizado.'); }
-    else { await api.createUser(payload); notify('Usuario creado.'); }
-    resetUserForm(); await loadUsers();
-  } catch (error) { notify(error.message, true); }
-});
-
-els.companyForm?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const payload = { nombre: els.companyNombre.value.trim(), contacto: els.companyContacto.value.trim(), telefono: els.companyTelefono.value.trim(), email: els.companyEmail.value.trim(), notas: els.companyNotas.value.trim(), activo: true };
-  try {
-    if (state.editingCompanyId) { await api.updateCompany(state.editingCompanyId, payload); notify('Empresa actualizada.'); }
-    else { await api.createCompany(payload); notify('Empresa guardada.'); }
-    resetCompanyForm();
-    await loadCompanies();
-  }
-  catch (error) { notify(error.message, true); }
-});
-
-['input','change'].forEach(evt => { els.searchInput?.addEventListener(evt, renderGarantias); els.validationFilter?.addEventListener(evt, renderGarantias); els.operationalFilter?.addEventListener(evt, renderGarantias); });
-
-(async function init() {
-  try { state.companies = await api.getPublicCompanies(); renderCompanies(); } catch {}
-  if (!state.token) return showLogin();
-  try {
-    const data = await api.me(); state.user = data.user; showDashboard();
-    await Promise.allSettled([loadCompanies(), loadGarantias(), loadNotifications()]);
-    if (isRole('admin')) await Promise.allSettled([loadUsers(), loadRequests()]);
-    if (isRole('admin','operativo','supervisor','supervisor_flotas','operador')) await Promise.allSettled([loadSchedules('')]);
-    if (isRole('admin','operativo','supervisor_flotas')) await Promise.allSettled([loadFleet()]);
-    if (isRole('admin','supervisor_flotas')) await Promise.allSettled([cargarSolicitudesIndependientes(), loadPartsPending(true), loadInventoryParts(), loadInventoryKardex()]);
-    resetReportForm(); resetCompanyForm(); resetFleetForm();
-  } catch {
-    localStorage.removeItem('carlabToken'); state.token = ''; showLogin();
-  }
-})();
-
-
-setInterval(async () => {
-  if (!state.token || !state.user) return;
-  try {
-    await loadNotifications();
-    if (state.activePanel === 'schedule') await Promise.allSettled([loadSchedules('')]);
-  } catch {}
-}, 5000);
-window.guardarCostoAdmin = guardarCostoAdmin;
-window.eliminarCostoAdmin = eliminarCostoAdmin;
-
-
 
 

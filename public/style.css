@@ -2910,67 +2910,181 @@ body[data-role="supervisor_flotas"] * {
   }
 }
 
+
+/* V4.5 Refacciones Pro + Centro de Operaciones Supervisor */
+body[data-role="supervisor_flotas"] #fleetPanel {
+  background:
+    radial-gradient(circle at top right, rgba(59,130,246,.08), transparent 28%),
+    radial-gradient(circle at 10% 20%, rgba(12,214,173,.10), transparent 24%),
+    linear-gradient(180deg, #f8fbff 0%, #f4f7fb 100%);
+  border-color: rgba(99,102,241,.10);
+  box-shadow: 0 18px 44px rgba(15,23,42,.08);
+}
+body[data-role="supervisor_flotas"] #fleetPanel .panel-head h3 {
+  font-size: 34px;
+  letter-spacing: -.05em;
+}
+.fleet-ops-hub {
+  margin: 8px 0 18px;
+}
+.ops-orbit-card {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 1.1fr 1.4fr;
+  gap: 18px;
+  padding: 20px;
+  border-radius: 24px;
+  border: 1px solid rgba(15,23,42,.08);
+  background: linear-gradient(135deg, rgba(255,255,255,.98), rgba(243,247,252,.96));
+  box-shadow: 0 20px 46px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.8);
+}
+.ops-orbit-card::before {
+  content:'';
+  position:absolute;
+  inset:-60px auto auto -60px;
+  width:180px; height:180px; border-radius:999px;
+  background: radial-gradient(circle, rgba(99,102,241,.16), transparent 68%);
+}
+.ops-orbit-card::after {
+  content:'';
+  position:absolute;
+  right:-40px; bottom:-40px;
+  width:160px; height:160px; border-radius:999px;
+  background: radial-gradient(circle, rgba(59,130,246,.12), transparent 70%);
+}
+.ops-kicker { font-size:11px; font-weight:800; letter-spacing:.18em; color:#667085; margin-bottom:10px; }
+.ops-orbit-main h3 { margin:0 0 8px; font-size:28px; letter-spacing:-.04em; }
+.ops-orbit-main p { margin:0 0 16px; color:#475467; line-height:1.55; max-width:460px; }
+.ops-dominant-pill {
+  display:inline-grid; grid-template-columns:auto 1fr; gap:8px 10px; align-items:center;
+  padding:12px 14px; min-width:240px; border-radius:18px; border:1px solid rgba(15,23,42,.08);
+  background:rgba(255,255,255,.78); backdrop-filter:blur(12px);
+}
+.ops-dominant-pill .ops-dot { width:12px; height:12px; border-radius:999px; box-shadow:0 0 0 5px rgba(16,24,40,.04); }
+.ops-dominant-pill strong { display:block; font-size:15px; }
+.ops-dominant-pill small { color:#667085; }
+.ops-dominant-pill.ok .ops-dot { background:#12b76a; }
+.ops-dominant-pill.warn .ops-dot { background:#f79009; }
+.ops-dominant-pill.alert .ops-dot { background:#fb923c; }
+.ops-dominant-pill.danger .ops-dot { background:#f04438; }
+.ops-radar-wrap { display:grid; gap:12px; align-content:start; }
+.ops-radar-track {
+  display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:8px; padding:8px;
+  border-radius:999px; background:rgba(15,23,42,.05); border:1px solid rgba(15,23,42,.06);
+}
+.ops-radar-track .seg { height:16px; border-radius:999px; box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 6px 18px rgba(0,0,0,.08); }
+.seg-green { background: linear-gradient(90deg, #0bb26c, #34d399); }
+.seg-orange { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.seg-amber { background: linear-gradient(90deg, #fb923c, #fdba74); }
+.seg-red { background: linear-gradient(90deg, #ef4444, #fb7185); }
+.ops-pills-grid { display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:10px; }
+.ops-pill {
+  position:relative; overflow:hidden; padding:12px; border-radius:18px;
+  border:1px solid rgba(15,23,42,.08); background:rgba(255,255,255,.86); text-align:left;
+  transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.ops-pill:hover { transform:translateY(-2px); box-shadow:0 12px 24px rgba(15,23,42,.08); }
+.ops-pill.active { border-color:rgba(99,102,241,.34); box-shadow:0 0 0 3px rgba(99,102,241,.08), 0 14px 28px rgba(15,23,42,.08); }
+.ops-pill span { display:block; font-size:12px; color:#667085; margin-bottom:6px; }
+.ops-pill strong { display:block; font-size:24px; letter-spacing:-.04em; }
+.ops-pill.green { background: linear-gradient(180deg, #ecfdf3, #f7fff9); }
+.ops-pill.orange { background: linear-gradient(180deg, #fff7ed, #fffbf5); }
+.ops-pill.amber { background: linear-gradient(180deg, #fffbeb, #fffef8); }
+.ops-pill.red { background: linear-gradient(180deg, #fff1f2, #fffafb); }
+body[data-role="supervisor_flotas"] .fleet-line-item {
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease;
+  background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(245,248,252,.98));
+}
+body[data-role="supervisor_flotas"] .fleet-line-item:hover { transform: translateY(-3px) scale(1.01); }
+body[data-role="supervisor_flotas"] .fleet-line-item.active {
+  border-color: rgba(99,102,241,.26);
+  background: linear-gradient(180deg, rgba(238,242,255,.92), rgba(255,255,255,.98));
+  box-shadow: 0 0 0 3px rgba(99,102,241,.08), 0 20px 42px rgba(79,70,229,.10);
+}
+body[data-role="supervisor_flotas"] .fleet-line-num { font-size:40px; }
+body[data-role="supervisor_flotas"] .fleet-detail-premium {
+  border-radius:24px; border-color:rgba(99,102,241,.12); box-shadow:0 20px 40px rgba(15,23,42,.08);
+}
+body[data-role="supervisor_flotas"] .fleet-form-only,
+body[data-role="supervisor_flotas"] #fleetPanel .history-search-box { display:none !important; }
+
+.parts-summary-row {
+  display:grid;
+  grid-template-columns: repeat(5, minmax(0,1fr));
+  gap:14px;
+}
+.parts-summary-card {
+  border-radius: 20px !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,250,252,.94)) !important;
+  box-shadow: 0 12px 28px rgba(16,24,40,.04) !important;
+}
 .parts-actions-row {
+  grid-column: 1 / -1;
   display:flex;
   gap:10px;
   flex-wrap:wrap;
   justify-content:flex-end;
-  margin-top: 12px;
 }
-.parts-card-actions {
+.parts-command-grid {
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:16px;
+  margin-bottom:18px;
+}
+.parts-stage-card {
+  border:1px solid rgba(16,24,40,.08);
+  border-radius:22px;
+  background: linear-gradient(180deg, rgba(255,255,255,.99), rgba(247,249,252,.96));
+  box-shadow: 0 16px 36px rgba(16,24,40,.05);
+  padding:16px;
+}
+.parts-stage-head {
   display:flex;
-  gap:8px;
-  flex-wrap:wrap;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+  margin-bottom:12px;
 }
-.parts-history-wrap,
-.parts-inventory-wrap {
-  grid-column: 1 / -1;
-  width: 100%;
+.parts-stage-head h4 { margin:4px 0 0; font-size:24px; letter-spacing:-.04em; }
+.parts-stage-badge {
+  min-width:54px;
+  text-align:center;
+  padding:10px 12px;
+  border-radius:16px;
+  background:#eef2ff;
+  color:#4338ca;
+  font-weight:800;
+  font-size:22px;
 }
-.parts-history-grid {
+.parts-stage-body.parts-card-column {
   display:grid;
-  grid-template-columns: repeat(2, minmax(0,1fr));
-  gap: 16px;
+  gap:12px;
 }
-.parts-history-card {
-  border: 1px solid rgba(16,24,40,.08);
-  border-radius: 18px;
-  padding: 16px;
-  background: #fff;
-  box-shadow: 0 12px 24px rgba(16,24,40,.04);
+.parts-card.mission-card,
+.parts-card.independent-parts-card {
+  border-radius:20px;
 }
-.parts-history-card h4 {
-  margin: 4px 0 12px;
-}
-.parts-history-list {
-  display:grid;
-  gap:10px;
-}
-.parts-history-row {
-  display:grid;
-  gap:4px;
-  border:1px solid rgba(16,24,40,.06);
-  border-radius:14px;
-  padding:12px;
-  background:#fff;
+.inventory-stage {
+  margin-bottom:18px;
 }
 .inventory-grid {
   display:grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 14px;
+  gap:14px;
 }
 .inventory-card {
   display:grid;
-  gap: 12px;
+  gap:12px;
   border:1px solid rgba(16,24,40,.08);
   border-radius:18px;
   background:#fff;
   padding:14px;
-  box-shadow: 0 12px 24px rgba(16,24,40,.04);
+  box-shadow:0 12px 24px rgba(16,24,40,.04);
 }
 .inventory-thumb {
   width:100%;
-  aspect-ratio: 16 / 9;
+  aspect-ratio:16/9;
   overflow:hidden;
   border-radius:14px;
   background:#f4f6fb;
@@ -2983,37 +3097,62 @@ body[data-role="supervisor_flotas"] * {
   height:100%;
   object-fit:cover;
 }
-.inventory-thumb-empty {
-  color:#667085;
-  font-size:13px;
-}
-.inventory-copy {
-  display:grid;
-  gap:4px;
-}
-.inventory-copy strong {
-  font-size:16px;
-}
-.inventory-copy span {
-  color:#475467;
-  font-size:13px;
-}
-.inventory-actions {
+.inventory-thumb-empty { color:#667085; font-size:13px; }
+.inventory-copy { display:grid; gap:4px; }
+.inventory-copy strong { font-size:16px; }
+.inventory-copy span { color:#475467; font-size:13px; }
+.inventory-actions,
+.parts-card-actions {
   display:flex;
   gap:8px;
   flex-wrap:wrap;
 }
-.fleet-installed-section {
-  margin-top: 18px;
+.parts-history-wrap { width:100%; }
+.parts-history-grid {
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap:16px;
 }
+.parts-history-card {
+  border:1px solid rgba(16,24,40,.08);
+  border-radius:18px;
+  padding:16px;
+  background:#fff;
+  box-shadow:0 12px 24px rgba(16,24,40,.04);
+}
+.parts-history-card h4 { margin:4px 0 12px; }
+.parts-history-list { display:grid; gap:10px; }
+.parts-history-row {
+  display:grid;
+  gap:4px;
+  border:1px solid rgba(16,24,40,.06);
+  border-radius:14px;
+  padding:12px;
+  background:#fff;
+}
+.parts-journey {
+  display:grid;
+  gap:10px;
+}
+.journey-step {
+  display:grid;
+  grid-template-columns: 34px 1fr;
+  gap:12px;
+  align-items:start;
+}
+.journey-step strong {
+  width:34px; height:34px; display:grid; place-items:center;
+  border-radius:999px; background:#eef2ff; color:#4338ca;
+}
+.fleet-installed-section { margin-top:18px; }
 .installed-parts-grid {
   display:grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 14px;
+  gap:14px;
 }
 .installed-part-card {
   display:grid;
-  grid-template-columns: 110px 1fr;
+  grid-template-columns:110px 1fr;
   gap:12px;
   border:1px solid rgba(16,24,40,.08);
   border-radius:18px;
@@ -3021,27 +3160,31 @@ body[data-role="supervisor_flotas"] * {
   padding:12px;
 }
 .installed-thumb {
-  width:110px;
-  height:90px;
-  overflow:hidden;
-  border-radius:12px;
-  background:#f4f6fb;
-  display:grid;
-  place-items:center;
+  width:110px; height:90px; overflow:hidden; border-radius:12px;
+  background:#f4f6fb; display:grid; place-items:center;
 }
-.installed-copy {
-  display:grid;
-  gap:4px;
+.installed-copy { display:grid; gap:4px; }
+.installed-copy strong { font-size:15px; }
+.installed-copy span { color:#475467; font-size:13px; }
+.timeline-grid { display:grid; gap:10px; margin-top:10px; }
+.timeline-item {
+  display:grid; grid-template-columns:18px 1fr; gap:12px; align-items:start;
+  padding:10px 0;
 }
-.installed-copy strong {
-  font-size:15px;
+.timeline-dot {
+  width:12px; height:12px; border-radius:999px; margin-top:5px;
+  background: radial-gradient(circle, #4f46e5 0%, #818cf8 100%);
+  box-shadow: 0 0 0 5px rgba(79,70,229,.08);
 }
-.installed-copy span {
-  color:#475467;
-  font-size:13px;
+@media (max-width: 1100px) {
+  .ops-orbit-card,
+  .parts-command-grid,
+  .parts-history-grid { grid-template-columns:1fr; }
+  .ops-pills-grid,
+  .parts-summary-row { grid-template-columns:repeat(2, minmax(0,1fr)); }
 }
 @media (max-width: 980px) {
-  .parts-history-grid { grid-template-columns: 1fr; }
-  .installed-part-card { grid-template-columns: 1fr; }
-  .installed-thumb { width:100%; height:auto; aspect-ratio: 16/9; }
+  .installed-part-card { grid-template-columns:1fr; }
+  .installed-thumb { width:100%; height:auto; aspect-ratio:16/9; }
+  .parts-summary-row { grid-template-columns:1fr 1fr; }
 }
