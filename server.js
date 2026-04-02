@@ -574,7 +574,7 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_garantias_refacciones_pendientes ON garantias (empresa, refaccion_status, created_at) WHERE solicita_refaccion = TRUE;
     CREATE TABLE IF NOT EXISTS refacciones_entradas (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      solicitud_id UUID REFERENCES garantias(id) ON DELETE SET NULL,
+      solicitud_id TEXT REFERENCES garantias(id) ON DELETE SET NULL,
       empresa TEXT NOT NULL,
       numero_economico TEXT,
       descripcion TEXT NOT NULL,
@@ -589,7 +589,7 @@ async function initDb() {
 
     CREATE TABLE IF NOT EXISTS refacciones_salidas (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      solicitud_id UUID REFERENCES garantias(id) ON DELETE SET NULL,
+      solicitud_id TEXT REFERENCES garantias(id) ON DELETE SET NULL,
       empresa TEXT NOT NULL,
       numero_economico TEXT,
       descripcion TEXT NOT NULL,
