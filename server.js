@@ -572,39 +572,63 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_garantias_reportado_por_id ON garantias(reportado_por_id);
     CREATE INDEX IF NOT EXISTS idx_garantias_numero_economico ON garantias(numero_economico);
     CREATE INDEX IF NOT EXISTS idx_garantias_refacciones_pendientes ON garantias (empresa, refaccion_status, created_at) WHERE solicita_refaccion = TRUE;
-    CREATE TABLE IF NOT EXISTS refacciones_entradas (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      solicitud_id TEXT REFERENCES garantias(id) ON DELETE SET NULL,
-      empresa TEXT NOT NULL,
-      numero_economico TEXT,
-      descripcion TEXT NOT NULL,
+    CREATE TABLE IF NOT EXISTS inventory_parts (
+      id TEXT PRIMARY KEY,
+      nombre TEXT NOT NULL,
+      numero_parte TEXT,
+      marca TEXT,
+      categoria TEXT,
       proveedor TEXT,
-      cantidad NUMERIC NOT NULL DEFAULT 1,
-      costo_unitario NUMERIC NOT NULL DEFAULT 0,
-      costo_total NUMERIC NOT NULL DEFAULT 0,
+      stock_actual NUMERIC(12,2) NOT NULL DEFAULT 0,
+      stock_minimo NUMERIC(12,2) NOT NULL DEFAULT 0,
+      costo_compra NUMERIC(12,2) NOT NULL DEFAULT 0,
+      precio_venta NUMERIC(12,2) NOT NULL DEFAULT 0,
+      foto_url TEXT,
       notas TEXT,
+      activo BOOLEAN NOT NULL DEFAULT TRUE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
-    CREATE TABLE IF NOT EXISTS refacciones_salidas (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      solicitud_id TEXT REFERENCES garantias(id) ON DELETE SET NULL,
+    CREATE TABLE IF NOT EXISTS inventory_kardex (
+      id BIGSERIAL PRIMARY KEY,
+      part_id TEXT REFERENCES inventory_parts(id) ON DELETE CASCADE,
+      tipo TEXT NOT NULL CHECK (tipo IN ('entrada','salida','instalacion','ajuste','reserva')),
+      cantidad NUMERIC(12,2) NOT NULL DEFAULT 0,
+      stock_resultante NUMERIC(12,2) NOT NULL DEFAULT 0,
+      costo_compra NUMERIC(12,2) NOT NULL DEFAULT 0,
+      precio_venta NUMERIC(12,2) NOT NULL DEFAULT 0,
+      referencia_tipo TEXT,
+      referencia_id TEXT,
+      empresa TEXT,
+      numero_economico TEXT,
+      notas TEXT,
+      foto_url TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS part_installations (
+      id TEXT PRIMARY KEY,
+      part_id TEXT REFERENCES inventory_parts(id) ON DELETE SET NULL,
+      garantia_id TEXT REFERENCES garantias(id) ON DELETE SET NULL,
+      fleet_unit_id TEXT REFERENCES fleet_units(id) ON DELETE SET NULL,
       empresa TEXT NOT NULL,
       numero_economico TEXT,
-      descripcion TEXT NOT NULL,
-      cantidad NUMERIC NOT NULL DEFAULT 1,
-      costo_compra NUMERIC NOT NULL DEFAULT 0,
-      precio_venta NUMERIC NOT NULL DEFAULT 0,
-      utilidad NUMERIC NOT NULL DEFAULT 0,
+      descripcion TEXT,
+      cantidad NUMERIC(12,2) NOT NULL DEFAULT 1,
+      costo_compra NUMERIC(12,2) NOT NULL DEFAULT 0,
+      precio_venta NUMERIC(12,2) NOT NULL DEFAULT 0,
+      utilidad NUMERIC(12,2) NOT NULL DEFAULT 0,
+      imagen_refaccion TEXT,
       instalado_por TEXT,
       notas TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
-    CREATE INDEX IF NOT EXISTS idx_refacciones_entradas_empresa_fecha ON refacciones_entradas (empresa, created_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_refacciones_salidas_empresa_fecha ON refacciones_salidas (empresa, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_inventory_parts_nombre ON inventory_parts(nombre);
+    CREATE INDEX IF NOT EXISTS idx_inventory_kardex_part_id ON inventory_kardex(part_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_part_installations_empresa_unit ON part_installations(empresa, numero_economico, created_at DESC);
 
     CREATE TABLE IF NOT EXISTS parts_requests (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1516,10 +1540,30 @@ app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','
     WHERE fleet_unit_id = $1
     ORDER BY created_at DESC
   `, [u.id]);
+  const installedParts = await pool.query(`
+    SELECT *
+    FROM part_installations
+    WHERE empresa = $1 AND numero_economico = $2
+    ORDER BY created_at DESC
+  `, [u.empresa, u.numero_economico]);
   res.json({
     unit: mapFleetUnit(u),
     reports: reports.rows.map(mapGarantia),
-    costs: costs.rows.map(mapFleetCost)
+    costs: costs.rows.map(mapFleetCost),
+    installedParts: installedParts.rows.map(row => ({
+      id: row.id,
+      partId: row.part_id || '',
+      garantiaId: row.garantia_id || '',
+      descripcion: row.descripcion || '',
+      cantidad: Number(row.cantidad || 0),
+      costoCompra: Number(row.costo_compra || 0),
+      precioVenta: Number(row.precio_venta || 0),
+      utilidad: Number(row.utilidad || 0),
+      imagenRefaccion: row.imagen_refaccion || '',
+      instaladoPor: row.instalado_por || '',
+      notas: row.notas || '',
+      createdAt: row.created_at
+    }))
   });
 });
 
@@ -1816,129 +1860,286 @@ app.patch('/api/parts/requests/:id', authRequired, requireRoles('admin','supervi
 });
 
 
-app.get('/api/parts/control', authRequired, requireRoles('admin','supervisor_flotas'), async (req, res) => {
+app.get('/api/inventory/parts', authRequired, requireRoles('admin','supervisor_flotas'), async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT *
+       FROM inventory_parts
+       WHERE activo = TRUE
+       ORDER BY updated_at DESC, created_at DESC
+       LIMIT 250`
+    );
+    res.json(result.rows.map(row => ({
+      id: row.id,
+      nombre: row.nombre,
+      numeroParte: row.numero_parte || '',
+      marca: row.marca || '',
+      categoria: row.categoria || '',
+      proveedor: row.proveedor || '',
+      stockActual: Number(row.stock_actual || 0),
+      stockMinimo: Number(row.stock_minimo || 0),
+      costoCompra: Number(row.costo_compra || 0),
+      precioVenta: Number(row.precio_venta || 0),
+      fotoUrl: row.foto_url || '',
+      notas: row.notas || '',
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    })));
+  } catch (error) {
+    console.error('Error leyendo inventario de refacciones:', error);
+    res.status(500).json({ error: 'No se pudo leer el inventario de refacciones.' });
+  }
+});
+
+app.post('/api/inventory/parts', authRequired, requireRoles('admin'), async (req, res) => {
+  try {
+    const payload = {
+      nombre: String(req.body.nombre || '').trim(),
+      numeroParte: String(req.body.numeroParte || '').trim(),
+      marca: String(req.body.marca || '').trim(),
+      categoria: String(req.body.categoria || '').trim(),
+      proveedor: String(req.body.proveedor || '').trim(),
+      stockActual: Number(req.body.stockActual || 0),
+      stockMinimo: Number(req.body.stockMinimo || 0),
+      costoCompra: Number(req.body.costoCompra || 0),
+      precioVenta: Number(req.body.precioVenta || 0),
+      fotoUrl: String(req.body.fotoUrl || '').trim(),
+      notas: String(req.body.notas || '').trim()
+    };
+    if (!payload.nombre) return res.status(400).json({ error: 'Nombre obligatorio.' });
+    if ([payload.stockActual, payload.stockMinimo, payload.costoCompra, payload.precioVenta].some(v => Number.isNaN(v) || v < 0)) {
+      return res.status(400).json({ error: 'Valores inválidos en inventario.' });
+    }
+    const id = cryptoRandomId();
+    const result = await pool.query(
+      `INSERT INTO inventory_parts
+       (id, nombre, numero_parte, marca, categoria, proveedor, stock_actual, stock_minimo, costo_compra, precio_venta, foto_url, notas, activo, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,TRUE,NOW())
+       RETURNING *`,
+      [id, payload.nombre, payload.numeroParte, payload.marca, payload.categoria, payload.proveedor, payload.stockActual, payload.stockMinimo, payload.costoCompra, payload.precioVenta, payload.fotoUrl, payload.notas]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creando refacción de inventario:', error);
+    res.status(500).json({ error: 'No se pudo crear la refacción.' });
+  }
+});
+
+app.patch('/api/inventory/parts/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  try {
+    const payload = {
+      nombre: String(req.body.nombre || '').trim(),
+      numeroParte: String(req.body.numeroParte || '').trim(),
+      marca: String(req.body.marca || '').trim(),
+      categoria: String(req.body.categoria || '').trim(),
+      proveedor: String(req.body.proveedor || '').trim(),
+      stockMinimo: Number(req.body.stockMinimo || 0),
+      costoCompra: Number(req.body.costoCompra || 0),
+      precioVenta: Number(req.body.precioVenta || 0),
+      fotoUrl: String(req.body.fotoUrl || '').trim(),
+      notas: String(req.body.notas || '').trim(),
+      activo: req.body.activo !== false
+    };
+    if (!payload.nombre) return res.status(400).json({ error: 'Nombre obligatorio.' });
+    if ([payload.stockMinimo, payload.costoCompra, payload.precioVenta].some(v => Number.isNaN(v) || v < 0)) {
+      return res.status(400).json({ error: 'Valores inválidos.' });
+    }
+    const result = await pool.query(
+      `UPDATE inventory_parts
+       SET nombre = $2,
+           numero_parte = $3,
+           marca = $4,
+           categoria = $5,
+           proveedor = $6,
+           stock_minimo = $7,
+           costo_compra = $8,
+           precio_venta = $9,
+           foto_url = $10,
+           notas = $11,
+           activo = $12,
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [req.params.id, payload.nombre, payload.numeroParte, payload.marca, payload.categoria, payload.proveedor, payload.stockMinimo, payload.costoCompra, payload.precioVenta, payload.fotoUrl, payload.notas, payload.activo]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: 'Refacción no encontrada.' });
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error actualizando refacción de inventario:', error);
+    res.status(500).json({ error: 'No se pudo actualizar la refacción.' });
+  }
+});
+
+app.post('/api/inventory/parts/:id/entry', authRequired, requireRoles('admin'), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const cantidad = Number(req.body.cantidad);
+    const costoUnitario = Number(req.body.costoUnitario);
+    const proveedor = String(req.body.proveedor || '').trim();
+    const notas = String(req.body.notas || '').trim();
+    const fotoUrl = String(req.body.fotoUrl || '').trim();
+    if (Number.isNaN(cantidad) || cantidad <= 0) throw new Error('Cantidad inválida.');
+    if (Number.isNaN(costoUnitario) || costoUnitario < 0) throw new Error('Costo inválido.');
+
+    const partRes = await client.query(`SELECT * FROM inventory_parts WHERE id = $1 AND activo = TRUE`, [req.params.id]);
+    if (!partRes.rowCount) throw new Error('Refacción no encontrada.');
+    const part = partRes.rows[0];
+
+    const nuevoStock = Number(part.stock_actual || 0) + cantidad;
+    await client.query(
+      `UPDATE inventory_parts
+       SET proveedor = COALESCE(NULLIF($2,''), proveedor),
+           costo_compra = $3,
+           foto_url = COALESCE(NULLIF($4,''), foto_url),
+           stock_actual = $5,
+           updated_at = NOW()
+       WHERE id = $1`,
+      [part.id, proveedor, costoUnitario, fotoUrl, nuevoStock]
+    );
+
+    await client.query(
+      `INSERT INTO inventory_kardex
+       (part_id, tipo, cantidad, stock_resultante, costo_compra, precio_venta, referencia_tipo, referencia_id, notas, foto_url, created_at)
+       VALUES ($1,'entrada',$2,$3,$4,0,'inventario',$5,$6,$7,NOW())`,
+      [part.id, cantidad, nuevoStock, costoUnitario, part.id, notas, fotoUrl || part.foto_url || '']
+    );
+
+    await client.query('COMMIT');
+    res.json({ ok: true, stockActual: nuevoStock });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error registrando entrada de refacción:', error);
+    res.status(500).json({ error: error.message || 'No se pudo registrar la entrada.' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post('/api/inventory/parts/:id/install', authRequired, requireRoles('admin','supervisor_flotas'), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const payload = {
+      empresa: String(req.body.empresa || '').trim(),
+      numeroEconomico: String(req.body.numeroEconomico || '').trim(),
+      garantiaId: String(req.body.garantiaId || '').trim() || null,
+      cantidad: Number(req.body.cantidad || 1),
+      costoCompra: Number(req.body.costoCompra || 0),
+      precioVenta: Number(req.body.precioVenta || 0),
+      instaladoPor: String(req.body.instaladoPor || req.user.nombre || '').trim(),
+      notas: String(req.body.notas || '').trim()
+    };
+    if (!payload.empresa || !payload.numeroEconomico) throw new Error('Empresa y unidad son obligatorias.');
+    if (req.user.role === 'supervisor_flotas' && payload.empresa !== (req.user.empresa || '')) throw new Error('No puedes instalar refacciones en otra empresa.');
+    
+    if (Number.isNaN(payload.cantidad) || payload.cantidad <= 0) throw new Error('Cantidad inválida.');
+    if (Number.isNaN(payload.costoCompra) || payload.costoCompra < 0) throw new Error('Costo compra inválido.');
+    if (Number.isNaN(payload.precioVenta) || payload.precioVenta < 0) throw new Error('Precio venta inválido.');
+
+    const partRes = await client.query(`SELECT * FROM inventory_parts WHERE id = $1 AND activo = TRUE`, [req.params.id]);
+    if (!partRes.rowCount) throw new Error('Refacción no encontrada.');
+    const part = partRes.rows[0];
+    const stockActual = Number(part.stock_actual || 0);
+    if (stockActual < payload.cantidad) throw new Error('No hay stock suficiente.');
+
+    const unitRes = await client.query(
+      `SELECT * FROM fleet_units WHERE empresa = $1 AND numero_economico = $2 LIMIT 1`,
+      [payload.empresa, payload.numeroEconomico]
+    );
+    const unitId = unitRes.rowCount ? unitRes.rows[0].id : null;
+    const nuevoStock = stockActual - payload.cantidad;
+    const utilidad = (payload.precioVenta - payload.costoCompra) * payload.cantidad;
+
+    await client.query(
+      `UPDATE inventory_parts
+       SET stock_actual = $2, updated_at = NOW()
+       WHERE id = $1`,
+      [part.id, nuevoStock]
+    );
+
+    const installId = cryptoRandomId();
+    await client.query(
+      `INSERT INTO part_installations
+       (id, part_id, garantia_id, fleet_unit_id, empresa, numero_economico, descripcion, cantidad, costo_compra, precio_venta, utilidad, imagen_refaccion, instalado_por, notas, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW())`,
+      [installId, part.id, payload.garantiaId, unitId, payload.empresa, payload.numeroEconomico, part.nombre, payload.cantidad, payload.costoCompra, payload.precioVenta, utilidad, part.foto_url || '', payload.instaladoPor, payload.notas]
+    );
+
+    await client.query(
+      `INSERT INTO inventory_kardex
+       (part_id, tipo, cantidad, stock_resultante, costo_compra, precio_venta, referencia_tipo, referencia_id, empresa, numero_economico, notas, foto_url, created_at)
+       VALUES ($1,'instalacion',$2,$3,$4,$5,'instalacion',$6,$7,$8,$9,$10,NOW())`,
+      [part.id, payload.cantidad, nuevoStock, payload.costoCompra, payload.precioVenta, installId, payload.empresa, payload.numeroEconomico, payload.notas, part.foto_url || '']
+    );
+
+    if (payload.garantiaId) {
+      await client.query(
+        `UPDATE garantias
+         SET refaccion_status = 'instalada',
+             refaccion_asignada = $2,
+             refaccion_updated_at = NOW(),
+             updated_at = NOW()
+         WHERE id = $1`,
+        [payload.garantiaId, part.nombre]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.json({ ok: true, stockActual: nuevoStock, installId });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error instalando refacción de inventario:', error);
+    res.status(500).json({ error: error.message || 'No se pudo instalar la refacción.' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get('/api/inventory/kardex', authRequired, requireRoles('admin','supervisor_flotas'), async (req, res) => {
   try {
     const params = [];
     let where = '';
     if (req.user.role === 'supervisor_flotas') {
       params.push(req.user.empresa || '');
-      where = 'WHERE empresa = $1';
+      where = 'WHERE (empresa = $1 OR empresa IS NULL OR empresa = \'\')';
     }
-
-    const entradas = await pool.query(
-      `SELECT id, solicitud_id, empresa, numero_economico, descripcion, proveedor, cantidad, costo_unitario, costo_total, notas, created_at, updated_at
-       FROM refacciones_entradas
+    const result = await pool.query(
+      `SELECT
+         ik.id, ik.part_id, ip.nombre, ip.numero_parte, ip.foto_url AS part_foto_url,
+         ik.tipo, ik.cantidad, ik.stock_resultante, ik.costo_compra, ik.precio_venta,
+         ik.referencia_tipo, ik.referencia_id, ik.empresa, ik.numero_economico, ik.notas, ik.foto_url, ik.created_at
+       FROM inventory_kardex ik
+       LEFT JOIN inventory_parts ip ON ip.id = ik.part_id
        ${where}
-       ORDER BY created_at DESC
-       LIMIT 150`,
+       ORDER BY ik.created_at DESC
+       LIMIT 250`,
       params
     );
-
-    const salidas = await pool.query(
-      `SELECT id, solicitud_id, empresa, numero_economico, descripcion, cantidad, costo_compra, precio_venta, utilidad, instalado_por, notas, created_at, updated_at
-       FROM refacciones_salidas
-       ${where}
-       ORDER BY created_at DESC
-       LIMIT 150`,
-      params
-    );
-
-    res.json({
-      entradas: entradas.rows,
-      salidas: salidas.rows
-    });
+    res.json(result.rows.map(row => ({
+      id: row.id,
+      partId: row.part_id,
+      nombre: row.nombre || '',
+      numeroParte: row.numero_parte || '',
+      fotoUrl: row.foto_url || row.part_foto_url || '',
+      tipo: row.tipo,
+      cantidad: Number(row.cantidad || 0),
+      stockResultante: Number(row.stock_resultante || 0),
+      costoCompra: Number(row.costo_compra || 0),
+      precioVenta: Number(row.precio_venta || 0),
+      empresa: row.empresa || '',
+      numeroEconomico: row.numero_economico || '',
+      referenciaTipo: row.referencia_tipo || '',
+      referenciaId: row.referencia_id || '',
+      notas: row.notas || '',
+      createdAt: row.created_at
+    })));
   } catch (error) {
-    console.error('Error leyendo control de refacciones:', error);
-    res.status(500).json({ error: 'No se pudo leer el control de refacciones.' });
+    console.error('Error leyendo kardex de refacciones:', error);
+    res.status(500).json({ error: 'No se pudo leer el kardex.' });
   }
 });
 
-app.post('/api/parts/:id/receive', authRequired, requireRoles('admin'), async (req, res) => {
-  try {
-    const proveedor = String(req.body.proveedor || '').trim();
-    const cantidad = Number(req.body.cantidad);
-    const costoUnitario = Number(req.body.costoUnitario);
-    const notas = String(req.body.notas || '').trim();
-
-    if (Number.isNaN(cantidad) || cantidad <= 0) return res.status(400).json({ error: 'Cantidad inválida.' });
-    if (Number.isNaN(costoUnitario) || costoUnitario < 0) return res.status(400).json({ error: 'Costo inválido.' });
-
-    const found = await pool.query(`SELECT * FROM garantias WHERE id = $1`, [req.params.id]);
-    if (!found.rowCount) return res.status(404).json({ error: 'Reporte no encontrado.' });
-
-    const g = found.rows[0];
-    const descripcion = String(g.detalle_refaccion || '').trim() || 'Refacción sin detalle';
-
-    const entry = await pool.query(
-      `INSERT INTO refacciones_entradas
-       (solicitud_id, empresa, numero_economico, descripcion, proveedor, cantidad, costo_unitario, costo_total, notas, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
-       RETURNING *`,
-      [g.id, g.empresa || '', g.numero_economico || '', descripcion, proveedor, cantidad, costoUnitario, cantidad * costoUnitario, notas]
-    );
-
-    const updated = await pool.query(
-      `UPDATE garantias
-       SET refaccion_status = 'recibida',
-           refaccion_updated_at = NOW(),
-           updated_at = NOW()
-       WHERE id = $1
-       RETURNING *`,
-      [g.id]
-    );
-
-    res.json({ ok: true, entrada: entry.rows[0], garantia: mapGarantia(updated.rows[0]) });
-  } catch (error) {
-    console.error('Error recibiendo refacción:', error);
-    res.status(500).json({ error: 'No se pudo registrar la recepción.' });
-  }
-});
-
-app.post('/api/parts/:id/install', authRequired, requireRoles('admin','supervisor_flotas'), async (req, res) => {
-  try {
-    const cantidad = Number(req.body.cantidad);
-    const costoCompra = Number(req.body.costoCompra);
-    const precioVenta = Number(req.body.precioVenta);
-    const instaladoPor = String(req.body.instaladoPor || req.user.nombre || '').trim();
-    const notas = String(req.body.notas || '').trim();
-
-    if (Number.isNaN(cantidad) || cantidad <= 0) return res.status(400).json({ error: 'Cantidad inválida.' });
-    if (Number.isNaN(costoCompra) || costoCompra < 0) return res.status(400).json({ error: 'Costo compra inválido.' });
-    if (Number.isNaN(precioVenta) || precioVenta < 0) return res.status(400).json({ error: 'Precio venta inválido.' });
-
-    const found = await pool.query(`SELECT * FROM garantias WHERE id = $1`, [req.params.id]);
-    if (!found.rowCount) return res.status(404).json({ error: 'Reporte no encontrado.' });
-
-    const g = found.rows[0];
-    if (req.user.role === 'supervisor_flotas' && (g.empresa || '') !== (req.user.empresa || '')) {
-      return res.status(403).json({ error: 'No puedes instalar refacciones de otra empresa.' });
-    }
-
-    const descripcion = String(g.detalle_refaccion || '').trim() || 'Refacción sin detalle';
-    const salida = await pool.query(
-      `INSERT INTO refacciones_salidas
-       (solicitud_id, empresa, numero_economico, descripcion, cantidad, costo_compra, precio_venta, utilidad, instalado_por, notas, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())
-       RETURNING *`,
-      [g.id, g.empresa || '', g.numero_economico || '', descripcion, cantidad, costoCompra, precioVenta, (precioVenta - costoCompra) * cantidad, instaladoPor, notas]
-    );
-
-    const updated = await pool.query(
-      `UPDATE garantias
-       SET refaccion_status = 'instalada',
-           refaccion_updated_at = NOW(),
-           updated_at = NOW()
-       WHERE id = $1
-       RETURNING *`,
-      [g.id]
-    );
-
-    res.json({ ok: true, salida: salida.rows[0], garantia: mapGarantia(updated.rows[0]) });
-  } catch (error) {
-    console.error('Error instalando refacción:', error);
-    res.status(500).json({ error: 'No se pudo registrar la instalación.' });
-  }
-});
 
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

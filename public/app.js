@@ -24,7 +24,8 @@ const state = {
   fleetDirty: false,
   unitCostsAdmin: [],
   independentPartsRequests: [],
-  partsControl: { entradas: [], salidas: [] },
+  inventoryParts: [],
+  inventoryKardex: [],
   editingGarantiaId: '',
   editingFirmaOriginal: '',
   boardDirtyIds: new Set(),
@@ -74,9 +75,12 @@ const api = {
   getIndependentPartsRequests() { return this.request('/api/parts/requests'); },
   createIndependentPartsRequest(payload) { return this.request('/api/parts/requests', { method: 'POST', body: JSON.stringify(payload || {}) }); },
   updateIndependentPartsRequest(id, payload) { return this.request(`/api/parts/requests/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
-  getPartsControl() { return this.request('/api/parts/control'); },
-  receivePart(id, payload) { return this.request(`/api/parts/${id}/receive`, { method: 'POST', body: JSON.stringify(payload || {}) }); },
-  installPart(id, payload) { return this.request(`/api/parts/${id}/install`, { method: 'POST', body: JSON.stringify(payload || {}) }); },
+  getInventoryParts() { return this.request('/api/inventory/parts'); },
+  createInventoryPart(payload) { return this.request('/api/inventory/parts', { method: 'POST', body: JSON.stringify(payload || {}) }); },
+  updateInventoryPart(id, payload) { return this.request(`/api/inventory/parts/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
+  receiveInventoryPart(id, payload) { return this.request(`/api/inventory/parts/${id}/entry`, { method: 'POST', body: JSON.stringify(payload || {}) }); },
+  installInventoryPart(id, payload) { return this.request(`/api/inventory/parts/${id}/install`, { method: 'POST', body: JSON.stringify(payload || {}) }); },
+  getInventoryKardex() { return this.request('/api/inventory/kardex'); },
   getNotifications() { return this.request('/api/notifications'); },
 
   getFleetSummary() { return this.request('/api/fleet/summary'); },
@@ -159,36 +163,45 @@ function fleetTagCampania(unit) {
 }
 function countBy(items, getter) {
   const map = new Map();
-  const historyWrap = document.createElement('section');
-  historyWrap.className = 'parts-history-wrap';
-  historyWrap.innerHTML = `
+
+  const inventorySection = document.createElement('section');
+  inventorySection.className = 'parts-inventory-wrap';
+  inventorySection.innerHTML = `
     <div class="parts-history-grid">
       <article class="parts-history-card">
-        <div class="parts-kicker">ENTRADAS</div>
-        <h4>Registro de llegadas</h4>
-        <div class="parts-history-list">
-          ${(state.partsControl?.entradas || []).slice(0, 12).map(row => `
-            <div class="parts-history-row">
-              <strong>${escapeHtml(row.descripcion || 'Refacción')}</strong>
-              <span>${escapeHtml(row.empresa || '—')} · ${escapeHtml(row.numero_economico || 'Sin unidad')}</span>
-              <span>Proveedor: ${escapeHtml(row.proveedor || '—')}</span>
-              <span>Costo compra: ${money(Number(row.costo_total || 0))}</span>
+        <div class="parts-kicker">INVENTARIO</div>
+        <h4>Refacciones con stock</h4>
+        <div class="inventory-grid">
+          ${(state.inventoryParts || []).slice(0, 30).map(part => `
+            <div class="inventory-card">
+              <div class="inventory-thumb">${part.fotoUrl ? `<img src="${escapeHtml(part.fotoUrl)}" alt="${escapeHtml(part.nombre)}" />` : `<div class="inventory-thumb-empty">Sin foto</div>`}</div>
+              <div class="inventory-copy">
+                <strong>${escapeHtml(part.nombre || '')}</strong>
+                <span>${escapeHtml(part.numeroParte || 'Sin número de parte')}</span>
+                <span>Stock: ${Number(part.stockActual || 0)}</span>
+                <span>Compra: ${money(Number(part.costoCompra || 0))}</span>
+                <span>Venta: ${money(Number(part.precioVenta || 0))}</span>
+              </div>
+              <div class="inventory-actions">
+                ${isRole('admin') ? `<button class="btn btn-secondary" type="button" data-inv-edit="${part.id}">Editar</button><button class="btn btn-secondary" type="button" data-inv-entry="${part.id}">Entrada</button>` : ``}
+                ${isRole('admin','supervisor_flotas') ? `<button class="btn btn-primary" type="button" data-inv-install="${part.id}">Asignar / instalar</button>` : ``}
+              </div>
             </div>
-          `).join('') || '<div class="parts-empty small">Sin entradas registradas.</div>'}
+          `).join('') || '<div class="parts-empty small">Sin inventario capturado.</div>'}
         </div>
       </article>
       <article class="parts-history-card">
-        <div class="parts-kicker">INSTALADAS</div>
-        <h4>Salidas / instalación</h4>
+        <div class="parts-kicker">KARDEX</div>
+        <h4>Entradas y salidas</h4>
         <div class="parts-history-list">
-          ${(state.partsControl?.salidas || []).slice(0, 12).map(row => `
+          ${(state.inventoryKardex || []).slice(0, 24).map(row => `
             <div class="parts-history-row">
-              <strong>${escapeHtml(row.descripcion || 'Refacción')}</strong>
-              <span>${escapeHtml(row.empresa || '—')} · Unidad ${escapeHtml(row.numero_economico || '—')}</span>
-              <span>Venta: ${money(Number(row.precio_venta || 0))} · Compra: ${money(Number(row.costo_compra || 0))}</span>
-              <span>Instalado por: ${escapeHtml(row.instalado_por || '—')}</span>
+              <strong>${escapeHtml(row.nombre || 'Refacción')}</strong>
+              <span>${escapeHtml(row.tipo || '')} · Cantidad: ${Number(row.cantidad || 0)}</span>
+              <span>${escapeHtml(row.empresa || '')}${row.numeroEconomico ? ' · Unidad ' + escapeHtml(row.numeroEconomico) : ''}</span>
+              <span>Stock: ${Number(row.stockResultante || 0)} · Compra: ${money(Number(row.costoCompra || 0))}${Number(row.precioVenta || 0) ? ' · Venta: ' + money(Number(row.precioVenta || 0)) : ''}</span>
             </div>
-          `).join('') || '<div class="parts-empty small">Sin instalaciones registradas.</div>'}
+          `).join('') || '<div class="parts-empty small">Sin movimientos todavía.</div>'}
         </div>
       </article>
     </div>
@@ -837,60 +850,102 @@ async function eliminarCostoAdmin(costId, unitId) {
 
 
 
-async function loadPartsControl() {
+async function loadInventoryParts() {
   if (!isRole('admin','supervisor_flotas')) return;
   try {
-    state.partsControl = await api.getPartsControl();
+    state.inventoryParts = await api.getInventoryParts();
   } catch (error) {
-    state.partsControl = { entradas: [], salidas: [] };
+    state.inventoryParts = [];
   }
 }
-
-async function recibirRefaccionAdmin(item) {
+async function loadInventoryKardex() {
+  if (!isRole('admin','supervisor_flotas')) return;
   try {
-    const proveedor = window.prompt('Proveedor:', '');
-    if (proveedor === null) return;
-    const cantidadRaw = window.prompt('Cantidad recibida:', '1');
-    if (cantidadRaw === null) return;
-    const costoRaw = window.prompt('Costo de compra unitario:', '0');
-    if (costoRaw === null) return;
-    const notas = window.prompt('Notas (opcional):', '') || '';
-    await api.receivePart(item.id, {
-      proveedor,
-      cantidad: Number(cantidadRaw),
-      costoUnitario: Number(costoRaw),
-      notas
-    });
-    notify('Refacción recibida.');
-    await loadPartsControl();
-    await loadPartsPending(true);
-    await loadGarantias();
+    state.inventoryKardex = await api.getInventoryKardex();
+  } catch (error) {
+    state.inventoryKardex = [];
+  }
+}
+async function crearRefaccionInventario() {
+  try {
+    const nombre = window.prompt('Nombre de la refacción:');
+    if (!nombre) return;
+    const numeroParte = window.prompt('Número de parte (opcional):') || '';
+    const marca = window.prompt('Marca (opcional):') || '';
+    const categoria = window.prompt('Categoría (opcional):') || '';
+    const proveedor = window.prompt('Proveedor (opcional):') || '';
+    const stockActual = Number(window.prompt('Stock inicial:', '0') || 0);
+    const stockMinimo = Number(window.prompt('Stock mínimo:', '0') || 0);
+    const costoCompra = Number(window.prompt('Costo compra unitario:', '0') || 0);
+    const precioVenta = Number(window.prompt('Precio venta manual:', '0') || 0);
+    const fotoUrl = window.prompt('Imagen de la refacción (pega imagen/base64 o URL, opcional):') || '';
+    const notas = window.prompt('Notas (opcional):') || '';
+    await api.createInventoryPart({ nombre, numeroParte, marca, categoria, proveedor, stockActual, stockMinimo, costoCompra, precioVenta, fotoUrl, notas });
+    notify('Refacción agregada al inventario.');
+    await Promise.all([loadInventoryParts(), loadInventoryKardex()]);
+    renderPartsPending();
   } catch (error) {
     notify(error.message, true);
   }
 }
-
-async function instalarRefaccion(item) {
+async function editarRefaccionInventario(item) {
   try {
-    const cantidadRaw = window.prompt('Cantidad instalada:', '1');
-    if (cantidadRaw === null) return;
-    const compraRaw = window.prompt('Costo de compra unitario:', '0');
-    if (compraRaw === null) return;
-    const ventaRaw = window.prompt('Precio de venta unitario (manual):', '0');
-    if (ventaRaw === null) return;
+    const nombre = window.prompt('Nombre de la refacción:', item.nombre || '');
+    if (!nombre) return;
+    const numeroParte = window.prompt('Número de parte:', item.numeroParte || '') || '';
+    const marca = window.prompt('Marca:', item.marca || '') || '';
+    const categoria = window.prompt('Categoría:', item.categoria || '') || '';
+    const proveedor = window.prompt('Proveedor:', item.proveedor || '') || '';
+    const stockMinimo = Number(window.prompt('Stock mínimo:', String(item.stockMinimo || 0)) || 0);
+    const costoCompra = Number(window.prompt('Costo compra unitario:', String(item.costoCompra || 0)) || 0);
+    const precioVenta = Number(window.prompt('Precio venta manual:', String(item.precioVenta || 0)) || 0);
+    const fotoUrl = window.prompt('Imagen de la refacción (URL/base64):', item.fotoUrl || '') || '';
+    const notas = window.prompt('Notas:', item.notas || '') || '';
+    await api.updateInventoryPart(item.id, { nombre, numeroParte, marca, categoria, proveedor, stockMinimo, costoCompra, precioVenta, fotoUrl, notas, activo: true });
+    notify('Refacción actualizada.');
+    await Promise.all([loadInventoryParts(), loadInventoryKardex()]);
+    renderPartsPending();
+  } catch (error) {
+    notify(error.message, true);
+  }
+}
+async function recibirInventario(item) {
+  try {
+    const cantidad = Number(window.prompt('Cantidad recibida:', '1') || 0);
+    if (!cantidad) return;
+    const costoUnitario = Number(window.prompt('Costo compra unitario:', String(item.costoCompra || 0)) || 0);
+    const proveedor = window.prompt('Proveedor:', item.proveedor || '') || '';
+    const fotoUrl = window.prompt('Imagen opcional de esta entrada (URL/base64):', item.fotoUrl || '') || '';
+    const notas = window.prompt('Notas (opcional):', '') || '';
+    await api.receiveInventoryPart(item.id, { cantidad, costoUnitario, proveedor, fotoUrl, notas });
+    notify('Entrada registrada.');
+    await Promise.all([loadInventoryParts(), loadInventoryKardex()]);
+    renderPartsPending();
+  } catch (error) {
+    notify(error.message, true);
+  }
+}
+async function instalarDesdeInventario(item) {
+  try {
+    const empresa = window.prompt('Empresa a la que se instalará:');
+    if (!empresa) return;
+    const numeroEconomico = window.prompt('Número económico de unidad:');
+    if (!numeroEconomico) return;
+    const garantiaId = window.prompt('ID del reporte ligado (opcional):') || '';
+    const cantidad = Number(window.prompt('Cantidad a instalar:', '1') || 0);
+    if (!cantidad) return;
+    const costoCompra = Number(window.prompt('Costo compra unitario:', String(item.costoCompra || 0)) || 0);
+    const precioVenta = Number(window.prompt('Precio venta manual:', String(item.precioVenta || 0)) || 0);
     const instaladoPor = window.prompt('Instalado por:', state.user?.nombre || '') || '';
     const notas = window.prompt('Notas (opcional):', '') || '';
-    await api.installPart(item.id, {
-      cantidad: Number(cantidadRaw),
-      costoCompra: Number(compraRaw),
-      precioVenta: Number(ventaRaw),
-      instaladoPor,
-      notas
-    });
-    notify('Refacción instalada.');
-    await loadPartsControl();
-    await loadPartsPending(true);
-    await loadGarantias();
+    await api.installInventoryPart(item.id, { empresa, numeroEconomico, garantiaId, cantidad, costoCompra, precioVenta, instaladoPor, notas });
+    notify('Refacción instalada y ligada a unidad.');
+    await Promise.all([loadInventoryParts(), loadInventoryKardex(), loadPartsPending(true), loadFleet()]);
+    if (state.selectedFleetUnit?.unit?.numeroEconomico === numeroEconomico && state.selectedFleetUnit?.unit?.empresa === empresa) {
+      state.selectedFleetUnit = await api.getFleetUnit(state.selectedFleetUnit.unit.id);
+      renderFleetDetail();
+    }
+    renderPartsPending();
   } catch (error) {
     notify(error.message, true);
   }
@@ -961,19 +1016,18 @@ function renderPartsPending() {
   const empresas = [...new Set(items.map(item => item.empresa).filter(Boolean))].length;
 
   if (els.partsSummary) {
-    const entradasHoy = (state.partsControl?.entradas || []).length;
-    const instaladasHoy = (state.partsControl?.salidas || []).length;
     els.partsSummary.innerHTML = `
       <article class="parts-summary-card"><strong>Pendientes</strong><span>${items.length}</span></article>
-      <article class="parts-summary-card"><strong>Entradas</strong><span>${entradasHoy}</span></article>
-      <article class="parts-summary-card"><strong>Instaladas</strong><span>${instaladasHoy}</span></article>
+      <article class="parts-summary-card"><strong>Unidades</strong><span>${unidades}</span></article>
+      <article class="parts-summary-card"><strong>Empresas</strong><span>${empresas}</span></article>
     `;
     if (isRole('admin','supervisor_flotas')) {
       const actions = document.createElement('div');
       actions.className = 'parts-actions-row';
-      actions.innerHTML = `<button id="newIndependentPartBtn" class="btn btn-primary" type="button">Solicitar refacción</button>`;
+      actions.innerHTML = `${isRole('admin') ? `<button id="newInventoryPartBtn" class="btn btn-secondary" type="button">Nueva refacción</button>` : ``}<button id="newIndependentPartBtn" class="btn btn-primary" type="button">Solicitar refacción</button>`;
       els.partsSummary.appendChild(actions);
       document.getElementById('newIndependentPartBtn')?.addEventListener('click', crearSolicitudIndependienteRefaccion);
+      document.getElementById('newInventoryPartBtn')?.addEventListener('click', crearRefaccionInventario);
     }
   }
 
@@ -1055,13 +1109,62 @@ function renderPartsPending() {
       </div>
       ${adminEditor}
       <div class="parts-card-actions">
-        ${isRole('admin') ? `<button class="btn btn-secondary" type="button" data-receive-part="${item.id}">Recibir</button>` : ``}
-        ${isRole('admin','supervisor_flotas') ? `<button class="btn btn-primary" type="button" data-install-part="${item.id}">Instalar</button>` : ``}
+        ${isRole('admin') ? `<button class="btn btn-secondary" type="button" data-part-edit="${item.id}">Editar</button><button class="btn btn-secondary" type="button" data-part-receive="${item.id}">Marcar recibida</button>` : ``}
+        ${isRole('admin','supervisor_flotas') ? `<button class="btn btn-primary" type="button" data-part-install="${item.id}">Instalar</button>` : ``}
       </div>
     `;
     els.partsList.appendChild(card);
-    card.querySelector(`[data-receive-part="${item.id}"]`)?.addEventListener('click', async () => { await recibirRefaccionAdmin(item); });
-    card.querySelector(`[data-install-part="${item.id}"]`)?.addEventListener('click', async () => { await instalarRefaccion(item); });
+    card.querySelector(`[data-part-edit="${item.id}"]`)?.addEventListener('click', async () => {
+      try {
+        const detalleRefaccion = window.prompt('Detalle de refacción:', item.detalleRefaccion || '') || '';
+        const refaccionAsignada = window.prompt('Refacción asignada:', item.refaccionAsignada || '') || '';
+        const refaccionStatus = window.prompt('Estado (pendiente/asignada/en_compra/recibida/instalada):', item.refaccionStatus || 'pendiente') || 'pendiente';
+        await api.updateParts(item.id, { detalleRefaccion, refaccionAsignada, refaccionStatus });
+        await loadPartsPending(true);
+        renderPartsPending();
+      } catch (error) { notify(error.message, true); }
+    });
+    card.querySelector(`[data-part-receive="${item.id}"]`)?.addEventListener('click', async () => {
+      try {
+        const proveedor = window.prompt('Proveedor:', '') || '';
+        const cantidad = Number(window.prompt('Cantidad recibida:', '1') || 0);
+        const costoUnitario = Number(window.prompt('Costo compra unitario:', '0') || 0);
+        const fotoUrl = window.prompt('Imagen de la refacción (URL/base64, opcional):', '') || '';
+        const notas = window.prompt('Notas (opcional):', '') || '';
+        await api.createInventoryPart({
+          nombre: item.detalleRefaccion || 'Refacción sin nombre',
+          numeroParte: '',
+          marca: '',
+          categoria: 'Ligada a reporte',
+          proveedor,
+          stockActual: 0,
+          stockMinimo: 0,
+          costoCompra: costoUnitario,
+          precioVenta: 0,
+          fotoUrl,
+          notas
+        }).then(async created => {
+          await api.receiveInventoryPart(created.id, { cantidad, costoUnitario, proveedor, fotoUrl, notas });
+          await api.updateParts(item.id, { detalleRefaccion: item.detalleRefaccion || '', refaccionAsignada: created.nombre || (item.detalleRefaccion || ''), refaccionStatus: 'recibida' });
+        });
+        notify('Refacción recibida e ingresada a inventario.');
+        await Promise.all([loadInventoryParts(), loadInventoryKardex(), loadPartsPending(true)]);
+        renderPartsPending();
+      } catch (error) { notify(error.message, true); }
+    });
+    card.querySelector(`[data-part-install="${item.id}"]`)?.addEventListener('click', async () => {
+      try {
+        const cantidad = Number(window.prompt('Cantidad a instalar:', '1') || 0);
+        const costoCompra = Number(window.prompt('Costo compra unitario:', '0') || 0);
+        const precioVenta = Number(window.prompt('Precio venta manual:', '0') || 0);
+        const instaladoPor = window.prompt('Instalado por:', state.user?.nombre || '') || '';
+        const notas = window.prompt('Notas (opcional):', '') || '';
+        // install from virtual inventory if not selected from stock
+        await api.installInventoryPart(state.inventoryParts[0]?.id || '', { empresa: item.empresa, numeroEconomico: item.numeroEconomico, garantiaId: item.id, cantidad, costoCompra, precioVenta, instaladoPor, notas });
+      } catch (error) {
+        notify('Para instalar directo desde pendiente, primero usa una refacción del inventario en la sección Inventario.', true);
+      }
+    });
 
     if (isRole('admin')) {
       const detailInput = card.querySelector(`#partsDetail_${item.id}`);
@@ -1111,7 +1214,6 @@ async function loadFleet() {
   } catch (error) {
     notify(error.message, true);
   }
-  els.partsList.appendChild(historyWrap);
 }
 
 function renderFleet() {
@@ -1190,6 +1292,19 @@ function renderFleetDetail() {
       <div>${escapeHtml(c.createdByNombre || '—')}</div>
     </div>
   `).join('') || '<div class="muted">Sin costos capturados.</div>';
+  const installedParts = (data.installedParts || []).map(p => `
+    <div class="installed-part-card">
+      <div class="installed-thumb">${p.imagenRefaccion ? `<img src="${escapeHtml(p.imagenRefaccion)}" alt="${escapeHtml(p.descripcion || '')}" />` : `<div class="inventory-thumb-empty">Sin foto</div>`}</div>
+      <div class="installed-copy">
+        <strong>${escapeHtml(p.descripcion || 'Refacción')}</strong>
+        <span>Cantidad: ${Number(p.cantidad || 0)}</span>
+        <span>Compra: ${money(Number(p.costoCompra || 0))} · Venta: ${money(Number(p.precioVenta || 0))}</span>
+        <span>Instalada: ${escapeHtml(fmtDate(p.createdAt))}</span>
+        <span>Por: ${escapeHtml(p.instaladoPor || '—')}</span>
+      </div>
+    </div>
+  `).join('') || '<div class="muted">Sin refacciones instaladas.</div>';
+
   const adminCostsEditor = isRole('admin') ? `
     <div class="admin-cost-editor-list">
       ${(state.unitCostsAdmin || []).map(c => `
@@ -1511,7 +1626,7 @@ els.navAnalyticsBtn?.addEventListener('click', () => switchPanel('analytics'));
 els.navHistoryBtn?.addEventListener('click', () => switchPanel('history'));
 els.navScheduleBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
 els.navFleetBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
-els.navPartsBtn?.addEventListener('click', async () => { await cargarSolicitudesIndependientes(); await loadPartsControl(); await loadPartsPending(true); switchPanel('parts'); });
+els.navPartsBtn?.addEventListener('click', async () => { await Promise.all([cargarSolicitudesIndependientes(), loadPartsPending(true), loadInventoryParts(), loadInventoryKardex()]); switchPanel('parts'); });
 els.navUsersBtn?.addEventListener('click', async () => { switchPanel('users'); await loadUsers(); });
 els.navRequestsBtn?.addEventListener('click', async () => { switchPanel('requests'); await loadRequests(); });
 els.navCompaniesBtn?.addEventListener('click', async () => { switchPanel('companies'); await loadCompanies(); });
@@ -1611,7 +1726,7 @@ els.companyForm?.addEventListener('submit', async (e) => {
     if (isRole('admin')) await Promise.allSettled([loadUsers(), loadRequests()]);
     if (isRole('admin','operativo','supervisor','supervisor_flotas','operador')) await Promise.allSettled([loadSchedules('')]);
     if (isRole('admin','operativo','supervisor_flotas')) await Promise.allSettled([loadFleet()]);
-    if (isRole('admin','supervisor_flotas')) await Promise.allSettled([cargarSolicitudesIndependientes(), loadPartsControl(), loadPartsPending(true)]);
+    if (isRole('admin','supervisor_flotas')) await Promise.allSettled([cargarSolicitudesIndependientes(), loadPartsPending(true), loadInventoryParts(), loadInventoryKardex()]);
     resetReportForm(); resetCompanyForm(); resetFleetForm();
   } catch {
     localStorage.removeItem('carlabToken'); state.token = ''; showLogin();

@@ -2910,13 +2910,22 @@ body[data-role="supervisor_flotas"] * {
   }
 }
 
+.parts-actions-row {
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  margin-top: 12px;
+}
 .parts-card-actions {
   display:flex;
   gap:8px;
   flex-wrap:wrap;
 }
-.parts-history-wrap {
-  margin-top: 18px;
+.parts-history-wrap,
+.parts-inventory-wrap {
+  grid-column: 1 / -1;
+  width: 100%;
 }
 .parts-history-grid {
   display:grid;
@@ -2945,11 +2954,94 @@ body[data-role="supervisor_flotas"] * {
   padding:12px;
   background:#fff;
 }
-.parts-empty.small {
-  padding: 12px;
+.inventory-grid {
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+.inventory-card {
+  display:grid;
+  gap: 12px;
+  border:1px solid rgba(16,24,40,.08);
+  border-radius:18px;
+  background:#fff;
+  padding:14px;
+  box-shadow: 0 12px 24px rgba(16,24,40,.04);
+}
+.inventory-thumb {
+  width:100%;
+  aspect-ratio: 16 / 9;
+  overflow:hidden;
+  border-radius:14px;
+  background:#f4f6fb;
+  display:grid;
+  place-items:center;
+}
+.inventory-thumb img,
+.installed-thumb img {
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+.inventory-thumb-empty {
+  color:#667085;
+  font-size:13px;
+}
+.inventory-copy {
+  display:grid;
+  gap:4px;
+}
+.inventory-copy strong {
+  font-size:16px;
+}
+.inventory-copy span {
+  color:#475467;
+  font-size:13px;
+}
+.inventory-actions {
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.fleet-installed-section {
+  margin-top: 18px;
+}
+.installed-parts-grid {
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+.installed-part-card {
+  display:grid;
+  grid-template-columns: 110px 1fr;
+  gap:12px;
+  border:1px solid rgba(16,24,40,.08);
+  border-radius:18px;
+  background:#fff;
+  padding:12px;
+}
+.installed-thumb {
+  width:110px;
+  height:90px;
+  overflow:hidden;
+  border-radius:12px;
+  background:#f4f6fb;
+  display:grid;
+  place-items:center;
+}
+.installed-copy {
+  display:grid;
+  gap:4px;
+}
+.installed-copy strong {
+  font-size:15px;
+}
+.installed-copy span {
+  color:#475467;
+  font-size:13px;
 }
 @media (max-width: 980px) {
-  .parts-history-grid {
-    grid-template-columns: 1fr;
-  }
+  .parts-history-grid { grid-template-columns: 1fr; }
+  .installed-part-card { grid-template-columns: 1fr; }
+  .installed-thumb { width:100%; height:auto; aspect-ratio: 16/9; }
 }
