@@ -1,0 +1,20 @@
+{
+  "name": "carlab-cloud-v2-rescate-whatsapp",
+  "version": "4.0.0",
+  "description": "CARLAB CLOUD V3.7 - Rescate estable con WhatsApp y telefonos normalizados",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": "20.x"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.3",
+    "twilio": "^5.4.3"
+  }
+}
