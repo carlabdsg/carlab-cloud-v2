@@ -50,6 +50,16 @@ function cryptoRandomId() {
 
 const twilioClient = TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN ? twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN) : null;
 
+
+process.on('unhandledRejection', (error) => {
+  console.error('Unhandled rejection:', error);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception:', error);
+});
+
+
 function normalizeMxPhone(raw) {
   const digits = String(raw || '').replace(/\D/g, '');
   if (!digits) return '';
@@ -1213,34 +1223,39 @@ app.get('/api/history/unit/:numeroEconomico', authRequired, requireRoles('admin'
 
 
 app.get('/api/schedules', authRequired, requireRoles('admin', 'operativo', 'supervisor', 'supervisor_flotas', 'operador'), async (req, res) => {
-  const date = String(req.query.date || '').trim();
-  const params = [];
-  let where = [];
-  if (date) {
-    params.push(date);
-    where.push(`DATE(sr.scheduled_for AT TIME ZONE 'UTC') = $${params.length}`);
+  try {
+    const date = String(req.query.date || '').trim();
+    const params = [];
+    let where = [];
+    if (date) {
+      params.push(date);
+      where.push(`DATE(sr.scheduled_for AT TIME ZONE 'UTC') = $${params.length}`);
+    }
+    if (SUPERVISOR_ROLES.includes(req.user.role)) {
+      params.push(req.user.empresa || '');
+      where.push(`COALESCE(g.empresa, sr.empresa) = $${params.length}`);
+    }
+    if (req.user.role === 'operador') {
+      params.push(req.user.id);
+      where.push(`g.reportado_por_id = $${params.length}`);
+    }
+    const result = await pool.query(`
+      SELECT sr.*,
+        COALESCE(g.folio, sr.folio_manual) AS folio,
+        COALESCE(g.numero_economico, sr.numero_economico) AS numero_economico,
+        COALESCE(g.empresa, sr.empresa) AS empresa,
+        COALESCE(g.contacto_nombre, sr.contacto_nombre) AS contacto_nombre,
+        COALESCE(g.telefono, sr.telefono) AS telefono
+      FROM schedule_requests sr
+      LEFT JOIN garantias g ON g.id = sr.garantia_id
+      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+      ORDER BY COALESCE(sr.scheduled_for, sr.proposed_at, sr.requested_at) ASC
+    `, params);
+    res.json(result.rows.map(scheduleSummary));
+  } catch (error) {
+    console.error('Error leyendo agenda:', error);
+    res.status(500).json({ error: 'No se pudo cargar la agenda.' });
   }
-  if (SUPERVISOR_ROLES.includes(req.user.role)) {
-    params.push(req.user.empresa || '');
-    where.push(`COALESCE(g.empresa, sr.empresa) = $${params.length}`);
-  }
-  if (req.user.role === 'operador') {
-    params.push(req.user.id);
-    where.push(`g.reportado_por_id = $${params.length}`);
-  }
-  const result = await pool.query(`
-    SELECT sr.*,
-      COALESCE(g.folio, sr.folio_manual) AS folio,
-      COALESCE(g.numero_economico, sr.numero_economico) AS numero_economico,
-      COALESCE(g.empresa, sr.empresa) AS empresa,
-      COALESCE(g.contacto_nombre, sr.contacto_nombre) AS contacto_nombre,
-      COALESCE(g.telefono, sr.telefono) AS telefono
-    FROM schedule_requests sr
-    LEFT LEFT JOIN garantias g ON g.id = sr.garantia_id
-    ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-    ORDER BY COALESCE(sr.scheduled_for, sr.proposed_at, sr.requested_at) ASC
-  `, params);
-  res.json(result.rows.map(scheduleSummary));
 });
 
 app.post('/api/schedules/manual', authRequired, requireRoles('admin','operativo'), async (req, res) => {
