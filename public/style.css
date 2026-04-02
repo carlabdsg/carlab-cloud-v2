@@ -2947,3 +2947,165 @@ body[data-role="supervisor_flotas"] * {
 .parts-card{border-radius:22px;box-shadow:0 14px 30px rgba(15,23,42,.05)}
 @media (max-width: 1200px){.executive-grid,.cards,.card .mini-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width: 860px){.executive-grid,.cards,.card .mini-grid{grid-template-columns:1fr}.executive-card{min-height:auto}}
+
+
+/* V4.2.2 operator bottom rail and executive alignment polish */
+:root {
+  --operator-nav-h: 76px;
+}
+
+.operator-app-nav {
+  min-height: var(--operator-nav-h);
+  align-items: center;
+  max-width: calc(100vw - 22px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.operator-app-nav button {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+body.operator-mode .main-area {
+  padding: 14px 14px calc(var(--operator-nav-h) + 30px + env(safe-area-inset-bottom, 0px));
+}
+
+body.operator-mode .panel {
+  scroll-margin-bottom: calc(var(--operator-nav-h) + 28px);
+}
+
+body.operator-mode #reportFormPanel,
+body.operator-mode #schedulePanel,
+body.operator-mode #boardPanel {
+  margin-bottom: 8px;
+}
+
+body.operator-mode .operator-app-nav.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.executive-card {
+  border-radius: 24px !important;
+  overflow: hidden;
+}
+
+.executive-card.focus-card {
+  position: relative;
+  isolation: isolate;
+}
+
+.executive-card.focus-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top left, rgba(255,255,255,.12), transparent 34%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.executive-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.executive-card strong {
+  line-height: .95;
+}
+
+.executive-actions {
+  align-items: center;
+}
+
+body.executive-mode .profile-panel {
+  border-radius: 20px !important;
+}
+
+body.executive-mode .nav-btn {
+  display: flex !important;
+  align-items: center !important;
+  min-height: 40px !important;
+}
+
+@media (max-width: 640px) {
+  .operator-app-nav {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    transform: none;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .operator-app-nav button {
+    min-width: 0;
+    flex: 1 1 0;
+    padding: 11px 8px;
+    font-size: 14px;
+  }
+
+  body.operator-mode .main-area {
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-bottom: calc(var(--operator-nav-h) + 34px + env(safe-area-inset-bottom, 0px));
+  }
+
+  body.operator-mode .panel {
+    padding: 14px 12px;
+  }
+}
+
+@supports (-webkit-touch-callout: none) {
+  body.operator-mode .main-area {
+    padding-bottom: calc(var(--operator-nav-h) + 38px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .operator-app-nav {
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* V4.3 owner module + parts evidence gallery */
+.fleet-owner-deck{display:grid;gap:16px;margin:14px 0 18px}
+.fleet-owner-hero{display:grid;grid-template-columns:1.2fr 1fr;gap:16px;padding:18px 20px;border:1px solid rgba(15,23,42,.08);border-radius:24px;background:linear-gradient(135deg,#0f172a,#162033 55%,#25324a);color:#fff;box-shadow:0 22px 44px rgba(15,23,42,.16)}
+.fleet-owner-copy h3{margin:6px 0 8px;font-size:28px;line-height:1.05}
+.fleet-owner-copy p{margin:0;color:rgba(255,255,255,.78);max-width:56ch;line-height:1.6}
+.fleet-owner-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-content:start}
+.fleet-owner-kpis article,.fleet-detail-summary article{padding:14px;border-radius:18px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1)}
+.fleet-owner-kpis span,.fleet-detail-summary span{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.fleet-owner-kpis strong,.fleet-detail-summary strong{display:block;margin-top:8px;font-size:22px;line-height:1.05;color:inherit}
+.fleet-owner-insights,.detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.owner-card,.owner-gallery-card{padding:18px;border:1px solid rgba(15,23,42,.08);border-radius:22px;background:linear-gradient(180deg,#fff,#f8fafc)}
+.owner-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.owner-list{display:grid;gap:10px}
+.owner-list-row{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:12px 14px;border-radius:16px;border:1px solid rgba(15,23,42,.06);background:#fff;text-align:left}
+.owner-list-row.static{cursor:default}
+.owner-list-row span{font-weight:700;color:var(--text)}
+.owner-list-row small{color:var(--muted)}
+.owner-list-row strong{font-size:14px}
+.fleet-line-item.selected{border-color:#0f172a;background:#eef2ff}
+.fleet-detail-summary{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:0 0 16px}
+.parts-media-box{display:grid;gap:10px;margin-top:12px}
+.parts-media-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.media-gallery{display:flex;flex-wrap:wrap;gap:10px}
+.media-thumb{width:88px;height:88px;border:1px solid rgba(15,23,42,.08);border-radius:16px;padding:0;background:#fff;overflow:hidden;cursor:pointer;box-shadow:0 10px 20px rgba(15,23,42,.06)}
+.media-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.image-lightbox{position:fixed;inset:0;z-index:120;background:rgba(2,6,23,.86);display:flex;align-items:center;justify-content:center;padding:30px}
+.image-lightbox.hidden{display:none}
+.image-lightbox img{max-width:min(96vw,1200px);max-height:90vh;border-radius:20px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.image-lightbox-close{position:absolute;top:18px;right:18px;width:44px;height:44px;border-radius:999px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.1);color:#fff;font-size:28px;line-height:1;cursor:pointer}
+body.lightbox-open{overflow:hidden}
+.independent-request-editor{display:grid;grid-template-columns:1fr 1.2fr 1.3fr auto;gap:8px;align-items:center}
+.parts-inline-row{margin-bottom:10px}
+@media (max-width: 1100px){
+  .fleet-owner-hero,.fleet-owner-insights,.detail-grid{grid-template-columns:1fr}
+  .fleet-owner-kpis,.fleet-detail-summary{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (max-width: 720px){
+  .fleet-owner-kpis,.fleet-detail-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .independent-request-editor{grid-template-columns:1fr}
+  .owner-list-row{grid-template-columns:1fr}
+}

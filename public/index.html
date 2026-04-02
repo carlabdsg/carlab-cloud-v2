@@ -406,6 +406,8 @@
             </div>
           </div>
 
+          <div id="fleetOwnerDeck" class="fleet-owner-deck"></div>
+
           <div class="fleet-layout compact-fleet-layout">
             <div id="fleetUnitsList" class="fleet-line-list"></div>
             <div id="fleetDetail" class="panel-subtle fleet-detail-premium">
@@ -421,7 +423,7 @@
           <div class="panel-head compact-panel-head">
             <div>
               <div class="topbar-kicker">REFACCIONES</div>
-              <h3>Refacciones pendientes</h3>
+              <h3>Refacciones y evidencia</h3>
             </div>
             <button id="partsRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
           </div>
@@ -459,6 +461,11 @@
     <button id="opNavScheduleBtn" type="button">Agenda</button>
     <button id="opNavLogoutBtn" type="button">Salir</button>
   </nav>
+
+  <div id="imageLightbox" class="image-lightbox hidden" role="dialog" aria-modal="true">
+    <button id="imageLightboxClose" class="image-lightbox-close" type="button" aria-label="Cerrar">×</button>
+    <img id="imageLightboxImg" alt="Vista ampliada" />
+  </div>
 
   <script src="/app.js"></script>
 </body>

@@ -273,6 +273,7 @@ function mapFleetUnit(row) {
     costoRefacciones: Number(row.costo_refacciones || 0),
     costoManoObra: Number(row.costo_mano_obra || 0),
     costoTotal: Number(row.costo_total || 0),
+    reportesCount: Number(row.reportes_count || 0),
     lastReportAt: row.last_report_at || null,
     createdAt: row.created_at
   };
@@ -564,6 +565,7 @@ async function initDb() {
     ALTER TABLE garantias ADD COLUMN IF NOT EXISTS refaccion_status TEXT NOT NULL DEFAULT 'pendiente';
     ALTER TABLE garantias ADD COLUMN IF NOT EXISTS refaccion_asignada TEXT;
     ALTER TABLE garantias ADD COLUMN IF NOT EXISTS refaccion_updated_at TIMESTAMPTZ;
+    ALTER TABLE parts_requests ADD COLUMN IF NOT EXISTS evidence_photos JSONB NOT NULL DEFAULT '[]'::jsonb;
 
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     CREATE INDEX IF NOT EXISTS idx_reg_requests_status ON registration_requests(status);
@@ -580,6 +582,7 @@ async function initDb() {
       status TEXT NOT NULL DEFAULT 'pendiente',
       requested_by TEXT REFERENCES users(id) ON DELETE SET NULL,
       notes TEXT,
+      evidence_photos JSONB NOT NULL DEFAULT '[]'::jsonb,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -1523,7 +1526,7 @@ app.get('/api/parts/pending', authRequired, requireRoles('admin','supervisor_flo
     const result = await pool.query(
       `SELECT
          id, folio, numero_obra, modelo, numero_economico, empresa,
-         detalle_refaccion, refaccion_status, refaccion_asignada,
+         detalle_refaccion, refaccion_status, refaccion_asignada, evidencias_refaccion,
          estatus_operativo, created_at, updated_at, refaccion_updated_at
        FROM garantias
        WHERE ${where.join(' AND ')}
@@ -1541,6 +1544,7 @@ app.get('/api/parts/pending', authRequired, requireRoles('admin','supervisor_flo
       refaccionStatus: row.refaccion_status || 'pendiente',
       refaccionAsignada: row.refaccion_asignada || '',
       estatusOperativo: row.estatus_operativo || 'sin iniciar',
+      evidenciasRefaccion: row.evidencias_refaccion || [],
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       refaccionUpdatedAt: row.refaccion_updated_at
@@ -1556,6 +1560,7 @@ app.patch('/api/garantias/:id/parts', authRequired, requireRoles('admin'), async
     const detalleRefaccion = String(req.body.detalleRefaccion || '').trim();
     const refaccionStatus = String(req.body.refaccionStatus || 'pendiente').trim();
     const refaccionAsignada = String(req.body.refaccionAsignada || '').trim();
+    const evidenciasRefaccion = Array.isArray(req.body.evidenciasRefaccion) ? req.body.evidenciasRefaccion.filter(Boolean) : null;
 
     if (!['pendiente','asignada','en_compra','recibida','instalada'].includes(refaccionStatus)) {
       return res.status(400).json({ error: 'Estado de refacción inválido.' });
@@ -1566,11 +1571,12 @@ app.patch('/api/garantias/:id/parts', authRequired, requireRoles('admin'), async
        SET detalle_refaccion = $2,
            refaccion_status = $3,
            refaccion_asignada = $4,
+           evidencias_refaccion = COALESCE($5::jsonb, evidencias_refaccion),
            refaccion_updated_at = NOW(),
            updated_at = NOW()
        WHERE id = $1
        RETURNING *`,
-      [req.params.id, detalleRefaccion, refaccionStatus, refaccionAsignada]
+      [req.params.id, detalleRefaccion, refaccionStatus, refaccionAsignada, evidenciasRefaccion ? JSON.stringify(evidenciasRefaccion) : null]
     );
 
     if (!result.rowCount) return res.status(404).json({ error: 'Garantía no encontrada.' });
@@ -1718,7 +1724,7 @@ app.get('/api/parts/requests', authRequired, requireRoles('admin','supervisor_fl
       where.push(`empresa = $${params.length}`);
     }
     const result = await pool.query(
-      `SELECT id, empresa, numero_economico, solicitud, status, notes, created_at, updated_at
+      `SELECT id, empresa, numero_economico, solicitud, status, notes, evidence_photos, created_at, updated_at
        FROM parts_requests
        ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
        ORDER BY updated_at DESC, created_at DESC`,
@@ -1737,12 +1743,13 @@ app.post('/api/parts/requests', authRequired, requireRoles('admin','supervisor_f
     const numeroEconomico = String(req.body.numeroEconomico || '').trim();
     const solicitud = String(req.body.solicitud || '').trim();
     const notes = String(req.body.notes || '').trim();
+    const evidencePhotos = Array.isArray(req.body.evidencePhotos) ? req.body.evidencePhotos.filter(Boolean) : [];
     if (!empresa || !solicitud) return res.status(400).json({ error: 'Empresa y solicitud son obligatorias.' });
     const result = await pool.query(
-      `INSERT INTO parts_requests (empresa, numero_economico, solicitud, status, requested_by, notes)
-       VALUES ($1,$2,$3,'pendiente',$4,$5)
-       RETURNING id, empresa, numero_economico, solicitud, status, notes, created_at, updated_at`,
-      [empresa, numeroEconomico, solicitud, req.user.id, notes]
+      `INSERT INTO parts_requests (empresa, numero_economico, solicitud, status, requested_by, notes, evidence_photos)
+       VALUES ($1,$2,$3,'pendiente',$4,$5,$6::jsonb)
+       RETURNING id, empresa, numero_economico, solicitud, status, notes, evidence_photos, created_at, updated_at`,
+      [empresa, numeroEconomico, solicitud, req.user.id, notes, JSON.stringify(evidencePhotos)]
     );
     res.json(result.rows[0]);
   } catch (error) {
@@ -1756,10 +1763,11 @@ app.patch('/api/parts/requests/:id', authRequired, requireRoles('admin','supervi
   try {
     const status = String(req.body.status || '').trim() || 'pendiente';
     const notes = String(req.body.notes || '').trim();
+    const evidencePhotos = Array.isArray(req.body.evidencePhotos) ? req.body.evidencePhotos.filter(Boolean) : null;
     const allowed = ['pendiente', 'pedida', 'asignada', 'recibida', 'instalada', 'cancelada', 'cerrada'];
     if (!allowed.includes(status)) return res.status(400).json({ error: 'Estatus inválido.' });
 
-    const params = [req.params.id, status, notes];
+    const params = [req.params.id, status, notes, evidencePhotos ? JSON.stringify(evidencePhotos) : null];
     let where = 'id = $1';
     if (req.user.role === 'supervisor_flotas') {
       params.push(req.user.empresa || '');
@@ -1768,9 +1776,9 @@ app.patch('/api/parts/requests/:id', authRequired, requireRoles('admin','supervi
 
     const result = await pool.query(
       `UPDATE parts_requests
-       SET status = $2, notes = $3, updated_at = NOW()
+       SET status = $2, notes = $3, evidence_photos = COALESCE($4::jsonb, evidence_photos), updated_at = NOW()
        WHERE ${where}
-       RETURNING id, empresa, numero_economico, solicitud, status, notes, created_at, updated_at`,
+       RETURNING id, empresa, numero_economico, solicitud, status, notes, evidence_photos, created_at, updated_at`,
       params
     );
     if (!result.rowCount) return res.status(404).json({ error: 'Solicitud no encontrada.' });
