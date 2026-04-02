@@ -27,6 +27,8 @@ const state = {
   editingGarantiaId: '',
   editingFirmaOriginal: '',
   boardDirtyIds: new Set(),
+  userEditing: false,
+  activeEditorContext: '',
 };
 
 const api = {
@@ -100,7 +102,8 @@ function bind() {
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
     'executiveDeck','executiveDeckGrid','liveRefreshBadge','topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistorySearchInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','partsPanel','partsRefreshBtn','partsSummary','partsList','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn','fleetOwnerDeck','imageLightbox','imageLightboxImg','imageLightboxClose',
-    'navFleetBtn','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas','fleetNewBtn','fleetCancelBtn','fleetFormBox','fleetSearchInput','fleetStatusFilter'
+    'navFleetBtn','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas','fleetNewBtn','fleetCancelBtn','fleetFormBox','fleetSearchInput','fleetStatusFilter',
+    'partsRequestModal','partsRequestClose','partsRequestCancel','partsRequestForm','partsRequestEmpresa','partsRequestUnidad','partsRequestSolicitud','partsRequestPriority','partsRequestNotes','partsRequestOwnerHint','imageLightboxCaption'
   ].forEach(id => els[id] = document.getElementById(id));
 }
 bind();
@@ -125,9 +128,83 @@ function notify(message, isError = false) {
   clearTimeout(notify._t);
   notify._t = setTimeout(() => { els.toast.classList.add('hidden'); els.toast.style.background = ''; }, 2800);
 }
+function isInteractiveField(el) {
+  return !!(el && (el.matches('input, textarea, select') || el.closest('.parts-request-modal, .parts-edit-box, .independent-request-editor, .action-row')));
+}
+function updateEditingState(active, context = '') {
+  state.userEditing = active;
+  state.activeEditorContext = active ? (context || state.activeEditorContext) : '';
+}
+function detectEditingContext(el) {
+  if (!el) return '';
+  if (el.closest('#partsPanel, .parts-request-modal')) return 'parts';
+  if (el.closest('#boardPanel')) return 'board';
+  if (el.closest('#fleetPanel')) return 'fleet';
+  if (el.closest('#schedulePanel')) return 'schedule';
+  return '';
+}
+function shouldPauseLiveRefresh(panel = state.activePanel) {
+  const active = document.activeElement;
+  const modalOpen = (!els.partsRequestModal?.classList.contains('hidden')) || (!els.imageLightbox?.classList.contains('hidden'));
+  if (modalOpen) return true;
+  if (state.userEditing && (!panel || !state.activeEditorContext || state.activeEditorContext === panel)) return true;
+  if (isInteractiveField(active) && (!panel || detectEditingContext(active) === panel)) return true;
+  if (panel === 'parts' && state.partsDirtyIds.size) return true;
+  if (panel === 'board' && state.boardDirtyIds.size) return true;
+  if (panel === 'fleet' && state.fleetDirty) return true;
+  return false;
+}
+document.addEventListener('focusin', (e) => {
+  if (isInteractiveField(e.target)) updateEditingState(true, detectEditingContext(e.target));
+});
+document.addEventListener('focusout', () => {
+  setTimeout(() => {
+    const active = document.activeElement;
+    if (!isInteractiveField(active)) updateEditingState(false, '');
+  }, 0);
+});
 function badgeClassValidation(status) { return ({ 'nueva':'badge-new','pendiente de revisión':'badge-review','aceptada':'badge-accepted','rechazada':'badge-rejected' })[status] || 'badge-info'; }
 function badgeClassOperational(status) { return ({ 'sin iniciar':'badge-info','en proceso':'badge-progress','espera refacción':'badge-waiting','terminada':'badge-done' })[status] || 'badge-info'; }
 
+function partsStatusMeta(status='pendiente') {
+  return ({
+    pendiente: { label:'Pendiente', note:'Solicitud abierta, en espera de atención.', step:1, cls:'badge-waiting' },
+    pedida: { label:'Pedida', note:'La pieza ya fue pedida al proveedor.', step:2, cls:'badge-info' },
+    asignada: { label:'Asignada', note:'Ya hay pieza o responsable asignado.', step:2, cls:'badge-info' },
+    en_compra: { label:'En compra', note:'Compra o traslado en curso.', step:3, cls:'badge-progress' },
+    recibida: { label:'Recibida', note:'La pieza llegó y puede verse en evidencia.', step:4, cls:'badge-accepted' },
+    instalada: { label:'Instalada', note:'La refacción quedó colocada en la unidad.', step:5, cls:'badge-done' },
+    cancelada: { label:'Cancelada', note:'La solicitud se canceló.', step:0, cls:'badge-rejected' },
+    cerrada: { label:'Cerrada', note:'Caso finalizado.', step:5, cls:'badge-done' }
+  })[status] || { label:status || 'Pendiente', note:'Seguimiento en curso.', step:1, cls:'badge-info' };
+}
+function buildPartsTimeline(status='pendiente') {
+  const current = partsStatusMeta(status).step;
+  const steps = [
+    ['Solicitud', 'Alta'],
+    ['Asignación', 'Responsable'],
+    ['Compra', 'Proveedor'],
+    ['Recepción', 'Evidencia'],
+    ['Instalación', 'Cierre']
+  ];
+  return `<div class="parts-stepper">${steps.map((step, idx) => {
+    const pos = idx + 1;
+    const cls = current >= pos ? 'done' : (current + 1 === pos ? 'current' : '');
+    return `<div class="parts-step ${cls}"><span>${pos}</span><strong>${step[0]}</strong><small>${step[1]}</small></div>`;
+  }).join('')}</div>`;
+}
+function buildPartsTrace(item, isIndependent = false) {
+  const events = [];
+  if (item.createdAt || item.created_at) events.push({ label:'Solicitud levantada', date:item.createdAt || item.created_at, kind:'Alta' });
+  const status = item.refaccionStatus || item.status || 'pendiente';
+  const meta = partsStatusMeta(status);
+  if (status && !['pendiente'].includes(status)) events.push({ label:meta.label, date:item.updatedAt || item.updated_at || item.createdAt || item.created_at, kind:'Estado' });
+  const photos = isIndependent ? (item.evidence_photos || []) : (item.evidenciasRefaccion || []);
+  if (Array.isArray(photos) && photos.length) events.push({ label:`${photos.length} foto${photos.length === 1 ? '' : 's'} cargada${photos.length === 1 ? '' : 's'}`, date:item.updatedAt || item.updated_at || item.createdAt || item.created_at, kind:'Evidencia' });
+  const assigned = item.refaccionAsignada || item.refaccion_asignada;
+  if (assigned) events.push({ label:`Asignada: ${assigned}`, date:item.updatedAt || item.updated_at || item.createdAt || item.created_at, kind:'Pieza' });
+  return `<div class="parts-trace">${events.slice(0,4).map(evt => `<div class="parts-trace-row"><span>${escapeHtml(evt.kind)}</span><strong>${escapeHtml(evt.label)}</strong><small>${escapeHtml(fmtDate(evt.date))}</small></div>`).join('')}</div>`;
+}
 function normalizeText(value='') {
   return String(value || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
@@ -830,26 +907,44 @@ async function cargarSolicitudesIndependientes() {
   }
 }
 
+function updatePartsRequestUnitOptions() {
+  if (!els.partsRequestUnidad) return;
+  const empresa = els.partsRequestEmpresa?.value || '';
+  const units = (state.fleetUnits || []).filter(unit => !empresa || unit.empresa === empresa);
+  const unique = [...new Set(units.map(unit => unit.numeroEconomico).filter(Boolean))].sort();
+  const current = els.partsRequestUnidad.value;
+  els.partsRequestUnidad.innerHTML = '<option value="">Sin unidad ligada</option>' + unique.map(unit => `<option value="${escapeHtml(unit)}">${escapeHtml(unit)}</option>`).join('');
+  if (current && unique.includes(current)) els.partsRequestUnidad.value = current;
+}
+function openIndependentRequestModal(prefill = {}) {
+  if (!els.partsRequestModal || !els.partsRequestForm) return;
+  const empresas = [...new Set((state.companies || []).map(c => c.nombre).filter(Boolean))].sort();
+  els.partsRequestEmpresa.innerHTML = empresas.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+  els.partsRequestEmpresa.value = prefill.empresa || (isRole('supervisor_flotas') ? (state.user?.empresa || empresas[0] || '') : (empresas[0] || ''));
+  updatePartsRequestUnitOptions();
+  els.partsRequestUnidad.value = prefill.numeroEconomico || '';
+  els.partsRequestSolicitud.value = prefill.solicitud || '';
+  els.partsRequestPriority.value = prefill.priority || 'media';
+  els.partsRequestNotes.value = prefill.notes || '';
+  if (els.partsRequestOwnerHint) els.partsRequestOwnerHint.textContent = isRole('supervisor_flotas') ? 'Se crea ligada a tu empresa y visible para el dueño en tiempo real.' : 'Alta premium de solicitud independiente con trazabilidad y evidencia.';
+  els.partsRequestModal.classList.remove('hidden');
+  document.body.classList.add('modal-open');
+  updateEditingState(true, 'parts');
+  setTimeout(() => els.partsRequestSolicitud?.focus(), 20);
+}
+function closeIndependentRequestModal() {
+  els.partsRequestModal?.classList.add('hidden');
+  document.body.classList.remove('modal-open');
+  els.partsRequestForm?.reset();
+  updateEditingState(false, '');
+}
 async function crearSolicitudIndependienteRefaccion() {
-  try {
-    const empresa = window.prompt('Empresa:');
-    if (!empresa) return;
-    const numeroEconomico = window.prompt('Número económico (opcional):') || '';
-    const solicitud = window.prompt('Refacción solicitada:');
-    if (!solicitud) return;
-    const notes = window.prompt('Notas (opcional):') || '';
-    await api.createIndependentPartsRequest({ empresa, numeroEconomico, solicitud, notes });
-    notify('Solicitud de refacción creada.');
-    await cargarSolicitudesIndependientes();
-    if (state.activePanel === 'parts') renderPartsPending();
-  } catch (error) {
-    notify(error.message, true);
-  }
+  openIndependentRequestModal();
 }
 
 async function loadPartsPending(force = false) {
   if (!isRole('admin','supervisor_flotas')) return;
-  if (!force && state.partsDirtyIds.size) return;
+  if (!force && (state.partsDirtyIds.size || shouldPauseLiveRefresh('parts'))) return;
   const now = Date.now();
   if (!force && state.partsPending.length && now - state.partsCacheAt < 30000) {
     renderPartsPending();
@@ -870,24 +965,25 @@ function renderPartsPending() {
   if (!els.partsList) return;
   const items = state.partsPending || [];
   const extras = (state.independentPartsRequests || []).filter(req => !['instalada','cerrada','cancelada'].includes(String(req.status || '').toLowerCase()));
-  const unidades = [...new Set(items.map(item => item.numeroEconomico).filter(Boolean))].length;
+  const unidades = [...new Set([...items.map(item => item.numeroEconomico), ...extras.map(item => item.numero_economico)].filter(Boolean))].length;
   const empresas = [...new Set([...items.map(item => item.empresa), ...extras.map(item => item.empresa)].filter(Boolean))].length;
   const fotos = items.reduce((sum, item) => sum + (Array.isArray(item.evidenciasRefaccion) ? item.evidenciasRefaccion.length : 0), 0) + extras.reduce((sum, item) => sum + (Array.isArray(item.evidence_photos) ? item.evidence_photos.length : 0), 0);
 
   if (els.partsSummary) {
     els.partsSummary.innerHTML = `
-      <article class="parts-summary-card"><strong>Pendientes</strong><span>${items.length + extras.length}</span></article>
-      <article class="parts-summary-card"><strong>Unidades</strong><span>${unidades}</span></article>
-      <article class="parts-summary-card"><strong>Empresas</strong><span>${empresas}</span></article>
-      <article class="parts-summary-card"><strong>Fotos</strong><span>${fotos}</span></article>
+      <article class="parts-summary-card glass-card"><strong>Pendientes</strong><span>${items.length + extras.length}</span><small>Casos activos</small></article>
+      <article class="parts-summary-card"><strong>Unidades</strong><span>${unidades}</span><small>Con movimiento en refacciones</small></article>
+      <article class="parts-summary-card"><strong>Empresas</strong><span>${empresas}</span><small>Atendidas en esta vista</small></article>
+      <article class="parts-summary-card"><strong>Fotos</strong><span>${fotos}</span><small>Evidencia visible para dueño</small></article>
+      <article class="parts-summary-action-card">
+        <div>
+          <strong>Alta premium</strong>
+          <p>Levanta una solicitud independiente con empresa, unidad, prioridad y notas.</p>
+        </div>
+        <button id="newIndependentPartBtn" class="btn btn-primary" type="button">Solicitar refacción</button>
+      </article>
     `;
-    if (isRole('admin','supervisor_flotas')) {
-      const actions = document.createElement('div');
-      actions.className = 'parts-actions-row';
-      actions.innerHTML = `<button id="newIndependentPartBtn" class="btn btn-primary" type="button">Solicitar refacción</button>`;
-      els.partsSummary.appendChild(actions);
-      document.getElementById('newIndependentPartBtn')?.addEventListener('click', crearSolicitudIndependienteRefaccion);
-    }
+    document.getElementById('newIndependentPartBtn')?.addEventListener('click', crearSolicitudIndependienteRefaccion);
   }
 
   if (!items.length && !extras.length) {
@@ -898,35 +994,50 @@ function renderPartsPending() {
   els.partsList.innerHTML = '';
   extras.forEach(req => {
     const photos = Array.isArray(req.evidence_photos) ? req.evidence_photos : [];
+    const meta = partsStatusMeta(req.status || 'pendiente');
     const extra = document.createElement('article');
-    extra.className = 'parts-card independent-parts-card';
+    extra.className = 'parts-card independent-parts-card pro-card';
     extra.innerHTML = `
       <div class="parts-card-head">
         <div>
-          <div class="parts-kicker">${escapeHtml(req.empresa || '—')}</div>
-          <h4>Solicitud independiente</h4>
+          <div class="parts-kicker">${escapeHtml(req.empresa || '—')} · independiente</div>
+          <h4>Solicitud estratégica</h4>
+          <p class="parts-subcopy">${escapeHtml(req.solicitud || '')}</p>
         </div>
-        <span class="badge badge-waiting">${escapeHtml(req.status || 'pendiente')}</span>
+        <span class="badge ${meta.cls}">${escapeHtml(meta.label)}</span>
       </div>
-      <div class="parts-piece">${escapeHtml(req.solicitud || '')}</div>
-      <div class="parts-meta">
-        <div><strong>Unidad</strong>${escapeHtml(req.numero_economico || 'Sin unidad ligada')}</div>
-        <div><strong>Creada</strong>${escapeHtml(fmtDate(req.created_at))}</div>
+      ${buildPartsTimeline(req.status || 'pendiente')}
+      <div class="parts-premium-grid">
+        <div class="parts-stack-card">
+          <div class="parts-field-grid two-col">
+            <div><span class="label">Unidad</span><strong>${escapeHtml(req.numero_economico || 'Sin unidad ligada')}</strong></div>
+            <div><span class="label">Creada</span><strong>${escapeHtml(fmtDate(req.created_at))}</strong></div>
+          </div>
+          <div class="parts-trace-head"><strong>Trazabilidad</strong><small>${escapeHtml(meta.note)}</small></div>
+          ${buildPartsTrace(req, true)}
+        </div>
+        <div class="parts-stack-card">
+          <div class="parts-media-label">Evidencia de llegada / compra</div>
+          ${buildImageGallery(photos, 'Todavía no hay fotos cargadas para esta solicitud.')}
+        </div>
       </div>
-      <div class="parts-media-box">
-        <div class="parts-media-label">Evidencia de llegada / compra</div>
-        ${buildImageGallery(photos, 'Todavía no hay fotos cargadas para esta solicitud.')}
-      </div>
-      <div class="independent-request-editor">
-        <select id="indReqStatus_${req.id}">
-          ${['pendiente','pedida','asignada','recibida','instalada','cancelada','cerrada'].map(opt => `<option value="${opt}" ${req.status === opt ? 'selected' : ''}>${opt}</option>`).join('')}
-        </select>
-        <input id="indReqNotes_${req.id}" value="${escapeHtml(req.notes || '')}" placeholder="Notas" />
-        ${isRole('admin') ? `<input id="indReqPhotos_${req.id}" type="file" accept="image/*" multiple />` : ''}
-        <button class="btn btn-primary" type="button" data-save-ind="${req.id}">Guardar</button>
+      <div class="parts-edit-shell">
+        <div class="parts-edit-header"><strong>Actualizar solicitud</strong><small>Sin recargas intrusivas mientras escribes.</small></div>
+        <div class="independent-request-editor pro-editor">
+          <label><span>Estatus</span><select id="indReqStatus_${req.id}">${['pendiente','pedida','asignada','recibida','instalada','cancelada','cerrada'].map(opt => `<option value="${opt}" ${req.status === opt ? 'selected' : ''}>${opt}</option>`).join('')}</select></label>
+          <label><span>Notas</span><input id="indReqNotes_${req.id}" value="${escapeHtml(req.notes || '')}" placeholder="Notas" /></label>
+          ${isRole('admin') ? `<label><span>Fotos de llegada</span><input id="indReqPhotos_${req.id}" type="file" accept="image/*" multiple /></label>` : ''}
+          <button class="btn btn-primary" type="button" data-save-ind="${req.id}">Guardar</button>
+        </div>
       </div>
     `;
     els.partsList.appendChild(extra);
+
+    [document.getElementById(`indReqStatus_${req.id}`), document.getElementById(`indReqNotes_${req.id}`), document.getElementById(`indReqPhotos_${req.id}`)].forEach(el => {
+      el?.addEventListener('input', () => state.partsDirtyIds.add(`ind-${req.id}`));
+      el?.addEventListener('change', () => state.partsDirtyIds.add(`ind-${req.id}`));
+    });
+
     extra.querySelector(`[data-save-ind="${req.id}"]`)?.addEventListener('click', async () => {
       try {
         const fileInput = document.getElementById(`indReqPhotos_${req.id}`);
@@ -936,6 +1047,7 @@ function renderPartsPending() {
           notes: document.getElementById(`indReqNotes_${req.id}`)?.value || '',
           evidencePhotos: [...photos, ...incoming]
         });
+        state.partsDirtyIds.delete(`ind-${req.id}`);
         notify('Solicitud de refacción actualizada.');
         await cargarSolicitudesIndependientes();
         renderPartsPending();
@@ -947,23 +1059,26 @@ function renderPartsPending() {
 
   items.forEach(item => {
     const card = document.createElement('article');
-    card.className = 'parts-card';
+    card.className = 'parts-card pro-card';
     const photos = Array.isArray(item.evidenciasRefaccion) ? item.evidenciasRefaccion : [];
-    const statusLabel = ({pendiente:'Pendiente', asignada:'Asignada', en_compra:'En compra', recibida:'Recibida', instalada:'Instalada'})[item.refaccionStatus || 'pendiente'] || 'Pendiente';
+    const meta = partsStatusMeta(item.refaccionStatus || 'pendiente');
     const adminEditor = isRole('admin') ? `
-      <div class="parts-edit-box">
-        <textarea id="partsDetail_${item.id}" rows="3" placeholder="Detalle de refacción">${escapeHtml(item.detalleRefaccion || '')}</textarea>
-        <input id="partsAssigned_${item.id}" placeholder="Refacción asignada" value="${escapeHtml(item.refaccionAsignada || '')}" />
-        <input id="partsPhotos_${item.id}" type="file" accept="image/*" multiple />
-        <div class="stack-inline">
-          <select id="partsStatus_${item.id}">
-            <option value="pendiente" ${(item.refaccionStatus || 'pendiente') === 'pendiente' ? 'selected' : ''}>Pendiente</option>
-            <option value="asignada" ${item.refaccionStatus === 'asignada' ? 'selected' : ''}>Asignada</option>
-            <option value="en_compra" ${item.refaccionStatus === 'en_compra' ? 'selected' : ''}>En compra</option>
-            <option value="recibida" ${item.refaccionStatus === 'recibida' ? 'selected' : ''}>Recibida</option>
-            <option value="instalada" ${item.refaccionStatus === 'instalada' ? 'selected' : ''}>Instalada</option>
-          </select>
-          <button class="btn btn-primary" data-parts-save="${item.id}" type="button">Guardar</button>
+      <div class="parts-edit-shell">
+        <div class="parts-edit-header"><strong>Control admin / operativo</strong><small>Documenta la pieza, el estado y la evidencia sin salir de la tarjeta.</small></div>
+        <div class="parts-edit-box pro-editor">
+          <label><span>Detalle</span><textarea id="partsDetail_${item.id}" rows="4" placeholder="Detalle de refacción">${escapeHtml(item.detalleRefaccion || '')}</textarea></label>
+          <div class="parts-edit-grid">
+            <label><span>Refacción asignada</span><input id="partsAssigned_${item.id}" placeholder="Refacción asignada" value="${escapeHtml(item.refaccionAsignada || '')}" /></label>
+            <label><span>Estado</span><select id="partsStatus_${item.id}">
+              <option value="pendiente" ${(item.refaccionStatus || 'pendiente') === 'pendiente' ? 'selected' : ''}>Pendiente</option>
+              <option value="asignada" ${item.refaccionStatus === 'asignada' ? 'selected' : ''}>Asignada</option>
+              <option value="en_compra" ${item.refaccionStatus === 'en_compra' ? 'selected' : ''}>En compra</option>
+              <option value="recibida" ${item.refaccionStatus === 'recibida' ? 'selected' : ''}>Recibida</option>
+              <option value="instalada" ${item.refaccionStatus === 'instalada' ? 'selected' : ''}>Instalada</option>
+            </select></label>
+          </div>
+          <label><span>Fotos de compra / llegada</span><input id="partsPhotos_${item.id}" type="file" accept="image/*" multiple /></label>
+          <div class="parts-edit-actions"><button class="btn btn-primary" data-parts-save="${item.id}" type="button">Guardar actualización</button></div>
         </div>
       </div>
     ` : '';
@@ -973,29 +1088,34 @@ function renderPartsPending() {
         <div>
           <div class="parts-kicker">${escapeHtml(item.empresa || '—')}</div>
           <h4>Unidad ${escapeHtml(item.numeroEconomico || '—')}</h4>
+          <p class="parts-subcopy">${escapeHtml(item.detalleRefaccion || 'Refacción pendiente sin detalle específico')}</p>
         </div>
-        <span class="badge badge-waiting">${escapeHtml(statusLabel)}</span>
+        <span class="badge ${meta.cls}">${escapeHtml(meta.label)}</span>
       </div>
-      <div class="parts-piece">${escapeHtml(item.detalleRefaccion || 'Refacción pendiente sin detalle específico')}</div>
-      <div class="parts-meta">
-        <div><strong>Folio</strong>${escapeHtml(item.folio || '—')}</div>
-        <div><strong>Modelo</strong>${escapeHtml(item.modelo || '—')}</div>
-        <div><strong>Estado operativo</strong>${escapeHtml(item.estatusOperativo || 'sin iniciar')}</div>
-        <div><strong>Asignada</strong>${escapeHtml(item.refaccionAsignada || 'Sin asignar')}</div>
-      </div>
-      <div class="parts-media-box">
-        <div class="parts-media-label">Evidencia visible para dueño / supervisor</div>
-        ${buildImageGallery(photos, 'Sin fotos de compra o llegada todavía.')}
+      ${buildPartsTimeline(item.refaccionStatus || 'pendiente')}
+      <div class="parts-premium-grid">
+        <div class="parts-stack-card">
+          <div class="parts-field-grid">
+            <div><span class="label">Folio</span><strong>${escapeHtml(item.folio || '—')}</strong></div>
+            <div><span class="label">Modelo</span><strong>${escapeHtml(item.modelo || '—')}</strong></div>
+            <div><span class="label">Estado operativo</span><strong>${escapeHtml(item.estatusOperativo || 'sin iniciar')}</strong></div>
+            <div><span class="label">Asignada</span><strong>${escapeHtml(item.refaccionAsignada || 'Sin asignar')}</strong></div>
+          </div>
+          <div class="parts-trace-head"><strong>Trazabilidad</strong><small>${escapeHtml(meta.note)}</small></div>
+          ${buildPartsTrace(item, false)}
+        </div>
+        <div class="parts-stack-card">
+          <div class="parts-media-label">Evidencia visible para dueño / supervisor</div>
+          ${buildImageGallery(photos, 'Sin fotos de compra o llegada todavía.')}
+        </div>
       </div>
       ${adminEditor}
     `;
     els.partsList.appendChild(card);
 
     if (isRole('admin')) {
-      const detailInput = card.querySelector(`#partsDetail_${item.id}`);
-      const assignedInput = card.querySelector(`#partsAssigned_${item.id}`);
-      const statusInput = card.querySelector(`#partsStatus_${item.id}`);
-      [detailInput, assignedInput, statusInput].forEach(el => {
+      const inputs = [card.querySelector(`#partsDetail_${item.id}`), card.querySelector(`#partsAssigned_${item.id}`), card.querySelector(`#partsStatus_${item.id}`), card.querySelector(`#partsPhotos_${item.id}`)];
+      inputs.forEach(el => {
         el?.addEventListener('input', () => state.partsDirtyIds.add(item.id));
         el?.addEventListener('change', () => state.partsDirtyIds.add(item.id));
       });
@@ -1021,6 +1141,7 @@ function renderPartsPending() {
     }
   });
 }
+
 
 async function loadFleet() {
   try {
@@ -1177,7 +1298,12 @@ function renderFleetDetail() {
       </div>
     </div>
   ` : '';
-  const timeline = reportsArr.slice(0,6).map(r => `<div class="timeline-item"><span class="timeline-dot"></span><div><strong>${escapeHtml(r.folio || 'GAR-—')}</strong><p>${escapeHtml(r.descripcionFallo || 'Sin descripción')}</p><small>${fmtDate(r.createdAt)} · ${escapeHtml(r.estatusOperativo || 'sin iniciar')}</small></div></div>`).join('') || '<div class="muted">Sin movimientos recientes.</div>';
+  const timelineEvents = [
+    ...reportsArr.map(r => ({ title:r.folio || 'GAR-—', text:r.descripcionFallo || 'Reporte levantado', date:r.createdAt, tag:r.estatusOperativo || 'sin iniciar' })),
+    ...unitSchedules.map(s => ({ title:'Cita programada', text:s.confirmedFor ? `Agenda ${fmtDate(s.confirmedFor)}` : 'Solicitud de agenda', date:s.updatedAt || s.createdAt, tag:s.status || 'pendiente' })),
+    ...openParts.map(p => ({ title:'Refacción abierta', text:p.detalleRefaccion || 'Pendiente de pieza', date:p.updatedAt || p.createdAt, tag:p.refaccionStatus || 'pendiente' }))
+  ].sort((a,b) => new Date(b.date || 0) - new Date(a.date || 0)).slice(0,7);
+  const timeline = timelineEvents.map(evt => `<div class="timeline-item"><span class="timeline-dot"></span><div><strong>${escapeHtml(evt.title)}</strong><p>${escapeHtml(evt.text)}</p><small>${fmtDate(evt.date)} · ${escapeHtml(evt.tag || 'movimiento')}</small></div></div>`).join('') || '<div class="muted">Sin movimientos recientes.</div>';
   els.fleetDetail.innerHTML = `
     <div class="panel-head fleet-detail-head">
       <div><div class="topbar-kicker">EXPEDIENTE DE UNIDAD</div><h3>${escapeHtml(u.numeroEconomico)} · ${escapeHtml(u.empresa)}</h3><p class="muted">Vista premium para dueño: patrimonio, agenda, refacciones y evidencia visual en una sola ficha.</p></div>
@@ -1385,10 +1511,15 @@ function renderGarantias() {
         </div>`;
       reviewBox.querySelector('.reviewStatus').value = item.estatusValidacion === 'nueva' ? 'pendiente de revisión' : item.estatusValidacion;
       reviewBox.querySelector('.reviewReason').value = item.estatusValidacion === 'rechazada' ? item.motivoDecision : item.observacionesOperativo;
+      [reviewBox.querySelector('.reviewStatus'), reviewBox.querySelector('.reviewReason')].forEach(el => {
+        el?.addEventListener('input', () => state.boardDirtyIds.add(item.id));
+        el?.addEventListener('change', () => state.boardDirtyIds.add(item.id));
+      });
       reviewBox.querySelector('.reviewBtn').addEventListener('click', async () => {
         try {
           const status = reviewBox.querySelector('.reviewStatus').value; const text = reviewBox.querySelector('.reviewReason').value.trim();
           await api.reviewGarantia(item.id, { estatusValidacion: status, observacionesOperativo: status !== 'rechazada' ? text : '', motivoDecision: status === 'rechazada' ? text : '' });
+          state.boardDirtyIds.delete(item.id);
           notify('Decisión guardada.'); await loadGarantias();
         } catch (error) { notify(error.message, true); }
       });
@@ -1406,8 +1537,12 @@ function renderGarantias() {
             <button class="btn btn-secondary opBtn" type="button">Actualizar trabajo</button>
           </div>`;
         operationalBox.querySelector('.opStatus').value = item.estatusOperativo;
+        [operationalBox.querySelector('.opStatus'), operationalBox.querySelector('.opNotes')].forEach(el => {
+          el?.addEventListener('input', () => state.boardDirtyIds.add(item.id));
+          el?.addEventListener('change', () => state.boardDirtyIds.add(item.id));
+        });
         operationalBox.querySelector('.opBtn').addEventListener('click', async () => {
-          try { await api.updateOperational(item.id, { estatusOperativo: operationalBox.querySelector('.opStatus').value, observacionesOperativo: operationalBox.querySelector('.opNotes').value.trim() }); state.boardDirtyIds.clear(); notify('Flujo actualizado.'); await loadGarantias(); }
+          try { await api.updateOperational(item.id, { estatusOperativo: operationalBox.querySelector('.opStatus').value, observacionesOperativo: operationalBox.querySelector('.opNotes').value.trim() }); state.boardDirtyIds.delete(item.id); notify('Flujo actualizado.'); await loadGarantias(); }
           catch (error) { notify(error.message, true); }
         });
         area.appendChild(operationalBox);
@@ -1516,9 +1651,10 @@ els.registerForm?.addEventListener('submit', async (e) => {
 
 
 
-function openImageLightbox(src) {
+function openImageLightbox(src, caption = 'Evidencia ampliada') {
   if (!src || !els.imageLightbox || !els.imageLightboxImg) return;
   els.imageLightboxImg.src = src;
+  if (els.imageLightboxCaption) els.imageLightboxCaption.textContent = caption;
   els.imageLightbox.classList.remove('hidden');
   document.body.classList.add('lightbox-open');
 }
@@ -1526,13 +1662,46 @@ function openImageLightbox(src) {
 function closeImageLightbox() {
   els.imageLightbox?.classList.add('hidden');
   if (els.imageLightboxImg) els.imageLightboxImg.src = '';
+  if (els.imageLightboxCaption) els.imageLightboxCaption.textContent = '';
   document.body.classList.remove('lightbox-open');
 }
 
 function buildImageGallery(items = [], emptyText = 'Sin evidencia visual.') {
   if (!items.length) return `<div class="muted">${escapeHtml(emptyText)}</div>`;
-  return `<div class="media-gallery">${items.map((src, index) => `<button class="media-thumb" type="button" onclick="openImageLightbox(${JSON.stringify(src)})"><img src="${src}" alt="Evidencia ${index + 1}" /></button>`).join('')}</div>`;
+  return `<div class="media-gallery">${items.map((src, index) => `<button class="media-thumb" type="button" onclick='openImageLightbox(${JSON.stringify(src)}, ${JSON.stringify('Evidencia ')} + ${index + 1})'><img src="${src}" alt="Evidencia ${index + 1}" /></button>`).join('')}</div>`;
 }
+
+els.imageLightboxClose?.addEventListener('click', closeImageLightbox);
+els.imageLightbox?.addEventListener('click', (e) => { if (e.target === els.imageLightbox) closeImageLightbox(); });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (!els.partsRequestModal?.classList.contains('hidden')) closeIndependentRequestModal();
+    if (!els.imageLightbox?.classList.contains('hidden')) closeImageLightbox();
+  }
+});
+els.partsRequestClose?.addEventListener('click', closeIndependentRequestModal);
+els.partsRequestCancel?.addEventListener('click', closeIndependentRequestModal);
+els.partsRequestEmpresa?.addEventListener('change', updatePartsRequestUnitOptions);
+els.partsRequestForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    const payload = {
+      empresa: els.partsRequestEmpresa?.value || '',
+      numeroEconomico: els.partsRequestUnidad?.value || '',
+      solicitud: els.partsRequestSolicitud?.value.trim(),
+      priority: els.partsRequestPriority?.value || 'media',
+      notes: [`Prioridad: ${els.partsRequestPriority?.value || 'media'}`, els.partsRequestNotes?.value.trim()].filter(Boolean).join(' · ')
+    };
+    if (!payload.empresa || !payload.solicitud) return notify('Completa empresa y refacción.', true);
+    await api.createIndependentPartsRequest(payload);
+    notify('Solicitud de refacción creada.');
+    closeIndependentRequestModal();
+    await cargarSolicitudesIndependientes();
+    if (state.activePanel === 'parts') renderPartsPending();
+  } catch (error) {
+    notify(error.message, true);
+  }
+});
 
 function fleetOwnerMetrics() {
   const units = state.fleetUnits || [];
@@ -1755,11 +1924,11 @@ els.companyForm?.addEventListener('submit', async (e) => {
 setInterval(async () => {
   if (!state.token || !state.user) return;
   try {
-    await loadNotifications();
-    if (['board','analytics','history'].includes(state.activePanel)) await Promise.allSettled([loadGarantias()]);
-    if (state.activePanel === 'schedule') await Promise.allSettled([loadSchedules('')]);
-    if (state.activePanel === 'fleet') await Promise.allSettled([loadFleet()]);
-    if (state.activePanel === 'parts') await Promise.allSettled([loadPartsPending(true)]);
+    if (!shouldPauseLiveRefresh()) await loadNotifications();
+    if (['board','analytics','history'].includes(state.activePanel) && !shouldPauseLiveRefresh('board')) await Promise.allSettled([loadGarantias()]);
+    if (state.activePanel === 'schedule' && !shouldPauseLiveRefresh('schedule')) await Promise.allSettled([loadSchedules('')]);
+    if (state.activePanel === 'fleet' && !shouldPauseLiveRefresh('fleet')) await Promise.allSettled([loadFleet()]);
+    if (state.activePanel === 'parts' && !shouldPauseLiveRefresh('parts')) await Promise.allSettled([loadPartsPending(true), cargarSolicitudesIndependientes()]);
     renderExecutiveDeck();
   } catch {}
 }, 15000);

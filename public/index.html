@@ -465,6 +465,31 @@
   <div id="imageLightbox" class="image-lightbox hidden" role="dialog" aria-modal="true">
     <button id="imageLightboxClose" class="image-lightbox-close" type="button" aria-label="Cerrar">×</button>
     <img id="imageLightboxImg" alt="Vista ampliada" />
+    <div id="imageLightboxCaption" class="image-lightbox-caption"></div>
+  </div>
+
+  <div id="partsRequestModal" class="modal-shell hidden" role="dialog" aria-modal="true">
+    <div class="parts-request-modal">
+      <button id="partsRequestClose" class="parts-request-close" type="button" aria-label="Cerrar">×</button>
+      <div class="parts-request-head">
+        <div class="topbar-kicker">REFACCIÓN PREMIUM</div>
+        <h3>Solicitar refacción</h3>
+        <p id="partsRequestOwnerHint">Alta premium de solicitud independiente con trazabilidad y evidencia.</p>
+      </div>
+      <form id="partsRequestForm" class="parts-request-form">
+        <div class="parts-request-grid">
+          <label><span>Empresa</span><select id="partsRequestEmpresa" required></select></label>
+          <label><span>Unidad</span><select id="partsRequestUnidad"></select></label>
+          <label class="wide"><span>Refacción / concepto</span><input id="partsRequestSolicitud" required placeholder="Ej. Módulo master 25 / calavera trasera" /></label>
+          <label><span>Prioridad</span><select id="partsRequestPriority"><option value="alta">Alta</option><option value="media" selected>Media</option><option value="baja">Baja</option></select></label>
+          <label class="wide"><span>Notas</span><textarea id="partsRequestNotes" rows="4" placeholder="Detalles para compras, instalación o visibilidad del dueño"></textarea></label>
+        </div>
+        <div class="parts-request-actions">
+          <button id="partsRequestCancel" class="btn btn-ghost" type="button">Cancelar</button>
+          <button class="btn btn-primary" type="submit">Crear solicitud</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <script src="/app.js"></script>
