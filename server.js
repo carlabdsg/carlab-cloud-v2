@@ -374,6 +374,17 @@ async function nextGarantiaFolio() {
   return `GAR-${String(next).padStart(5, '0')}`;
 }
 
+async function nextManagedFolio(kind) {
+  const map = {
+    quote: { table: 'work_quotes', prefix: 'COB' },
+    sale: { table: 'direct_sales', prefix: 'VTA' },
+  };
+  const cfg = map[kind];
+  if (!cfg) throw new Error('Tipo de folio no soportado.');
+  const result = await pool.query(`SELECT COUNT(*)::int AS total FROM ${cfg.table}`);
+  const next = (result.rows[0]?.total || 0) + 1;
+  return `${cfg.prefix}-${String(next).padStart(5, '0')}`;
+}
 
 async function tryBackfillLegacyReports() {
   const hasGarantias = await pool.query("SELECT to_regclass('public.garantias') AS name");
@@ -665,6 +676,76 @@ async function initDb() {
       created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS work_quotes (
+      id TEXT PRIMARY KEY,
+      folio TEXT NOT NULL UNIQUE,
+      garantia_id UUID REFERENCES garantias(id) ON DELETE SET NULL,
+      company_name TEXT,
+      unit_number TEXT,
+      client_name TEXT,
+      client_phone TEXT,
+      status TEXT NOT NULL DEFAULT 'borrador' CHECK (status IN ('borrador','enviada','pendiente_autorizacion','autorizada','rechazada','cancelada')),
+      payment_status TEXT NOT NULL DEFAULT 'pendiente_pago' CHECK (payment_status IN ('pendiente_pago','anticipo_recibido','pago_parcial','pagada','cancelada')),
+      subtotal NUMERIC(12,2) NOT NULL DEFAULT 0,
+      discount NUMERIC(12,2) NOT NULL DEFAULT 0,
+      iva NUMERIC(12,2) NOT NULL DEFAULT 0,
+      total NUMERIC(12,2) NOT NULL DEFAULT 0,
+      anticipo NUMERIC(12,2) NOT NULL DEFAULT 0,
+      saldo NUMERIC(12,2) NOT NULL DEFAULT 0,
+      notes TEXT,
+      payment_method TEXT,
+      payment_reference TEXT,
+      due_at DATE,
+      sent_at TIMESTAMPTZ,
+      approved_at TIMESTAMPTZ,
+      paid_at TIMESTAMPTZ,
+      created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS work_quote_items (
+      id TEXT PRIMARY KEY,
+      quote_id TEXT NOT NULL REFERENCES work_quotes(id) ON DELETE CASCADE,
+      type TEXT NOT NULL CHECK (type IN ('mano_obra','refaccion','extra')),
+      description TEXT NOT NULL,
+      qty NUMERIC(12,2) NOT NULL DEFAULT 1,
+      unit_price NUMERIC(12,2) NOT NULL DEFAULT 0,
+      total NUMERIC(12,2) NOT NULL DEFAULT 0,
+      stock_part_id TEXT REFERENCES stock_parts(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS direct_sales (
+      id TEXT PRIMARY KEY,
+      folio TEXT NOT NULL UNIQUE,
+      customer_name TEXT NOT NULL,
+      customer_phone TEXT,
+      company_name TEXT,
+      unit_number TEXT,
+      status TEXT NOT NULL DEFAULT 'cerrada' CHECK (status IN ('borrador','cerrada','cancelada')),
+      payment_status TEXT NOT NULL DEFAULT 'pendiente' CHECK (payment_status IN ('pendiente','pagado_parcial','pagada','cancelada')),
+      subtotal NUMERIC(12,2) NOT NULL DEFAULT 0,
+      total NUMERIC(12,2) NOT NULL DEFAULT 0,
+      notes TEXT,
+      payment_method TEXT,
+      payment_reference TEXT,
+      created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS direct_sale_items (
+      id TEXT PRIMARY KEY,
+      sale_id TEXT NOT NULL REFERENCES direct_sales(id) ON DELETE CASCADE,
+      stock_part_id TEXT REFERENCES stock_parts(id) ON DELETE SET NULL,
+      description TEXT NOT NULL,
+      qty NUMERIC(12,2) NOT NULL DEFAULT 1,
+      unit_price NUMERIC(12,2) NOT NULL DEFAULT 0,
+      total NUMERIC(12,2) NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 
   await pool.query(`
@@ -676,6 +757,11 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_stock_parts_sku ON stock_parts(sku);
     CREATE INDEX IF NOT EXISTS idx_stock_movements_part ON stock_movements(stock_part_id);
     CREATE INDEX IF NOT EXISTS idx_stock_movements_created_at ON stock_movements(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_work_quotes_garantia ON work_quotes(garantia_id);
+    CREATE INDEX IF NOT EXISTS idx_work_quotes_status ON work_quotes(status, payment_status, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_work_quote_items_quote ON work_quote_items(quote_id);
+    CREATE INDEX IF NOT EXISTS idx_direct_sales_status ON direct_sales(status, payment_status, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_direct_sale_items_sale ON direct_sale_items(sale_id);
   `);
 
   await ensureUsersRoleConstraint();
