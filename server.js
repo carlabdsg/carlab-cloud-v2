@@ -1447,20 +1447,25 @@ app.get('/api/schedules', authRequired, requireRoles('admin', 'operativo', 'supe
 });
 
 app.post('/api/schedules/manual', authRequired, requireRoles('admin','operativo'), async (req, res) => {
-  const empresa = String(req.body.empresa || '').trim();
-  const unidad = String(req.body.unidad || '').trim();
-  const telefono = normalizeMxPhone(req.body.telefono || '');
-  const folioManual = String(req.body.folio || '').trim();
-  const contactoNombre = String(req.body.contactoNombre || '').trim();
-  const scheduledFor = req.body.scheduledFor ? new Date(req.body.scheduledFor) : null;
-  const notes = String(req.body.notes || '').trim();
-  if (!empresa || !unidad || !scheduledFor || Number.isNaN(scheduledFor.getTime())) return res.status(400).json({ error: 'Completa empresa, unidad y fecha válida.' });
-  const result = await pool.query(`
-    INSERT INTO schedule_requests (id, garantia_id, telefono, status, notes, scheduled_for, confirmed_at, empresa, numero_economico, contacto_nombre, folio_manual)
-    VALUES ($1,NULL,$2,'confirmed',$3,$4,NOW(),$5,$6,$7,$8)
-    RETURNING *
-  `, [cryptoRandomId(), telefono, notes, scheduledFor.toISOString(), empresa, unidad, contactoNombre, folioManual]);
-  res.status(201).json(scheduleSummary(result.rows[0]));
+  try {
+    const empresa = String(req.body.empresa || '').trim();
+    const unidad = String(req.body.unidad || '').trim();
+    const telefono = normalizeMxPhone(req.body.telefono || '');
+    const folioManual = String(req.body.folio || '').trim();
+    const contactoNombre = String(req.body.contactoNombre || '').trim();
+    const scheduledFor = req.body.scheduledFor ? new Date(req.body.scheduledFor) : null;
+    const notes = String(req.body.notes || '').trim();
+    if (!empresa || !unidad || !scheduledFor || Number.isNaN(scheduledFor.getTime())) return res.status(400).json({ error: 'Completa empresa, unidad y fecha válida.' });
+    const result = await pool.query(`
+      INSERT INTO schedule_requests (id, garantia_id, telefono, status, notes, scheduled_for, confirmed_at, empresa, numero_economico, contacto_nombre, folio_manual)
+      VALUES ($1,NULL,$2,'confirmed',$3,$4,NOW(),$5,$6,$7,$8)
+      RETURNING *
+    `, [cryptoRandomId(), telefono, notes, scheduledFor.toISOString(), empresa, unidad, contactoNombre, folioManual]);
+    res.status(201).json(scheduleSummary(result.rows[0]));
+  } catch (error) {
+    console.error('Error guardando ingreso manual:', error);
+    res.status(500).json({ error: 'No se pudo programar el ingreso manual.' });
+  }
 });
 
 app.post('/api/garantias/:id/request-schedule', authRequired, requireRoles('admin', 'operativo', 'supervisor_flotas'), async (req, res) => {
