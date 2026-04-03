@@ -168,7 +168,7 @@
               <div class="topbar-kicker">CENTRO DE MANDO</div>
               <h3>Resumen vivo del sistema</h3>
             </div>
-            <span class="badge badge-info" id="liveRefreshBadge">Sincronización inteligente</span>
+            <span class="badge badge-info" id="liveRefreshBadge">Actualización manual</span>
           </div>
           <div id="executiveDeckGrid" class="executive-grid"></div>
         </section>
@@ -514,6 +514,8 @@
                 <label><span>Teléfono</span><input id="directSalePhone" placeholder="521667..." /></label>
                 <label><span>Empresa</span><input id="directSaleCompany" placeholder="Opcional" /></label>
                 <label><span>Unidad</span><input id="directSaleUnit" placeholder="Opcional" /></label>
+                <label><span>Tipo</span><select id="directSaleType"><option value="refaccion">Refacción</option><option value="mano_obra">Mano de obra</option><option value="mixto">Mixto</option></select></label>
+                <label><span>Concepto</span><input id="directSaleConcept" placeholder="Concepto de venta" /></label>
                 <label class="span-2"><span>Producto desde stock</span><select id="directSaleStockPart"></select></label>
                 <label><span>Cantidad</span><input id="directSaleQty" type="number" min="1" step="1" value="1" /></label>
                 <label><span>Precio unitario</span><input id="directSalePrice" type="number" min="0" step="0.01" value="0" /></label>

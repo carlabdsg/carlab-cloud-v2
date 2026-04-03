@@ -34,6 +34,7 @@ const state = {
   cobranzaOverview: null,
   cobranzaQuotes: [],
   directSales: [],
+  selectedDirectSaleId: '',
   selectedQuoteId: '',
   directSaleDraftPartId: '',
   quoteDrafts: {},
@@ -106,12 +107,16 @@ const api = {
   getStock() { return this.request('/api/stock/parts'); },
   createStockPart(payload) { return this.request('/api/stock/parts', { method: 'POST', body: JSON.stringify(payload || {}) }); },
   updateStockPart(id, payload) { return this.request(`/api/stock/parts/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
+  deleteStockPart(id) { return this.request(`/api/stock/parts/${id}`, { method: 'DELETE' }); },
   createStockMovement(id, payload) { return this.request(`/api/stock/parts/${id}/movements`, { method: 'POST', body: JSON.stringify(payload || {}) }); },
   getCobranzaOverview() { return this.request('/api/cobranza/overview'); },
   getCobranzaQuotes() { return this.request('/api/cobranza/quotes'); },
   createQuoteFromReport(id) { return this.request(`/api/cobranza/quotes/from-report/${id}`, { method: 'POST' }); },
   updateQuote(id, payload) { return this.request(`/api/cobranza/quotes/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   replaceQuoteItems(id, payload) { return this.request(`/api/cobranza/quotes/${id}/items`, { method: 'PUT', body: JSON.stringify(payload || {}) }); },
+  createQuotePayment(id, payload) { return this.request(`/api/cobranza/quotes/${id}/payments`, { method: 'POST', body: JSON.stringify(payload || {}) }); },
+  updateQuotePayment(id, paymentId, payload) { return this.request(`/api/cobranza/quotes/${id}/payments/${paymentId}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
+  deleteQuotePayment(id, paymentId) { return this.request(`/api/cobranza/quotes/${id}/payments/${paymentId}`, { method: 'DELETE' }); },
   getDirectSales() { return this.request('/api/cobranza/direct-sales'); },
   createDirectSale(payload) { return this.request('/api/cobranza/direct-sales', { method: 'POST', body: JSON.stringify(payload || {}) }); },
   updateDirectSale(id, payload) { return this.request(`/api/cobranza/direct-sales/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
@@ -130,7 +135,7 @@ function bind() {
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
     'executiveDeck','executiveDeckGrid','liveRefreshBadge','topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistorySearchInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','partsPanel','partsRefreshBtn','partsSummary','partsList','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn','fleetOwnerDeck','imageLightbox','imageLightboxImg','imageLightboxClose',
     'navFleetBtn','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas','fleetNewBtn','fleetCancelBtn','fleetFormBox','fleetSearchInput','fleetStatusFilter',
-    'partsRequestModal','partsRequestClose','partsRequestCancel','partsRequestForm','partsRequestEmpresa','partsRequestUnidad','partsRequestSolicitud','partsRequestPriority','partsRequestNotes','partsRequestOwnerHint','imageLightboxCaption','stockRefreshBtn','stockSummary','stockList','stockMovements','stockPartForm','stockPartId','stockNombre','stockSku','stockProveedor','stockActual','stockMinimo','stockCosto','stockPrecio','stockUbicacion','stockNotas','stockSaveBtn','stockCancelBtn','scheduleManualForm','scheduleManualEmpresa','scheduleManualUnidad','scheduleManualTelefono','scheduleManualFolio','scheduleManualDatetime','scheduleManualContacto','scheduleManualNotes','scheduleManualCancelBtn','cobranzaRefreshBtn','cobranzaSummary','cobranzaQuotesList','cobranzaQuoteDetail','directSaleForm','directSaleCustomer','directSalePhone','directSaleCompany','directSaleUnit','directSaleStockPart','directSaleQty','directSalePrice','directSaleMethod','directSalePaymentStatus','directSaleNotes','directSaleResetBtn','directSalesList'
+    'partsRequestModal','partsRequestClose','partsRequestCancel','partsRequestForm','partsRequestEmpresa','partsRequestUnidad','partsRequestSolicitud','partsRequestPriority','partsRequestNotes','partsRequestOwnerHint','imageLightboxCaption','stockRefreshBtn','stockSummary','stockList','stockMovements','stockPartForm','stockPartId','stockNombre','stockSku','stockProveedor','stockActual','stockMinimo','stockCosto','stockPrecio','stockUbicacion','stockNotas','stockSaveBtn','stockCancelBtn','scheduleManualForm','scheduleManualEmpresa','scheduleManualUnidad','scheduleManualTelefono','scheduleManualFolio','scheduleManualDatetime','scheduleManualContacto','scheduleManualNotes','scheduleManualCancelBtn','cobranzaRefreshBtn','cobranzaSummary','cobranzaQuotesList','cobranzaQuoteDetail','directSaleForm','directSaleCustomer','directSalePhone','directSaleCompany','directSaleUnit','directSaleType','directSaleConcept','directSaleStockPart','directSaleQty','directSalePrice','directSaleMethod','directSalePaymentStatus','directSaleNotes','directSaleResetBtn','directSalesList'
   ].forEach(id => els[id] = document.getElementById(id));
 }
 bind();
@@ -1292,6 +1297,7 @@ function renderStock() {
         </div>
         <div class="stock-card-actions">
           <button class="btn btn-secondary" type="button" data-stock-edit="${part.id}">Editar</button>
+          <button class="btn btn-danger-soft" type="button" data-stock-delete="${part.id}">Eliminar</button>
           <button class="btn btn-primary" type="button" data-stock-in="${part.id}">Entrada</button>
           <button class="btn btn-secondary" type="button" data-stock-unit="${part.id}">Poner a camión</button>
           <button class="btn btn-ghost" type="button" data-stock-sale="${part.id}">Venta</button>
@@ -1334,6 +1340,7 @@ function renderStock() {
     els.stockList.querySelectorAll('[data-stock-in]').forEach(btn => btn.addEventListener('click', () => askMovement(btn.dataset.stockIn, 'entrada')));
     els.stockList.querySelectorAll('[data-stock-unit]').forEach(btn => btn.addEventListener('click', () => askMovement(btn.dataset.stockUnit, 'salida_unidad')));
     els.stockList.querySelectorAll('[data-stock-sale]').forEach(btn => btn.addEventListener('click', () => launchDirectSaleWithPart(btn.dataset.stockSale)));
+    els.stockList.querySelectorAll('[data-stock-delete]').forEach(btn => btn.addEventListener('click', async () => { if (!confirm('¿Eliminar esta refacción del stock?')) return; try { await api.deleteStockPart(btn.dataset.stockDelete); notify('Refacción eliminada.'); await loadStock(true); } catch (error) { notify(error.message, true); } }));
   }
 }
 
@@ -1381,6 +1388,8 @@ async function loadCobranza(force = false) {
     state.directSales = sales || [];
     if (!state.selectedQuoteId && state.cobranzaQuotes[0]) state.selectedQuoteId = state.cobranzaQuotes[0].id;
     if (state.selectedQuoteId && !state.cobranzaQuotes.find(q => q.id === state.selectedQuoteId)) state.selectedQuoteId = state.cobranzaQuotes[0]?.id || '';
+    if (!state.selectedDirectSaleId && state.directSales[0]) state.selectedDirectSaleId = state.directSales[0].id;
+    if (state.selectedDirectSaleId && !state.directSales.find(s => s.id === state.selectedDirectSaleId)) state.selectedDirectSaleId = state.directSales[0]?.id || '';
     renderCobranza();
   } catch (error) {
     notify(error.message, true);
@@ -1414,16 +1423,28 @@ function renderCobranza() {
   syncDirectSalePartDefaults();
   if (els.directSalesList) {
     els.directSalesList.innerHTML = state.directSales.length ? state.directSales.map(sale => `
-      <div class="table-row rich-row sale-row">
+      <div class="table-row rich-row sale-row ${sale.id === state.selectedDirectSaleId ? 'active' : ''}">
         <div><strong>${escapeHtml(sale.folio)}</strong><div class="small muted">${escapeHtml(sale.customerName)} · ${escapeHtml(sale.companyName || 'mostrador')}</div></div>
         <div><span class="badge ${salePaymentBadge(sale.paymentStatus)}">${escapeHtml(sale.paymentStatus.replaceAll('_',' '))}</span><div class="small muted">${escapeHtml(sale.paymentMethod || 'sin método')}</div></div>
         <div><strong>${money(sale.total || 0)}</strong><div class="small muted">${fmtDate(sale.createdAt)}</div></div>
+        <div class="sale-actions"><button class="btn btn-ghost" type="button" data-sale-pdf="${sale.id}">PDF</button></div>
       </div>`).join('') : '<div class="muted">Sin ventas directas registradas todavía.</div>';
+    els.directSalesList.querySelectorAll('.sale-row').forEach(row => row.addEventListener('click', (e) => {
+      if (e.target.closest('button')) return;
+      state.selectedDirectSaleId = row.querySelector('[data-sale-pdf]')?.dataset.salePdf || '';
+      renderCobranza();
+    }));
+    els.directSalesList.querySelectorAll('[data-sale-pdf]').forEach(btn => btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const sale = state.directSales.find(s => s.id === btn.dataset.salePdf);
+      if (sale) exportDirectSalePdf(sale);
+    }));
   }
 }
 
 
 function selectedQuote() { return state.cobranzaQuotes.find(q => q.id === state.selectedQuoteId) || null; }
+function selectedDirectSale() { return state.directSales.find(s => s.id === state.selectedDirectSaleId) || null; }
 function cloneQuoteItems(items = []) {
   return (items || []).map(item => ({
     id: item.id || '',
@@ -1452,7 +1473,8 @@ function ensureQuoteDraft(quote) {
       paymentReference: quote.paymentReference || '',
       dueAt: quote.dueAt ? String(quote.dueAt).slice(0,10) : '',
       notes: quote.notes || '',
-      items: cloneQuoteItems(quote.items?.length ? quote.items : [{ type:'mano_obra', description:'', qty:1, unitPrice:0, stockPartId:'' }])
+      items: cloneQuoteItems(quote.items?.length ? quote.items : [{ type:'mano_obra', description:'', qty:1, unitPrice:0, stockPartId:'' }]),
+      payments: (quote.payments || []).map(p => ({ ...p, amount: Number(p.amount || 0) }))
     };
   }
   return state.quoteDrafts[quote.id];
@@ -1465,8 +1487,9 @@ function computeQuoteDraftTotals(draft) {
   const ivaAmount = Number((base * (ivaPercent / 100)).toFixed(2));
   const total = Number((base + ivaAmount).toFixed(2));
   const anticipo = Math.max(0, Number(draft.anticipo || 0));
-  const saldo = Number(Math.max(0, total - anticipo).toFixed(2));
-  return { subtotal, total, saldo, ivaAmount, discount, anticipo };
+  const payments = Number(((draft.payments || []).reduce((sum, p) => sum + Number(p.amount || 0), 0)).toFixed(2));
+  const saldo = Number(Math.max(0, total - payments).toFixed(2));
+  return { subtotal, total, saldo, ivaAmount, discount, anticipo, payments };
 }
 function syncQuoteDraftFromDom(quoteId) {
   const quote = state.cobranzaQuotes.find(q => q.id === quoteId);
@@ -1507,6 +1530,7 @@ function updateQuoteTotalsPreview(quoteId) {
   });
   const s = document.getElementById('quoteSubtotalPreview'); if (s) s.textContent = money(totals.subtotal);
   const t = document.getElementById('quoteTotalPreview'); if (t) t.textContent = money(totals.total);
+  const p = document.getElementById('quotePaymentsPreview'); if (p) p.textContent = money(totals.payments || 0);
   const sd = document.getElementById('quoteSaldoPreview'); if (sd) sd.textContent = money(totals.saldo);
 }
 
@@ -1531,7 +1555,8 @@ function renderQuoteDetail() {
     paymentMethod: quote.paymentMethod || '',
     paymentReference: quote.paymentReference || '',
     dueAt: quote.dueAt || '',
-    notes: quote.notes || ''
+    notes: quote.notes || '',
+    payments: (quote.payments || []).map(p => ({ ...p, amount: Number(p.amount || 0) }))
   };
   const totals = computeQuoteDraftTotals(draft);
   const stockOptions = ['<option value="">Sin ligar a stock</option>', ...state.stockParts.map(part => `<option value="${part.id}">${escapeHtml(part.nombre)} · ${escapeHtml(part.sku || 'sin SKU')} · ${Number(part.stockActual || 0)} pzas</option>`)].join('');
@@ -1572,7 +1597,11 @@ function renderQuoteDetail() {
       <label class="quote-notes"><span>Notas comerciales</span><textarea id="quoteNotes" rows="3">${escapeHtml(draft.notes || '')}</textarea></label>
       <div class="quote-items-head"><strong>Conceptos del cobro</strong><button id="quoteAddItemBtn" class="btn btn-secondary" type="button">Agregar concepto</button></div>
       <div class="quote-table-wrap"><table class="quote-items-table"><thead><tr><th>Tipo</th><th>Descripción</th><th>Cant.</th><th>P. unitario</th><th>Stock</th><th>Total</th><th></th></tr></thead><tbody id="quoteItemsTbody">${itemsRows}</tbody></table></div>
-      <div class="quote-totals-strip"><article><span>Subtotal</span><strong id="quoteSubtotalPreview">${money(totals.subtotal || 0)}</strong></article><article><span>Total</span><strong id="quoteTotalPreview">${money(totals.total || 0)}</strong></article><article><span>Saldo</span><strong id="quoteSaldoPreview">${money(totals.saldo || 0)}</strong></article></div>
+      <div class="quote-totals-strip"><article><span>Subtotal</span><strong id="quoteSubtotalPreview">${money(totals.subtotal || 0)}</strong></article><article><span>Total</span><strong id="quoteTotalPreview">${money(totals.total || 0)}</strong></article><article><span>Pagos</span><strong id="quotePaymentsPreview">${money(totals.payments || 0)}</strong></article><article><span>Saldo</span><strong id="quoteSaldoPreview">${money(totals.saldo || 0)}</strong></article></div>
+      <div class="quote-payments-box">
+        <div class="quote-items-head"><strong>Pagos registrados</strong><button id="quoteAddPaymentBtn" class="btn btn-secondary" type="button">Agregar pago</button></div>
+        <div id="quotePaymentsList" class="payments-list"></div>
+      </div>
       <div class="stock-form-actions"><button id="quotePdfBtn" class="btn btn-ghost" type="button">PDF comercial</button><button id="quoteSaveBtn" class="btn btn-primary" type="button">Guardar cobranza</button></div>
     </div>`;
   document.getElementById('quoteStatus').value = draft.status || 'borrador';
@@ -1590,6 +1619,8 @@ function renderQuoteDetail() {
     draft.items.push({ type:'extra', description:'', qty:1, unitPrice:0, stockPartId:'' });
     renderQuoteDetail();
   });
+  renderQuotePayments(quote.id);
+  document.getElementById('quoteAddPaymentBtn')?.addEventListener('click', () => addQuotePayment(quote.id));
   document.querySelectorAll('#quoteCompanyName,#quoteUnitNumber,#quoteClientName,#quoteClientPhone,#quoteStatus,#quotePaymentStatus,#quoteDiscount,#quoteIva,#quoteAnticipo,#quotePaymentMethod,#quotePaymentReference,#quoteDueAt,#quoteNotes,#quoteItemsTbody input,#quoteItemsTbody select').forEach(el => {
     el.addEventListener('input', () => updateQuoteTotalsPreview(quote.id));
     el.addEventListener('change', () => updateQuoteTotalsPreview(quote.id));
@@ -1608,6 +1639,54 @@ function quoteItemsFromDom() {
     unitPrice: Number(document.querySelector(`[data-quote-price="${index}"]`)?.value || 0),
     stockPartId: document.querySelector(`[data-quote-stock="${index}"]`)?.value || '',
   })).filter(item => item.description.trim() && item.qty > 0);
+}
+
+
+function renderQuotePayments(quoteId) {
+  const box = document.getElementById('quotePaymentsList');
+  const draft = state.quoteDrafts[quoteId];
+  if (!box || !draft) return;
+  const payments = draft.payments || [];
+  box.innerHTML = payments.length ? payments.map((payment, index) => `
+    <div class="payment-row">
+      <input data-payment-date="${index}" type="date" value="${payment.paidAt ? String(payment.paidAt).slice(0,10) : ''}" />
+      <input data-payment-amount="${index}" type="number" min="0" step="0.01" value="${Number(payment.amount || 0)}" placeholder="Monto" />
+      <input data-payment-method="${index}" value="${escapeHtml(payment.method || '')}" placeholder="Método" />
+      <input data-payment-reference="${index}" value="${escapeHtml(payment.reference || '')}" placeholder="Referencia" />
+      <button class="btn btn-ghost" type="button" data-payment-delete="${index}">Eliminar</button>
+    </div>`).join('') : '<div class="muted">Todavía no hay pagos registrados.</div>';
+  box.querySelectorAll('input').forEach(input => {
+    input.addEventListener('input', () => syncQuotePaymentsFromDom(quoteId));
+    input.addEventListener('change', () => syncQuotePaymentsFromDom(quoteId));
+  });
+  box.querySelectorAll('[data-payment-delete]').forEach(btn => btn.addEventListener('click', () => removeQuotePayment(quoteId, Number(btn.dataset.paymentDelete))));
+}
+function syncQuotePaymentsFromDom(quoteId) {
+  const draft = state.quoteDrafts[quoteId];
+  if (!draft) return;
+  draft.payments = [...document.querySelectorAll('#quotePaymentsList .payment-row')].map((row, index) => ({
+    id: draft.payments?.[index]?.id || '',
+    amount: Number(row.querySelector(`[data-payment-amount="${index}"]`)?.value || 0),
+    method: row.querySelector(`[data-payment-method="${index}"]`)?.value || '',
+    reference: row.querySelector(`[data-payment-reference="${index}"]`)?.value || '',
+    paidAt: row.querySelector(`[data-payment-date="${index}"]`)?.value || ''
+  })).filter(payment => payment.amount > 0 || payment.method || payment.reference || payment.paidAt);
+  updateQuoteTotalsPreview(quoteId);
+}
+function addQuotePayment(quoteId) {
+  const draft = state.quoteDrafts[quoteId];
+  if (!draft) return;
+  syncQuotePaymentsFromDom(quoteId);
+  draft.payments = draft.payments || [];
+  draft.payments.push({ amount: 0, method: '', reference: '', paidAt: new Date().toISOString().slice(0,10) });
+  renderQuotePayments(quoteId);
+}
+function removeQuotePayment(quoteId, index) {
+  const draft = state.quoteDrafts[quoteId];
+  if (!draft) return;
+  draft.payments.splice(index, 1);
+  renderQuotePayments(quoteId);
+  updateQuoteTotalsPreview(quoteId);
 }
 
 async function saveSelectedQuote() {
@@ -1633,10 +1712,23 @@ async function saveSelectedQuote() {
       paymentMethod: draft.paymentMethod || '',
       paymentReference: draft.paymentReference || '',
       dueAt: draft.dueAt || null,
-      notes: draft.notes || ''
+      notes: draft.notes || '',
+      payments: (draft.payments || []).filter(p => Number(p.amount || 0) > 0).map(p => ({ id: p.id || '', amount: Number(p.amount || 0), method: p.method || '', reference: p.reference || '', paidAt: p.paidAt || null }))
     };
     await api.replaceQuoteItems(quote.id, { items, discount: payload.discount, iva: payload.iva, anticipo: payload.anticipo });
     await api.updateQuote(quote.id, payload);
+    const persisted = state.cobranzaQuotes.find(q => q.id === quote.id) || quote;
+    const existingIds = new Set((persisted.payments || []).map(p => p.id));
+    const draftPayments = payload.payments || [];
+    for (const payment of draftPayments) {
+      if (payment.id) {
+        await api.updateQuotePayment(quote.id, payment.id, payment);
+        existingIds.delete(payment.id);
+      } else {
+        await api.createQuotePayment(quote.id, payment);
+      }
+    }
+    for (const staleId of existingIds) await api.deleteQuotePayment(quote.id, staleId);
     delete state.quoteDrafts[quote.id];
     notify('Cobranza guardada.');
     await loadCobranza(true);
@@ -1663,6 +1755,41 @@ function launchDirectSaleWithPart(partId) {
     syncDirectSalePartDefaults();
     els.directSaleCustomer?.focus();
   }, 80);
+}
+
+async function exportDirectSalePdf(sale) {
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const logo = await getImageData('/logo.jpg');
+    if (logo) await addPdfImage(doc, logo, 14, 10, 34, 34);
+    doc.setFontSize(18); doc.text('TICKET / REPORTE DE VENTA', 55, 22);
+    doc.setFontSize(10); doc.text(`Folio: ${sale.folio || '—'}`, 196, 18, { align:'right' });
+    doc.text(`Fecha: ${fmtDate(sale.createdAt)}`, 196, 24, { align:'right' });
+    doc.roundedRect(14, 48, 182, 30, 4, 4);
+    doc.text(`Cliente: ${sale.customerName || '—'}`, 18, 58);
+    doc.text(`Teléfono: ${sale.customerPhone || '—'}`, 18, 66);
+    doc.text(`Empresa: ${sale.companyName || 'Mostrador'}`, 105, 58);
+    doc.text(`Unidad: ${sale.unitNumber || '—'}`, 105, 66);
+    let y = 90;
+    doc.setFontSize(12); doc.text('Conceptos', 14, y); y += 8;
+    (sale.items || []).forEach(item => {
+      const line = `${(item.type || 'concepto').replaceAll('_',' ')} · ${item.description} · ${Number(item.qty || 0)} x ${money(item.unitPrice || 0)} = ${money(item.total || 0)}`;
+      const split = doc.splitTextToSize(line, 178);
+      doc.text(split, 14, y); y += split.length * 6 + 4;
+    });
+    y += 4;
+    doc.setFont('helvetica','bold');
+    doc.text(`Subtotal: ${money(sale.subtotal || 0)}`, 14, y); y += 8;
+    doc.text(`Total: ${money(sale.total || 0)}`, 14, y); y += 8;
+    doc.text(`Pago: ${(sale.paymentStatus || 'pendiente').replaceAll('_',' ')} · ${sale.paymentMethod || 'sin método'}`, 14, y); y += 8;
+    doc.setFont('helvetica','normal');
+    const splitNotes = doc.splitTextToSize(sale.notes || 'Venta directa registrada en CARLAB CLOUD.', 178);
+    doc.text(splitNotes, 14, y);
+    doc.save(`${sale.folio || 'venta'}_${(sale.customerName || 'cliente').replace(/\s+/g,'_')}.pdf`);
+  } catch {
+    notify('No se pudo generar el PDF de venta.', true);
+  }
 }
 
 async function exportCommercialPdf(quote) {
@@ -2096,7 +2223,7 @@ function renderExecutiveDeck() {
   });
   if (els.liveRefreshBadge) {
     const now = new Date();
-    els.liveRefreshBadge.textContent = `Última lectura ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    els.liveRefreshBadge.textContent = `Actualización manual ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   }
 }
 
@@ -2477,11 +2604,17 @@ els.stockPartForm?.addEventListener('submit', async (e) => {
   } catch (error) { notify(error.message, true); }
 });
 els.directSaleStockPart?.addEventListener('change', () => { state.directSaleDraftPartId = els.directSaleStockPart.value || ''; syncDirectSalePartDefaults(); });
+els.directSaleType?.addEventListener('change', () => {
+  const isPart = (els.directSaleType?.value || 'refaccion') === 'refaccion';
+  if (els.directSaleStockPart) els.directSaleStockPart.disabled = !isPart;
+  syncDirectSalePartDefaults();
+});
 els.directSaleResetBtn?.addEventListener('click', resetDirectSaleForm);
 els.directSaleForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
   try {
     const part = state.stockParts.find(item => item.id === (els.directSaleStockPart?.value || ''));
+    const saleType = els.directSaleType?.value || 'refaccion';
     const payload = {
       customerName: els.directSaleCustomer?.value || '',
       customerPhone: els.directSalePhone?.value || '',
@@ -2491,16 +2624,18 @@ els.directSaleForm?.addEventListener('submit', async (e) => {
       paymentStatus: els.directSalePaymentStatus?.value || 'pendiente',
       notes: els.directSaleNotes?.value || '',
       items: [{
-        stockPartId: els.directSaleStockPart?.value || '',
-        description: part?.nombre || 'Venta directa',
+        type: saleType,
+        stockPartId: saleType === 'refaccion' ? (els.directSaleStockPart?.value || '') : '',
+        description: (els.directSaleConcept?.value || '').trim() || part?.nombre || 'Venta directa',
         qty: Number(els.directSaleQty?.value || 0),
         unitPrice: Number(els.directSalePrice?.value || 0)
       }]
     };
-    await api.createDirectSale(payload);
+    const createdSale = await api.createDirectSale(payload);
     notify('Venta directa registrada.');
     resetDirectSaleForm();
     await Promise.all([loadCobranza(true), loadStock(true)]);
+    if (createdSale) exportDirectSalePdf(createdSale);
   } catch (error) { notify(error.message, true); }
 });
 els.navUsersBtn?.addEventListener('click', async () => { switchPanel('users'); await loadUsers(); });
@@ -2610,17 +2745,7 @@ els.companyForm?.addEventListener('submit', async (e) => {
 })();
 
 
-setInterval(async () => {
-  if (!state.token || !state.user) return;
-  try {
-    if (!shouldPauseLiveRefresh()) await loadNotifications();
-    if (['board','analytics','history'].includes(state.activePanel) && !shouldPauseLiveRefresh('board')) await Promise.allSettled([loadGarantias()]);
-    if (state.activePanel === 'schedule' && !shouldPauseLiveRefresh('schedule')) await Promise.allSettled([loadSchedules('')]);
-    if (state.activePanel === 'fleet' && !shouldPauseLiveRefresh('fleet')) await Promise.allSettled([loadFleet()]);
-    if (state.activePanel === 'parts' && !shouldPauseLiveRefresh('parts')) await Promise.allSettled([loadPartsPending(true), cargarSolicitudesIndependientes()]);
-    renderExecutiveDeck();
-  } catch {}
-}, 15000);
+// Refresco automático desactivado para evitar que la vista se mueva mientras trabajas.
 window.guardarCostoAdmin = guardarCostoAdmin;
 window.eliminarCostoAdmin = eliminarCostoAdmin;
 window.openImageLightbox = openImageLightbox;
