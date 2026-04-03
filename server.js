@@ -470,6 +470,22 @@ async function nextGarantiaFolio() {
   return `GAR-${String(next).padStart(5, '0')}`;
 }
 
+async function nextManagedFolio(kind, client = pool) {
+  const key = kind === 'quote' ? 'quote' : 'sale';
+  const config = key === 'quote'
+    ? { table: 'work_quotes', prefix: 'COB', lockKey: 71001 }
+    : { table: 'direct_sales', prefix: 'VTA', lockKey: 71002 };
+  await client.query(`SELECT pg_advisory_xact_lock($1)`, [config.lockKey]);
+  const result = await client.query(
+    `SELECT COALESCE(MAX(NULLIF(regexp_replace(folio, '\\D', '', 'g'), '')::int), 0) AS max_num
+     FROM ${config.table}
+     WHERE folio ~ $1`,
+    [`^${config.prefix}-[0-9]+$`]
+  );
+  const next = Number(result.rows[0]?.max_num || 0) + 1;
+  return `${config.prefix}-${String(next).padStart(5, '0')}`;
+}
+
 async function tryBackfillLegacyReports() {
   const hasGarantias = await pool.query("SELECT to_regclass('public.garantias') AS name");
   if (!hasGarantias.rows[0]?.name) return;
@@ -2323,7 +2339,7 @@ app.post('/api/cobranza/quotes/from-report/:id', authRequired, requireRoles('adm
       return res.status(404).json({ error: 'Reporte no encontrado.' });
     }
     const g = report.rows[0];
-    const folio = await nextManagedFolio('quote');
+    const folio = await nextManagedFolio('quote', client);
     const quoteId = cryptoRandomId();
     await client.query(
       `INSERT INTO work_quotes (id, folio, garantia_id, company_name, unit_number, client_name, client_phone, status, payment_status, created_by)
@@ -2488,7 +2504,7 @@ app.post('/api/cobranza/direct-sales', authRequired, requireRoles('admin'), asyn
       unitPrice: Number(item.unitPrice || 0)
     })).filter(item => item.description && item.qty > 0);
     if (!items.length) { await client.query('ROLLBACK'); return res.status(400).json({ error:'Agrega al menos un concepto válido.' }); }
-    const folio = await nextManagedFolio('sale');
+    const folio = await nextManagedFolio('sale', client);
     const saleId = cryptoRandomId();
     await client.query(`INSERT INTO direct_sales (id, folio, customer_name, customer_phone, company_name, unit_number, status, payment_status, subtotal, total, notes, payment_method, payment_reference, created_by) VALUES ($1,$2,$3,$4,$5,$6,'cerrada',$7,0,0,$8,$9,$10,$11)`, [saleId, folio, customerName, customerPhone, companyName, unitNumber, paymentStatus, notes, paymentMethod, paymentReference, req.user.id]);
     let subtotal = 0;

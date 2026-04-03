@@ -510,10 +510,16 @@
             <article class="owner-card cobranza-col wide">
               <div class="owner-card-head"><strong>Venta directa desde stock</strong><span class="badge badge-info">Mostrador / salida</span></div>
               <form id="directSaleForm" class="direct-sale-grid">
+                <div class="direct-sale-block span-4">
+                  <div class="topbar-kicker">DATOS DEL CLIENTE</div>
+                </div>
                 <label><span>Cliente</span><input id="directSaleCustomer" placeholder="Nombre o razón social" /></label>
                 <label><span>Teléfono</span><input id="directSalePhone" placeholder="521667..." /></label>
                 <label><span>Empresa</span><input id="directSaleCompany" placeholder="Opcional" /></label>
                 <label><span>Unidad</span><input id="directSaleUnit" placeholder="Opcional" /></label>
+                <div class="direct-sale-block span-4">
+                  <div class="topbar-kicker">CAPTURA DE CONCEPTO</div>
+                </div>
                 <label><span>Tipo</span><select id="directSaleType"><option value="refaccion">Refacción</option><option value="mano_obra">Mano de obra</option><option value="mixto">Mixto</option></select></label>
                 <label><span>Concepto</span><input id="directSaleConcept" placeholder="Concepto de venta" /></label>
                 <label class="span-2"><span>Producto desde stock</span><select id="directSaleStockPart"></select></label>
@@ -522,6 +528,9 @@
                 <div class="direct-sale-items span-2">
                   <div class="direct-sale-items-head"><strong>Conceptos agregados</strong><button id="directSaleAddConceptBtn" class="btn btn-ghost" type="button">Agregar concepto</button></div>
                   <div id="directSaleItemsList" class="direct-sale-items-list muted">Aún no hay conceptos agregados.</div>
+                </div>
+                <div class="direct-sale-block span-4">
+                  <div class="topbar-kicker">PAGO Y CIERRE</div>
                 </div>
                 <label><span>Método de pago</span><input id="directSaleMethod" placeholder="Transferencia / efectivo" /></label>
                 <label><span>Estatus de pago</span><select id="directSalePaymentStatus"><option value="pendiente">Pendiente</option><option value="pagado_parcial">Pago parcial</option><option value="pagada">Pagada</option></select></label>
