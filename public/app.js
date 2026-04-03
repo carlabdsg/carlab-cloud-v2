@@ -1337,7 +1337,7 @@ function renderStock() {
 
 
 function openStockMovementModal(partId, tipo) {
-  const part = state.stockParts.find(p => String(p.id) === String(partId));
+  const part = state.stockParts.find(p => p.id === partId);
   if (!part || !els.stockMovementModal) return;
   state.stockMovementContext = { partId, tipo };
   document.body.classList.add('modal-open');
@@ -1369,22 +1369,24 @@ function resetDirectSaleForm() {
   if (els.directSalePaymentStatus) els.directSalePaymentStatus.value = 'pendiente';
   state.directSaleDraftPartId = '';
   state.lastDirectSaleId = '';
+  if (els.directSalePdfBtn) els.directSalePdfBtn.classList.add('hidden');
   syncDirectSalePartDefaults();
 }
 
 function syncDirectSalePartDefaults() {
   if (!els.directSaleStockPart) return;
   const saleType = els.directSaleType?.value || 'refaccion';
-  const selectedId = String(state.directSaleDraftPartId || els.directSaleStockPart.value || '');
+  const selectedId = state.directSaleDraftPartId || els.directSaleStockPart.value;
   if (selectedId) els.directSaleStockPart.value = selectedId;
   const part = state.stockParts.find(p => String(p.id) === String(els.directSaleStockPart?.value || ''));
-  if (els.directSaleStockPart) els.directSaleStockPart.disabled = !(saleType === 'refaccion' || saleType === 'mixto');
-  if (part && (saleType === 'refaccion' || saleType === 'mixto')) {
+  if (part && saleType === 'refaccion') {
     if (els.directSaleConcept && !els.directSaleConcept.value.trim()) els.directSaleConcept.value = part.nombre || '';
-    const suggested = Number(part.precioVenta || part.costoUnitario || 0);
-    if (els.directSalePrice && (Number(els.directSalePrice.value || 0) <= 0 || state.directSaleDraftPartId)) {
-      els.directSalePrice.value = suggested.toFixed(2);
+    if (els.directSalePrice && (!Number(els.directSalePrice.value || 0) || state.directSaleDraftPartId)) {
+      els.directSalePrice.value = Number(part.precioVenta || part.costoUnitario || 0).toFixed(2);
     }
+  }
+  if (els.directSaleStockPart) {
+    els.directSaleStockPart.disabled = !['refaccion','mixto'].includes(saleType);
   }
   updateDirectSaleTotalPreview();
 }
@@ -1423,7 +1425,6 @@ async function loadCobranza(force = false) {
     if (state.selectedQuoteId && !state.cobranzaQuotes.find(q => q.id === state.selectedQuoteId)) state.selectedQuoteId = state.cobranzaQuotes[0]?.id || '';
     if (!state.selectedDirectSaleId && state.directSales[0]) state.selectedDirectSaleId = state.directSales[0].id;
     if (state.selectedDirectSaleId && !state.directSales.find(s => s.id === state.selectedDirectSaleId)) state.selectedDirectSaleId = state.directSales[0]?.id || '';
-    if (!state.lastDirectSaleId && state.selectedDirectSaleId) state.lastDirectSaleId = state.selectedDirectSaleId;
     renderCobranza();
   } catch (error) {
     notify(error.message, true);
@@ -1455,7 +1456,6 @@ function renderCobranza() {
   renderQuoteDetail();
   fillSelect(els.directSaleStockPart, state.stockParts.map(part => ({ id: part.id, nombre: `${part.nombre} · ${part.sku || 'sin SKU'} · stock ${part.stockActual}` })), 'Selecciona refacción de stock');
   syncDirectSalePartDefaults();
-  if (els.directSalePdfBtn) els.directSalePdfBtn.textContent = state.lastDirectSaleId || state.selectedDirectSaleId ? 'Generar PDF venta' : 'PDF última venta';
   if (els.directSalesList) {
     els.directSalesList.innerHTML = state.directSales.length ? state.directSales.map(sale => `
       <div class="table-row rich-row sale-row ${sale.id === state.selectedDirectSaleId ? 'active' : ''}">
@@ -1467,7 +1467,6 @@ function renderCobranza() {
     els.directSalesList.querySelectorAll('.sale-row').forEach(row => row.addEventListener('click', (e) => {
       if (e.target.closest('button')) return;
       state.selectedDirectSaleId = row.querySelector('[data-sale-pdf]')?.dataset.salePdf || '';
-      state.lastDirectSaleId = state.selectedDirectSaleId;
       renderCobranza();
     }));
     els.directSalesList.querySelectorAll('[data-sale-pdf]').forEach(btn => btn.addEventListener('click', (e) => {
@@ -2677,20 +2676,21 @@ els.stockMovementForm?.addEventListener('submit', async (e) => {
 els.directSaleStockPart?.addEventListener('change', () => { state.directSaleDraftPartId = els.directSaleStockPart.value || ''; syncDirectSalePartDefaults(); });
 els.directSaleType?.addEventListener('change', () => {
   const saleType = els.directSaleType?.value || 'refaccion';
-  if (els.directSaleStockPart) els.directSaleStockPart.disabled = saleType !== 'refaccion';
+  if (els.directSaleStockPart) els.directSaleStockPart.disabled = !['refaccion','mixto'].includes(saleType);
   syncDirectSalePartDefaults();
 });
 ['directSaleQty','directSalePrice','directSaleConcept'].forEach(key => els[key]?.addEventListener('input', updateDirectSaleTotalPreview));
-els.directSalePdfBtn?.addEventListener('click', () => { const sale = state.directSales.find(s => s.id === (state.lastDirectSaleId || state.selectedDirectSaleId)) || selectedDirectSale(); if (sale) exportDirectSalePdf(sale); else notify('Primero registra o selecciona una venta directa.', true); });
+els.directSalePdfBtn?.addEventListener('click', () => { const sale = state.directSales.find(s => s.id === state.lastDirectSaleId); if (sale) exportDirectSalePdf(sale); });
 els.directSaleResetBtn?.addEventListener('click', resetDirectSaleForm);
 els.directSaleForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
   try {
-    const part = state.stockParts.find(item => String(item.id) === String(els.directSaleStockPart?.value || ''));
+    const selectedPartId = String(els.directSaleStockPart?.value || '');
+    const part = state.stockParts.find(item => String(item.id) === selectedPartId);
     const saleType = els.directSaleType?.value || 'refaccion';
-    const qty = Math.max(1, Number(els.directSaleQty?.value || 1));
-    let unitPrice = Number(els.directSalePrice?.value || 0);
-    if (unitPrice <= 0 && part) unitPrice = Number(part.precioVenta || part.costoUnitario || 0);
+    const qty = Math.max(1, Number(els.directSaleQty?.value || 0));
+    const fallbackPrice = Number(part?.precioVenta || part?.costoUnitario || 0);
+    const unitPrice = Math.max(0, Number(els.directSalePrice?.value || fallbackPrice || 0));
     const description = (els.directSaleConcept?.value || '').trim() || part?.nombre || (saleType === 'mano_obra' ? 'Mano de obra' : 'Venta directa');
     const payload = {
       customerName: (els.directSaleCustomer?.value || '').trim() || 'Mostrador',
@@ -2703,22 +2703,21 @@ els.directSaleForm?.addEventListener('submit', async (e) => {
       notes: els.directSaleNotes?.value || '',
       items: [{
         type: saleType,
-        stockPartId: (saleType === 'refaccion' || saleType === 'mixto') ? (els.directSaleStockPart?.value || '') : '',
+        stockPartId: ['refaccion','mixto'].includes(saleType) ? selectedPartId : '',
         description,
         qty,
         unitPrice
       }]
     };
-    if (!payload.items[0].description) throw new Error('Captura un concepto para la venta.');
-    if (qty <= 0) throw new Error('Cantidad inválida.');
     const createdSale = await api.createDirectSale(payload);
     notify('Venta directa registrada.');
     await Promise.all([loadCobranza(true), loadStock(true)]);
-    const createdId = createdSale?.id || '';
-    state.lastDirectSaleId = createdId;
-    state.selectedDirectSaleId = createdId;
-    if (createdSale) exportDirectSalePdf(createdSale);
+    const hydratedSale = createdSale?.id ? (state.directSales.find(s => s.id === createdSale.id) || createdSale) : createdSale;
+    const createdId = hydratedSale?.id || '';
     resetDirectSaleForm();
+    state.lastDirectSaleId = createdId;
+    if (els.directSalePdfBtn) els.directSalePdfBtn.classList.toggle('hidden', !state.lastDirectSaleId);
+    if (hydratedSale) exportDirectSalePdf(hydratedSale);
   } catch (error) { notify(error.message, true); }
 });
 els.navUsersBtn?.addEventListener('click', async () => { switchPanel('users'); await loadUsers(); });

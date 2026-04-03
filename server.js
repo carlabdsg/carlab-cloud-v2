@@ -2594,21 +2594,26 @@ app.post('/api/cobranza/direct-sales', authRequired, requireRoles('admin'), asyn
     const paymentMethod = String(req.body.paymentMethod || '').trim();
     const paymentReference = String(req.body.paymentReference || '').trim();
     const items = Array.isArray(req.body.items) ? req.body.items : [];
-    if (!items.length) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error:'Agrega al menos un concepto para la venta.' });
-    }
     const folio = await nextManagedFolio('sale');
     const saleId = cryptoRandomId();
+    const normalizedItems = items.map(item => ({
+      qty: Math.max(0, Number(item.qty || 0)),
+      unitPrice: Math.max(0, Number(item.unitPrice || item.price || 0)),
+      stockPartId: item.stockPartId || null,
+      type: ['refaccion','mano_obra','mixto','extra'].includes(String(item.type || 'refaccion')) ? String(item.type) : 'refaccion',
+      description: String(item.description || '').trim()
+    })).filter(item => item.description && item.qty > 0);
+    if (!normalizedItems.length) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error:'Agrega al menos un concepto válido para la venta.' });
+    }
     let subtotal = 0;
-    for (const item of items) {
-      const qty = Number(item.qty || 0);
-      const unitPrice = Number(item.unitPrice || 0);
+    for (const item of normalizedItems) {
+      const qty = item.qty;
       const stockPartId = item.stockPartId || null;
-      const type = ['refaccion','mano_obra','mixto','extra'].includes(String(item.type || 'refaccion')) ? String(item.type) : 'refaccion';
-      const description = String(item.description || '').trim();
-      if (!description || qty <= 0) continue;
-      let effectiveUnitPrice = Number(item.unitPrice || 0);
+      const type = item.type;
+      const description = item.description;
+      let effectiveUnitPrice = item.unitPrice;
       if (stockPartId) {
         const locked = await client.query(`SELECT * FROM stock_parts WHERE id = $1 FOR UPDATE`, [stockPartId]);
         if (!locked.rowCount) {
@@ -2636,10 +2641,6 @@ app.post('/api/cobranza/direct-sales', authRequired, requireRoles('admin'), asyn
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [cryptoRandomId(), saleId, stockPartId, type, description, qty, effectiveUnitPrice, total]
       );
-    }
-    if (subtotal <= 0) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error:'La venta debe tener importe mayor a cero.' });
     }
     await client.query(
       `INSERT INTO direct_sales (id, folio, customer_name, customer_phone, company_name, unit_number, status, payment_status, subtotal, total, notes, payment_method, payment_reference, created_by)

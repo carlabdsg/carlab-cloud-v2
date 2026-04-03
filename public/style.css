@@ -3356,19 +3356,8 @@ body.modal-open{overflow:hidden}
 
 .direct-sale-summary{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border:1px solid #e9edf5;border-radius:18px;background:#fbfcfe}.stock-movement-modal .modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:12px}.stock-movement-modal .parts-request-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.stock-movement-modal .hidden{display:none !important}.stock-movement-modal input,.stock-movement-modal textarea{width:100%}body[data-role="admin"] #fleetUnitsList{position:sticky;top:0;max-height:calc(100vh - 250px);overflow:auto}
 
-body[data-role="admin"] #fleetPanel .fleet-line-list{position:sticky;top:108px;max-height:calc(100vh - 220px);overflow:auto;padding-right:8px;overscroll-behavior:contain;scrollbar-width:thin}
-body[data-role="admin"] #fleetPanel .fleet-detail-premium{position:sticky;top:108px;max-height:calc(100vh - 140px);overflow:auto}
-#cobranzaQuotesList{max-height:calc(100vh - 260px);overflow:auto;padding-right:8px;overscroll-behavior:contain;scrollbar-width:thin}
-#cobranzaQuoteDetail{max-height:calc(100vh - 260px);overflow:auto;padding-right:8px}
-#directSalesList{max-height:calc(100vh - 520px);overflow:auto;padding-right:8px;scrollbar-width:thin}
-.stock-movement-modal .modal-card{max-width:760px;width:min(92vw,760px)}
-
-
-/* Admin fleet internal scroll and split layout */
-@media (min-width: 1101px){
-  body[data-role="admin"] #fleetPanel .fleet-layout{grid-template-columns:minmax(320px,380px) minmax(0,1fr) !important;align-items:start;}
-  body[data-role="admin"] #fleetPanel .fleet-line-list{position:sticky;top:108px;max-height:calc(100vh - 180px);overflow:auto;padding-right:10px;overscroll-behavior:contain;border-right:1px solid #eef2f7;}
-  body[data-role="admin"] #fleetPanel .fleet-detail-premium{position:sticky;top:108px;max-height:calc(100vh - 180px);overflow:auto;padding-right:8px;}
-}
-#directSaleForm .stock-form-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-start;}
-#directSaleForm #directSalePdfBtn{display:inline-flex !important;visibility:visible !important;}
+/* Scroll interno en editor de cobranza */
+.cobranza-layout { align-items: stretch; }
+.cobranza-layout .cobranza-col { display:flex; flex-direction:column; min-height:0; max-height:calc(100vh - 240px); }
+#cobranzaQuotesList, #cobranzaQuoteDetail { flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
+#cobranzaQuoteDetail { padding-right:6px; }

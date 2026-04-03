@@ -510,7 +510,7 @@
             <article class="owner-card cobranza-col wide">
               <div class="owner-card-head"><strong>Venta directa desde stock</strong><span class="badge badge-info">Mostrador / salida</span></div>
               <form id="directSaleForm" class="direct-sale-grid">
-                <label><span>Cliente</span><input id="directSaleCustomer" required placeholder="Nombre o razón social" /></label>
+                <label><span>Cliente</span><input id="directSaleCustomer" placeholder="Nombre o razón social o Mostrador" /></label>
                 <label><span>Teléfono</span><input id="directSalePhone" placeholder="521667..." /></label>
                 <label><span>Empresa</span><input id="directSaleCompany" placeholder="Opcional" /></label>
                 <label><span>Unidad</span><input id="directSaleUnit" placeholder="Opcional" /></label>
@@ -524,7 +524,7 @@
                 <label class="span-2"><span>Notas</span><textarea id="directSaleNotes" rows="2" placeholder="Observaciones, cliente o salida a mostrador"></textarea></label>
                 <div class="direct-sale-summary span-2"><span>Total estimado</span><strong id="directSaleTotalPreview">$0.00</strong></div>
                 <div class="stock-form-actions span-2">
-                  <button id="directSalePdfBtn" class="btn btn-secondary" type="button">PDF última venta</button>
+                  <button id="directSalePdfBtn" class="btn btn-secondary hidden" type="button">PDF venta</button>
                   <button id="directSaleResetBtn" class="btn btn-ghost" type="button">Limpiar</button>
                   <button class="btn btn-primary" type="submit">Registrar venta directa</button>
                 </div>
@@ -536,30 +536,6 @@
             </article>
           </div>
         </section>
-  <div id="stockMovementModal" class="modal hidden stock-movement-modal">
-    <div class="modal-card">
-      <div class="modal-head">
-        <div>
-          <div class="topbar-kicker">MOVIMIENTO DE STOCK</div>
-          <h3 id="stockMovementType">Salida a camión</h3>
-          <p id="stockMovementPartName" class="muted">Refacción seleccionada</p>
-        </div>
-        <button id="stockMovementClose" class="btn btn-ghost" type="button">Cerrar</button>
-      </div>
-      <form id="stockMovementForm" class="parts-request-grid">
-        <label><span>Cantidad</span><input id="stockMovementQty" type="number" min="1" step="1" value="1" required /></label>
-        <label><span>Unidad</span><input id="stockMovementUnit" placeholder="Número económico" /></label>
-        <label><span>Empresa</span><input id="stockMovementCompany" placeholder="Empresa / flota" /></label>
-        <label><span>Folio</span><input id="stockMovementFolio" placeholder="GAR-00001 (opcional)" /></label>
-        <label class="span-2"><span>Notas</span><textarea id="stockMovementNotes" rows="3" placeholder="Motivo o detalle del movimiento"></textarea></label>
-        <div class="stock-form-actions span-2">
-          <button id="stockMovementCancel" class="btn btn-ghost" type="button">Cancelar</button>
-          <button class="btn btn-primary" type="submit">Guardar movimiento</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
 
         <section id="boardPanel" class="panel">
           <div class="panel-head"><div><div class="topbar-kicker" id="boardKicker">CENTRAL</div><h3 id="listTitle">Bandeja de garantías</h3></div></div>
