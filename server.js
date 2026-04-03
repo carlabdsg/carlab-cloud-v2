@@ -851,12 +851,32 @@ async function initDb() {
       total NUMERIC(12,2) NOT NULL DEFAULT 0,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS quote_payments (
+      id TEXT PRIMARY KEY,
+      quote_id TEXT NOT NULL REFERENCES work_quotes(id) ON DELETE CASCADE,
+      amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+      method TEXT,
+      reference TEXT,
+      paid_at TIMESTAMPTZ,
+      notes TEXT,
+      created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 
   await pool.query(`
     ALTER TABLE parts_requests ADD COLUMN IF NOT EXISTS evidence_photos JSONB NOT NULL DEFAULT '[]'::jsonb;
     ALTER TABLE stock_parts ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT NULL DEFAULT TRUE;
     ALTER TABLE direct_sale_items ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'refaccion';
+    ALTER TABLE quote_payments ADD COLUMN IF NOT EXISTS method TEXT;
+    ALTER TABLE quote_payments ADD COLUMN IF NOT EXISTS reference TEXT;
+    ALTER TABLE quote_payments ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ;
+    ALTER TABLE quote_payments ADD COLUMN IF NOT EXISTS notes TEXT;
+    ALTER TABLE quote_payments ADD COLUMN IF NOT EXISTS created_by TEXT;
+    ALTER TABLE quote_payments ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+    ALTER TABLE quote_payments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
     CREATE INDEX IF NOT EXISTS idx_parts_requests_empresa ON parts_requests(empresa);
     CREATE INDEX IF NOT EXISTS idx_parts_requests_status ON parts_requests(status);
     CREATE INDEX IF NOT EXISTS idx_parts_requests_updated_at ON parts_requests(updated_at DESC);
