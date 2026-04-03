@@ -168,7 +168,7 @@
               <div class="topbar-kicker">CENTRO DE MANDO</div>
               <h3>Resumen vivo del sistema</h3>
             </div>
-            <span class="badge badge-info" id="liveRefreshBadge">Actualización manual</span>
+            <span class="badge badge-info" id="liveRefreshBadge">Sincronización inteligente</span>
           </div>
           <div id="executiveDeckGrid" class="executive-grid"></div>
         </section>
@@ -510,7 +510,7 @@
             <article class="owner-card cobranza-col wide">
               <div class="owner-card-head"><strong>Venta directa desde stock</strong><span class="badge badge-info">Mostrador / salida</span></div>
               <form id="directSaleForm" class="direct-sale-grid">
-                <label><span>Cliente</span><input id="directSaleCustomer" placeholder="Nombre o razón social o Mostrador" /></label>
+                <label><span>Cliente</span><input id="directSaleCustomer" placeholder="Nombre o razón social" /></label>
                 <label><span>Teléfono</span><input id="directSalePhone" placeholder="521667..." /></label>
                 <label><span>Empresa</span><input id="directSaleCompany" placeholder="Opcional" /></label>
                 <label><span>Unidad</span><input id="directSaleUnit" placeholder="Opcional" /></label>
@@ -522,10 +522,10 @@
                 <label><span>Método de pago</span><input id="directSaleMethod" placeholder="Transferencia / efectivo" /></label>
                 <label><span>Estatus de pago</span><select id="directSalePaymentStatus"><option value="pendiente">Pendiente</option><option value="pagado_parcial">Pago parcial</option><option value="pagada">Pagada</option></select></label>
                 <label class="span-2"><span>Notas</span><textarea id="directSaleNotes" rows="2" placeholder="Observaciones, cliente o salida a mostrador"></textarea></label>
-                <div class="direct-sale-summary span-2"><span>Total estimado</span><strong id="directSaleTotalPreview">$0.00</strong></div>
+                <div class="owner-card total-preview span-2"><strong>Total estimado</strong><span id="directSaleTotalPreview">$0.00</span></div>
                 <div class="stock-form-actions span-2">
-                  <button id="directSalePdfBtn" class="btn btn-secondary hidden" type="button">PDF venta</button>
                   <button id="directSaleResetBtn" class="btn btn-ghost" type="button">Limpiar</button>
+                  <button id="directSalePdfBtn" class="btn btn-secondary" type="button">PDF venta</button>
                   <button class="btn btn-primary" type="submit">Registrar venta directa</button>
                 </div>
               </form>
@@ -599,5 +599,23 @@
   </div>
 
   <script src="/app.js"></script>
+
+  <div id="stockMovementModal" class="modal-shell hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-head"><strong id="stockMovementTitle">Movimiento de stock</strong><button id="stockMovementCancelBtn" class="btn btn-ghost" type="button">Cerrar</button></div>
+      <form id="stockMovementForm" class="direct-sale-grid">
+        <input id="stockMovementPartId" type="hidden" />
+        <input id="stockMovementTipo" type="hidden" />
+        <label><span>Cantidad</span><input id="stockMovementCantidad" type="number" min="0.01" step="0.01" value="1" required /></label>
+        <label><span>Unidad</span><input id="stockMovementUnidad" placeholder="Número económico" /></label>
+        <label><span>Empresa</span><input id="stockMovementEmpresa" placeholder="Empresa / flota" /></label>
+        <label><span>Folio</span><input id="stockMovementGarantiaFolio" placeholder="Folio garantía opcional" /></label>
+        <label class="span-2"><span>Notas</span><textarea id="stockMovementNotas" rows="3" placeholder="Notas del movimiento"></textarea></label>
+        <div class="stock-form-actions span-2">
+          <button class="btn btn-primary" type="submit">Guardar movimiento</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </body>
 </html>
