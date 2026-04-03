@@ -522,7 +522,9 @@
                 <label><span>Método de pago</span><input id="directSaleMethod" placeholder="Transferencia / efectivo" /></label>
                 <label><span>Estatus de pago</span><select id="directSalePaymentStatus"><option value="pendiente">Pendiente</option><option value="pagado_parcial">Pago parcial</option><option value="pagada">Pagada</option></select></label>
                 <label class="span-2"><span>Notas</span><textarea id="directSaleNotes" rows="2" placeholder="Observaciones, cliente o salida a mostrador"></textarea></label>
+                <div class="direct-sale-summary span-2"><span>Total estimado</span><strong id="directSaleTotalPreview">$0.00</strong></div>
                 <div class="stock-form-actions span-2">
+                  <button id="directSalePdfBtn" class="btn btn-secondary hidden" type="button">PDF venta</button>
                   <button id="directSaleResetBtn" class="btn btn-ghost" type="button">Limpiar</button>
                   <button class="btn btn-primary" type="submit">Registrar venta directa</button>
                 </div>

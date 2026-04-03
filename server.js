@@ -2548,6 +2548,30 @@ app.delete('/api/cobranza/quotes/:id/payments/:paymentId', authRequired, require
   }
 });
 
+
+
+app.delete('/api/cobranza/quotes/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const found = await client.query('SELECT id, folio, garantia_id FROM work_quotes WHERE id = $1 FOR UPDATE', [req.params.id]);
+    if (!found.rowCount) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error:'Cobranza no encontrada.' });
+    }
+    await client.query('DELETE FROM work_quotes WHERE id = $1', [req.params.id]);
+    await client.query('COMMIT');
+    if (found.rows[0].garantia_id) await addAuditLog(found.rows[0].garantia_id, req.user.id, 'eliminar_cobro', `Cobranza ${found.rows[0].folio} eliminada.`);
+    res.json({ ok:true });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error eliminando cobranza:', error);
+    res.status(500).json({ error:'No se pudo eliminar la cobranza.' });
+  } finally {
+    client.release();
+  }
+});
+
 app.get('/api/cobranza/direct-sales', authRequired, requireRoles('admin'), async (_req, res) => {
   try {
     res.json(await fetchDirectSalesForAdmin());
@@ -2584,6 +2608,7 @@ app.post('/api/cobranza/direct-sales', authRequired, requireRoles('admin'), asyn
       const type = ['refaccion','mano_obra','mixto','extra'].includes(String(item.type || 'refaccion')) ? String(item.type) : 'refaccion';
       const description = String(item.description || '').trim();
       if (!description || qty <= 0) continue;
+      let effectiveUnitPrice = Number(item.unitPrice || 0);
       if (stockPartId) {
         const locked = await client.query(`SELECT * FROM stock_parts WHERE id = $1 FOR UPDATE`, [stockPartId]);
         if (!locked.rowCount) {
@@ -2591,6 +2616,7 @@ app.post('/api/cobranza/direct-sales', authRequired, requireRoles('admin'), asyn
           return res.status(400).json({ error:'Una refacción ya no existe en stock.' });
         }
         const part = locked.rows[0];
+        if (effectiveUnitPrice <= 0) effectiveUnitPrice = Number(part.precio_venta || part.costo_unitario || 0);
         const nextStock = Number(part.stock_actual || 0) - qty;
         if (nextStock < 0) {
           await client.query('ROLLBACK');
@@ -2603,12 +2629,12 @@ app.post('/api/cobranza/direct-sales', authRequired, requireRoles('admin'), asyn
           [cryptoRandomId(), stockPartId, qty, unitNumber, companyName, folio, `Venta directa ${folio} · ${customerName}${notes ? ` · ${notes}` : ''}`, req.user.id]
         );
       }
-      const total = Number((qty * unitPrice).toFixed(2));
+      const total = Number((qty * effectiveUnitPrice).toFixed(2));
       subtotal += total;
       await client.query(
         `INSERT INTO direct_sale_items (id, sale_id, stock_part_id, type, description, qty, unit_price, total)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [cryptoRandomId(), saleId, stockPartId, type, description, qty, unitPrice, total]
+        [cryptoRandomId(), saleId, stockPartId, type, description, qty, effectiveUnitPrice, total]
       );
     }
     await client.query(

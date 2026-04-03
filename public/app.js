@@ -38,6 +38,8 @@ const state = {
   selectedQuoteId: '',
   directSaleDraftPartId: '',
   quoteDrafts: {},
+  lastDirectSaleId: '',
+  stockMovementContext: null,
 };
 
 const api = {
@@ -117,6 +119,7 @@ const api = {
   createQuotePayment(id, payload) { return this.request(`/api/cobranza/quotes/${id}/payments`, { method: 'POST', body: JSON.stringify(payload || {}) }); },
   updateQuotePayment(id, paymentId, payload) { return this.request(`/api/cobranza/quotes/${id}/payments/${paymentId}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   deleteQuotePayment(id, paymentId) { return this.request(`/api/cobranza/quotes/${id}/payments/${paymentId}`, { method: 'DELETE' }); },
+  deleteQuote(id) { return this.request(`/api/cobranza/quotes/${id}`, { method: 'DELETE' }); },
   getDirectSales() { return this.request('/api/cobranza/direct-sales'); },
   createDirectSale(payload) { return this.request('/api/cobranza/direct-sales', { method: 'POST', body: JSON.stringify(payload || {}) }); },
   updateDirectSale(id, payload) { return this.request(`/api/cobranza/direct-sales/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
@@ -135,7 +138,7 @@ function bind() {
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
     'executiveDeck','executiveDeckGrid','liveRefreshBadge','topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistorySearchInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','partsPanel','partsRefreshBtn','partsSummary','partsList','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn','fleetOwnerDeck','imageLightbox','imageLightboxImg','imageLightboxClose',
     'navFleetBtn','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas','fleetNewBtn','fleetCancelBtn','fleetFormBox','fleetSearchInput','fleetStatusFilter',
-    'partsRequestModal','partsRequestClose','partsRequestCancel','partsRequestForm','partsRequestEmpresa','partsRequestUnidad','partsRequestSolicitud','partsRequestPriority','partsRequestNotes','partsRequestOwnerHint','imageLightboxCaption','stockRefreshBtn','stockSummary','stockList','stockMovements','stockPartForm','stockPartId','stockNombre','stockSku','stockProveedor','stockActual','stockMinimo','stockCosto','stockPrecio','stockUbicacion','stockNotas','stockSaveBtn','stockCancelBtn','scheduleManualForm','scheduleManualEmpresa','scheduleManualUnidad','scheduleManualTelefono','scheduleManualFolio','scheduleManualDatetime','scheduleManualContacto','scheduleManualNotes','scheduleManualCancelBtn','cobranzaRefreshBtn','cobranzaSummary','cobranzaQuotesList','cobranzaQuoteDetail','directSaleForm','directSaleCustomer','directSalePhone','directSaleCompany','directSaleUnit','directSaleType','directSaleConcept','directSaleStockPart','directSaleQty','directSalePrice','directSaleMethod','directSalePaymentStatus','directSaleNotes','directSaleResetBtn','directSalesList'
+    'partsRequestModal','partsRequestClose','partsRequestCancel','partsRequestForm','partsRequestEmpresa','partsRequestUnidad','partsRequestSolicitud','partsRequestPriority','partsRequestNotes','partsRequestOwnerHint','imageLightboxCaption','stockRefreshBtn','stockSummary','stockMovementModal','stockMovementClose','stockMovementCancel','stockMovementForm','stockMovementPartName','stockMovementType','stockMovementQty','stockMovementUnit','stockMovementCompany','stockMovementFolio','stockMovementNotes','directSaleTotalPreview','directSalePdfBtn','stockList','stockMovements','stockPartForm','stockPartId','stockNombre','stockSku','stockProveedor','stockActual','stockMinimo','stockCosto','stockPrecio','stockUbicacion','stockNotas','stockSaveBtn','stockCancelBtn','scheduleManualForm','scheduleManualEmpresa','scheduleManualUnidad','scheduleManualTelefono','scheduleManualFolio','scheduleManualDatetime','scheduleManualContacto','scheduleManualNotes','scheduleManualCancelBtn','cobranzaRefreshBtn','cobranzaSummary','cobranzaQuotesList','cobranzaQuoteDetail','directSaleForm','directSaleCustomer','directSalePhone','directSaleCompany','directSaleUnit','directSaleType','directSaleConcept','directSaleStockPart','directSaleQty','directSalePrice','directSaleMethod','directSalePaymentStatus','directSaleNotes','directSaleResetBtn','directSalesList'
   ].forEach(id => els[id] = document.getElementById(id));
 }
 bind();
@@ -1324,24 +1327,38 @@ function renderStock() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }));
 
-    const askMovement = async (id, tipo) => {
-      const cantidad = window.prompt(tipo === 'entrada' ? 'Cantidad de entrada:' : 'Cantidad:');
-      if (!cantidad) return;
-      const unidad = tipo === 'salida_unidad' ? (window.prompt('Número económico de unidad:') || '') : '';
-      const empresa = tipo === 'salida_unidad' ? (window.prompt('Empresa / flota:') || '') : '';
-      const garantiaFolio = tipo === 'salida_unidad' ? (window.prompt('Folio de garantía (opcional):') || '') : '';
-      const notas = window.prompt(tipo === 'venta_directa' ? 'Notas de venta / cliente:' : 'Notas del movimiento:') || '';
-      try {
-        await api.createStockMovement(id, { tipo, cantidad, unidad, empresa, garantiaFolio, notas });
-        notify('Movimiento registrado.');
-        await loadStock(true);
-      } catch (error) { notify(error.message, true); }
-    };
+    const askMovement = (id, tipo) => openStockMovementModal(id, tipo);
     els.stockList.querySelectorAll('[data-stock-in]').forEach(btn => btn.addEventListener('click', () => askMovement(btn.dataset.stockIn, 'entrada')));
     els.stockList.querySelectorAll('[data-stock-unit]').forEach(btn => btn.addEventListener('click', () => askMovement(btn.dataset.stockUnit, 'salida_unidad')));
     els.stockList.querySelectorAll('[data-stock-sale]').forEach(btn => btn.addEventListener('click', () => launchDirectSaleWithPart(btn.dataset.stockSale)));
     els.stockList.querySelectorAll('[data-stock-delete]').forEach(btn => btn.addEventListener('click', async () => { if (!confirm('¿Eliminar esta refacción del stock?')) return; try { await api.deleteStockPart(btn.dataset.stockDelete); notify('Refacción eliminada.'); await loadStock(true); } catch (error) { notify(error.message, true); } }));
   }
+}
+
+
+function openStockMovementModal(partId, tipo) {
+  const part = state.stockParts.find(p => p.id === partId);
+  if (!part || !els.stockMovementModal) return;
+  state.stockMovementContext = { partId, tipo };
+  document.body.classList.add('modal-open');
+  els.stockMovementModal.classList.remove('hidden');
+  if (els.stockMovementPartName) els.stockMovementPartName.textContent = `${part.nombre} · stock ${Number(part.stockActual || 0)}`;
+  if (els.stockMovementType) els.stockMovementType.textContent = tipo === 'entrada' ? 'Entrada a stock' : 'Salida a camión';
+  if (els.stockMovementForm) els.stockMovementForm.reset();
+  if (els.stockMovementQty) els.stockMovementQty.value = '1';
+  const isSalida = tipo === 'salida_unidad';
+  ['stockMovementUnit','stockMovementCompany','stockMovementFolio'].forEach(id => {
+    const wrap = document.getElementById(id)?.closest('label');
+    if (wrap) wrap.classList.toggle('hidden', !isSalida);
+  });
+  els.stockMovementQty?.focus();
+}
+
+function closeStockMovementModal() {
+  if (!els.stockMovementModal) return;
+  els.stockMovementModal.classList.add('hidden');
+  document.body.classList.remove('modal-open');
+  state.stockMovementContext = null;
 }
 
 
@@ -1351,18 +1368,36 @@ function resetDirectSaleForm() {
   if (els.directSalePrice) els.directSalePrice.value = '0';
   if (els.directSalePaymentStatus) els.directSalePaymentStatus.value = 'pendiente';
   state.directSaleDraftPartId = '';
+  state.lastDirectSaleId = '';
+  if (els.directSalePdfBtn) els.directSalePdfBtn.classList.add('hidden');
   syncDirectSalePartDefaults();
 }
 
 function syncDirectSalePartDefaults() {
   if (!els.directSaleStockPart) return;
+  const saleType = els.directSaleType?.value || 'refaccion';
   const selectedId = state.directSaleDraftPartId || els.directSaleStockPart.value;
   if (selectedId) els.directSaleStockPart.value = selectedId;
   const part = state.stockParts.find(p => p.id === (els.directSaleStockPart?.value || ''));
-  if (part && els.directSalePrice && (!Number(els.directSalePrice.value || 0) || state.directSaleDraftPartId)) {
-    els.directSalePrice.value = Number(part.precioVenta || 0).toFixed(2);
+  if (part && saleType === 'refaccion') {
+    if (els.directSaleConcept && !els.directSaleConcept.value.trim()) els.directSaleConcept.value = part.nombre || '';
+    if (els.directSalePrice && (!Number(els.directSalePrice.value || 0) || state.directSaleDraftPartId)) {
+      els.directSalePrice.value = Number(part.precioVenta || part.costoUnitario || 0).toFixed(2);
+    }
   }
+  if (saleType !== 'refaccion' && els.directSaleStockPart) {
+    els.directSaleStockPart.disabled = true;
+  }
+  updateDirectSaleTotalPreview();
 }
+
+function updateDirectSaleTotalPreview() {
+  const qty = Number(els.directSaleQty?.value || 0);
+  const price = Number(els.directSalePrice?.value || 0);
+  const total = Number((qty * price).toFixed(2));
+  if (els.directSaleTotalPreview) els.directSaleTotalPreview.textContent = money(total);
+}
+
 
 function quoteStatusBadge(status) {
   return ({ borrador:'badge-info', enviada:'badge-review', pendiente_autorizacion:'badge-review', autorizada:'badge-accepted', rechazada:'badge-rejected', cancelada:'badge-rejected' })[status] || 'badge-info';
@@ -1602,7 +1637,7 @@ function renderQuoteDetail() {
         <div class="quote-items-head"><strong>Pagos registrados</strong><button id="quoteAddPaymentBtn" class="btn btn-secondary" type="button">Agregar pago</button></div>
         <div id="quotePaymentsList" class="payments-list"></div>
       </div>
-      <div class="stock-form-actions"><button id="quotePdfBtn" class="btn btn-ghost" type="button">PDF comercial</button><button id="quoteSaveBtn" class="btn btn-primary" type="button">Guardar cobranza</button></div>
+      <div class="stock-form-actions"><button id="quoteDeleteBtn" class="btn btn-danger-soft" type="button">Eliminar cobranza</button><button id="quotePdfBtn" class="btn btn-ghost" type="button">PDF comercial</button><button id="quoteSaveBtn" class="btn btn-primary" type="button">Guardar cobranza</button></div>
     </div>`;
   document.getElementById('quoteStatus').value = draft.status || 'borrador';
   document.getElementById('quotePaymentStatus').value = draft.paymentStatus || 'pendiente_pago';
@@ -1628,7 +1663,18 @@ function renderQuoteDetail() {
   updateQuoteTotalsPreview(quote.id);
   document.getElementById('quotePdfBtn')?.addEventListener('click', () => exportCommercialPdf(quote));
   document.getElementById('quoteSaveBtn')?.addEventListener('click', saveSelectedQuote);
+  document.getElementById('quoteDeleteBtn')?.addEventListener('click', async () => {
+    if (!confirm(`¿Eliminar cobranza ${quote.folio || ''}? Solo se borrará la capa comercial.`)) return;
+    try {
+      await api.deleteQuote(quote.id);
+      delete state.quoteDrafts[quote.id];
+      if (state.selectedQuoteId === quote.id) state.selectedQuoteId = '';
+      notify('Cobranza eliminada.');
+      await loadCobranza(true);
+    } catch (error) { notify(error.message, true); }
+  });
 }
+
 
 function quoteItemsFromDom() {
   const rows = [...document.querySelectorAll('#quoteItemsTbody tr')];
@@ -1955,7 +2001,7 @@ function renderFleet() {
         renderFleet();
         renderFleetDetail();
         requestAnimationFrame(() => {
-          els.fleetDetail?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          els.fleetDetail?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         });
       } catch (error) { notify(error.message, true); }
     });
@@ -2435,6 +2481,9 @@ function buildImageGallery(items = [], emptyText = 'Sin evidencia visual.') {
 
 els.imageLightboxClose?.addEventListener('click', closeImageLightbox);
 els.imageLightbox?.addEventListener('click', (e) => { if (e.target === els.imageLightbox) closeImageLightbox(); });
+els.stockMovementClose?.addEventListener('click', closeStockMovementModal);
+els.stockMovementCancel?.addEventListener('click', closeStockMovementModal);
+els.stockMovementModal?.addEventListener('click', (e) => { if (e.target === els.stockMovementModal) closeStockMovementModal(); });
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (!els.partsRequestModal?.classList.contains('hidden')) closeIndependentRequestModal();
@@ -2569,6 +2618,9 @@ els.opNavScheduleBtn?.addEventListener('click', async () => { await loadSchedule
 els.opNavLogoutBtn?.addEventListener('click', logoutSession);
 els.imageLightboxClose?.addEventListener('click', closeImageLightbox);
 els.imageLightbox?.addEventListener('click', (e) => { if (e.target === els.imageLightbox) closeImageLightbox(); });
+els.stockMovementClose?.addEventListener('click', closeStockMovementModal);
+els.stockMovementCancel?.addEventListener('click', closeStockMovementModal);
+els.stockMovementModal?.addEventListener('click', (e) => { if (e.target === els.stockMovementModal) closeStockMovementModal(); });
 els.navBoardBtn?.addEventListener('click', () => switchPanel('board'));
 els.navNewReportBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); });
 els.navAnalyticsBtn?.addEventListener('click', () => switchPanel('analytics'));
@@ -2603,12 +2655,32 @@ els.stockPartForm?.addEventListener('submit', async (e) => {
     await loadStock(true);
   } catch (error) { notify(error.message, true); }
 });
+els.stockMovementForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    const ctx = state.stockMovementContext;
+    if (!ctx?.partId) throw new Error('Movimiento sin contexto.');
+    await api.createStockMovement(ctx.partId, {
+      tipo: ctx.tipo,
+      cantidad: Number(els.stockMovementQty?.value || 0),
+      unidad: els.stockMovementUnit?.value || '',
+      empresa: els.stockMovementCompany?.value || '',
+      garantiaFolio: els.stockMovementFolio?.value || '',
+      notas: els.stockMovementNotes?.value || ''
+    });
+    notify('Movimiento registrado.');
+    closeStockMovementModal();
+    await loadStock(true);
+  } catch (error) { notify(error.message, true); }
+});
 els.directSaleStockPart?.addEventListener('change', () => { state.directSaleDraftPartId = els.directSaleStockPart.value || ''; syncDirectSalePartDefaults(); });
 els.directSaleType?.addEventListener('change', () => {
-  const isPart = (els.directSaleType?.value || 'refaccion') === 'refaccion';
-  if (els.directSaleStockPart) els.directSaleStockPart.disabled = !isPart;
+  const saleType = els.directSaleType?.value || 'refaccion';
+  if (els.directSaleStockPart) els.directSaleStockPart.disabled = saleType !== 'refaccion';
   syncDirectSalePartDefaults();
 });
+['directSaleQty','directSalePrice','directSaleConcept'].forEach(key => els[key]?.addEventListener('input', updateDirectSaleTotalPreview));
+els.directSalePdfBtn?.addEventListener('click', () => { const sale = state.directSales.find(s => s.id === state.lastDirectSaleId); if (sale) exportDirectSalePdf(sale); });
 els.directSaleResetBtn?.addEventListener('click', resetDirectSaleForm);
 els.directSaleForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -2622,6 +2694,7 @@ els.directSaleForm?.addEventListener('submit', async (e) => {
       unitNumber: els.directSaleUnit?.value || '',
       paymentMethod: els.directSaleMethod?.value || '',
       paymentStatus: els.directSalePaymentStatus?.value || 'pendiente',
+      paymentReference: '',
       notes: els.directSaleNotes?.value || '',
       items: [{
         type: saleType,
@@ -2633,8 +2706,11 @@ els.directSaleForm?.addEventListener('submit', async (e) => {
     };
     const createdSale = await api.createDirectSale(payload);
     notify('Venta directa registrada.');
-    resetDirectSaleForm();
     await Promise.all([loadCobranza(true), loadStock(true)]);
+    const createdId = createdSale?.id || '';
+    resetDirectSaleForm();
+    state.lastDirectSaleId = createdId;
+    if (els.directSalePdfBtn) els.directSalePdfBtn.classList.toggle('hidden', !state.lastDirectSaleId);
     if (createdSale) exportDirectSalePdf(createdSale);
   } catch (error) { notify(error.message, true); }
 });
