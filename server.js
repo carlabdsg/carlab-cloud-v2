@@ -2585,7 +2585,7 @@ app.post('/api/cobranza/direct-sales', authRequired, requireRoles('admin'), asyn
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const customerName = String(req.body.customerName || '').trim();
+    const customerName = String(req.body.customerName || '').trim() || 'Mostrador';
     const customerPhone = normalizeMxPhone(req.body.customerPhone || '');
     const companyName = String(req.body.companyName || '').trim();
     const unitNumber = String(req.body.unitNumber || '').trim();
@@ -2594,9 +2594,9 @@ app.post('/api/cobranza/direct-sales', authRequired, requireRoles('admin'), asyn
     const paymentMethod = String(req.body.paymentMethod || '').trim();
     const paymentReference = String(req.body.paymentReference || '').trim();
     const items = Array.isArray(req.body.items) ? req.body.items : [];
-    if (!customerName) {
+    if (!items.length) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error:'Cliente requerido.' });
+      return res.status(400).json({ error:'Agrega al menos un concepto para la venta.' });
     }
     const folio = await nextManagedFolio('sale');
     const saleId = cryptoRandomId();
@@ -2636,6 +2636,10 @@ app.post('/api/cobranza/direct-sales', authRequired, requireRoles('admin'), asyn
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [cryptoRandomId(), saleId, stockPartId, type, description, qty, effectiveUnitPrice, total]
       );
+    }
+    if (subtotal <= 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error:'La venta debe tener importe mayor a cero.' });
     }
     await client.query(
       `INSERT INTO direct_sales (id, folio, customer_name, customer_phone, company_name, unit_number, status, payment_status, subtotal, total, notes, payment_method, payment_reference, created_by)

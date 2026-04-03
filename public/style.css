@@ -3362,3 +3362,13 @@ body[data-role="admin"] #fleetPanel .fleet-detail-premium{position:sticky;top:10
 #cobranzaQuoteDetail{max-height:calc(100vh - 260px);overflow:auto;padding-right:8px}
 #directSalesList{max-height:calc(100vh - 520px);overflow:auto;padding-right:8px;scrollbar-width:thin}
 .stock-movement-modal .modal-card{max-width:760px;width:min(92vw,760px)}
+
+
+/* Admin fleet internal scroll and split layout */
+@media (min-width: 1101px){
+  body[data-role="admin"] #fleetPanel .fleet-layout{grid-template-columns:minmax(320px,380px) minmax(0,1fr) !important;align-items:start;}
+  body[data-role="admin"] #fleetPanel .fleet-line-list{position:sticky;top:108px;max-height:calc(100vh - 180px);overflow:auto;padding-right:10px;overscroll-behavior:contain;border-right:1px solid #eef2f7;}
+  body[data-role="admin"] #fleetPanel .fleet-detail-premium{position:sticky;top:108px;max-height:calc(100vh - 180px);overflow:auto;padding-right:8px;}
+}
+#directSaleForm .stock-form-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-start;}
+#directSaleForm #directSalePdfBtn{display:inline-flex !important;visibility:visible !important;}

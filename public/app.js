@@ -1337,7 +1337,7 @@ function renderStock() {
 
 
 function openStockMovementModal(partId, tipo) {
-  const part = state.stockParts.find(p => p.id === partId);
+  const part = state.stockParts.find(p => String(p.id) === String(partId));
   if (!part || !els.stockMovementModal) return;
   state.stockMovementContext = { partId, tipo };
   document.body.classList.add('modal-open');
@@ -1455,7 +1455,7 @@ function renderCobranza() {
   renderQuoteDetail();
   fillSelect(els.directSaleStockPart, state.stockParts.map(part => ({ id: part.id, nombre: `${part.nombre} · ${part.sku || 'sin SKU'} · stock ${part.stockActual}` })), 'Selecciona refacción de stock');
   syncDirectSalePartDefaults();
-  if (els.directSalePdfBtn) els.directSalePdfBtn.textContent = state.lastDirectSaleId || state.selectedDirectSaleId ? 'PDF venta' : 'PDF última venta';
+  if (els.directSalePdfBtn) els.directSalePdfBtn.textContent = state.lastDirectSaleId || state.selectedDirectSaleId ? 'Generar PDF venta' : 'PDF última venta';
   if (els.directSalesList) {
     els.directSalesList.innerHTML = state.directSales.length ? state.directSales.map(sale => `
       <div class="table-row rich-row sale-row ${sale.id === state.selectedDirectSaleId ? 'active' : ''}">
@@ -2688,8 +2688,12 @@ els.directSaleForm?.addEventListener('submit', async (e) => {
   try {
     const part = state.stockParts.find(item => String(item.id) === String(els.directSaleStockPart?.value || ''));
     const saleType = els.directSaleType?.value || 'refaccion';
+    const qty = Math.max(1, Number(els.directSaleQty?.value || 1));
+    let unitPrice = Number(els.directSalePrice?.value || 0);
+    if (unitPrice <= 0 && part) unitPrice = Number(part.precioVenta || part.costoUnitario || 0);
+    const description = (els.directSaleConcept?.value || '').trim() || part?.nombre || (saleType === 'mano_obra' ? 'Mano de obra' : 'Venta directa');
     const payload = {
-      customerName: els.directSaleCustomer?.value || '',
+      customerName: (els.directSaleCustomer?.value || '').trim() || 'Mostrador',
       customerPhone: els.directSalePhone?.value || '',
       companyName: els.directSaleCompany?.value || '',
       unitNumber: els.directSaleUnit?.value || '',
@@ -2699,19 +2703,22 @@ els.directSaleForm?.addEventListener('submit', async (e) => {
       notes: els.directSaleNotes?.value || '',
       items: [{
         type: saleType,
-        stockPartId: saleType === 'refaccion' ? (els.directSaleStockPart?.value || '') : '',
-        description: (els.directSaleConcept?.value || '').trim() || part?.nombre || 'Venta directa',
-        qty: Number(els.directSaleQty?.value || 0),
-        unitPrice: Number(els.directSalePrice?.value || 0)
+        stockPartId: (saleType === 'refaccion' || saleType === 'mixto') ? (els.directSaleStockPart?.value || '') : '',
+        description,
+        qty,
+        unitPrice
       }]
     };
+    if (!payload.items[0].description) throw new Error('Captura un concepto para la venta.');
+    if (qty <= 0) throw new Error('Cantidad inválida.');
     const createdSale = await api.createDirectSale(payload);
     notify('Venta directa registrada.');
     await Promise.all([loadCobranza(true), loadStock(true)]);
     const createdId = createdSale?.id || '';
-    resetDirectSaleForm();
     state.lastDirectSaleId = createdId;
+    state.selectedDirectSaleId = createdId;
     if (createdSale) exportDirectSalePdf(createdSale);
+    resetDirectSaleForm();
   } catch (error) { notify(error.message, true); }
 });
 els.navUsersBtn?.addEventListener('click', async () => { switchPanel('users'); await loadUsers(); });
