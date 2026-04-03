@@ -36,6 +36,7 @@ const state = {
   directSales: [],
   selectedQuoteId: '',
   directSaleDraftPartId: '',
+  directSaleDraft: null,
   quoteDrafts: {},
 };
 
@@ -106,13 +107,11 @@ const api = {
   getStock() { return this.request('/api/stock/parts'); },
   createStockPart(payload) { return this.request('/api/stock/parts', { method: 'POST', body: JSON.stringify(payload || {}) }); },
   updateStockPart(id, payload) { return this.request(`/api/stock/parts/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
-  deleteStockPart(id) { return this.request(`/api/stock/parts/${id}`, { method: 'DELETE' }); },
   createStockMovement(id, payload) { return this.request(`/api/stock/parts/${id}/movements`, { method: 'POST', body: JSON.stringify(payload || {}) }); },
   getCobranzaOverview() { return this.request('/api/cobranza/overview'); },
   getCobranzaQuotes() { return this.request('/api/cobranza/quotes'); },
   createQuoteFromReport(id) { return this.request(`/api/cobranza/quotes/from-report/${id}`, { method: 'POST' }); },
   updateQuote(id, payload) { return this.request(`/api/cobranza/quotes/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
-  deleteQuote(id) { return this.request(`/api/cobranza/quotes/${id}`, { method: 'DELETE' }); },
   replaceQuoteItems(id, payload) { return this.request(`/api/cobranza/quotes/${id}/items`, { method: 'PUT', body: JSON.stringify(payload || {}) }); },
   getDirectSales() { return this.request('/api/cobranza/direct-sales'); },
   createDirectSale(payload) { return this.request('/api/cobranza/direct-sales', { method: 'POST', body: JSON.stringify(payload || {}) }); },
@@ -132,7 +131,7 @@ function bind() {
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
     'executiveDeck','executiveDeckGrid','liveRefreshBadge','topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistorySearchInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','partsPanel','partsRefreshBtn','partsSummary','partsList','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn','fleetOwnerDeck','imageLightbox','imageLightboxImg','imageLightboxClose',
     'navFleetBtn','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas','fleetNewBtn','fleetCancelBtn','fleetFormBox','fleetSearchInput','fleetStatusFilter',
-    'partsRequestModal','partsRequestClose','partsRequestCancel','partsRequestForm','partsRequestEmpresa','partsRequestUnidad','partsRequestSolicitud','partsRequestPriority','partsRequestNotes','partsRequestOwnerHint','imageLightboxCaption','stockRefreshBtn','stockSummary','stockList','stockMovements','stockPartForm','stockPartId','stockNombre','stockSku','stockProveedor','stockActual','stockMinimo','stockCosto','stockPrecio','stockUbicacion','stockNotas','stockSaveBtn','stockCancelBtn','scheduleManualForm','scheduleManualEmpresa','scheduleManualUnidad','scheduleManualTelefono','scheduleManualFolio','scheduleManualDatetime','scheduleManualContacto','scheduleManualNotes','scheduleManualCancelBtn','cobranzaRefreshBtn','cobranzaSummary','cobranzaQuotesList','cobranzaQuoteDetail','directSaleForm','directSaleCustomer','directSalePhone','directSaleCompany','directSaleUnit','directSaleType','directSaleConcept','directSaleStockPart','directSaleQty','directSalePrice','directSaleMethod','directSalePaymentStatus','directSaleNotes','directSaleResetBtn','directSalePdfBtn','directSaleTotal','directSalesList','stockAssignModal','stockAssignClose','stockAssignCancel','stockAssignForm','stockAssignPartName','stockAssignPartMeta','stockAssignQty','stockAssignUnit','stockAssignCompany','stockAssignFolio','stockAssignNotes'
+    'partsRequestModal','partsRequestClose','partsRequestCancel','partsRequestForm','partsRequestEmpresa','partsRequestUnidad','partsRequestSolicitud','partsRequestPriority','partsRequestNotes','partsRequestOwnerHint','imageLightboxCaption','stockRefreshBtn','stockSummary','stockList','stockMovements','stockPartForm','stockPartId','stockNombre','stockSku','stockProveedor','stockActual','stockMinimo','stockCosto','stockPrecio','stockUbicacion','stockNotas','stockSaveBtn','stockCancelBtn','scheduleManualForm','scheduleManualEmpresa','scheduleManualUnidad','scheduleManualTelefono','scheduleManualFolio','scheduleManualDatetime','scheduleManualContacto','scheduleManualNotes','scheduleManualCancelBtn','cobranzaRefreshBtn','cobranzaSummary','cobranzaQuotesList','cobranzaQuoteDetail','directSaleForm','directSaleCustomer','directSalePhone','directSaleCompany','directSaleUnit','directSaleStockPart','directSaleQty','directSalePrice','directSaleMethod','directSalePaymentStatus','directSaleNotes','directSaleResetBtn','directSalesList'
   ].forEach(id => els[id] = document.getElementById(id));
 }
 bind();
@@ -1289,7 +1288,6 @@ function renderStock() {
           <button class="btn btn-primary" type="button" data-stock-in="${part.id}">Entrada</button>
           <button class="btn btn-secondary" type="button" data-stock-unit="${part.id}">Poner a camión</button>
           <button class="btn btn-ghost" type="button" data-stock-sale="${part.id}">Venta</button>
-          <button class="btn btn-ghost" type="button" data-stock-delete="${part.id}">Eliminar</button>
         </div>
         <div class="small muted">${escapeHtml(part.ubicacion || 'Sin ubicación')} · ${escapeHtml(part.notas || 'Sin notas')}</div>
       </article>`;
@@ -1316,35 +1314,22 @@ function renderStock() {
     const askMovement = async (id, tipo) => {
       const cantidad = window.prompt(tipo === 'entrada' ? 'Cantidad de entrada:' : 'Cantidad:');
       if (!cantidad) return;
-      const notas = window.prompt('Notas del movimiento:') || '';
+      const unidad = tipo === 'salida_unidad' ? (window.prompt('Número económico de unidad:') || '') : '';
+      const empresa = tipo === 'salida_unidad' ? (window.prompt('Empresa / flota:') || '') : '';
+      const garantiaFolio = tipo === 'salida_unidad' ? (window.prompt('Folio de garantía (opcional):') || '') : '';
+      const notas = window.prompt(tipo === 'venta_directa' ? 'Notas de venta / cliente:' : 'Notas del movimiento:') || '';
       try {
-        await api.createStockMovement(id, { tipo, cantidad, unidad:'', empresa:'', garantiaFolio:'', notas });
+        await api.createStockMovement(id, { tipo, cantidad, unidad, empresa, garantiaFolio, notas });
         notify('Movimiento registrado.');
         await loadStock(true);
       } catch (error) { notify(error.message, true); }
     };
     els.stockList.querySelectorAll('[data-stock-in]').forEach(btn => btn.addEventListener('click', () => askMovement(btn.dataset.stockIn, 'entrada')));
-    els.stockList.querySelectorAll('[data-stock-unit]').forEach(btn => btn.addEventListener('click', () => openStockAssignModal(btn.dataset.stockUnit)));
+    els.stockList.querySelectorAll('[data-stock-unit]').forEach(btn => btn.addEventListener('click', () => askMovement(btn.dataset.stockUnit, 'salida_unidad')));
     els.stockList.querySelectorAll('[data-stock-sale]').forEach(btn => btn.addEventListener('click', () => launchDirectSaleWithPart(btn.dataset.stockSale)));
-    els.stockList.querySelectorAll('[data-stock-delete]').forEach(btn => btn.addEventListener('click', async () => { if (!confirm('¿Eliminar esta refacción?')) return; try { await api.deleteStockPart(btn.dataset.stockDelete); notify('Refacción eliminada.'); await loadStock(true); } catch (error) { notify(error.message, true); } }));
   }
 }
 
-
-function openStockAssignModal(partId) {
-  const part = state.stockParts.find(item => String(item.id) === String(partId));
-  if (!part || !els.stockAssignModal) return;
-  state.selectedStockPartId = part.id;
-  if (els.stockAssignPartName) els.stockAssignPartName.value = part.nombre || '';
-  if (els.stockAssignPartMeta) els.stockAssignPartMeta.textContent = `Disponible: ${Number(part.stockActual || 0)} · Venta ${money(part.precioVenta || 0)} · Costo ${money(part.costoUnitario || 0)}`;
-  if (els.stockAssignQty) els.stockAssignQty.value = '1';
-  if (els.stockAssignUnit) els.stockAssignUnit.value = '';
-  if (els.stockAssignCompany) els.stockAssignCompany.value = '';
-  if (els.stockAssignFolio) els.stockAssignFolio.value = '';
-  if (els.stockAssignNotes) els.stockAssignNotes.value = '';
-  els.stockAssignModal.classList.remove('hidden');
-}
-function closeStockAssignModal() { els.stockAssignModal?.classList.add('hidden'); state.selectedStockPartId = ''; }
 
 function resetDirectSaleForm() {
   els.directSaleForm?.reset();
@@ -1355,94 +1340,203 @@ function resetDirectSaleForm() {
   syncDirectSalePartDefaults();
 }
 
-function syncDirectSalePartDefaults() {
-  if (!els.directSaleStockPart) return;
-  const selectedId = String(state.directSaleDraftPartId || els.directSaleStockPart.value || '');
-  if (selectedId) els.directSaleStockPart.value = selectedId;
-  const part = state.stockParts.find(p => String(p.id) === String(els.directSaleStockPart?.value || ''));
-  if (part) {
-    const price = Number(part.precioVenta || part.costoUnitario || 0);
-    if (els.directSalePrice && (!Number(els.directSalePrice.value || 0) || state.directSaleDraftPartId)) els.directSalePrice.value = price ? price.toFixed(2) : '0';
-    if (els.directSaleConcept && (!els.directSaleConcept.value || state.directSaleDraftPartId)) els.directSaleConcept.value = part.nombre || 'Venta directa';
+
+function ensureDirectSaleDraft() {
+  if (!state.directSaleDraft) {
+    state.directSaleDraft = {
+      customerName: '',
+      customerPhone: '',
+      companyName: '',
+      unitNumber: '',
+      paymentMethod: '',
+      paymentStatus: 'pendiente',
+      notes: '',
+      items: [{ type:'refaccion', description:'', stockPartId:'', qty:1, unitPrice:0 }],
+    };
   }
-  updateDirectSalePreview();
+  if (!Array.isArray(state.directSaleDraft.items) || !state.directSaleDraft.items.length) {
+    state.directSaleDraft.items = [{ type:'refaccion', description:'', stockPartId:'', qty:1, unitPrice:0 }];
+  }
+  return state.directSaleDraft;
 }
 
-function currentDirectSalePayload() {
-  const type = els.directSaleType?.value || 'refaccion';
-  const stockPartId = String(els.directSaleStockPart?.value || '');
-  const part = state.stockParts.find(item => String(item.id) === stockPartId);
-  const qty = Math.max(1, Number(els.directSaleQty?.value || 1));
-  const unitPrice = Math.max(0, Number(els.directSalePrice?.value || part?.precioVenta || part?.costoUnitario || 0));
-  const concept = String(els.directSaleConcept?.value || '').trim() || part?.nombre || (type === 'mano_obra' ? 'Mano de obra' : 'Venta directa');
-  return {
-    customerName: String(els.directSaleCustomer?.value || '').trim() || 'Mostrador',
-    customerPhone: String(els.directSalePhone?.value || '').trim(),
-    companyName: String(els.directSaleCompany?.value || '').trim(),
-    unitNumber: String(els.directSaleUnit?.value || '').trim(),
-    paymentMethod: String(els.directSaleMethod?.value || '').trim(),
-    paymentStatus: String(els.directSalePaymentStatus?.value || 'pendiente'),
-    notes: String(els.directSaleNotes?.value || '').trim(),
-    items: [{ stockPartId, description: concept, qty, unitPrice, type }]
-  };
+function resetDirectSaleForm() {
+  state.directSaleDraft = null;
+  renderDirectSaleSection();
 }
 
-function updateDirectSalePreview() {
-  const payload = currentDirectSalePayload();
-  const total = Number((payload.items || []).reduce((sum, item) => sum + (Number(item.qty || 0) * Number(item.unitPrice || 0)), 0).toFixed(2));
-  if (els.directSaleTotal) els.directSaleTotal.textContent = money(total);
-  return total;
+function computeDirectSaleTotals(items = []) {
+  const subtotal = Number(items.reduce((sum, item) => sum + (Number(item.qty || 0) * Number(item.unitPrice || 0)), 0).toFixed(2));
+  return { subtotal, total: subtotal };
 }
 
-async function exportDirectSalePdf(saleLike) {
-  const sale = saleLike?.items ? saleLike : state.directSales.find(item => item.id === saleLike) || null;
-  if (!sale) { notify('Primero registra o selecciona una venta.', true); return; }
+function syncDirectSaleDraftFromDom() {
+  const draft = ensureDirectSaleDraft();
+  draft.customerName = document.getElementById('directSaleCustomer')?.value || '';
+  draft.customerPhone = document.getElementById('directSalePhone')?.value || '';
+  draft.companyName = document.getElementById('directSaleCompany')?.value || '';
+  draft.unitNumber = document.getElementById('directSaleUnit')?.value || '';
+  draft.paymentMethod = document.getElementById('directSaleMethod')?.value || '';
+  draft.paymentStatus = document.getElementById('directSalePaymentStatus')?.value || 'pendiente';
+  draft.notes = document.getElementById('directSaleNotes')?.value || '';
+  const rows = [...document.querySelectorAll('#directSaleItemsBody tr')];
+  draft.items = rows.map((row, index) => ({
+    type: row.querySelector(`[data-sale-type="${index}"]`)?.value || 'refaccion',
+    description: row.querySelector(`[data-sale-description="${index}"]`)?.value || '',
+    stockPartId: row.querySelector(`[data-sale-stock="${index}"]`)?.value || '',
+    qty: Number(row.querySelector(`[data-sale-qty="${index}"]`)?.value || 0),
+    unitPrice: Number(row.querySelector(`[data-sale-price="${index}"]`)?.value || 0),
+  }));
+  draft.items.forEach(item => {
+    const stock = state.stockParts.find(p => String(p.id) === String(item.stockPartId || ''));
+    if ((!item.description || item.description === 'Venta directa') && stock) item.description = stock.nombre || 'Refacción';
+  });
+  return draft;
+}
+
+function updateDirectSaleTotalsPreview() {
+  const draft = syncDirectSaleDraftFromDom();
+  draft.items.forEach((item, index) => {
+    const stock = state.stockParts.find(p => String(p.id) === String(item.stockPartId || ''));
+    if (stock && (!Number(item.unitPrice || 0) || rowJustChanged(index, 'stock'))) {
+      const suggested = Number(stock.precioVenta || stock.costoUnitario || 0);
+      item.unitPrice = suggested;
+      const priceInput = document.querySelector(`[data-sale-price="${index}"]`);
+      if (priceInput && Number(priceInput.value || 0) !== suggested) priceInput.value = suggested ? suggested.toFixed(2) : '0';
+      const descInput = document.querySelector(`[data-sale-description="${index}"]`);
+      if (descInput && !descInput.value.trim()) descInput.value = stock.nombre || 'Refacción';
+      item.description = descInput?.value || item.description;
+    }
+    const rowTotalEl = document.querySelector(`[data-sale-row-total="${index}"]`);
+    if (rowTotalEl) rowTotalEl.textContent = money((Number(item.qty || 0) * Number(item.unitPrice || 0)) || 0);
+  });
+  const totals = computeDirectSaleTotals(draft.items.filter(item => item.description.trim() && item.qty > 0));
+  const totalEl = document.getElementById('directSaleTotalPreview'); if (totalEl) totalEl.textContent = money(totals.total || 0);
+}
+
+let __lastSaleChanged = '';
+function rowJustChanged(index, field) {
+  return __lastSaleChanged === `${index}:${field}`;
+}
+
+function renderDirectSaleSection() {
+  if (!els.directSaleForm) return;
+  const draft = ensureDirectSaleDraft();
+  const stockOptions = ['<option value="">Sin ligar a stock</option>', ...state.stockParts.map(part => `<option value="${part.id}">${escapeHtml(part.nombre)} · ${escapeHtml(part.sku || 'sin SKU')} · stock ${Number(part.stockActual || 0)}</option>`)].join('');
+  const rows = draft.items.map((item, index) => {
+    const total = (Number(item.qty || 0) * Number(item.unitPrice || 0)) || 0;
+    return `
+      <tr>
+        <td><select data-sale-type="${index}"><option value="refaccion" ${item.type === 'refaccion' ? 'selected' : ''}>Refacción</option><option value="mano_obra" ${item.type === 'mano_obra' ? 'selected' : ''}>Mano de obra</option><option value="extra" ${item.type === 'extra' ? 'selected' : ''}>Extra</option></select></td>
+        <td><input data-sale-description="${index}" value="${escapeHtml(item.description || '')}" placeholder="Concepto" /></td>
+        <td><select data-sale-stock="${index}">${stockOptions}</select></td>
+        <td><input data-sale-qty="${index}" type="number" min="1" step="1" value="${Number(item.qty || 1)}" /></td>
+        <td><input data-sale-price="${index}" type="number" min="0" step="0.01" value="${Number(item.unitPrice || 0)}" /></td>
+        <td><strong data-sale-row-total="${index}">${money(total)}</strong></td>
+        <td><button type="button" class="btn btn-ghost" data-sale-remove="${index}">×</button></td>
+      </tr>`;
+  }).join('');
+  const totals = computeDirectSaleTotals(draft.items.filter(item => item.description.trim() && item.qty > 0));
+  els.directSaleForm.innerHTML = `
+    <div class="direct-sale-top-grid">
+      <label><span>Cliente</span><input id="directSaleCustomer" placeholder="Nombre o razón social" value="${escapeHtml(draft.customerName || '')}" /></label>
+      <label><span>Teléfono</span><input id="directSalePhone" placeholder="521667..." value="${escapeHtml(draft.customerPhone || '')}" /></label>
+      <label><span>Empresa</span><input id="directSaleCompany" placeholder="Opcional" value="${escapeHtml(draft.companyName || '')}" /></label>
+      <label><span>Unidad</span><input id="directSaleUnit" placeholder="Opcional" value="${escapeHtml(draft.unitNumber || '')}" /></label>
+      <label><span>Método de pago</span><input id="directSaleMethod" placeholder="Transferencia / efectivo" value="${escapeHtml(draft.paymentMethod || '')}" /></label>
+      <label><span>Estatus de pago</span><select id="directSalePaymentStatus"><option value="pendiente">Pendiente</option><option value="pagado_parcial">Pago parcial</option><option value="pagada">Pagada</option></select></label>
+    </div>
+    <div class="quote-items-head"><strong>Conceptos de venta</strong><button id="directSaleAddItemBtn" class="btn btn-secondary" type="button">Agregar concepto</button></div>
+    <div class="quote-table-wrap"><table class="quote-items-table compact"><thead><tr><th>Tipo</th><th>Descripción</th><th>Stock</th><th>Cant.</th><th>P. unitario</th><th>Total</th><th></th></tr></thead><tbody id="directSaleItemsBody">${rows}</tbody></table></div>
+    <label class="span-2"><span>Notas</span><textarea id="directSaleNotes" rows="2" placeholder="Observaciones, cliente o salida a mostrador">${escapeHtml(draft.notes || '')}</textarea></label>
+    <div class="direct-sale-bottom-row"><article class="parts-summary-card"><strong>Total estimado</strong><span id="directSaleTotalPreview">${money(totals.total || 0)}</span><small>Se calcula sumando todos los conceptos</small></article></div>
+    <div class="stock-form-actions span-2">
+      <button id="directSaleResetBtn" class="btn btn-ghost" type="button">Limpiar</button>
+      <button id="directSalePdfBtn" class="btn btn-ghost" type="button">PDF venta</button>
+      <button class="btn btn-primary" type="submit">Registrar venta directa</button>
+    </div>`;
+  document.getElementById('directSalePaymentStatus').value = draft.paymentStatus || 'pendiente';
+  draft.items.forEach((item, index) => {
+    const sel = document.querySelector(`[data-sale-stock="${index}"]`); if (sel) sel.value = item.stockPartId || '';
+  });
+  document.querySelectorAll('#directSaleForm input, #directSaleForm select, #directSaleForm textarea').forEach(el => {
+    el.addEventListener('input', (ev) => { __lastSaleChanged = `${ev.target.dataset.saleStock !== undefined ? ev.target.dataset.saleStock : ev.target.dataset.salePrice !== undefined ? ev.target.dataset.salePrice : ''}`; updateDirectSaleTotalsPreview(); });
+    el.addEventListener('change', (ev) => { const idx = ev.target.getAttribute('data-sale-stock'); if (idx !== null) __lastSaleChanged = `${idx}:stock`; updateDirectSaleTotalsPreview(); });
+  });
+  document.querySelectorAll('[data-sale-remove]').forEach(btn => btn.addEventListener('click', () => {
+    const idx = Number(btn.dataset.saleRemove);
+    draft.items.splice(idx, 1);
+    if (!draft.items.length) draft.items.push({ type:'refaccion', description:'', stockPartId:'', qty:1, unitPrice:0 });
+    renderDirectSaleSection();
+  }));
+  document.getElementById('directSaleAddItemBtn')?.addEventListener('click', () => {
+    syncDirectSaleDraftFromDom();
+    draft.items.push({ type:'extra', description:'', stockPartId:'', qty:1, unitPrice:0 });
+    renderDirectSaleSection();
+  });
+  document.getElementById('directSaleResetBtn')?.addEventListener('click', resetDirectSaleForm);
+  document.getElementById('directSalePdfBtn')?.addEventListener('click', () => exportDirectSalePdf(syncDirectSaleDraftFromDom(), true));
+  updateDirectSaleTotalsPreview();
+}
+
+async function exportDirectSalePdf(saleOrDraft, isDraft = false) {
   try {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    const logo = await getImageData('/logo.jpg');
+    const draft = saleOrDraft || ensureDirectSaleDraft();
+    const items = (draft.items || []).filter(item => item.description && Number(item.qty || 0) > 0);
+    const totals = computeDirectSaleTotals(items);
+    const logo = document.querySelector('#loginBrand img')?.src || document.querySelector('.brand-logo img')?.src || 'logo.jpg';
+    let y = 18;
     doc.setFillColor(255,255,255); doc.rect(0,0,210,297,'F');
-    if (logo) await addPdfImage(doc, logo, 14, 12, 42, 42);
-    doc.setTextColor(30,30,30);
-    doc.setFontSize(18); doc.text('REPORTE DE VENTA DIRECTA', 62, 24);
-    doc.setFontSize(10); doc.setTextColor(100,100,100); doc.text('CARLAB SERVICIOS INTEGRALES', 62, 31);
-    doc.setFontSize(10); doc.setTextColor(120,120,120); doc.text(`Folio: ${sale.folio || '—'}`, 196, 20, { align:'right' });
-    doc.text(`Fecha: ${fmtDate(sale.createdAt || new Date())}`, 196, 27, { align:'right' });
+    if (logo) await addPdfImage(doc, logo, 14, 12, 34, 18);
+    doc.setTextColor(25,25,25);
+    doc.setFontSize(18); doc.text('REPORTE DE VENTA DIRECTA', 58, 22);
+    doc.setFontSize(10); doc.setTextColor(90,90,90); doc.text('CARLAB SERVICIOS INTEGRALES', 58, 28);
+    doc.setTextColor(70,70,70); doc.text(`Folio: ${draft.folio || 'BORRADOR'}`, 196, 18, { align:'right' });
+    doc.text(`Fecha: ${fmtDate(draft.createdAt || new Date().toISOString())}`, 196, 24, { align:'right' });
+    y = 42;
+    doc.roundedRect(14, y, 182, 28, 4, 4);
     doc.setFontSize(11); doc.setTextColor(40,40,40);
-    doc.roundedRect(14, 44, 182, 34, 4, 4);
-    doc.text(`Cliente: ${sale.customerName || 'Mostrador'}`, 18, 55);
-    doc.text(`Teléfono: ${sale.customerPhone || '—'}`, 18, 63);
-    doc.text(`Empresa: ${sale.companyName || 'Mostrador'}`, 105, 55);
-    doc.text(`Unidad: ${sale.unitNumber || '—'}`, 105, 63);
-    doc.text(`Pago: ${sale.paymentMethod || '—'} · ${sale.paymentStatus || 'pendiente'}`, 18, 71);
-    let y = 90;
-    doc.setFontSize(12); doc.setTextColor(20,20,20); doc.text('Conceptos', 14, y); y += 8;
-    doc.roundedRect(14, y-5, 182, 10, 3, 3);
-    doc.setFontSize(9); doc.text('Descripción', 18, y+1); doc.text('Cant.', 132, y+1); doc.text('P. unitario', 150, y+1); doc.text('Total', 183, y+1, { align:'right' }); y += 10;
-    doc.setFontSize(10); doc.setTextColor(55,55,55);
-    (sale.items || []).forEach(item => {
-      const lines = doc.splitTextToSize(item.description || 'Concepto', 108);
-      const rowH = Math.max(8, lines.length * 5 + 2);
-      doc.roundedRect(14, y-5, 182, rowH, 3, 3);
-      doc.text(lines, 18, y);
-      doc.text(String(item.qty || 0), 134, y);
-      doc.text(money(item.unitPrice || 0), 160, y);
-      doc.text(money(item.total || (Number(item.qty||0)*Number(item.unitPrice||0))), 183, y, { align:'right' });
-      y += rowH + 4;
-    });
-    doc.roundedRect(118, y + 4, 78, 28, 4, 4);
-    doc.text(`Subtotal: ${money(sale.subtotal || sale.total || 0)}`, 122, y + 14);
-    doc.text(`Total: ${money(sale.total || sale.subtotal || 0)}`, 122, y + 24);
-    if (sale.notes) {
-      y += 40;
-      doc.setFontSize(12); doc.text('Observaciones', 14, y); y += 8;
-      const notes = doc.splitTextToSize(sale.notes, 178);
-      doc.setFontSize(10); doc.text(notes, 14, y);
+    doc.text(`Cliente: ${draft.customerName || 'Mostrador'}`, 18, y+10);
+    doc.text(`Teléfono: ${draft.customerPhone || '—'}`, 18, y+18);
+    doc.text(`Empresa: ${draft.companyName || 'Mostrador'}`, 105, y+10);
+    doc.text(`Unidad: ${draft.unitNumber || '—'}`, 105, y+18);
+    y += 38;
+    doc.setFontSize(12); doc.setTextColor(25,25,25); doc.text('Conceptos', 14, y); y += 6;
+    const startY = y;
+    doc.roundedRect(14, startY, 182, 10, 3, 3);
+    doc.setFontSize(9); doc.setTextColor(90,90,90);
+    doc.text('Descripción', 18, startY + 6.5);
+    doc.text('Cant.', 126, startY + 6.5, { align:'right' });
+    doc.text('P. unitario', 158, startY + 6.5, { align:'right' });
+    doc.text('Total', 188, startY + 6.5, { align:'right' });
+    y = startY + 14;
+    doc.setTextColor(40,40,40); doc.setFontSize(10);
+    for (const item of items) {
+      y = ensurePdfSpace(doc, y, 10);
+      const desc = doc.splitTextToSize(`${item.type === 'mano_obra' ? 'Mano de obra' : item.type === 'refaccion' ? 'Refacción' : 'Extra'} · ${item.description}`, 100);
+      const rowH = Math.max(8, desc.length * 5 + 2);
+      doc.roundedRect(14, y - 5, 182, rowH, 2, 2);
+      doc.text(desc, 18, y);
+      doc.text(String(Number(item.qty || 0)), 126, y, { align:'right' });
+      doc.text(money(item.unitPrice || 0), 158, y, { align:'right' });
+      doc.text(money((Number(item.qty||0) * Number(item.unitPrice||0))), 188, y, { align:'right' });
+      y += rowH + 2;
     }
-    doc.save(`${sale.folio || 'venta'}_${(sale.customerName || 'mostrador').replace(/\s+/g,'_')}.pdf`);
-  } catch (error) {
-    notify('No se pudo generar el PDF de venta.', true);
-  }
+    y += 6;
+    doc.roundedRect(118, y, 78, 28, 4, 4);
+    doc.text(`Subtotal: ${money(totals.subtotal || 0)}`, 124, y + 10);
+    doc.text(`Total: ${money(totals.total || 0)}`, 124, y + 20);
+    if (draft.notes) {
+      y += 38;
+      doc.setFontSize(11); doc.text('Observaciones', 14, y);
+      y += 6;
+      const noteLines = doc.splitTextToSize(draft.notes, 178);
+      doc.text(noteLines, 14, y);
+    }
+    doc.save(`${draft.folio || 'VTA-BORRADOR'}_${(draft.customerName || 'MOSTRADOR').replace(/\s+/g,'_')}.pdf`);
+  } catch (error) { notify('No se pudo generar el PDF de venta.', true); }
 }
 
 function quoteStatusBadge(status) {
@@ -1498,17 +1592,19 @@ function renderCobranza() {
     }));
   }
   renderQuoteDetail();
-  fillSelect(els.directSaleStockPart, state.stockParts.map(part => ({ id: part.id, nombre: `${part.nombre} · ${part.sku || 'sin SKU'} · stock ${part.stockActual}` })), 'Selecciona refacción de stock');
-  syncDirectSalePartDefaults();
+  renderDirectSaleSection();
   if (els.directSalesList) {
     els.directSalesList.innerHTML = state.directSales.length ? state.directSales.map(sale => `
       <div class="table-row rich-row sale-row">
         <div><strong>${escapeHtml(sale.folio)}</strong><div class="small muted">${escapeHtml(sale.customerName || 'Mostrador')} · ${escapeHtml(sale.companyName || 'mostrador')}</div></div>
-        <div><span class="badge ${salePaymentBadge(sale.paymentStatus)}">${escapeHtml((sale.paymentStatus || 'pendiente').replaceAll('_',' '))}</span><div class="small muted">${escapeHtml(sale.paymentMethod || 'sin método')}</div></div>
+        <div><span class="badge ${salePaymentBadge(sale.paymentStatus)}">${escapeHtml((sale.paymentStatus || '').replaceAll('_',' '))}</span><div class="small muted">${escapeHtml(sale.paymentMethod || 'sin método')}</div></div>
         <div><strong>${money(sale.total || 0)}</strong><div class="small muted">${fmtDate(sale.createdAt)}</div></div>
-        <div class="stack-inline"><button class="btn btn-ghost" type="button" data-sale-pdf="${sale.id}">PDF</button></div>
+        <div><button type="button" class="btn btn-ghost" data-sale-pdf="${sale.id}">PDF</button></div>
       </div>`).join('') : '<div class="muted">Sin ventas directas registradas todavía.</div>';
-    els.directSalesList.querySelectorAll('[data-sale-pdf]').forEach(btn => btn.addEventListener('click', () => exportDirectSalePdf(btn.dataset.salePdf)));
+    els.directSalesList.querySelectorAll('[data-sale-pdf]').forEach(btn => btn.addEventListener('click', () => {
+      const sale = state.directSales.find(item => item.id === btn.dataset.salePdf);
+      if (sale) exportDirectSalePdf(sale, false);
+    }));
   }
 }
 
@@ -1663,7 +1759,7 @@ function renderQuoteDetail() {
       <div class="quote-items-head"><strong>Conceptos del cobro</strong><button id="quoteAddItemBtn" class="btn btn-secondary" type="button">Agregar concepto</button></div>
       <div class="quote-table-wrap"><table class="quote-items-table"><thead><tr><th>Tipo</th><th>Descripción</th><th>Cant.</th><th>P. unitario</th><th>Stock</th><th>Total</th><th></th></tr></thead><tbody id="quoteItemsTbody">${itemsRows}</tbody></table></div>
       <div class="quote-totals-strip"><article><span>Subtotal</span><strong id="quoteSubtotalPreview">${money(totals.subtotal || 0)}</strong></article><article><span>Total</span><strong id="quoteTotalPreview">${money(totals.total || 0)}</strong></article><article><span>Saldo</span><strong id="quoteSaldoPreview">${money(totals.saldo || 0)}</strong></article></div>
-      <div class="stock-form-actions"><button id="quoteDeleteBtn" class="btn btn-ghost" type="button">Eliminar cobranza</button><button id="quotePdfBtn" class="btn btn-ghost" type="button">PDF comercial</button><button id="quoteSaveBtn" class="btn btn-primary" type="button">Guardar cobranza</button></div>
+      <div class="stock-form-actions"><button id="quotePdfBtn" class="btn btn-ghost" type="button">PDF comercial</button><button id="quoteSaveBtn" class="btn btn-primary" type="button">Guardar cobranza</button></div>
     </div>`;
   document.getElementById('quoteStatus').value = draft.status || 'borrador';
   document.getElementById('quotePaymentStatus').value = draft.paymentStatus || 'pendiente_pago';
@@ -1686,7 +1782,6 @@ function renderQuoteDetail() {
   });
   updateQuoteTotalsPreview(quote.id);
   document.getElementById('quotePdfBtn')?.addEventListener('click', () => exportCommercialPdf(quote));
-  document.getElementById('quoteDeleteBtn')?.addEventListener('click', async () => { if (!confirm(`¿Eliminar ${quote.folio || 'esta cobranza'}?`)) return; try { await api.deleteQuote(quote.id); delete state.quoteDrafts[quote.id]; state.selectedQuoteId = ''; notify('Cobranza eliminada.'); await loadCobranza(true); } catch (error) { notify(error.message, true); } });
   document.getElementById('quoteSaveBtn')?.addEventListener('click', saveSelectedQuote);
 }
 
@@ -2546,32 +2641,32 @@ els.stockPartForm?.addEventListener('submit', async (e) => {
     await loadStock(true);
   } catch (error) { notify(error.message, true); }
 });
-els.stockAssignClose?.addEventListener('click', closeStockAssignModal);
-els.stockAssignCancel?.addEventListener('click', closeStockAssignModal);
-els.stockAssignForm?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  try {
-    await api.createStockMovement(state.selectedStockPartId, { tipo:'salida_unidad', cantidad:Number(els.stockAssignQty?.value || 0), unidad:els.stockAssignUnit?.value || '', empresa:els.stockAssignCompany?.value || '', garantiaFolio:els.stockAssignFolio?.value || '', notas:els.stockAssignNotes?.value || '' });
-    notify('Salida a camión registrada.');
-    closeStockAssignModal();
-    await loadStock(true);
-  } catch (error) { notify(error.message, true); }
-});
-els.directSaleStockPart?.addEventListener('change', () => { state.directSaleDraftPartId = els.directSaleStockPart.value || ''; syncDirectSalePartDefaults(); });
-['directSaleQty','directSalePrice','directSaleConcept','directSaleType'].forEach(id => document.getElementById(id)?.addEventListener('input', updateDirectSalePreview));
-document.getElementById('directSaleType')?.addEventListener('change', updateDirectSalePreview);
-els.directSaleResetBtn?.addEventListener('click', resetDirectSaleForm);
-els.directSalePdfBtn?.addEventListener('click', () => exportDirectSalePdf({ folio:'VTA-BORRADOR', customerName:String(els.directSaleCustomer?.value || '').trim() || 'Mostrador', customerPhone:String(els.directSalePhone?.value || '').trim(), companyName:String(els.directSaleCompany?.value || '').trim(), unitNumber:String(els.directSaleUnit?.value || '').trim(), paymentMethod:String(els.directSaleMethod?.value || '').trim(), paymentStatus:String(els.directSalePaymentStatus?.value || 'pendiente'), notes:String(els.directSaleNotes?.value || '').trim(), subtotal:updateDirectSalePreview(), total:updateDirectSalePreview(), createdAt:new Date().toISOString(), items: currentDirectSalePayload().items.map(item => ({ ...item, total: Number((item.qty * item.unitPrice).toFixed(2)) })) }));
 els.directSaleForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
   try {
-    const payload = currentDirectSalePayload();
-    if (!payload.items.length || !payload.items[0].description.trim()) throw new Error('Captura el concepto de la venta.');
+    const draft = syncDirectSaleDraftFromDom();
+    const items = (draft.items || []).map(item => ({
+      type: item.type || 'extra',
+      stockPartId: item.stockPartId || '',
+      description: String(item.description || '').trim(),
+      qty: Number(item.qty || 0),
+      unitPrice: Number(item.unitPrice || 0),
+    })).filter(item => item.description && item.qty > 0);
+    const payload = {
+      customerName: (draft.customerName || '').trim() || 'Mostrador',
+      customerPhone: draft.customerPhone || '',
+      companyName: draft.companyName || '',
+      unitNumber: draft.unitNumber || '',
+      paymentMethod: draft.paymentMethod || '',
+      paymentStatus: draft.paymentStatus || 'pendiente',
+      notes: draft.notes || '',
+      items,
+    };
     const sale = await api.createDirectSale(payload);
     notify('Venta directa registrada.');
+    if (sale) exportDirectSalePdf(sale, false);
     resetDirectSaleForm();
     await Promise.all([loadCobranza(true), loadStock(true)]);
-    if (sale?.id || sale?.folio) exportDirectSalePdf(sale);
   } catch (error) { notify(error.message, true); }
 });
 els.navUsersBtn?.addEventListener('click', async () => { switchPanel('users'); await loadUsers(); });
