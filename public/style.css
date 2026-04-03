@@ -3328,3 +3328,24 @@ body.modal-open{overflow:hidden}
   .cobranza-layout, .cobranza-layout.second, .quote-meta-grid, .direct-sale-grid { grid-template-columns:1fr; }
   .direct-sale-grid .span-2 { grid-column:auto; }
 }
+
+
+/* Fix final ventas + flotas + roles */
+body[data-role="supervisor_flotas"] #navStockBtn,
+body[data-role="supervisor_flotas"] #navCobranzaBtn,
+body[data-role="supervisor_flotas"] [data-panel-target="stock"],
+body[data-role="supervisor_flotas"] [data-panel-target="cobranza"] { display:none !important; }
+#fleetPanel .fleet-layout { display:grid !important; grid-template-columns:minmax(320px,360px) minmax(0,1fr) !important; gap:16px !important; align-items:start !important; }
+#fleetPanel #fleetUnitsList { position:sticky !important; top:0 !important; max-height:calc(100vh - 220px) !important; overflow:auto !important; padding-right:6px !important; }
+#fleetPanel #fleetDetail { max-height:calc(100vh - 220px) !important; overflow:auto !important; padding-right:4px !important; }
+#cobranzaPanel .cobranza-layout { display:grid !important; grid-template-columns:340px minmax(0,1fr) !important; gap:16px !important; align-items:start !important; }
+#cobranzaQuotesList { max-height:calc(100vh - 260px) !important; overflow:auto !important; padding-right:6px !important; }
+#cobranzaQuoteDetail { max-height:calc(100vh - 260px) !important; overflow:auto !important; padding-right:4px !important; }
+.direct-sale-total { display:flex; align-items:center; justify-content:space-between; border:1px solid rgba(14,20,34,.08); border-radius:16px; padding:12px 14px; background:#fff; }
+.direct-sale-total span { font-size:12px; text-transform:uppercase; color:#6d7387; letter-spacing:.08em; }
+.direct-sale-total strong { font-size:28px; }
+.sale-row { grid-template-columns:1.2fr .8fr .7fr auto !important; align-items:center; }
+@media (max-width: 1100px) {
+  #fleetPanel .fleet-layout, #cobranzaPanel .cobranza-layout, #cobranzaPanel .cobranza-layout.second { grid-template-columns:1fr !important; }
+  #fleetPanel #fleetUnitsList, #fleetPanel #fleetDetail, #cobranzaQuotesList, #cobranzaQuoteDetail { max-height:none !important; overflow:visible !important; position:static !important; }
+}
