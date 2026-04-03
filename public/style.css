@@ -2588,7 +2588,6 @@ body[data-role="admin"] .panel,
 body[data-role="operativo"] .panel,
 body[data-role="supervisor"] .panel,
 body[data-role="supervisor_flotas"] .panel,
-body[data-role="admin"] #fleetUnitsList,
 body[data-role="operativo"] #fleetUnitsList,
 body[data-role="supervisor_flotas"] #fleetUnitsList,
 body[data-role="admin"] .table-list,
@@ -2759,7 +2758,6 @@ body[data-role="supervisor_flotas"] .table-list {
   body[data-role="operativo"] .table-list,
   body[data-role="supervisor"] .table-list,
   body[data-role="supervisor_flotas"] .table-list,
-  body[data-role="admin"] #fleetUnitsList,
   body[data-role="operativo"] #fleetUnitsList,
   body[data-role="supervisor_flotas"] #fleetUnitsList {
     overflow: visible !important;
@@ -3329,29 +3327,6 @@ body.modal-open{overflow:hidden}
   .direct-sale-grid .span-2 { grid-column:auto; }
 }
 
-
-/* Ajustes DRAFT: supervisor flotas + galerías */
-.fleet-line-list{display:grid;gap:12px;align-content:start;}
-@media (min-width: 1024px){
-  body[data-role="supervisor_flotas"] #fleetPanel .fleet-line-list{
-    max-height:calc(100vh - 220px) !important;
-    overflow:auto !important;
-    padding-right:8px !important;
-    position:sticky !important;
-    top:108px !important;
-    overscroll-behavior:contain;
-    scrollbar-width:thin;
-  }
-  body[data-role="supervisor_flotas"] #fleetPanel .fleet-detail-premium{
-    position:sticky;
-    top:108px;
-    max-height:calc(100vh - 140px);
-    overflow:auto;
-  }
-}
-.evidence-strip img{cursor:zoom-in;}
-.media-thumb:hover,.evidence-strip img:hover{transform:translateY(-1px);box-shadow:0 12px 24px rgba(15,23,42,.12);}
-
-.btn-danger-soft{background:#fff1f1;border:1px solid #f2c6c6;color:#a63838}.btn-danger-soft:hover{background:#ffe1e1}.sale-row.active{outline:2px solid rgba(15,23,42,.12)}.sale-actions{display:flex;justify-content:flex-end}.movement-card{border:1px solid #e7e8ee;border-radius:18px;padding:14px;background:#fff;display:grid;gap:8px}.movement-card-head{display:flex;justify-content:space-between;gap:10px;align-items:center}.movement-meta{font-size:12px;color:#6b7280}.movement-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.payment-row{display:grid;grid-template-columns:1.1fr 1fr 1.2fr 1.2fr auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid #edf0f4}.payments-list{display:grid;gap:2px}.quote-payments-box{border:1px solid #e9edf5;border-radius:18px;padding:14px;background:#fbfcfe;margin-top:14px}.movement-entrada{border-left:4px solid #22c55e}.movement-salida_unidad,.movement-venta_directa{border-left:4px solid #ef4444}.movement-ajuste{border-left:4px solid #64748b}@media (max-width:980px){.payment-row{grid-template-columns:1fr 1fr}.payment-row button{grid-column:1/-1}.movement-grid{grid-template-columns:1fr}}
-
-.direct-sale-summary{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border:1px solid #e9edf5;border-radius:18px;background:#fbfcfe}.stock-movement-modal .modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:12px}.stock-movement-modal .parts-request-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.stock-movement-modal .hidden{display:none !important}.stock-movement-modal input,.stock-movement-modal textarea{width:100%}body[data-role="admin"] #fleetUnitsList{position:sticky;top:0;max-height:calc(100vh - 250px);overflow:auto}
+body[data-role="admin"] #fleetUnitsList { overflow:auto !important; max-height:calc(100vh - 260px) !important; }
+.stock-move-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:60;padding:24px;}
+.stock-move-sheet{width:min(760px,100%);background:#fff;border-radius:24px;padding:22px;box-shadow:0 24px 60px rgba(15,23,42,.25);border:1px solid rgba(15,23,42,.08);}
