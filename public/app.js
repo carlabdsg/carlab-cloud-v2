@@ -1372,6 +1372,7 @@ function syncDirectSalePartDefaults(forcePartDefaults = false) {
     const price = Number(part.precioVenta || part.costoUnitario || 0);
     if (els.directSalePrice && (forcePartDefaults || !Number(els.directSalePrice.value || 0) || state.directSaleDraftPartId)) els.directSalePrice.value = price ? price.toFixed(2) : '0';
     if (els.directSaleConcept && (forcePartDefaults || !els.directSaleConcept.value || state.directSaleDraftPartId)) els.directSaleConcept.value = part.nombre || 'Venta directa';
+    if (forcePartDefaults && els.directSaleType) els.directSaleType.value = 'refaccion';
   }
   updateDirectSalePreview();
 }
@@ -1422,7 +1423,13 @@ function currentDirectSalePayload(includeDraft = true) {
   const items = [...state.directSaleItems];
   if (includeDraft) {
     const draft = currentDirectSaleDraftItem();
-    if (draft) items.push(draft);
+    const looksDuplicated = draft && items.some(item =>
+      String(item.stockPartId || '') === String(draft.stockPartId || '') &&
+      String(item.description || '') === String(draft.description || '') &&
+      Number(item.qty || 0) === Number(draft.qty || 0) &&
+      Number(item.unitPrice || 0) === Number(draft.unitPrice || 0)
+    );
+    if (draft && !looksDuplicated) items.push(draft);
   }
   return {
     customerName: String(els.directSaleCustomer?.value || '').trim() || 'Mostrador',
@@ -1554,12 +1561,18 @@ function renderCobranza() {
   }
   if (els.cobranzaQuotesList) {
     els.cobranzaQuotesList.innerHTML = state.cobranzaQuotes.length ? state.cobranzaQuotes.map(q => `
-      <button type="button" class="cobranza-quote-row ${q.id === state.selectedQuoteId ? 'active' : ''}" data-quote-open="${q.id}">
-        <div><strong>${escapeHtml(q.folio || 'COB-—')}</strong><div class="small muted">${escapeHtml(q.companyName || 'Sin empresa')} · unidad ${escapeHtml(q.unitNumber || '—')}</div></div>
-        <div class="cobranza-row-side"><span class="badge ${quoteStatusBadge(q.status)}">${escapeHtml(q.status.replaceAll('_',' '))}</span><strong>${money(q.total || 0)}</strong></div>
-      </button>`).join('') : '<div class="muted">Todavía no hay cobros preparados. Usa “Preparar cobro” desde un reporte terminado.</div>';
+      <article class="cobranza-quote-card ${q.id === state.selectedQuoteId ? 'active' : ''}">
+        <button type="button" class="cobranza-quote-row ${q.id === state.selectedQuoteId ? 'active' : ''}" data-quote-open="${q.id}">
+          <div><strong>${escapeHtml(q.folio || 'COB-—')}</strong><div class="small muted">${escapeHtml(q.companyName || 'Sin empresa')} · unidad ${escapeHtml(q.unitNumber || '—')}</div></div>
+          <div class="cobranza-row-side"><span class="badge ${quoteStatusBadge(q.status)}">${escapeHtml(q.status.replaceAll('_',' '))}</span><strong>${money(q.total || 0)}</strong></div>
+        </button>
+        <div class="cobranza-quote-expand ${q.id === state.selectedQuoteId ? '' : 'hidden'}">
+          <div class="small muted">Cliente: ${escapeHtml(q.clientName || 'Sin contacto')} · Tel: ${escapeHtml(q.clientPhone || '—')}</div>
+          <div class="small muted">Pago: ${escapeHtml((q.paymentStatus || 'pendiente_pago').replaceAll('_',' '))} · Actualizado: ${escapeHtml(fmtDate(q.updatedAt || q.createdAt))}</div>
+        </div>
+      </article>`).join('') : '<div class="muted">Todavía no hay cobros preparados. Usa “Preparar cobro” desde un reporte terminado.</div>';
     els.cobranzaQuotesList.querySelectorAll('[data-quote-open]').forEach(btn => btn.addEventListener('click', () => {
-      state.selectedQuoteId = btn.dataset.quoteOpen;
+      state.selectedQuoteId = state.selectedQuoteId === btn.dataset.quoteOpen ? '' : btn.dataset.quoteOpen;
       renderCobranza();
     }));
   }
@@ -2658,6 +2671,40 @@ els.userRole?.addEventListener('change', () => {
 els.unitHistoryBtn?.addEventListener('click', renderUnitHistory);
 els.unitHistorySearchInput?.addEventListener('input', () => paintUnitHistory(state.unitHistoryRows || []));
 els.scheduleRefreshBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
+els.scheduleManualCancelBtn?.addEventListener('click', () => resetScheduleManualForm());
+els.scheduleManualEmpresa?.addEventListener('change', () => {
+  const company = els.scheduleManualEmpresa?.value || '';
+  const units = (state.fleetUnits || []).filter(u => !company || u.empresa === company);
+  if (els.scheduleManualUnidad) {
+    els.scheduleManualUnidad.innerHTML = '<option value="">Selecciona unidad</option>' + units.map(u => `<option value="${escapeHtml(u.numeroEconomico || '')}">${escapeHtml(u.numeroEconomico || '')} · ${escapeHtml(u.modelo || '')}</option>`).join('');
+    els.scheduleManualUnidad.value = '';
+  }
+});
+els.scheduleManualUnidad?.addEventListener('change', () => {
+  const selectedUnit = (state.fleetUnits || []).find(u => String(u.numeroEconomico || '') === String(els.scheduleManualUnidad?.value || ''));
+  if (selectedUnit && els.scheduleManualEmpresa && !els.scheduleManualEmpresa.value) els.scheduleManualEmpresa.value = selectedUnit.empresa || '';
+});
+els.scheduleManualForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    const payload = {
+      empresa: String(els.scheduleManualEmpresa?.value || '').trim(),
+      unidad: String(els.scheduleManualUnidad?.value || '').trim(),
+      telefono: String(els.scheduleManualTelefono?.value || '').trim(),
+      folio: String(els.scheduleManualFolio?.value || '').trim(),
+      contactoNombre: String(els.scheduleManualContacto?.value || '').trim(),
+      scheduledFor: els.scheduleManualDatetime?.value ? new Date(els.scheduleManualDatetime.value).toISOString() : '',
+      notes: String(els.scheduleManualNotes?.value || '').trim(),
+    };
+    await api.createManualSchedule(payload);
+    notify('Ingreso manual programado.');
+    resetScheduleManualForm();
+    await loadSchedules('');
+    switchPanel('schedule');
+  } catch (error) {
+    notify(error.message, true);
+  }
+});
 
 els.fleetRefreshBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
 els.partsRefreshBtn?.addEventListener('click', async () => { await loadPartsPending(true); switchPanel('parts'); });
@@ -2762,6 +2809,5 @@ window.guardarCostoAdmin = guardarCostoAdmin;
 window.eliminarCostoAdmin = eliminarCostoAdmin;
 window.openImageLightbox = openImageLightbox;
 window.focusFleetUnit = focusFleetUnit;
-
 
 

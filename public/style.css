@@ -3298,12 +3298,21 @@ body.modal-open{overflow:hidden}
 .cobranza-layout.second { grid-template-columns: minmax(0, 1.15fr) 0.85fr; }
 .cobranza-col { min-width:0; }
 .cobranza-col.wide { min-width:0; }
+.cobranza-quote-card {
+  border:1px solid rgba(14,20,34,.08);
+  border-radius:18px;
+  margin-bottom:10px;
+  background:#fff;
+  overflow:hidden;
+}
 .cobranza-quote-row {
   display:flex; align-items:center; justify-content:space-between; gap:12px;
-  width:100%; border:1px solid rgba(14,20,34,.08); border-radius:18px; padding:14px 16px;
-  background:#fff; text-align:left; transition:.18s ease; margin-bottom:10px;
+  width:100%; border:0; border-radius:0; padding:14px 16px;
+  background:#fff; text-align:left; transition:.18s ease; margin-bottom:0;
 }
-.cobranza-quote-row:hover, .cobranza-quote-row.active { border-color:rgba(32,39,80,.18); box-shadow:0 10px 24px rgba(15,23,42,.07); transform:translateY(-1px); }
+.cobranza-quote-row:hover, .cobranza-quote-row.active { background:rgba(15,23,42,.02); }
+.cobranza-quote-card.active { border-color:rgba(32,39,80,.2); box-shadow:0 10px 24px rgba(15,23,42,.07); }
+.cobranza-quote-expand { border-top:1px solid rgba(14,20,34,.08); padding:10px 16px; display:grid; gap:6px; }
 .cobranza-row-side { display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
 .quote-shell { display:grid; gap:16px; }
 .quote-headline { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; }
@@ -3321,10 +3330,14 @@ body.modal-open{overflow:hidden}
 .quote-totals-strip article { border:1px solid rgba(14,20,34,.08); border-radius:16px; padding:12px 14px; background:rgba(252,252,255,.9); }
 .quote-totals-strip span { display:block; font-size:12px; color:#72768a; text-transform:uppercase; letter-spacing:.08em; }
 .quote-totals-strip strong { display:block; margin-top:4px; font-size:20px; }
-.direct-sale-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:16px; }
+.direct-sale-grid { display:grid; grid-template-columns:repeat(12, minmax(0,1fr)); gap:16px; align-items:start; }
 .direct-sale-grid .span-2 { grid-column:span 2; }
 .direct-sale-grid .span-3 { grid-column:span 3; }
 .direct-sale-grid .span-4 { grid-column:1 / -1; }
+.direct-sale-grid .direct-sale-section:nth-child(1) { grid-column:1 / span 5; }
+.direct-sale-grid .direct-sale-section:nth-child(2) { grid-column:6 / span 7; }
+.direct-sale-grid .direct-sale-section:nth-child(3) { grid-column:1 / span 7; }
+.direct-sale-grid .direct-sale-section:nth-child(4) { grid-column:8 / span 5; }
 .direct-sale-section {
   display:grid;
   gap:12px;
@@ -3351,8 +3364,9 @@ body.modal-open{overflow:hidden}
 .direct-sale-items-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .direct-sale-items-list { display:grid; gap:8px; max-height:180px; overflow:auto; }
 .direct-sale-item-row { display:flex; align-items:center; justify-content:space-between; gap:12px; border:1px solid rgba(14,20,34,.06); border-radius:12px; padding:10px; }
-.direct-sale-foot { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:center; }
-.direct-sale-foot .stock-form-actions { justify-content:flex-end; }
+.direct-sale-foot { display:grid; grid-template-columns:minmax(260px,1fr) minmax(420px,auto); gap:12px; align-items:center; }
+.direct-sale-foot .stock-form-actions { display:flex; gap:10px; justify-content:flex-end; align-items:center; flex-wrap:wrap; }
+.direct-sale-foot .stock-form-actions .btn { white-space:nowrap; }
 .direct-sale-foot .stock-form-actions .btn-primary { min-width:220px; }
 .sale-row { grid-template-columns: 1.2fr .8fr .7fr; }
 @media (max-width: 1160px) {
@@ -3373,6 +3387,7 @@ body[data-role="supervisor_flotas"] [data-panel-target="cobranza"] { display:non
 #fleetPanel #fleetUnitsList { position:sticky !important; top:0 !important; max-height:calc(100vh - 220px) !important; overflow:auto !important; padding-right:6px !important; }
 #fleetPanel #fleetDetail { max-height:calc(100vh - 220px) !important; overflow:auto !important; padding-right:4px !important; }
 #cobranzaPanel .cobranza-layout { display:grid !important; grid-template-columns:340px minmax(0,1fr) !important; gap:16px !important; align-items:start !important; }
+#cobranzaPanel .cobranza-layout.second { grid-template-columns:minmax(760px,1.35fr) minmax(300px,.65fr) !important; }
 #cobranzaQuotesList { max-height:calc(100vh - 260px) !important; overflow:auto !important; padding-right:6px !important; }
 #cobranzaQuoteDetail { max-height:calc(100vh - 260px) !important; overflow:auto !important; padding-right:4px !important; }
 .direct-sale-total { display:flex; align-items:center; justify-content:space-between; border:1px solid rgba(14,20,34,.08); border-radius:16px; padding:12px 14px; background:#fff; }
