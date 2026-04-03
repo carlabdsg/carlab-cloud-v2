@@ -519,6 +519,10 @@
                 <label class="span-2"><span>Producto desde stock</span><select id="directSaleStockPart"></select></label>
                 <label><span>Cantidad</span><input id="directSaleQty" type="number" min="1" step="1" value="1" /></label>
                 <label><span>Precio unitario</span><input id="directSalePrice" type="number" min="0" step="0.01" value="0" /></label>
+                <div class="direct-sale-items span-2">
+                  <div class="direct-sale-items-head"><strong>Conceptos agregados</strong><button id="directSaleAddConceptBtn" class="btn btn-ghost" type="button">Agregar concepto</button></div>
+                  <div id="directSaleItemsList" class="direct-sale-items-list muted">Aún no hay conceptos agregados.</div>
+                </div>
                 <label><span>Método de pago</span><input id="directSaleMethod" placeholder="Transferencia / efectivo" /></label>
                 <label><span>Estatus de pago</span><select id="directSalePaymentStatus"><option value="pendiente">Pendiente</option><option value="pagado_parcial">Pago parcial</option><option value="pagada">Pagada</option></select></label>
                 <label class="span-2"><span>Notas</span><textarea id="directSaleNotes" rows="2" placeholder="Observaciones, cliente o salida a mostrador"></textarea></label>
