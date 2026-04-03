@@ -3321,22 +3321,46 @@ body.modal-open{overflow:hidden}
 .quote-totals-strip article { border:1px solid rgba(14,20,34,.08); border-radius:16px; padding:12px 14px; background:rgba(252,252,255,.9); }
 .quote-totals-strip span { display:block; font-size:12px; color:#72768a; text-transform:uppercase; letter-spacing:.08em; }
 .quote-totals-strip strong { display:block; margin-top:4px; font-size:20px; }
-.direct-sale-grid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; }
+.direct-sale-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:16px; }
 .direct-sale-grid .span-2 { grid-column:span 2; }
+.direct-sale-grid .span-3 { grid-column:span 3; }
 .direct-sale-grid .span-4 { grid-column:1 / -1; }
-.direct-sale-block {
-  border-top: 1px solid rgba(14,20,34,.08);
-  padding-top: 10px;
-  margin-top: 2px;
+.direct-sale-section {
+  display:grid;
+  gap:12px;
+  padding:14px;
+  border:1px solid rgba(14,20,34,.08);
+  border-radius:16px;
+  background:#fff;
 }
-.direct-sale-items { border:1px solid rgba(14,20,34,.08); border-radius:16px; padding:12px; background:#fff; display:grid; gap:10px; }
+.direct-sale-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.direct-sale-fields.client-fields { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.direct-sale-fields label.span-3 { grid-column:1 / -1; }
+.direct-sale-block {
+  border-bottom: 1px solid rgba(14,20,34,.08);
+  padding-bottom: 8px;
+}
+.direct-sale-block-head {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.direct-sale-items { border:1px solid rgba(14,20,34,.08); border-radius:14px; padding:12px; background:rgba(252,252,255,.9); display:grid; gap:10px; }
 .direct-sale-items-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .direct-sale-items-list { display:grid; gap:8px; max-height:180px; overflow:auto; }
 .direct-sale-item-row { display:flex; align-items:center; justify-content:space-between; gap:12px; border:1px solid rgba(14,20,34,.06); border-radius:12px; padding:10px; }
+.direct-sale-foot { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:center; }
+.direct-sale-foot .stock-form-actions { justify-content:flex-end; }
+.direct-sale-foot .stock-form-actions .btn-primary { min-width:220px; }
 .sale-row { grid-template-columns: 1.2fr .8fr .7fr; }
 @media (max-width: 1160px) {
   .cobranza-layout, .cobranza-layout.second, .quote-meta-grid, .direct-sale-grid { grid-template-columns:1fr; }
-  .direct-sale-grid .span-2 { grid-column:auto; }
+  .direct-sale-grid .span-2, .direct-sale-grid .span-3 { grid-column:auto; }
+  .direct-sale-fields, .direct-sale-fields.client-fields { grid-template-columns:1fr; }
+  .direct-sale-foot { grid-template-columns:1fr; }
+  .direct-sale-foot .stock-form-actions { justify-content:flex-start; flex-wrap:wrap; }
 }
 
 
