@@ -492,6 +492,20 @@ function setActiveNav(activeBtn) {
   if (activeBtn && !activeBtn.classList.contains('hidden')) activeBtn.classList.add('active');
 }
 
+function syncShellMode() {
+  const role = state.user?.role || '';
+  const panel = state.activePanel || 'board';
+  document.body.classList.add('beast-mode');
+  document.body.dataset.role = role;
+  document.body.dataset.panel = panel;
+  syncShellMode();
+  document.body.classList.toggle('owner-focus', ['fleet','parts','schedule','stock','cobranza'].includes(panel) && ['admin','supervisor_flotas','operativo'].includes(role));
+  document.body.classList.toggle('money-focus', panel === 'cobranza' && role === 'admin');
+  document.body.classList.toggle('stock-focus', panel === 'stock' && role === 'admin');
+  document.body.classList.toggle('schedule-focus', panel === 'schedule');
+  document.body.classList.toggle('fleet-focus', panel === 'fleet');
+}
+
 function updateOperatorAppNav(panel) {
   const operatorMode = state.user?.role === 'operador';
   document.body.classList.toggle('operator-mode', !!operatorMode);
@@ -505,6 +519,21 @@ function updateOperatorAppNav(panel) {
   if (panel === 'report') els.opNavNewBtn?.classList.add('active');
   if (panel === 'schedule') els.opNavScheduleBtn?.classList.add('active');
 }
+const beastPanelMeta = {
+  board: ['Bandeja general', 'Operación más venta, con control y lectura por unidad.'],
+  report: ['Nuevo reporte', 'Captura premium con foco total en evidencia, firma y claridad.'],
+  analytics: ['Analítica ejecutiva', 'Señales, reincidencia y lectura para decidir más rápido.'],
+  history: ['Historial por unidad', 'Expediente limpio para revisar trazabilidad por autobús.'],
+  schedule: ['Agenda pro', 'Programación viva, confirmaciones y control visual del flujo.'],
+  fleet: ['Modo dueño de flota', 'Expediente premium por unidad, costos, agenda y refacciones.'],
+  parts: ['Refacciones premium', 'Solicitud, evidencia y trazabilidad con lectura corporativa.'],
+  stock: ['Stock empresarial', 'Inventario fino, rotación y control de salida por unidad o venta.'],
+  cobranza: ['Cobranza premium', 'Editor comercial limpio, totales vivos y lectura financiera.'],
+  users: ['Usuarios', 'Control de accesos con vista corporativa.'],
+  requests: ['Solicitudes', 'Autorizaciones internas con lectura clara.'],
+  companies: ['Empresas', 'Catálogo limpio para operar sin errores.']
+};
+
 function switchPanel(panel) {
   if (state.user?.role === 'supervisor_flotas' && ['users','requests','companies','report','stock','cobranza'].includes(panel)) panel = 'fleet';
   if (!isRole('admin') && ['stock','cobranza'].includes(panel)) panel = state.user?.role === 'supervisor_flotas' ? 'fleet' : 'board';
@@ -523,9 +552,13 @@ function switchPanel(panel) {
   els.stockPanel?.classList.toggle('hidden', panel !== 'stock');
   els.cobranzaPanel?.classList.toggle('hidden', panel !== 'cobranza');
   document.body.dataset.panel = panel;
+  syncShellMode();
   const board = panel === 'board';
   els.filtersPanel?.classList.toggle('hidden', !board);
   els.executiveDeck?.classList.toggle('hidden', !board);
+  const panelMeta = beastPanelMeta[panel];
+  if (panelMeta && els.pageTitle) els.pageTitle.textContent = panelMeta[0];
+  if (panelMeta && els.statusLegend) els.statusLegend.textContent = panelMeta[1];
   if (panel === 'schedule') loadSchedules('');
   if (panel === 'fleet') loadFleet();
   if (panel === 'parts') loadPartsPending();
@@ -553,7 +586,8 @@ function showDashboard() {
   els.loginView?.classList.add('hidden'); els.dashboardView?.classList.remove('hidden');
   document.body.classList.toggle('operator-mode', state.user?.role === 'operador');
   document.body.classList.toggle('executive-mode', state.user?.role !== 'operador');
-  document.body.dataset.role = state.user?.role || ''; 
+  document.body.dataset.role = state.user?.role || '';
+  document.body.classList.add('beast-mode'); 
   els.navNewReportBtn?.classList.toggle('hidden', !isRole('operador','admin'));
   els.navUsersBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navRequestsBtn?.classList.toggle('hidden', !isRole('admin'));
@@ -584,8 +618,10 @@ function showDashboard() {
   }
   els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas'));
   updateHeaderForRole(); switchPanel(state.user?.role === 'operador' ? 'report' : (state.user?.role === 'supervisor_flotas' ? 'fleet' : 'board'));
+  syncShellMode();
 }
-function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); els.operatorAppNav?.classList.add('hidden'); document.body.classList.remove('executive-mode','operator-mode'); document.body.dataset.role=''; document.body.dataset.panel='login'; }
+
+function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); els.operatorAppNav?.classList.add('hidden'); document.body.classList.remove('executive-mode','operator-mode','beast-mode','owner-focus','money-focus','stock-focus','schedule-focus','fleet-focus'); document.body.dataset.role=''; document.body.dataset.panel='login'; }
 
 function filteredGarantias() {
   const search = els.searchInput?.value.trim().toLowerCase() || '';
