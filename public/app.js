@@ -509,7 +509,7 @@ function updateOperatorAppNav(panel) {
   if (panel === 'schedule') els.opNavScheduleBtn?.classList.add('active');
 }
 function switchPanel(panel) {
-  if (state.user?.role === 'supervisor_flotas' && ['users','requests','companies','report','stock','cobranza'].includes(panel)) panel = 'fleet';
+  if (state.user?.role === 'supervisor_flotas' && ['users','requests','companies','report','stock','cobranza','board','analytics','history','schedule'].includes(panel)) panel = 'fleet';
   if (!isRole('admin') && ['stock','cobranza'].includes(panel)) panel = state.user?.role === 'supervisor_flotas' ? 'fleet' : 'board';
   if (state.user?.role === 'supervisor' && ['users','requests','companies','fleet','parts','report','stock','cobranza'].includes(panel)) panel = 'board';
   state.activePanel = panel;
@@ -578,6 +578,10 @@ function showDashboard() {
     els.navCompaniesBtn?.classList.add('hidden');
   }
   if (state.user?.role === 'supervisor_flotas') {
+    els.navBoardBtn?.classList.add('hidden');
+    els.navAnalyticsBtn?.classList.add('hidden');
+    els.navHistoryBtn?.classList.add('hidden');
+    els.navScheduleBtn?.classList.add('hidden');
     els.navUsersBtn?.classList.add('hidden');
     els.navRequestsBtn?.classList.add('hidden');
     els.navCompaniesBtn?.classList.add('hidden');
@@ -1359,15 +1363,15 @@ function resetDirectSaleForm() {
 }
 
 
-function syncDirectSalePartDefaults() {
+function syncDirectSalePartDefaults(forcePartDefaults = false) {
   if (!els.directSaleStockPart) return;
   const selectedId = String(state.directSaleDraftPartId || els.directSaleStockPart.value || '');
   if (selectedId) els.directSaleStockPart.value = selectedId;
   const part = state.stockParts.find(p => String(p.id) === String(els.directSaleStockPart?.value || ''));
   if (part) {
     const price = Number(part.precioVenta || part.costoUnitario || 0);
-    if (els.directSalePrice && (!Number(els.directSalePrice.value || 0) || state.directSaleDraftPartId)) els.directSalePrice.value = price ? price.toFixed(2) : '0';
-    if (els.directSaleConcept && (!els.directSaleConcept.value || state.directSaleDraftPartId)) els.directSaleConcept.value = part.nombre || 'Venta directa';
+    if (els.directSalePrice && (forcePartDefaults || !Number(els.directSalePrice.value || 0) || state.directSaleDraftPartId)) els.directSalePrice.value = price ? price.toFixed(2) : '0';
+    if (els.directSaleConcept && (forcePartDefaults || !els.directSaleConcept.value || state.directSaleDraftPartId)) els.directSaleConcept.value = part.nombre || 'Venta directa';
   }
   updateDirectSalePreview();
 }
@@ -1456,15 +1460,16 @@ async function exportDirectSalePdf(saleLike) {
       doc.setFontSize(10); doc.setTextColor(120,120,120); doc.text(`Folio: ${sale.folio || '—'}`, 196, 20, { align:'right' });
       doc.text(`Fecha: ${fmtDate(sale.createdAt || new Date())}`, 196, 27, { align:'right' });
       doc.setFontSize(11); doc.setTextColor(40,40,40);
-      doc.roundedRect(14, 44, 182, 34, 4, 4);
+      doc.roundedRect(14, 44, 182, 38, 4, 4);
       doc.text(`Cliente: ${sale.customerName || 'Mostrador'}`, 18, 55);
       doc.text(`Teléfono: ${sale.customerPhone || '—'}`, 18, 63);
       doc.text(`Empresa: ${sale.companyName || 'Mostrador'}`, 105, 55);
       doc.text(`Unidad: ${sale.unitNumber || '—'}`, 105, 63);
-      doc.text(`Pago: ${sale.paymentMethod || '—'} · ${sale.paymentStatus || 'pendiente'}`, 18, 71);
-      let y = 90;
+      doc.text(`Pago: ${sale.paymentMethod || '—'}`, 18, 71);
+      doc.text(`Estatus: ${String(sale.paymentStatus || 'pendiente').replaceAll('_',' ')}`, 105, 71);
+      let y = 94;
       doc.setFontSize(12); doc.setTextColor(20,20,20); doc.text('Conceptos', 14, y); y += 8;
-      doc.roundedRect(14, y-5, 182, 10, 3, 3);
+      doc.setFillColor(245, 247, 250); doc.roundedRect(14, y-5, 182, 10, 3, 3, 'F');
       doc.setFontSize(9); doc.text('Descripción', 18, y+1); doc.text('Cant.', 132, y+1); doc.text('P. unitario', 150, y+1); doc.text('Total', 183, y+1, { align:'right' });
       return y + 10;
     };
@@ -1489,13 +1494,15 @@ async function exportDirectSalePdf(saleLike) {
 
     if (y + 45 > pageBottom) { doc.addPage(); y = 34; }
     doc.roundedRect(118, y + 4, 78, 28, 4, 4);
-    doc.text(`Subtotal: ${money(sale.subtotal || sale.total || 0)}`, 122, y + 14);
-    doc.text(`Total: ${money(sale.total || sale.subtotal || 0)}`, 122, y + 24);
+    doc.text(`Subtotal: ${money(sale.subtotal || sale.total || 0)}`, 122, y + 12);
+    doc.text(`Conceptos: ${Number((sale.items || []).length)}`, 122, y + 19);
+    doc.text(`Total: ${money(sale.total || sale.subtotal || 0)}`, 122, y + 26);
     if (sale.notes) {
       y += 40;
       const notes = doc.splitTextToSize(sale.notes, 178);
       if (y + (notes.length * 5) > pageBottom) { doc.addPage(); y = 24; }
       doc.setFontSize(12); doc.text('Observaciones', 14, y); y += 8;
+      doc.roundedRect(14, y - 5, 182, (notes.length * 5) + 8, 3, 3);
       doc.setFontSize(10); doc.text(notes, 14, y);
     }
     doc.save(`${sale.folio || 'venta'}_${(sale.customerName || 'mostrador').replace(/\s+/g,'_')}.pdf`);
@@ -2617,7 +2624,7 @@ els.stockAssignForm?.addEventListener('submit', async (e) => {
     await loadStock(true);
   } catch (error) { notify(error.message, true); }
 });
-els.directSaleStockPart?.addEventListener('change', () => { state.directSaleDraftPartId = els.directSaleStockPart.value || ''; syncDirectSalePartDefaults(); });
+els.directSaleStockPart?.addEventListener('change', () => { state.directSaleDraftPartId = els.directSaleStockPart.value || ''; syncDirectSalePartDefaults(true); });
 ['directSaleQty','directSalePrice','directSaleConcept','directSaleType'].forEach(id => document.getElementById(id)?.addEventListener('input', updateDirectSalePreview));
 document.getElementById('directSaleType')?.addEventListener('change', updateDirectSalePreview);
 els.directSaleAddConceptBtn?.addEventListener('click', () => { try { pushCurrentDirectSaleItem(); } catch (error) { notify(error.message, true); } });
@@ -2746,10 +2753,8 @@ setInterval(async () => {
   if (!state.token || !state.user) return;
   try {
     if (!shouldPauseLiveRefresh()) await loadNotifications();
-    if (['board','analytics','history'].includes(state.activePanel) && !shouldPauseLiveRefresh('board')) await Promise.allSettled([loadGarantias()]);
     if (state.activePanel === 'schedule' && !shouldPauseLiveRefresh('schedule')) await Promise.allSettled([loadSchedules('')]);
     if (state.activePanel === 'fleet' && !shouldPauseLiveRefresh('fleet')) await Promise.allSettled([loadFleet()]);
-    if (state.activePanel === 'parts' && !shouldPauseLiveRefresh('parts')) await Promise.allSettled([loadPartsPending(true), cargarSolicitudesIndependientes()]);
     renderExecutiveDeck();
   } catch {}
 }, 15000);
@@ -2757,7 +2762,6 @@ window.guardarCostoAdmin = guardarCostoAdmin;
 window.eliminarCostoAdmin = eliminarCostoAdmin;
 window.openImageLightbox = openImageLightbox;
 window.focusFleetUnit = focusFleetUnit;
-
 
 
 
