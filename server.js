@@ -460,14 +460,21 @@ async function addAuditLog(garantiaId, userId, accion, detalle) {
   );
 }
 
-async function nextGarantiaFolio() {
-  const result = await pool.query(`
+async function nextGarantiaFolio(client = pool) {
+  await client.query(`SELECT pg_advisory_xact_lock($1)`, [71000]);
+  const result = await client.query(`
     SELECT COALESCE(MAX(NULLIF(regexp_replace(folio, '\D', '', 'g'), '')::int), 0) AS max_num
     FROM garantias
     WHERE folio ~ '^GAR-[0-9]+$'
   `);
-  const next = Number(result.rows[0]?.max_num || 0) + 1;
-  return `GAR-${String(next).padStart(5, '0')}`;
+  let next = Number(result.rows[0]?.max_num || 0) + 1;
+  let folio = `GAR-${String(next).padStart(5, '0')}`;
+  for (;;) {
+    const exists = await client.query(`SELECT 1 FROM garantias WHERE folio = $1 LIMIT 1`, [folio]);
+    if (!exists.rowCount) return folio;
+    next += 1;
+    folio = `GAR-${String(next).padStart(5, '0')}`;
+  }
 }
 
 async function nextManagedFolio(kind, client = pool) {
@@ -670,6 +677,7 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_schedule_requests_telefono ON schedule_requests(telefono);
     CREATE INDEX IF NOT EXISTS idx_schedule_requests_status ON schedule_requests(status);
     CREATE INDEX IF NOT EXISTS idx_schedule_requests_scheduled_for ON schedule_requests(scheduled_for);
+    ALTER TABLE schedule_requests ALTER COLUMN garantia_id DROP NOT NULL;
     ALTER TABLE schedule_requests ADD COLUMN IF NOT EXISTS empresa TEXT;
     ALTER TABLE schedule_requests ADD COLUMN IF NOT EXISTS numero_economico TEXT;
     ALTER TABLE schedule_requests ADD COLUMN IF NOT EXISTS contacto_nombre TEXT;
@@ -735,6 +743,7 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_garantias_reportado_por_id ON garantias(reportado_por_id);
     CREATE INDEX IF NOT EXISTS idx_garantias_numero_economico ON garantias(numero_economico);
     CREATE INDEX IF NOT EXISTS idx_garantias_refacciones_pendientes ON garantias (empresa, refaccion_status, created_at) WHERE solicita_refaccion = TRUE;
+    CREATE INDEX IF NOT EXISTS idx_garantias_folio ON garantias(folio);
     CREATE TABLE IF NOT EXISTS parts_requests (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       empresa TEXT NOT NULL,
@@ -1189,51 +1198,65 @@ app.get('/api/garantias', authRequired, async (req, res) => {
 });
 
 app.post('/api/garantias', authRequired, requireRoles('operador', 'admin'), async (req, res) => {
-  const body = req.body;
-  const id = cryptoRandomId();
-  const folio = await nextGarantiaFolio();
-  const required = [body.numeroObra, body.modelo, body.numeroEconomico, body.empresa, body.tipoIncidente, body.descripcionFallo];
-  if (required.some(v => !String(v || '').trim())) {
-    return res.status(400).json({ error: 'Faltan campos obligatorios del reporte.' });
+  const client = await pool.connect();
+  try {
+    const body = req.body;
+    const id = cryptoRandomId();
+    const required = [body.numeroObra, body.modelo, body.numeroEconomico, body.empresa, body.tipoIncidente, body.descripcionFallo];
+    if (required.some(v => !String(v || '').trim())) {
+      return res.status(400).json({ error: 'Faltan campos obligatorios del reporte.' });
+    }
+    await client.query('BEGIN');
+    const folio = await nextGarantiaFolio(client);
+    const duplicated = await client.query(`SELECT 1 FROM garantias WHERE folio = $1 LIMIT 1`, [folio]);
+    if (duplicated.rowCount) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'No se pudo reservar un folio único. Intenta nuevamente.' });
+    }
+    const result = await client.query(
+      `INSERT INTO garantias (
+        id, folio, numero_obra, modelo, numero_economico, empresa, kilometraje, contacto_nombre, telefono, tipo_incidente,
+        descripcion_fallo, solicita_refaccion, detalle_refaccion,
+        estatus_validacion, estatus_operativo,
+        evidencias, evidencias_refaccion, firma,
+        reportado_por_id, reportado_por_nombre, reportado_por_email,
+        updated_at
+      ) VALUES (
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'nueva','sin iniciar',$14::jsonb,$15::jsonb,$16,$17,$18,$19,NOW()
+      ) RETURNING *`,
+      [
+        id,
+        folio,
+        body.numeroObra,
+        body.modelo,
+        body.numeroEconomico,
+        body.empresa,
+        body.kilometraje || '',
+        body.contactoNombre || '',
+        normalizeMxPhone(body.telefono),
+        body.tipoIncidente,
+        body.descripcionFallo,
+        !!body.solicitaRefaccion,
+        body.detalleRefaccion || '',
+        JSON.stringify(body.evidencias || []),
+        JSON.stringify(body.evidenciasRefaccion || []),
+        body.firma || '',
+        req.user.id,
+        req.user.nombre,
+        req.user.email,
+      ]
+    );
+    await client.query('COMMIT');
+    await addAuditLog(id, req.user.id, 'crear_reporte', `Reporte creado por ${req.user.nombre}`);
+    notifyGarantiaWhatsApp('created', result.rows[0]).catch(() => {});
+    res.status(201).json(mapGarantia(result.rows[0]));
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('Error creando reporte:', error);
+    res.status(500).json({ error: 'No se pudo crear el reporte.' });
+  } finally {
+    client.release();
   }
-
-  const result = await pool.query(
-    `INSERT INTO garantias (
-      id, folio, numero_obra, modelo, numero_economico, empresa, kilometraje, contacto_nombre, telefono, tipo_incidente,
-      descripcion_fallo, solicita_refaccion, detalle_refaccion,
-      estatus_validacion, estatus_operativo,
-      evidencias, evidencias_refaccion, firma,
-      reportado_por_id, reportado_por_nombre, reportado_por_email,
-      updated_at
-    ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'nueva','sin iniciar',$14::jsonb,$15::jsonb,$16,$17,$18,$19,NOW()
-    ) RETURNING *`,
-    [
-      id,
-      folio,
-      body.numeroObra,
-      body.modelo,
-      body.numeroEconomico,
-      body.empresa,
-      body.kilometraje || '',
-      body.contactoNombre || '',
-      normalizeMxPhone(body.telefono),
-      body.tipoIncidente,
-      body.descripcionFallo,
-      !!body.solicitaRefaccion,
-      body.detalleRefaccion || '',
-      JSON.stringify(body.evidencias || []),
-      JSON.stringify(body.evidenciasRefaccion || []),
-      body.firma || '',
-      req.user.id,
-      req.user.nombre,
-      req.user.email,
-    ]
-  );
-
-  await addAuditLog(id, req.user.id, 'crear_reporte', `Reporte creado por ${req.user.nombre}`);
-  notifyGarantiaWhatsApp('created', result.rows[0]).catch(() => {});
-  res.status(201).json(mapGarantia(result.rows[0]));
 });
 
 
@@ -1447,20 +1470,25 @@ app.get('/api/schedules', authRequired, requireRoles('admin', 'operativo', 'supe
 });
 
 app.post('/api/schedules/manual', authRequired, requireRoles('admin','operativo'), async (req, res) => {
-  const empresa = String(req.body.empresa || '').trim();
-  const unidad = String(req.body.unidad || '').trim();
-  const telefono = normalizeMxPhone(req.body.telefono || '');
-  const folioManual = String(req.body.folio || '').trim();
-  const contactoNombre = String(req.body.contactoNombre || '').trim();
-  const scheduledFor = req.body.scheduledFor ? new Date(req.body.scheduledFor) : null;
-  const notes = String(req.body.notes || '').trim();
-  if (!empresa || !unidad || !scheduledFor || Number.isNaN(scheduledFor.getTime())) return res.status(400).json({ error: 'Completa empresa, unidad y fecha válida.' });
-  const result = await pool.query(`
-    INSERT INTO schedule_requests (id, garantia_id, telefono, status, notes, scheduled_for, confirmed_at, empresa, numero_economico, contacto_nombre, folio_manual)
-    VALUES ($1,NULL,$2,'confirmed',$3,$4,NOW(),$5,$6,$7,$8)
-    RETURNING *
-  `, [cryptoRandomId(), telefono, notes, scheduledFor.toISOString(), empresa, unidad, contactoNombre, folioManual]);
-  res.status(201).json(scheduleSummary(result.rows[0]));
+  try {
+    const empresa = String(req.body.empresa || '').trim();
+    const unidad = String(req.body.unidad || '').trim();
+    const telefono = normalizeMxPhone(req.body.telefono || '');
+    const folioManual = String(req.body.folio || '').trim();
+    const contactoNombre = String(req.body.contactoNombre || '').trim();
+    const scheduledFor = req.body.scheduledFor ? new Date(req.body.scheduledFor) : null;
+    const notes = String(req.body.notes || '').trim();
+    if (!empresa || !unidad || !scheduledFor || Number.isNaN(scheduledFor.getTime())) return res.status(400).json({ error: 'Completa empresa, unidad y fecha válida.' });
+    const result = await pool.query(`
+      INSERT INTO schedule_requests (id, garantia_id, telefono, status, notes, scheduled_for, confirmed_at, empresa, numero_economico, contacto_nombre, folio_manual)
+      VALUES ($1,NULL,$2,'confirmed',$3,$4,NOW(),$5,$6,$7,$8)
+      RETURNING *
+    `, [cryptoRandomId(), telefono, notes, scheduledFor.toISOString(), empresa, unidad, contactoNombre, folioManual]);
+    res.status(201).json(scheduleSummary(result.rows[0]));
+  } catch (error) {
+    console.error('Error guardando ingreso manual:', error);
+    res.status(500).json({ error: 'No se pudo programar el ingreso manual.' });
+  }
 });
 
 app.post('/api/garantias/:id/request-schedule', authRequired, requireRoles('admin', 'operativo', 'supervisor_flotas'), async (req, res) => {

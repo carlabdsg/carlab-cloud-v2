@@ -468,7 +468,7 @@ function reportPayload() {
 
 function roleCopy(role) {
   return {
-    admin: { title:'Cabina administrativa', summary:'Control total. Apruebas accesos, administras usuarios, ves analítica y conviertes reincidencias en acción.', panels:[['Gestión total','Usuarios, empresas y solicitudes en una sola vista.'],['Lectura comercial','Detecta patrones por empresa, modelo y unidad.'],['Control operativo','Puedes actuar igual que un operativo cuando haga falta.']], boardKicker:'ADMIN', listTitle:'Bandeja general del sistema', legend:'Portal corporativo con control total, solicitudes y lectura comercial.' },
+    admin: { title:'Cabina administrativa', summary:'Vista ejecutiva: decide rápido con KPIs y acciones clave.', panels:[['Operación viva','Entradas, validación y avance en una lectura.'],['Comercial','Detecta oportunidad por unidad y reincidencia.'],['Gobierno','Usuarios, empresas y accesos bajo control.']], boardKicker:'ADMIN', listTitle:'Bandeja general del sistema', legend:'KPIs, control y trazabilidad en una sola vista.' },
     operador: { title:'Portal de operador', summary:'Reportas fallas, subes evidencia y ves el estatus sin depender de llamadas.', panels:[['Levantar incidencia','Captura la falla con datos, fotos, refacción y firma.'],['Seguimiento','Consulta si fue aceptada, rechazada o quedó pendiente.'],['Sin cruces','Solo ves tus reportes. No puedes decidir ni alterar revisiones.']], boardKicker:'OPERADOR', listTitle:'Mis reportes de garantía', legend:'Aquí ves solo tus reportes y su estatus actual.' },
     operativo: { title:'Mesa de validación operativa', summary:'Revisas reportes, decides si proceden y mueves el trabajo hasta terminar.', panels:[['Decisión','Acepta, rechaza o marca pendiente de revisión.'],['Flujo','Mueve el trabajo a en proceso, espera refacción o terminada.'],['Patrones','También ves unidades reincidentes para atacar la raíz.']], boardKicker:'OPERATIVO', listTitle:'Bandeja operativa', legend:'Aquí validas, autorizas y avanzas el trabajo.' },
     supervisor: { title:'Portal de supervisor', summary:'Consulta únicamente la información de tu empresa en modo corporativo de solo lectura.', panels:[['Visibilidad','Revisa empresas, unidades, evidencias y avances.'],['Lectura ejecutiva','Historial por unidad y top de fallas sin tocar procesos.'],['Sin edición','No cambias decisiones ni alteras procesos.']], boardKicker:'SUPERVISOR', listTitle:'Bandeja supervisada', legend:'Monitoreo integral con lectura operativa y comercial.' },
@@ -509,7 +509,7 @@ function updateOperatorAppNav(panel) {
   if (panel === 'schedule') els.opNavScheduleBtn?.classList.add('active');
 }
 function switchPanel(panel) {
-  if (state.user?.role === 'supervisor_flotas' && ['users','requests','companies','report','stock','cobranza','board','analytics','history','schedule'].includes(panel)) panel = 'fleet';
+  if (state.user?.role === 'supervisor_flotas' && ['users','requests','companies','report','stock','cobranza','analytics'].includes(panel)) panel = 'fleet';
   if (!isRole('admin') && ['stock','cobranza'].includes(panel)) panel = state.user?.role === 'supervisor_flotas' ? 'fleet' : 'board';
   if (state.user?.role === 'supervisor' && ['users','requests','companies','fleet','parts','report','stock','cobranza'].includes(panel)) panel = 'board';
   state.activePanel = panel;
@@ -578,10 +578,7 @@ function showDashboard() {
     els.navCompaniesBtn?.classList.add('hidden');
   }
   if (state.user?.role === 'supervisor_flotas') {
-    els.navBoardBtn?.classList.add('hidden');
     els.navAnalyticsBtn?.classList.add('hidden');
-    els.navHistoryBtn?.classList.add('hidden');
-    els.navScheduleBtn?.classList.add('hidden');
     els.navUsersBtn?.classList.add('hidden');
     els.navRequestsBtn?.classList.add('hidden');
     els.navCompaniesBtn?.classList.add('hidden');
@@ -1372,6 +1369,7 @@ function syncDirectSalePartDefaults(forcePartDefaults = false) {
     const price = Number(part.precioVenta || part.costoUnitario || 0);
     if (els.directSalePrice && (forcePartDefaults || !Number(els.directSalePrice.value || 0) || state.directSaleDraftPartId)) els.directSalePrice.value = price ? price.toFixed(2) : '0';
     if (els.directSaleConcept && (forcePartDefaults || !els.directSaleConcept.value || state.directSaleDraftPartId)) els.directSaleConcept.value = part.nombre || 'Venta directa';
+    if (forcePartDefaults && els.directSaleType) els.directSaleType.value = 'refaccion';
   }
   updateDirectSalePreview();
 }
@@ -1422,7 +1420,13 @@ function currentDirectSalePayload(includeDraft = true) {
   const items = [...state.directSaleItems];
   if (includeDraft) {
     const draft = currentDirectSaleDraftItem();
-    if (draft) items.push(draft);
+    const looksDuplicated = draft && items.some(item =>
+      String(item.stockPartId || '') === String(draft.stockPartId || '') &&
+      String(item.description || '') === String(draft.description || '') &&
+      Number(item.qty || 0) === Number(draft.qty || 0) &&
+      Number(item.unitPrice || 0) === Number(draft.unitPrice || 0)
+    );
+    if (draft && !looksDuplicated) items.push(draft);
   }
   return {
     customerName: String(els.directSaleCustomer?.value || '').trim() || 'Mostrador',
@@ -1554,12 +1558,18 @@ function renderCobranza() {
   }
   if (els.cobranzaQuotesList) {
     els.cobranzaQuotesList.innerHTML = state.cobranzaQuotes.length ? state.cobranzaQuotes.map(q => `
-      <button type="button" class="cobranza-quote-row ${q.id === state.selectedQuoteId ? 'active' : ''}" data-quote-open="${q.id}">
-        <div><strong>${escapeHtml(q.folio || 'COB-—')}</strong><div class="small muted">${escapeHtml(q.companyName || 'Sin empresa')} · unidad ${escapeHtml(q.unitNumber || '—')}</div></div>
-        <div class="cobranza-row-side"><span class="badge ${quoteStatusBadge(q.status)}">${escapeHtml(q.status.replaceAll('_',' '))}</span><strong>${money(q.total || 0)}</strong></div>
-      </button>`).join('') : '<div class="muted">Todavía no hay cobros preparados. Usa “Preparar cobro” desde un reporte terminado.</div>';
+      <article class="cobranza-quote-card ${q.id === state.selectedQuoteId ? 'active' : ''}">
+        <button type="button" class="cobranza-quote-row ${q.id === state.selectedQuoteId ? 'active' : ''}" data-quote-open="${q.id}">
+          <div><strong>${escapeHtml(q.folio || 'COB-—')}</strong><div class="small muted">${escapeHtml(q.companyName || 'Sin empresa')} · unidad ${escapeHtml(q.unitNumber || '—')}</div></div>
+          <div class="cobranza-row-side"><span class="badge ${quoteStatusBadge(q.status)}">${escapeHtml(q.status.replaceAll('_',' '))}</span><strong>${money(q.total || 0)}</strong></div>
+        </button>
+        <div class="cobranza-quote-expand ${q.id === state.selectedQuoteId ? '' : 'hidden'}">
+          <div class="small muted">Cliente: ${escapeHtml(q.clientName || 'Sin contacto')} · Tel: ${escapeHtml(q.clientPhone || '—')}</div>
+          <div class="small muted">Pago: ${escapeHtml((q.paymentStatus || 'pendiente_pago').replaceAll('_',' '))} · Actualizado: ${escapeHtml(fmtDate(q.updatedAt || q.createdAt))}</div>
+        </div>
+      </article>`).join('') : '<div class="muted">Todavía no hay cobros preparados. Usa “Preparar cobro” desde un reporte terminado.</div>';
     els.cobranzaQuotesList.querySelectorAll('[data-quote-open]').forEach(btn => btn.addEventListener('click', () => {
-      state.selectedQuoteId = btn.dataset.quoteOpen;
+      state.selectedQuoteId = state.selectedQuoteId === btn.dataset.quoteOpen ? '' : btn.dataset.quoteOpen;
       renderCobranza();
     }));
   }
@@ -2658,6 +2668,40 @@ els.userRole?.addEventListener('change', () => {
 els.unitHistoryBtn?.addEventListener('click', renderUnitHistory);
 els.unitHistorySearchInput?.addEventListener('input', () => paintUnitHistory(state.unitHistoryRows || []));
 els.scheduleRefreshBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
+els.scheduleManualCancelBtn?.addEventListener('click', () => resetScheduleManualForm());
+els.scheduleManualEmpresa?.addEventListener('change', () => {
+  const company = els.scheduleManualEmpresa?.value || '';
+  const units = (state.fleetUnits || []).filter(u => !company || u.empresa === company);
+  if (els.scheduleManualUnidad) {
+    els.scheduleManualUnidad.innerHTML = '<option value="">Selecciona unidad</option>' + units.map(u => `<option value="${escapeHtml(u.numeroEconomico || '')}">${escapeHtml(u.numeroEconomico || '')} · ${escapeHtml(u.modelo || '')}</option>`).join('');
+    els.scheduleManualUnidad.value = '';
+  }
+});
+els.scheduleManualUnidad?.addEventListener('change', () => {
+  const selectedUnit = (state.fleetUnits || []).find(u => String(u.numeroEconomico || '') === String(els.scheduleManualUnidad?.value || ''));
+  if (selectedUnit && els.scheduleManualEmpresa && !els.scheduleManualEmpresa.value) els.scheduleManualEmpresa.value = selectedUnit.empresa || '';
+});
+els.scheduleManualForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    const payload = {
+      empresa: String(els.scheduleManualEmpresa?.value || '').trim(),
+      unidad: String(els.scheduleManualUnidad?.value || '').trim(),
+      telefono: String(els.scheduleManualTelefono?.value || '').trim(),
+      folio: String(els.scheduleManualFolio?.value || '').trim(),
+      contactoNombre: String(els.scheduleManualContacto?.value || '').trim(),
+      scheduledFor: els.scheduleManualDatetime?.value ? new Date(els.scheduleManualDatetime.value).toISOString() : '',
+      notes: String(els.scheduleManualNotes?.value || '').trim(),
+    };
+    await api.createManualSchedule(payload);
+    notify('Ingreso manual programado.');
+    resetScheduleManualForm();
+    await loadSchedules('');
+    switchPanel('schedule');
+  } catch (error) {
+    notify(error.message, true);
+  }
+});
 
 els.fleetRefreshBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
 els.partsRefreshBtn?.addEventListener('click', async () => { await loadPartsPending(true); switchPanel('parts'); });
@@ -2762,6 +2806,3 @@ window.guardarCostoAdmin = guardarCostoAdmin;
 window.eliminarCostoAdmin = eliminarCostoAdmin;
 window.openImageLightbox = openImageLightbox;
 window.focusFleetUnit = focusFleetUnit;
-
-
-
