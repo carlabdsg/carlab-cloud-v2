@@ -4837,3 +4837,62 @@ body:not(.operator-mode) #reportFormPanel canvas {
   background: transparent !important;
   color: #111827 !important;
 }
+
+/* Final typography contrast fix for clear premium mode (Reportes + Flotas) */
+body:not(.operator-mode)[data-panel="board"] #boardPanel h3,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel h3,
+body:not(.operator-mode)[data-panel="fleet"] #fleetDetail h3,
+body:not(.operator-mode)[data-panel="report"] #reportFormPanel h3,
+body:not(.operator-mode)[data-panel="board"] #garantiasList .title,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-main strong {
+  color: #0A0A0A !important;
+}
+body:not(.operator-mode)[data-panel="board"] .topbar-kicker,
+body:not(.operator-mode)[data-panel="board"] .card-top .meta,
+body:not(.operator-mode)[data-panel="fleet"] .topbar-kicker,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-detail-head p,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-sub {
+  color: #1F2937 !important;
+}
+body:not(.operator-mode)[data-panel="board"] #garantiasList .description,
+body:not(.operator-mode)[data-panel="board"] #garantiasList .mini-grid div,
+body:not(.operator-mode)[data-panel="fleet"] #fleetDetail .table-row,
+body:not(.operator-mode)[data-panel="fleet"] #fleetDetail .timeline-item p,
+body:not(.operator-mode)[data-panel="fleet"] #fleetDetail .owner-list-row span,
+body:not(.operator-mode)[data-panel="fleet"] #fleetDetail .owner-list-row strong,
+body:not(.operator-mode)[data-panel="fleet"] #fleetDetail .fleet-line-status,
+body:not(.operator-mode)[data-panel="report"] #reportFormPanel .grid-form {
+  color: #374151 !important;
+}
+body:not(.operator-mode)[data-panel="board"] #garantiasList label,
+body:not(.operator-mode)[data-panel="board"] #garantiasList .label,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel label,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .label,
+body:not(.operator-mode)[data-panel="report"] #reportFormPanel label,
+body:not(.operator-mode)[data-panel="report"] #reportFormPanel .label {
+  color: #4B5563 !important;
+}
+body:not(.operator-mode)[data-panel="board"] #garantiasList .small,
+body:not(.operator-mode)[data-panel="board"] #garantiasList .muted,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .small,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .muted,
+body:not(.operator-mode)[data-panel="report"] #reportFormPanel .small,
+body:not(.operator-mode)[data-panel="report"] #reportFormPanel .muted {
+  color: #6B7280 !important;
+}
+body:not(.operator-mode)[data-panel="board"] #boardPanel input::placeholder,
+body:not(.operator-mode)[data-panel="board"] #boardPanel textarea::placeholder,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel input::placeholder,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel textarea::placeholder,
+body:not(.operator-mode)[data-panel="report"] #reportFormPanel input::placeholder,
+body:not(.operator-mode)[data-panel="report"] #reportFormPanel textarea::placeholder {
+  color: #9CA3AF !important;
+}
+
+/* informative chips in reportes/flotas */
+body:not(.operator-mode)[data-panel="board"] #garantiasList .badge,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .badge,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-chip,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-dot {
+  color: #374151 !important;
+}
