@@ -3974,3 +3974,183 @@ body.executive-mode .nav-btn:hover {
   background: linear-gradient(145deg, rgba(105, 169, 246, 0.28), rgba(45, 90, 160, 0.42)) !important;
   border-color: rgba(173, 215, 255, 0.35) !important;
 }
+
+/* V2 final contrast+legibility pass (single premium system, non-operator only) */
+body:not(.operator-mode)[data-role="admin"],
+body:not(.operator-mode)[data-role="operativo"],
+body:not(.operator-mode)[data-role="supervisor"],
+body:not(.operator-mode)[data-role="supervisor_flotas"] {
+  --ui-bg: linear-gradient(165deg, rgba(18, 33, 56, 0.92), rgba(11, 20, 34, 0.95));
+  --ui-bg-strong: linear-gradient(155deg, rgba(24, 44, 74, 0.94), rgba(12, 23, 40, 0.96));
+  --ui-brd: 1px solid rgba(173, 214, 255, 0.2);
+  --ui-txt: #eaf3ff;
+  --ui-sub: rgba(205, 222, 245, 0.84);
+  --ui-lbl: rgba(220, 234, 255, 0.92);
+  --ui-ph: rgba(173, 196, 224, 0.86);
+  --ui-shadow: 0 16px 34px rgba(4, 10, 20, 0.42);
+}
+
+/* Remove white islands in target modules */
+body:not(.operator-mode)[data-role="admin"] #boardPanel,
+body:not(.operator-mode)[data-role="operativo"] #boardPanel,
+body:not(.operator-mode)[data-role="supervisor"] #boardPanel,
+body:not(.operator-mode)[data-role="supervisor_flotas"] #boardPanel,
+body:not(.operator-mode)[data-role="admin"] #schedulePanel,
+body:not(.operator-mode)[data-role="operativo"] #schedulePanel,
+body:not(.operator-mode)[data-role="supervisor"] #schedulePanel,
+body:not(.operator-mode)[data-role="supervisor_flotas"] #schedulePanel,
+body:not(.operator-mode)[data-role="admin"] #fleetPanel,
+body:not(.operator-mode)[data-role="operativo"] #fleetPanel,
+body:not(.operator-mode)[data-role="supervisor"] #fleetPanel,
+body:not(.operator-mode)[data-role="supervisor_flotas"] #fleetPanel,
+body:not(.operator-mode)[data-role="admin"] #reportFormPanel,
+body:not(.operator-mode)[data-role="operativo"] #reportFormPanel,
+body:not(.operator-mode)[data-role="supervisor"] #reportFormPanel,
+body:not(.operator-mode)[data-role="supervisor_flotas"] #reportFormPanel,
+body:not(.operator-mode)[data-role="admin"] .toolbar,
+body:not(.operator-mode)[data-role="operativo"] .toolbar,
+body:not(.operator-mode)[data-role="supervisor"] .toolbar,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .toolbar,
+body:not(.operator-mode)[data-role="admin"] .history-search-box,
+body:not(.operator-mode)[data-role="operativo"] .history-search-box,
+body:not(.operator-mode)[data-role="supervisor"] .history-search-box,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .history-search-box,
+body:not(.operator-mode)[data-role="admin"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="operativo"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="supervisor"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="admin"] .schedule-manual-card,
+body:not(.operator-mode)[data-role="operativo"] .schedule-manual-card,
+body:not(.operator-mode)[data-role="supervisor"] .schedule-manual-card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .schedule-manual-card,
+body:not(.operator-mode)[data-role="admin"] #scheduleCalendar,
+body:not(.operator-mode)[data-role="operativo"] #scheduleCalendar,
+body:not(.operator-mode)[data-role="supervisor"] #scheduleCalendar,
+body:not(.operator-mode)[data-role="supervisor_flotas"] #scheduleCalendar,
+body:not(.operator-mode)[data-role="admin"] .owner-card,
+body:not(.operator-mode)[data-role="operativo"] .owner-card,
+body:not(.operator-mode)[data-role="supervisor"] .owner-card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .owner-card,
+body:not(.operator-mode)[data-role="admin"] .owner-gallery-card,
+body:not(.operator-mode)[data-role="operativo"] .owner-gallery-card,
+body:not(.operator-mode)[data-role="supervisor"] .owner-gallery-card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .owner-gallery-card,
+body:not(.operator-mode)[data-role="admin"] .fleet-line-item,
+body:not(.operator-mode)[data-role="operativo"] .fleet-line-item,
+body:not(.operator-mode)[data-role="supervisor"] .fleet-line-item,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .fleet-line-item,
+body:not(.operator-mode)[data-role="admin"] .schedule-card,
+body:not(.operator-mode)[data-role="operativo"] .schedule-card,
+body:not(.operator-mode)[data-role="supervisor"] .schedule-card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .schedule-card,
+body:not(.operator-mode)[data-role="admin"] #garantiasList .card,
+body:not(.operator-mode)[data-role="operativo"] #garantiasList .card,
+body:not(.operator-mode)[data-role="supervisor"] #garantiasList .card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] #garantiasList .card {
+  background: var(--ui-bg) !important;
+  border: var(--ui-brd) !important;
+  box-shadow: var(--ui-shadow) !important;
+  color: var(--ui-txt) !important;
+}
+
+/* Legibility */
+body:not(.operator-mode)[data-role="admin"] h1,
+body:not(.operator-mode)[data-role="operativo"] h1,
+body:not(.operator-mode)[data-role="supervisor"] h1,
+body:not(.operator-mode)[data-role="supervisor_flotas"] h1,
+body:not(.operator-mode)[data-role="admin"] h2,
+body:not(.operator-mode)[data-role="operativo"] h2,
+body:not(.operator-mode)[data-role="supervisor"] h2,
+body:not(.operator-mode)[data-role="supervisor_flotas"] h2,
+body:not(.operator-mode)[data-role="admin"] h3,
+body:not(.operator-mode)[data-role="operativo"] h3,
+body:not(.operator-mode)[data-role="supervisor"] h3,
+body:not(.operator-mode)[data-role="supervisor_flotas"] h3,
+body:not(.operator-mode)[data-role="admin"] strong,
+body:not(.operator-mode)[data-role="operativo"] strong,
+body:not(.operator-mode)[data-role="supervisor"] strong,
+body:not(.operator-mode)[data-role="supervisor_flotas"] strong { color: var(--ui-txt) !important; }
+body:not(.operator-mode)[data-role="admin"] .muted,
+body:not(.operator-mode)[data-role="operativo"] .muted,
+body:not(.operator-mode)[data-role="supervisor"] .muted,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .muted,
+body:not(.operator-mode)[data-role="admin"] .small,
+body:not(.operator-mode)[data-role="operativo"] .small,
+body:not(.operator-mode)[data-role="supervisor"] .small,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .small,
+body:not(.operator-mode)[data-role="admin"] label,
+body:not(.operator-mode)[data-role="operativo"] label,
+body:not(.operator-mode)[data-role="supervisor"] label,
+body:not(.operator-mode)[data-role="supervisor_flotas"] label,
+body:not(.operator-mode)[data-role="admin"] .label,
+body:not(.operator-mode)[data-role="operativo"] .label,
+body:not(.operator-mode)[data-role="supervisor"] .label,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .label { color: var(--ui-lbl) !important; }
+
+/* Premium forms */
+body:not(.operator-mode)[data-role="admin"] input,
+body:not(.operator-mode)[data-role="operativo"] input,
+body:not(.operator-mode)[data-role="supervisor"] input,
+body:not(.operator-mode)[data-role="supervisor_flotas"] input,
+body:not(.operator-mode)[data-role="admin"] select,
+body:not(.operator-mode)[data-role="operativo"] select,
+body:not(.operator-mode)[data-role="supervisor"] select,
+body:not(.operator-mode)[data-role="supervisor_flotas"] select,
+body:not(.operator-mode)[data-role="admin"] textarea,
+body:not(.operator-mode)[data-role="operativo"] textarea,
+body:not(.operator-mode)[data-role="supervisor"] textarea,
+body:not(.operator-mode)[data-role="supervisor_flotas"] textarea {
+  background: var(--ui-bg-strong) !important;
+  color: var(--ui-txt) !important;
+  border: 1px solid rgba(166, 206, 255, 0.28) !important;
+  min-height: 42px !important;
+}
+body:not(.operator-mode)[data-role="admin"] input::placeholder,
+body:not(.operator-mode)[data-role="operativo"] input::placeholder,
+body:not(.operator-mode)[data-role="supervisor"] input::placeholder,
+body:not(.operator-mode)[data-role="supervisor_flotas"] input::placeholder,
+body:not(.operator-mode)[data-role="admin"] textarea::placeholder,
+body:not(.operator-mode)[data-role="operativo"] textarea::placeholder,
+body:not(.operator-mode)[data-role="supervisor"] textarea::placeholder,
+body:not(.operator-mode)[data-role="supervisor_flotas"] textarea::placeholder { color: var(--ui-ph) !important; }
+body:not(.operator-mode)[data-role="admin"] input:focus,
+body:not(.operator-mode)[data-role="operativo"] input:focus,
+body:not(.operator-mode)[data-role="supervisor"] input:focus,
+body:not(.operator-mode)[data-role="supervisor_flotas"] input:focus,
+body:not(.operator-mode)[data-role="admin"] select:focus,
+body:not(.operator-mode)[data-role="operativo"] select:focus,
+body:not(.operator-mode)[data-role="supervisor"] select:focus,
+body:not(.operator-mode)[data-role="supervisor_flotas"] select:focus,
+body:not(.operator-mode)[data-role="admin"] textarea:focus,
+body:not(.operator-mode)[data-role="operativo"] textarea:focus,
+body:not(.operator-mode)[data-role="supervisor"] textarea:focus,
+body:not(.operator-mode)[data-role="supervisor_flotas"] textarea:focus {
+  border-color: rgba(182, 221, 255, 0.68) !important;
+  box-shadow: 0 0 0 3px rgba(121, 181, 255, 0.18) !important;
+}
+
+/* Sidebar contrast */
+body.executive-mode .sidebar .muted,
+body.executive-mode .nav-group-label { color: rgba(219, 235, 255, 0.78) !important; }
+body.executive-mode .profile-panel strong,
+body.executive-mode .currentRoleBadge,
+body.executive-mode .nav-btn { color: #e9f3ff !important; }
+body.executive-mode .nav-btn.active,
+body.executive-mode .nav-btn:hover {
+  color: #ffffff !important;
+  box-shadow: 0 0 0 1px rgba(176, 216, 255, 0.34), 0 10px 22px rgba(6, 14, 28, 0.35) !important;
+}
+
+/* spacing consistency */
+body:not(.operator-mode)[data-role="admin"] .cards,
+body:not(.operator-mode)[data-role="operativo"] .cards,
+body:not(.operator-mode)[data-role="supervisor"] .cards,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .cards,
+body:not(.operator-mode)[data-role="admin"] .table-list,
+body:not(.operator-mode)[data-role="operativo"] .table-list,
+body:not(.operator-mode)[data-role="supervisor"] .table-list,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .table-list,
+body:not(.operator-mode)[data-role="admin"] .mini-grid,
+body:not(.operator-mode)[data-role="operativo"] .mini-grid,
+body:not(.operator-mode)[data-role="supervisor"] .mini-grid,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .mini-grid { gap: 14px !important; }
