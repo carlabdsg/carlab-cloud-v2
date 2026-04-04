@@ -4571,3 +4571,198 @@ body.executive-mode .nav-btn {
 body.executive-mode .nav-btn.active {
   box-shadow: 0 0 0 1px rgba(76,111,255,.24), 0 8px 18px rgba(76,111,255,.12) !important;
 }
+
+/* V2 stock-master unification pass (final) */
+body:not(.operator-mode)[data-role="admin"],
+body:not(.operator-mode)[data-role="operativo"],
+body:not(.operator-mode)[data-role="supervisor"],
+body:not(.operator-mode)[data-role="supervisor_flotas"] {
+  --stock-bg-main: #f5f7fb;
+  --stock-surface: linear-gradient(180deg,#ffffff,#f8fafc);
+  --stock-border: 1px solid rgba(15,23,42,.08);
+  --stock-shadow: 0 10px 24px rgba(15,23,42,.06);
+  --stock-radius: 18px;
+  --stock-text: #111827;
+  --stock-sub: #475467;
+}
+
+/* Header/user block alignment fix: keep inside normal flow */
+body.executive-mode .sidebar-top {
+  display: block !important;
+  position: static !important;
+  overflow: auto !important;
+  padding: 0 !important;
+}
+body.executive-mode .profile-panel {
+  position: static !important;
+  margin: 10px 0 12px !important;
+}
+
+/* Base light background and module consistency */
+body:not(.operator-mode)[data-role="admin"],
+body:not(.operator-mode)[data-role="operativo"],
+body:not(.operator-mode)[data-role="supervisor"],
+body:not(.operator-mode)[data-role="supervisor_flotas"] {
+  background: var(--stock-bg-main) !important;
+  color: var(--stock-text) !important;
+}
+body:not(.operator-mode)[data-role="admin"] .panel,
+body:not(.operator-mode)[data-role="operativo"] .panel,
+body:not(.operator-mode)[data-role="supervisor"] .panel,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .panel,
+body:not(.operator-mode)[data-role="admin"] .card,
+body:not(.operator-mode)[data-role="operativo"] .card,
+body:not(.operator-mode)[data-role="supervisor"] .card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .card,
+body:not(.operator-mode)[data-role="admin"] .owner-card,
+body:not(.operator-mode)[data-role="operativo"] .owner-card,
+body:not(.operator-mode)[data-role="supervisor"] .owner-card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .owner-card,
+body:not(.operator-mode)[data-role="admin"] .owner-gallery-card,
+body:not(.operator-mode)[data-role="operativo"] .owner-gallery-card,
+body:not(.operator-mode)[data-role="supervisor"] .owner-gallery-card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .owner-gallery-card,
+body:not(.operator-mode)[data-role="admin"] .table-row,
+body:not(.operator-mode)[data-role="operativo"] .table-row,
+body:not(.operator-mode)[data-role="supervisor"] .table-row,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .table-row,
+body:not(.operator-mode)[data-role="admin"] .toolbar,
+body:not(.operator-mode)[data-role="operativo"] .toolbar,
+body:not(.operator-mode)[data-role="supervisor"] .toolbar,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .toolbar,
+body:not(.operator-mode)[data-role="admin"] .history-search-box,
+body:not(.operator-mode)[data-role="operativo"] .history-search-box,
+body:not(.operator-mode)[data-role="supervisor"] .history-search-box,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .history-search-box,
+body:not(.operator-mode)[data-role="admin"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="operativo"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="supervisor"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="admin"] .schedule-manual-card,
+body:not(.operator-mode)[data-role="operativo"] .schedule-manual-card,
+body:not(.operator-mode)[data-role="supervisor"] .schedule-manual-card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .schedule-manual-card,
+body:not(.operator-mode)[data-role="admin"] #scheduleCalendar,
+body:not(.operator-mode)[data-role="operativo"] #scheduleCalendar,
+body:not(.operator-mode)[data-role="supervisor"] #scheduleCalendar,
+body:not(.operator-mode)[data-role="supervisor_flotas"] #scheduleCalendar,
+body:not(.operator-mode)[data-role="admin"] .fleet-line-item,
+body:not(.operator-mode)[data-role="operativo"] .fleet-line-item,
+body:not(.operator-mode)[data-role="supervisor"] .fleet-line-item,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .fleet-line-item {
+  background: var(--stock-surface) !important;
+  border: var(--stock-border) !important;
+  box-shadow: var(--stock-shadow) !important;
+  border-radius: var(--stock-radius) !important;
+  color: var(--stock-text) !important;
+}
+
+/* Stock-like forms */
+body:not(.operator-mode)[data-role="admin"] input,
+body:not(.operator-mode)[data-role="operativo"] input,
+body:not(.operator-mode)[data-role="supervisor"] input,
+body:not(.operator-mode)[data-role="supervisor_flotas"] input,
+body:not(.operator-mode)[data-role="admin"] select,
+body:not(.operator-mode)[data-role="operativo"] select,
+body:not(.operator-mode)[data-role="supervisor"] select,
+body:not(.operator-mode)[data-role="supervisor_flotas"] select,
+body:not(.operator-mode)[data-role="admin"] textarea,
+body:not(.operator-mode)[data-role="operativo"] textarea,
+body:not(.operator-mode)[data-role="supervisor"] textarea,
+body:not(.operator-mode)[data-role="supervisor_flotas"] textarea {
+  background: #fff !important;
+  border: 1px solid rgba(15,23,42,.12) !important;
+  color: #111827 !important;
+  border-radius: 12px !important;
+  min-height: 42px !important;
+  padding: 10px 12px !important;
+}
+body:not(.operator-mode)[data-role="admin"] input::placeholder,
+body:not(.operator-mode)[data-role="operativo"] input::placeholder,
+body:not(.operator-mode)[data-role="supervisor"] input::placeholder,
+body:not(.operator-mode)[data-role="supervisor_flotas"] input::placeholder,
+body:not(.operator-mode)[data-role="admin"] textarea::placeholder,
+body:not(.operator-mode)[data-role="operativo"] textarea::placeholder,
+body:not(.operator-mode)[data-role="supervisor"] textarea::placeholder,
+body:not(.operator-mode)[data-role="supervisor_flotas"] textarea::placeholder {
+  color: #667085 !important;
+}
+
+/* Stock-like buttons and spacing */
+body:not(.operator-mode)[data-role="admin"] .btn,
+body:not(.operator-mode)[data-role="operativo"] .btn,
+body:not(.operator-mode)[data-role="supervisor"] .btn,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .btn {
+  border-radius: 12px !important;
+  min-height: 40px !important;
+  padding: 9px 14px !important;
+}
+body:not(.operator-mode)[data-role="admin"] .btn-primary,
+body:not(.operator-mode)[data-role="operativo"] .btn-primary,
+body:not(.operator-mode)[data-role="supervisor"] .btn-primary,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .btn-primary {
+  background: #111827 !important;
+  border: 1px solid #111827 !important;
+  color: #fff !important;
+}
+body:not(.operator-mode)[data-role="admin"] .btn-secondary,
+body:not(.operator-mode)[data-role="operativo"] .btn-secondary,
+body:not(.operator-mode)[data-role="supervisor"] .btn-secondary,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .btn-secondary,
+body:not(.operator-mode)[data-role="admin"] .btn-ghost,
+body:not(.operator-mode)[data-role="operativo"] .btn-ghost,
+body:not(.operator-mode)[data-role="supervisor"] .btn-ghost,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .btn-ghost {
+  background: #fff !important;
+  border: 1px solid rgba(15,23,42,.12) !important;
+  color: #111827 !important;
+}
+
+body:not(.operator-mode)[data-role="admin"] .cards,
+body:not(.operator-mode)[data-role="operativo"] .cards,
+body:not(.operator-mode)[data-role="supervisor"] .cards,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .cards,
+body:not(.operator-mode)[data-role="admin"] .table-list,
+body:not(.operator-mode)[data-role="operativo"] .table-list,
+body:not(.operator-mode)[data-role="supervisor"] .table-list,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .table-list,
+body:not(.operator-mode)[data-role="admin"] .mini-grid,
+body:not(.operator-mode)[data-role="operativo"] .mini-grid,
+body:not(.operator-mode)[data-role="supervisor"] .mini-grid,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .mini-grid {
+  gap: 16px !important;
+}
+
+/* Typography cleanup */
+body:not(.operator-mode)[data-role="admin"] h1,
+body:not(.operator-mode)[data-role="operativo"] h1,
+body:not(.operator-mode)[data-role="supervisor"] h1,
+body:not(.operator-mode)[data-role="supervisor_flotas"] h1,
+body:not(.operator-mode)[data-role="admin"] h2,
+body:not(.operator-mode)[data-role="operativo"] h2,
+body:not(.operator-mode)[data-role="supervisor"] h2,
+body:not(.operator-mode)[data-role="supervisor_flotas"] h2,
+body:not(.operator-mode)[data-role="admin"] h3,
+body:not(.operator-mode)[data-role="operativo"] h3,
+body:not(.operator-mode)[data-role="supervisor"] h3,
+body:not(.operator-mode)[data-role="supervisor_flotas"] h3,
+body:not(.operator-mode)[data-role="admin"] strong,
+body:not(.operator-mode)[data-role="operativo"] strong,
+body:not(.operator-mode)[data-role="supervisor"] strong,
+body:not(.operator-mode)[data-role="supervisor_flotas"] strong { color: #111827 !important; }
+body:not(.operator-mode)[data-role="admin"] .muted,
+body:not(.operator-mode)[data-role="operativo"] .muted,
+body:not(.operator-mode)[data-role="supervisor"] .muted,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .muted,
+body:not(.operator-mode)[data-role="admin"] .small,
+body:not(.operator-mode)[data-role="operativo"] .small,
+body:not(.operator-mode)[data-role="supervisor"] .small,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .small,
+body:not(.operator-mode)[data-role="admin"] .label,
+body:not(.operator-mode)[data-role="operativo"] .label,
+body:not(.operator-mode)[data-role="supervisor"] .label,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .label,
+body:not(.operator-mode)[data-role="admin"] label,
+body:not(.operator-mode)[data-role="operativo"] label,
+body:not(.operator-mode)[data-role="supervisor"] label,
+body:not(.operator-mode)[data-role="supervisor_flotas"] label { color: var(--stock-sub) !important; }
