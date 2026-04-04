@@ -4896,3 +4896,103 @@ body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-chip,
 body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-dot {
   color: #374151 !important;
 }
+
+/* Final fleet typography contrast fix + demo premium microinteractions */
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-num {
+  color: #111827 !important;
+  font-weight: 700 !important;
+}
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-main strong,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-detail-head h3,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-owner-copy h3,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-detail-summary strong {
+  color: #0A0A0A !important;
+  font-weight: 600 !important;
+}
+body:not(.operator-mode)[data-panel="fleet"] .topbar-kicker,
+body:not(.operator-mode)[data-panel="fleet"] .owner-card-head strong,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-sub,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-meta-grid .label,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-detail-summary span,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-owner-kpis span {
+  color: #1F2937 !important;
+  font-weight: 600 !important;
+}
+body:not(.operator-mode)[data-panel="fleet"] .owner-list-row span,
+body:not(.operator-mode)[data-panel="fleet"] .owner-list-row strong,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-meta-grid strong,
+body:not(.operator-mode)[data-panel="fleet"] .table-row,
+body:not(.operator-mode)[data-panel="fleet"] .timeline-item p {
+  color: #374151 !important;
+  font-weight: 400 !important;
+}
+body:not(.operator-mode)[data-panel="fleet"] .label,
+body:not(.operator-mode)[data-panel="fleet"] label,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-chip {
+  color: #4B5563 !important;
+  font-weight: 500 !important;
+}
+body:not(.operator-mode)[data-panel="fleet"] .small,
+body:not(.operator-mode)[data-panel="fleet"] .muted,
+body:not(.operator-mode)[data-panel="fleet"] .timeline-item small,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-status {
+  color: #6B7280 !important;
+  font-weight: 400 !important;
+}
+
+/* Demo premium: smooth transitions and subtle interactions */
+body:not(.operator-mode) .panel,
+body:not(.operator-mode) .card,
+body:not(.operator-mode) .owner-card,
+body:not(.operator-mode) .schedule-card,
+body:not(.operator-mode) .fleet-line-item,
+body:not(.operator-mode) .table-row {
+  transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease, background-color .18s ease;
+}
+body:not(.operator-mode) .card:hover,
+body:not(.operator-mode) .owner-card:hover,
+body:not(.operator-mode) .schedule-card:hover,
+body:not(.operator-mode) .fleet-line-item:hover,
+body:not(.operator-mode) .table-row:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(15,23,42,.09) !important;
+}
+body:not(.operator-mode) .btn {
+  transition: transform .14s ease, box-shadow .18s ease, background-color .18s ease, border-color .18s ease, color .18s ease;
+}
+body:not(.operator-mode) .btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(15,23,42,.10);
+}
+body:not(.operator-mode) input,
+body:not(.operator-mode) select,
+body:not(.operator-mode) textarea {
+  transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
+}
+body:not(.operator-mode) .badge,
+body:not(.operator-mode) .fleet-chip,
+body:not(.operator-mode) .fleet-dot {
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease, transform .16s ease;
+}
+body:not(.operator-mode) .badge:hover,
+body:not(.operator-mode) .fleet-chip:hover,
+body:not(.operator-mode) .fleet-dot:hover { transform: translateY(-1px); }
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-item.selected {
+  box-shadow: 0 0 0 1px rgba(99, 122, 160, .18), 0 14px 28px rgba(15,23,42,.11) !important;
+}
+body.executive-mode .nav-btn {
+  transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease, transform .12s ease;
+}
+body.executive-mode .nav-btn:hover { transform: translateY(-1px); }
+
+@keyframes panelSoftIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+body:not(.operator-mode)[data-panel="board"] #boardPanel,
+body:not(.operator-mode)[data-panel="report"] #reportFormPanel,
+body:not(.operator-mode)[data-panel="schedule"] #schedulePanel,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel,
+body:not(.operator-mode)[data-panel="analytics"] #analyticsPanel {
+  animation: panelSoftIn .20s ease-out;
+}
