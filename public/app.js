@@ -509,7 +509,7 @@ function updateOperatorAppNav(panel) {
   if (panel === 'schedule') els.opNavScheduleBtn?.classList.add('active');
 }
 function switchPanel(panel) {
-  if (state.user?.role === 'supervisor_flotas' && ['users','requests','companies','report','stock','cobranza','board','analytics','history','schedule'].includes(panel)) panel = 'fleet';
+  if (state.user?.role === 'supervisor_flotas' && ['users','requests','companies','report','stock','cobranza','analytics'].includes(panel)) panel = 'fleet';
   if (!isRole('admin') && ['stock','cobranza'].includes(panel)) panel = state.user?.role === 'supervisor_flotas' ? 'fleet' : 'board';
   if (state.user?.role === 'supervisor' && ['users','requests','companies','fleet','parts','report','stock','cobranza'].includes(panel)) panel = 'board';
   state.activePanel = panel;
@@ -578,10 +578,7 @@ function showDashboard() {
     els.navCompaniesBtn?.classList.add('hidden');
   }
   if (state.user?.role === 'supervisor_flotas') {
-    els.navBoardBtn?.classList.add('hidden');
     els.navAnalyticsBtn?.classList.add('hidden');
-    els.navHistoryBtn?.classList.add('hidden');
-    els.navScheduleBtn?.classList.add('hidden');
     els.navUsersBtn?.classList.add('hidden');
     els.navRequestsBtn?.classList.add('hidden');
     els.navCompaniesBtn?.classList.add('hidden');
@@ -2809,4 +2806,3 @@ window.guardarCostoAdmin = guardarCostoAdmin;
 window.eliminarCostoAdmin = eliminarCostoAdmin;
 window.openImageLightbox = openImageLightbox;
 window.focusFleetUnit = focusFleetUnit;
-
