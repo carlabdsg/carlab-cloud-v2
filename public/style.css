@@ -4766,3 +4766,74 @@ body:not(.operator-mode)[data-role="admin"] label,
 body:not(.operator-mode)[data-role="operativo"] label,
 body:not(.operator-mode)[data-role="supervisor"] label,
 body:not(.operator-mode)[data-role="supervisor_flotas"] label { color: var(--stock-sub) !important; }
+
+/* Hard override: remove all dark/navy surfaces from board/report/schedule/fleet (stock-refacciones baseline) */
+body:not(.operator-mode)[data-panel="board"],
+body:not(.operator-mode)[data-panel="report"],
+body:not(.operator-mode)[data-panel="schedule"],
+body:not(.operator-mode)[data-panel="fleet"] {
+  --sr-surface: linear-gradient(180deg,#ffffff,#f8fafc);
+  --sr-border: 1px solid rgba(15,23,42,.08);
+  --sr-shadow: 0 10px 24px rgba(15,23,42,.06);
+}
+
+body:not(.operator-mode)[data-panel="board"] #executiveDeck,
+body:not(.operator-mode)[data-panel="board"] #executiveDeckGrid .executive-card,
+body:not(.operator-mode)[data-panel="board"] #executiveDeckGrid .executive-card.focus-card,
+body:not(.operator-mode)[data-panel="board"] #boardPanel,
+body:not(.operator-mode)[data-panel="board"] #garantiasList .card,
+body:not(.operator-mode)[data-panel="board"] #filtersPanel,
+body:not(.operator-mode)[data-panel="report"] #reportFormPanel,
+body:not(.operator-mode)[data-panel="schedule"] #schedulePanel,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-toolbar,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-manual-card,
+body:not(.operator-mode)[data-panel="schedule"] #scheduleCalendar,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-card,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-summary .stat,
+body:not(.operator-mode)[data-panel="schedule"] .calendar-cell,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-owner-hero,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-item,
+body:not(.operator-mode)[data-panel="fleet"] #fleetDetail,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-detail-premium,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-timeline-box,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-columns section,
+body:not(.operator-mode)[data-panel="fleet"] .owner-card,
+body:not(.operator-mode)[data-panel="fleet"] .owner-gallery-card,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-detail-summary article,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-status-admin,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-cost-form {
+  background: var(--sr-surface) !important;
+  border: var(--sr-border) !important;
+  box-shadow: var(--sr-shadow) !important;
+  color: #111827 !important;
+}
+
+/* calendar and KPI text legibility on clear cards */
+body:not(.operator-mode)[data-panel="schedule"] .calendar-head span,
+body:not(.operator-mode)[data-panel="schedule"] .date-chip,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-summary .stat span,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-summary .stat strong,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-summary .stat small,
+body:not(.operator-mode)[data-panel="board"] .executive-kicker,
+body:not(.operator-mode)[data-panel="board"] .executive-card strong,
+body:not(.operator-mode)[data-panel="board"] .executive-card p,
+body:not(.operator-mode)[data-panel="board"] .executive-meta,
+body:not(.operator-mode)[data-panel="board"] .executive-chip,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-main strong,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-sub,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-status,
+body:not(.operator-mode)[data-panel="fleet"] .timeline-item,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-detail-head h3,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-detail-summary strong {
+  color: #111827 !important;
+}
+
+/* ensure report/new-report forms are stock-like even if older dark rules exist */
+body:not(.operator-mode) #reportFormPanel .grid-form,
+body:not(.operator-mode) #reportFormPanel .grid-form > div,
+body:not(.operator-mode) #reportFormPanel .grid-form .col-span-2,
+body:not(.operator-mode) #reportFormPanel canvas {
+  background: transparent !important;
+  color: #111827 !important;
+}
