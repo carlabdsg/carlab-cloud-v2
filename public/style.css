@@ -5259,3 +5259,51 @@ body:not(.operator-mode)[data-role="supervisor_flotas"] .table-row {
   }
   .fleet-line-item { grid-template-columns: 1fr; align-items:flex-start; }
 }
+
+/* Critical fleet UX fix: centered modal must be visible above blur */
+body.fleet-detail-modal-open::before {
+  z-index: 9998 !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  background: rgba(0,0,0,.10) !important;
+}
+body.fleet-detail-modal-open #fleetPanel #fleetDetail {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  width: min(80vw, 1240px) !important;
+  max-height: 88vh !important;
+  overflow: auto !important;
+  z-index: 9999 !important;
+  opacity: 1 !important;
+  display: block !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* Critical fleet UX fix: responsive radar grid (not vertical list) */
+body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList.fleet-line-list {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+  gap: 16px !important;
+  align-items: stretch !important;
+}
+body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item {
+  height: 100%;
+}
+
+/* Card internal alignment polish */
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-num { align-self: start; }
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-main { display:grid; gap:4px; }
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-status { align-self:end; }
+
+@media (max-width: 980px) {
+  body.fleet-detail-modal-open #fleetPanel #fleetDetail {
+    width: 94vw !important;
+    max-height: 90vh !important;
+  }
+  body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList.fleet-line-list {
+    grid-template-columns: 1fr !important;
+  }
+}
