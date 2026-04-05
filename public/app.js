@@ -133,7 +133,7 @@ function bind() {
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
     'executiveDeck','executiveDeckGrid','liveRefreshBadge','topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistorySearchInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','partsPanel','partsRefreshBtn','partsSummary','partsList','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn','fleetOwnerDeck','imageLightbox','imageLightboxImg','imageLightboxClose',
     'navFleetBtn','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas','fleetNewBtn','fleetCancelBtn','fleetFormBox','fleetSearchInput','fleetStatusFilter',
-    'partsRequestModal','partsRequestClose','partsRequestCancel','partsRequestForm','partsRequestEmpresa','partsRequestUnidad','partsRequestSolicitud','partsRequestPriority','partsRequestNotes','partsRequestOwnerHint','imageLightboxCaption','stockRefreshBtn','stockSummary','stockList','stockMovements','stockPartForm','stockPartId','stockNombre','stockSku','stockProveedor','stockActual','stockMinimo','stockCosto','stockPrecio','stockUbicacion','stockNotas','stockSaveBtn','stockCancelBtn','scheduleManualForm','scheduleManualEmpresa','scheduleManualUnidad','scheduleManualTelefono','scheduleManualFolio','scheduleManualDatetime','scheduleManualContacto','scheduleManualNotes','scheduleManualCancelBtn','cobranzaRefreshBtn','cobranzaSummary','cobranzaQuotesList','cobranzaQuoteDetail','directSaleForm','directSaleCustomer','directSalePhone','directSaleCompany','directSaleUnit','directSaleType','directSaleConcept','directSaleStockPart','directSaleQty','directSalePrice','directSaleMethod','directSalePaymentStatus','directSaleNotes','directSaleAddConceptBtn','directSaleItemsList','directSaleResetBtn','directSalePdfBtn','directSaleTotal','directSalesList','stockAssignModal','stockAssignClose','stockAssignCancel','stockAssignForm','stockAssignPartName','stockAssignPartMeta','stockAssignQty','stockAssignUnit','stockAssignCompany','stockAssignFolio','stockAssignNotes'
+    'partsRequestModal','partsRequestClose','partsRequestCancel','partsRequestForm','partsRequestEmpresa','partsRequestUnidad','partsRequestSolicitud','partsRequestPriority','partsRequestNotes','partsRequestOwnerHint','imageLightboxCaption','reportDetailModal','reportDetailClose','reportDetailContent','stockRefreshBtn','stockSummary','stockList','stockMovements','stockPartForm','stockPartId','stockNombre','stockSku','stockProveedor','stockActual','stockMinimo','stockCosto','stockPrecio','stockUbicacion','stockNotas','stockSaveBtn','stockCancelBtn','scheduleManualForm','scheduleManualEmpresa','scheduleManualUnidad','scheduleManualTelefono','scheduleManualFolio','scheduleManualDatetime','scheduleManualContacto','scheduleManualNotes','scheduleManualCancelBtn','cobranzaRefreshBtn','cobranzaSummary','cobranzaQuotesList','cobranzaQuoteDetail','directSaleForm','directSaleCustomer','directSalePhone','directSaleCompany','directSaleUnit','directSaleType','directSaleConcept','directSaleStockPart','directSaleQty','directSalePrice','directSaleMethod','directSalePaymentStatus','directSaleNotes','directSaleAddConceptBtn','directSaleItemsList','directSaleResetBtn','directSalePdfBtn','directSaleTotal','directSalesList','stockAssignModal','stockAssignClose','stockAssignCancel','stockAssignForm','stockAssignPartName','stockAssignPartMeta','stockAssignQty','stockAssignUnit','stockAssignCompany','stockAssignFolio','stockAssignNotes'
   ].forEach(id => els[id] = document.getElementById(id));
 }
 bind();
@@ -2358,7 +2358,7 @@ function renderGarantias() {
       btn.addEventListener('click', () => openImageLightbox(item.firma, 'Firma del operador'));
       strip.appendChild(btn);
     }
-    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin') && item.estatusOperativo === 'terminada') baseRow.appendChild(button('Preparar cobro', 'btn btn-primary', async () => { await openQuoteFromReport(item.id); })); if (isRole('admin')) baseRow.appendChild(button('Editar', 'btn btn-secondary', async () => { await editarReporteAdmin(item); })); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
+    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('Ver ficha', 'btn btn-secondary', () => openReportDetailModal(item))); baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin') && item.estatusOperativo === 'terminada') baseRow.appendChild(button('Preparar cobro', 'btn btn-primary', async () => { await openQuoteFromReport(item.id); })); if (isRole('admin')) baseRow.appendChild(button('Editar', 'btn btn-secondary', async () => { await editarReporteAdmin(item); })); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
     if (isRole('operativo','admin')) {
       const reviewBox = document.createElement('div'); reviewBox.innerHTML = `
         <label>Decisión operativa</label>
@@ -2524,6 +2524,65 @@ function closeImageLightbox() {
   document.body.classList.remove('lightbox-open');
 }
 
+function openReportDetailModal(item) {
+  if (!item || !els.reportDetailModal || !els.reportDetailContent) return;
+  const gallery = [
+    ...(item.evidencias || []).map((src, idx) => ({ src, caption: `Evidencia general ${idx + 1}` })),
+    ...(item.evidenciasRefaccion || []).map((src, idx) => ({ src, caption: `Evidencia refacción ${idx + 1}` })),
+    ...(item.firma ? [{ src: item.firma, caption: 'Firma del operador' }] : [])
+  ];
+  els.reportDetailContent.innerHTML = `
+    <div class="parts-request-head">
+      <div class="topbar-kicker">FICHA COMPLETA</div>
+      <h3>${escapeHtml(item.folio || 'GAR-—')} · Unidad ${escapeHtml(item.numeroEconomico || '—')}</h3>
+      <p>Reporte integral con estatus, trazabilidad, evidencia y datos operativos/comerciales.</p>
+    </div>
+    <div class="fleet-detail-summary report-detail-summary">
+      <article><span>Empresa</span><strong>${escapeHtml(item.empresa || '—')}</strong></article>
+      <article><span>Obra</span><strong>${escapeHtml(item.numeroObra || '—')}</strong></article>
+      <article><span>Modelo</span><strong>${escapeHtml(item.modelo || '—')}</strong></article>
+      <article><span>Incidencia</span><strong>${escapeHtml(item.tipoIncidente || '—')}</strong></article>
+      <article><span>Validación</span><strong>${escapeHtml(item.estatusValidacion || '—')}</strong></article>
+      <article><span>Operativo</span><strong>${escapeHtml(item.estatusOperativo || '—')}</strong></article>
+    </div>
+    <div class="mini-grid report-detail-grid">
+      <div><strong>Reportó</strong>${escapeHtml(item.reportadoPorNombre || '—')}</div>
+      <div><strong>Revisó</strong>${escapeHtml(item.revisadoPorNombre || 'Pendiente')}</div>
+      <div><strong>Contacto</strong>${escapeHtml(item.contactoNombre || '—')}</div>
+      <div><strong>Teléfono</strong>${escapeHtml(item.telefono || '—')}</div>
+      <div><strong>Kilometraje</strong>${escapeHtml(item.kilometraje || '—')}</div>
+      <div><strong>Fecha alta</strong>${escapeHtml(fmtDate(item.createdAt))}</div>
+      <div><strong>Último cambio</strong>${escapeHtml(fmtDate(item.updatedAt))}</div>
+      <div><strong>Solicita refacción</strong>${item.solicitaRefaccion ? 'Sí' : 'No'}</div>
+    </div>
+    <div class="owner-card">
+      <div class="owner-card-head"><strong>Falla reportada</strong><span class="badge badge-info">Descripción</span></div>
+      <p class="description">${escapeHtml(item.descripcionFallo || 'Sin descripción')}</p>
+      ${item.detalleRefaccion ? `<p class="small muted"><strong>Detalle refacción:</strong> ${escapeHtml(item.detalleRefaccion)}</p>` : ''}
+      ${item.observacionesOperativo ? `<p class="small muted"><strong>Observación operativa:</strong> ${escapeHtml(item.observacionesOperativo)}</p>` : ''}
+      ${item.motivoDecision ? `<p class="small muted"><strong>Motivo decisión:</strong> ${escapeHtml(item.motivoDecision)}</p>` : ''}
+    </div>
+    <div class="owner-card owner-gallery-card">
+      <div class="owner-card-head"><strong>Evidencia visual</strong><span class="badge badge-info">${gallery.length} archivo${gallery.length === 1 ? '' : 's'}</span></div>
+      ${gallery.length ? `<div class="media-gallery">${gallery.map((entry, idx) => `<button type="button" class="media-thumb" onclick='openImageLightbox(${JSON.stringify(entry.src)}, ${JSON.stringify(entry.caption || `Evidencia ${idx + 1}`)})'><img src="${entry.src}" alt="Evidencia ${idx + 1}" /></button>`).join('')}</div>` : '<div class="muted">Sin evidencia cargada.</div>'}
+    </div>
+    <div class="parts-request-actions">
+      <button id="reportDetailPdfBtn" class="btn btn-secondary" type="button">Exportar PDF</button>
+      <button id="reportDetailCloseBtn" class="btn btn-ghost" type="button">Cerrar</button>
+    </div>
+  `;
+  document.getElementById('reportDetailPdfBtn')?.addEventListener('click', () => exportPdf(item));
+  document.getElementById('reportDetailCloseBtn')?.addEventListener('click', closeReportDetailModal);
+  els.reportDetailModal.classList.remove('hidden');
+  document.body.classList.add('modal-open');
+}
+
+function closeReportDetailModal() {
+  els.reportDetailModal?.classList.add('hidden');
+  if (els.reportDetailContent) els.reportDetailContent.innerHTML = '';
+  document.body.classList.remove('modal-open');
+}
+
 function buildImageGallery(items = [], emptyText = 'Sin evidencia visual.') {
   if (!items.length) return `<div class="muted">${escapeHtml(emptyText)}</div>`;
   return `<div class="media-gallery">${items.map((src, index) => `<button class="media-thumb" type="button" onclick='openImageLightbox(${JSON.stringify(src)}, ${JSON.stringify('Evidencia ')} + ${index + 1})'><img src="${src}" alt="Evidencia ${index + 1}" /></button>`).join('')}</div>`;
@@ -2531,9 +2590,12 @@ function buildImageGallery(items = [], emptyText = 'Sin evidencia visual.') {
 
 els.imageLightboxClose?.addEventListener('click', closeImageLightbox);
 els.imageLightbox?.addEventListener('click', (e) => { if (e.target === els.imageLightbox) closeImageLightbox(); });
+els.reportDetailClose?.addEventListener('click', closeReportDetailModal);
+els.reportDetailModal?.addEventListener('click', (e) => { if (e.target === els.reportDetailModal) closeReportDetailModal(); });
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (!els.partsRequestModal?.classList.contains('hidden')) closeIndependentRequestModal();
+    if (!els.reportDetailModal?.classList.contains('hidden')) closeReportDetailModal();
     if (!els.imageLightbox?.classList.contains('hidden')) closeImageLightbox();
     if (document.body.classList.contains('fleet-detail-modal-open')) {
       closeFleetDetailModal();

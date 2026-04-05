@@ -5158,6 +5158,29 @@ body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-line-item {
   transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
 }
 body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-line-item:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(15,23,42,.10) !important; }
+
+/* Fixes abril 2026: jerarquía de modales + grid de flota + ficha de reporte */
+#fleetUnitsList.fleet-line-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 14px;
+  align-items: stretch;
+}
+#fleetUnitsList .fleet-line-item {
+  min-height: 134px;
+  align-content: start;
+}
+.image-lightbox { z-index: 20000 !important; }
+.report-detail-modal {
+  max-width: min(1080px, 94vw);
+}
+.report-detail-grid {
+  margin-top: 8px;
+  margin-bottom: 14px;
+}
+.report-detail-summary {
+  margin-bottom: 12px;
+}
 body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-line-num { font-size:30px !important; letter-spacing:-.02em; }
 body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-line-main strong { font-size:18px; }
 body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-line-micro { margin-top:6px; font-size:12px; color:#6B7280; font-weight:500; }
