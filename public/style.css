@@ -5307,3 +5307,58 @@ body:not(.operator-mode)[data-panel="fleet"] .fleet-line-status { align-self:end
     grid-template-columns: 1fr !important;
   }
 }
+
+/* Fleet modal root (real top-layer modal implementation) */
+.fleet-detail-modal-root {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fleet-detail-modal-root.hidden { display: none !important; }
+.fleet-detail-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: rgba(15,23,42,0.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.fleet-detail-modal-shell {
+  position: relative;
+  z-index: 10000;
+  width: min(1100px, 92vw);
+  max-height: 88vh;
+  overflow: auto;
+  border-radius: 22px;
+  background: linear-gradient(180deg,#fff,#f8fafc);
+  border: 1px solid rgba(15,23,42,.08);
+  box-shadow: 0 26px 60px rgba(15,23,42,.20);
+}
+.fleet-detail-modal-content {
+  padding: 18px;
+}
+
+/* Force radar units as true responsive grid */
+body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList.fleet-line-list {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)) !important;
+  gap: 20px !important;
+  align-items: start !important;
+}
+
+@media (max-width: 980px) {
+  .fleet-detail-modal-shell {
+    width: 95vw;
+    max-height: 90vh;
+  }
+  .fleet-detail-modal-content {
+    padding: 14px;
+  }
+  body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList.fleet-line-list {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+}

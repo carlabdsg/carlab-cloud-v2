@@ -512,7 +512,10 @@ function switchPanel(panel) {
   if (state.user?.role === 'supervisor_flotas' && ['users','requests','companies','report','stock','cobranza'].includes(panel)) panel = 'fleet';
   if (!isRole('admin') && ['stock','cobranza'].includes(panel)) panel = state.user?.role === 'supervisor_flotas' ? 'fleet' : 'board';
   if (state.user?.role === 'supervisor' && ['users','requests','companies','fleet','parts','report','stock','cobranza'].includes(panel)) panel = 'board';
-  if (panel !== 'fleet') document.body.classList.remove('fleet-detail-modal-open');
+  if (panel !== 'fleet') {
+    document.body.classList.remove('fleet-detail-modal-open');
+    document.getElementById('fleetDetailModalRoot')?.classList.add('hidden');
+  }
   state.activePanel = panel;
   document.getElementById('boardPanel')?.classList.toggle('hidden', panel !== 'board');
   els.reportFormPanel?.classList.toggle('hidden', panel !== 'report');
@@ -2018,15 +2021,49 @@ function renderFleet() {
   renderFleetDetail();
 }
 
+function ensureFleetDetailModalRoot() {
+  let root = document.getElementById('fleetDetailModalRoot');
+  if (root) return root;
+  root = document.createElement('div');
+  root.id = 'fleetDetailModalRoot';
+  root.className = 'fleet-detail-modal-root hidden';
+  root.innerHTML = `
+    <div class="fleet-detail-modal-overlay" data-close="1"></div>
+    <div class="fleet-detail-modal-shell" role="dialog" aria-modal="true" aria-label="Detalle de unidad">
+      <div class="fleet-detail-modal-content" id="fleetDetailModalContent"></div>
+    </div>`;
+  root.addEventListener('click', (e) => {
+    if (e.target?.dataset?.close === '1') closeFleetDetailModal();
+  });
+  document.body.appendChild(root);
+  return root;
+}
+
+function closeFleetDetailModal() {
+  state.selectedFleetUnit = null;
+  document.body.classList.remove('fleet-detail-modal-open');
+  const root = document.getElementById('fleetDetailModalRoot');
+  root?.classList.add('hidden');
+  const content = document.getElementById('fleetDetailModalContent');
+  if (content) content.innerHTML = '';
+  renderFleet();
+  renderFleetDetail();
+}
+
 function renderFleetDetail() {
   if (!els.fleetDetail) return;
+  const modalRoot = ensureFleetDetailModalRoot();
+  const modalContent = document.getElementById('fleetDetailModalContent');
   const data = state.selectedFleetUnit;
   if (!data?.unit) {
     document.body.classList.remove('fleet-detail-modal-open');
+    modalRoot?.classList.add('hidden');
+    if (modalContent) modalContent.innerHTML = '';
     els.fleetDetail.innerHTML = '<div class="muted">Selecciona una unidad para ver historial, reportes, agenda, refacciones y costos.</div>';
     return;
   }
   document.body.classList.add('fleet-detail-modal-open');
+  modalRoot?.classList.remove('hidden');
   const u = data.unit;
   const sem = fleetSemaforo(u);
   const reportsArr = data.reports || [];
@@ -2104,7 +2141,7 @@ function renderFleetDetail() {
     ...unitParts.map(p => ({ title:'Refacción abierta', text:p.detalleRefaccion || 'Pendiente de pieza', date:p.refaccionUpdatedAt || p.updatedAt || p.createdAt, tag:p.refaccionStatus || 'pendiente' }))
   ].sort((a,b) => new Date(b.date || 0) - new Date(a.date || 0)).slice(0,7);
   const timeline = timelineEvents.map(evt => `<div class="timeline-item"><span class="timeline-dot"></span><div><strong>${escapeHtml(evt.title)}</strong><p>${escapeHtml(evt.text)}</p><small>${fmtDate(evt.date)} · ${escapeHtml(evt.tag || 'movimiento')}</small></div></div>`).join('') || '<div class="muted">Sin movimientos recientes.</div>';
-  els.fleetDetail.innerHTML = `
+  const detailHtml = `
     <div class="panel-head fleet-detail-head">
       <div><div class="topbar-kicker">EXPEDIENTE DE UNIDAD</div><h3>${escapeHtml(u.numeroEconomico)} · ${escapeHtml(u.empresa)}</h3><p class="muted">Vista premium para dueño: patrimonio, agenda, refacciones y evidencia visual en una sola ficha.</p></div>
       <div class="stack-inline">${isRole('admin') ? '<button id="fleetEditInlineBtn" class="btn btn-ghost" type="button">Editar</button><button id="fleetDeleteInlineBtn" class="btn btn-ghost" type="button">Eliminar</button>' : ''}<button id="fleetCloseDetailBtn" class="btn btn-ghost" type="button">Cerrar</button><span class="fleet-dot ${sem.cls}">${sem.label}</span></div>
@@ -2144,11 +2181,10 @@ function renderFleetDetail() {
       <section><div class="topbar-kicker">COSTOS</div><div class="table-list compact-list">${costs}</div>${adminCostsEditor}</section>
     </div>
   `;
+  if (modalContent) modalContent.innerHTML = detailHtml;
+  els.fleetDetail.innerHTML = '<div class="muted">Detalle abierto en ventana flotante premium.</div>';
   document.getElementById('fleetCloseDetailBtn')?.addEventListener('click', () => {
-    state.selectedFleetUnit = null;
-    document.body.classList.remove('fleet-detail-modal-open');
-    renderFleet();
-    renderFleetDetail();
+    closeFleetDetailModal();
   });
   if (isRole('admin')) {
     document.getElementById('fleetManualStatus').value = ({ operando:'operando', 'en_taller':'en_taller', detenida:'detenida', programada:'programada' })[sem.key || 'operando'] || 'operando';
@@ -2500,10 +2536,7 @@ document.addEventListener('keydown', (e) => {
     if (!els.partsRequestModal?.classList.contains('hidden')) closeIndependentRequestModal();
     if (!els.imageLightbox?.classList.contains('hidden')) closeImageLightbox();
     if (document.body.classList.contains('fleet-detail-modal-open')) {
-      state.selectedFleetUnit = null;
-      document.body.classList.remove('fleet-detail-modal-open');
-      renderFleet();
-      renderFleetDetail();
+      closeFleetDetailModal();
     }
   }
 });
