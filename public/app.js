@@ -1949,11 +1949,22 @@ function renderFleet() {
   if (els.fleetUnitsList) els.fleetUnitsList.innerHTML = '';
   const fleetQuery = normalizeText(els.fleetSearchInput?.value || '');
   const fleetStatus = els.fleetStatusFilter?.value || 'todos';
+  const priorityRank = (unit) => {
+    const sem = fleetSemaforo(unit).key;
+    if (sem === 'detenida') return 3;
+    if (sem === 'en_taller') return 2;
+    if (sem === 'programada') return 1;
+    return 0;
+  };
   const visibleUnits = state.fleetUnits.filter(unit => {
     const sem = fleetSemaforo(unit);
     const hayTexto = !fleetQuery || normalizeText([unit.numeroEconomico, unit.empresa, unit.marca, unit.modelo, unit.numeroObra, unit.nombreFlota].join(' ')).includes(fleetQuery);
     const hayEstado = fleetStatus === 'todos' || sem.key === fleetStatus;
     return hayTexto && hayEstado;
+  }).sort((a, b) => {
+    const p = priorityRank(b) - priorityRank(a);
+    if (p !== 0) return p;
+    return Number(b.costoTotal || 0) - Number(a.costoTotal || 0);
   });
 
   renderFleetOwnerDeck();
@@ -1975,6 +1986,7 @@ function renderFleet() {
       <div class="fleet-line-main">
         <strong>${escapeHtml(status.text)}</strong>
         <div class="fleet-line-sub">${escapeHtml(unit.empresa || '—')}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}${unit.marca ? ' · ' + escapeHtml(unit.marca) : ''}</div>
+        <div class="fleet-line-micro">Costo acumulado ${money(unit.costoTotal || 0)} · ${Number(unit.reportsCount || unit.reportesCount || 0)} reportes</div>
       </div>
       <div class="fleet-line-tags">
         <span class="fleet-chip ${poliza.cls}">${poliza.text}</span>
@@ -2510,16 +2522,42 @@ function fleetOwnerMetrics() {
   });
   const reincidentes = units.filter(unit => Number(unit.reportesCount || 0) > 1 || Number(unit.reportsCount || 0) > 1).length || [...new Set((state.garantias || []).filter(g => !state.user?.empresa || g.empresa === state.user.empresa).map(g => g.numeroEconomico).filter(Boolean))].length;
   const totalCost = units.reduce((sum, unit) => sum + Number(unit.costoTotal || 0), 0);
+  const topUnitCost = Math.max(0, ...units.map(unit => Number(unit.costoTotal || 0)));
+  const top3Share = totalCost ? (([...units].sort((a,b) => Number(b.costoTotal||0) - Number(a.costoTotal||0)).slice(0,3).reduce((sum, unit) => sum + Number(unit.costoTotal || 0), 0) / totalCost) * 100) : 0;
   const upcoming = (state.schedules || []).filter(s => (!state.user?.empresa || s.empresa === state.user.empresa) && ['confirmed','waiting_operator','proposed'].includes(String(s.status || '').toLowerCase())).length;
   return {
     total: units.length,
+    operando: Number(state.fleetSummary?.operando || 0),
     detenidas: Number(state.fleetSummary?.detenidas || 0),
     enTaller: Number(state.fleetSummary?.enTaller || 0),
     pendingParts: pendingParts.length,
     reincidentes,
     upcoming,
     totalCost,
+    topUnitCost,
+    top3Share,
   };
+}
+
+function animateFleetOwnerNumbers(root) {
+  if (!root) return;
+  root.querySelectorAll('[data-count]').forEach((el) => {
+    const end = Number(el.dataset.count || 0);
+    const currency = el.dataset.currency === '1';
+    const suffix = el.dataset.suffix || '';
+    const start = 0;
+    const duration = 600;
+    const startAt = performance.now();
+    const step = (now) => {
+      const t = Math.min(1, (now - startAt) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const value = start + (end - start) * eased;
+      const out = currency ? money(value) : `${Math.round(value)}${suffix}`;
+      el.textContent = out;
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
 }
 
 function renderFleetOwnerDeck() {
@@ -2532,25 +2570,34 @@ function renderFleetOwnerDeck() {
     .filter(s => (!state.user?.empresa || s.empresa === state.user.empresa) && s.scheduledFor)
     .sort((a,b) => new Date(a.scheduledFor) - new Date(b.scheduledFor))
     .slice(0,3);
+  const topCostUnit = risky[0];
+  const insights = [
+    topCostUnit ? `Unidad ${topCostUnit.numeroEconomico || '—'} concentra ${m.totalCost ? Math.round((Number(topCostUnit.costoTotal || 0) / m.totalCost) * 100) : 0}% del gasto.` : 'Aún no hay unidad dominante por costo.',
+    `${Math.min(3, m.total)} unidades concentran ${Math.round(m.top3Share || 0)}% del costo total.`,
+    `${m.reincidentes} unidad${m.reincidentes === 1 ? '' : 'es'} con reincidencia detectada.`,
+    `${m.pendingParts} unidad${m.pendingParts === 1 ? '' : 'es'} en espera de refacción.`,
+    `Agenda inmediata: ${m.upcoming} ingreso${m.upcoming === 1 ? '' : 's'} próximo${m.upcoming === 1 ? '' : 's'}.`
+  ];
   els.fleetOwnerDeck.innerHTML = `
     <section class="fleet-owner-hero">
       <div class="fleet-owner-copy">
-        <div class="topbar-kicker">MÓDULO DUEÑO</div>
-        <h3>Control patrimonial de flota</h3>
-        <p>Unidades, reincidencia, evidencia de refacciones y agenda en una sola lectura ejecutiva.</p>
+        <div class="topbar-kicker">CENTRO DE MANDO DEL DUEÑO</div>
+        <h3>Control patrimonial y financiero de flota</h3>
+        <p>Lectura ejecutiva en segundos: costo, criticidad, concentración y próximos ingresos de taller.</p>
       </div>
       <div class="fleet-owner-kpis">
-        <article><span>Unidades</span><strong>${m.total}</strong></article>
-        <article><span>Detenidas</span><strong>${m.detenidas}</strong></article>
-        <article><span>En taller</span><strong>${m.enTaller}</strong></article>
-        <article><span>Espera refacción</span><strong>${m.pendingParts}</strong></article>
-        <article><span>Agenda viva</span><strong>${m.upcoming}</strong></article>
-        <article><span>Costo histórico</span><strong>${money(m.totalCost)}</strong></article>
+        <article><span>Costo total</span><strong data-count="${Number(m.totalCost || 0)}" data-currency="1">${money(m.totalCost)}</strong><small>Acumulado visible</small></article>
+        <article><span>Unidades activas</span><strong data-count="${Number(m.operando || 0)}">${m.operando}</strong><small>Operando hoy</small></article>
+        <article><span>Unidades críticas</span><strong data-count="${Number(m.detenidas + m.enTaller)}">${m.detenidas + m.enTaller}</strong><small>Taller + detenidas</small></article>
+        <article><span>Concentración</span><strong data-count="${Number(m.top3Share || 0)}" data-suffix="%">${Math.round(m.top3Share || 0)}%</strong><small>Top 3 unidades</small></article>
       </div>
+    </section>
+    <section class="fleet-owner-alerts">
+      ${insights.map((text, idx) => `<article class="fleet-owner-alert"><span>Insight ${idx + 1}</span><strong>${escapeHtml(text)}</strong></article>`).join('')}
     </section>
     <section class="fleet-owner-insights">
       <article class="owner-card">
-        <div class="owner-card-head"><strong>Unidades que más te cuestan</strong><span class="badge badge-info">Lectura comercial</span></div>
+        <div class="owner-card-head"><strong>Unidades que más te cuestan</strong><span class="badge badge-info">Impacto financiero</span></div>
         <div class="owner-list">${risky.length ? risky.map(unit => `<button type="button" class="owner-list-row" onclick="focusFleetUnit(${JSON.stringify(unit.id)})"><span>${escapeHtml(unit.numeroEconomico || '—')}</span><small>${escapeHtml(unit.empresa || '—')}</small><strong>${money(unit.costoTotal || 0)}</strong></button>`).join('') : '<div class="muted">Sin costos acumulados todavía.</div>'}</div>
       </article>
       <article class="owner-card">
@@ -2558,6 +2605,7 @@ function renderFleetOwnerDeck() {
         <div class="owner-list">${nextUnits.length ? nextUnits.map(item => `<div class="owner-list-row static"><span>${escapeHtml(item.unidad || '—')}</span><small>${escapeHtml(item.empresa || '—')}</small><strong>${escapeHtml(fmtDate(item.scheduledFor || item.proposedAt))}</strong></div>`).join('') : '<div class="muted">Sin citas próximas registradas.</div>'}</div>
       </article>
     </section>`;
+  animateFleetOwnerNumbers(els.fleetOwnerDeck);
 }
 
 async function focusFleetUnit(id) {

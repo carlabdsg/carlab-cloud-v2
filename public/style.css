@@ -4996,3 +4996,186 @@ body:not(.operator-mode)[data-panel="fleet"] #fleetPanel,
 body:not(.operator-mode)[data-panel="analytics"] #analyticsPanel {
   animation: panelSoftIn .20s ease-out;
 }
+
+/* Final premium depth + microinteraction pass (Apple/Stripe/Notion feel) */
+body:not(.operator-mode)[data-role="admin"],
+body:not(.operator-mode)[data-role="operativo"],
+body:not(.operator-mode)[data-role="supervisor"],
+body:not(.operator-mode)[data-role="supervisor_flotas"] {
+  --depth-panel: 0 8px 24px rgba(0,0,0,0.04);
+  --depth-card: 0 12px 32px rgba(0,0,0,0.06);
+}
+
+/* depth hierarchy */
+body:not(.operator-mode) { box-shadow: none !important; }
+body:not(.operator-mode) .panel,
+body:not(.operator-mode) .toolbar,
+body:not(.operator-mode) .history-search-box,
+body:not(.operator-mode) .schedule-toolbar,
+body:not(.operator-mode) .schedule-manual-card,
+body:not(.operator-mode) #scheduleCalendar,
+body:not(.operator-mode) #reportFormPanel,
+body:not(.operator-mode) #fleetPanel,
+body:not(.operator-mode) #boardPanel { box-shadow: var(--depth-panel) !important; }
+body:not(.operator-mode) .card,
+body:not(.operator-mode) .owner-card,
+body:not(.operator-mode) .owner-gallery-card,
+body:not(.operator-mode) .schedule-card,
+body:not(.operator-mode) .fleet-line-item,
+body:not(.operator-mode) .table-row,
+body:not(.operator-mode) .executive-card,
+body:not(.operator-mode) .schedule-summary .stat,
+body:not(.operator-mode) .fleet-detail-summary article { box-shadow: var(--depth-card) !important; }
+
+/* key number impact */
+body:not(.operator-mode)[data-panel="board"] .executive-card strong,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-num,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-detail-summary strong,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-owner-kpis strong {
+  font-weight: 700 !important;
+  color: #0A0A0A !important;
+  font-size: clamp(24px, 2.4vw, 32px) !important;
+  letter-spacing: -.02em;
+}
+
+/* premium microinteractions */
+body:not(.operator-mode) .btn {
+  transition: all .2s ease !important;
+}
+body:not(.operator-mode) .btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(0,0,0,.08);
+}
+body:not(.operator-mode) .card,
+body:not(.operator-mode) .owner-card,
+body:not(.operator-mode) .schedule-card,
+body:not(.operator-mode) .fleet-line-item,
+body:not(.operator-mode) .table-row,
+body:not(.operator-mode) .executive-card {
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease !important;
+}
+body:not(.operator-mode) .card:hover,
+body:not(.operator-mode) .owner-card:hover,
+body:not(.operator-mode) .schedule-card:hover,
+body:not(.operator-mode) .fleet-line-item:hover,
+body:not(.operator-mode) .table-row:hover,
+body:not(.operator-mode) .executive-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 36px rgba(0,0,0,.08) !important;
+}
+body.executive-mode .nav-btn {
+  transition: all .2s ease !important;
+}
+body.executive-mode .nav-btn:hover,
+body.executive-mode .nav-btn.active {
+  box-shadow: 0 8px 18px rgba(0,0,0,.08) !important;
+}
+body:not(.operator-mode) input,
+body:not(.operator-mode) select,
+body:not(.operator-mode) textarea {
+  transition: all .2s ease !important;
+}
+body:not(.operator-mode) input:focus,
+body:not(.operator-mode) select:focus,
+body:not(.operator-mode) textarea:focus {
+  border-color: rgba(17,24,39,.26) !important;
+  box-shadow: 0 0 0 3px rgba(17,24,39,.08) !important;
+}
+
+/* Supervisor_flotas flagship visual: premium owner command center */
+body[data-role="supervisor_flotas"][data-panel="fleet"] #fleetPanel,
+body[data-role="supervisor_flotas"][data-panel="fleet"] #fleetOwnerDeck,
+body[data-role="supervisor_flotas"][data-panel="fleet"] #fleetDetail,
+body[data-role="supervisor_flotas"][data-panel="fleet"] .owner-card,
+body[data-role="supervisor_flotas"][data-panel="fleet"] .owner-gallery-card,
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-columns section,
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-timeline-box,
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-line-item {
+  background: linear-gradient(180deg,#ffffff,#f8fafc) !important;
+  border: 1px solid rgba(15,23,42,.08) !important;
+  box-shadow: 0 12px 30px rgba(15,23,42,.07) !important;
+  border-radius: 18px !important;
+}
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-hero {
+  display:grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap:16px;
+  padding:22px;
+  border-radius:22px;
+  background: linear-gradient(160deg, rgba(255,255,255,.96), rgba(246,249,253,.94)) !important;
+  border:1px solid rgba(15,23,42,.08);
+  box-shadow: 0 14px 34px rgba(15,23,42,.08);
+  animation: ownerDeckIn .22s ease-out;
+}
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-copy h3 {
+  font-size: clamp(30px, 2.4vw, 38px);
+  margin: 6px 0 10px;
+  color:#0A0A0A;
+  letter-spacing:-.03em;
+}
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-copy p { color:#374151; line-height:1.6; }
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-kpis {
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap:12px;
+}
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-kpis article {
+  padding:14px;
+  border-radius:16px;
+  background: linear-gradient(180deg,#fff,#f8fafc);
+  border:1px solid rgba(15,23,42,.08);
+  box-shadow: 0 8px 22px rgba(15,23,42,.06);
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-kpis article:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgba(15,23,42,.10); }
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-kpis strong {
+  font-size: clamp(28px, 2.1vw, 34px) !important;
+  color:#0A0A0A !important;
+  font-weight:700;
+  letter-spacing:-.03em;
+}
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-kpis span { color:#1F2937 !important; font-weight:600; }
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-kpis small { color:#6B7280; }
+
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-alerts {
+  margin-top: 14px;
+  display:grid;
+  grid-template-columns: repeat(auto-fit,minmax(240px,1fr));
+  gap:12px;
+}
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-alert {
+  padding:14px 16px;
+  border-radius:14px;
+  background: linear-gradient(180deg,#fff,#f8fafc);
+  border:1px solid rgba(15,23,42,.08);
+  box-shadow: 0 8px 20px rgba(15,23,42,.06);
+}
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-alert span { display:block; font-size:11px; letter-spacing:.10em; text-transform:uppercase; color:#1F2937; font-weight:700; }
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-alert strong { display:block; margin-top:8px; font-size:14px; line-height:1.5; color:#374151; }
+
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-line-item {
+  grid-template-columns: 104px 34px 1fr auto auto;
+  padding: 14px;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-line-item:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(15,23,42,.10) !important; }
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-line-num { font-size:30px !important; letter-spacing:-.02em; }
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-line-main strong { font-size:18px; }
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-line-micro { margin-top:6px; font-size:12px; color:#6B7280; font-weight:500; }
+
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-detail-head,
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-detail-summary,
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-hero,
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-insights,
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-columns {
+  animation: ownerDeckIn .2s ease-out;
+}
+
+@keyframes ownerDeckIn {
+  from { opacity:0; transform: translateY(8px); }
+  to { opacity:1; transform: translateY(0); }
+}
+
+@media (max-width: 1100px) {
+  body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-hero { grid-template-columns:1fr; }
+  body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
