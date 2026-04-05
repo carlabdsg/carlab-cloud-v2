@@ -3493,3 +3493,1872 @@ body[data-role="admin"][data-panel="board"] .executive-actions .btn {
   body[data-role="admin"][data-panel="board"] .role-brief { grid-template-columns: 1fr; }
   body[data-role="admin"][data-panel="board"] .topbar-side { flex-wrap: wrap; }
 }
+
+/* V2 premium focus: board + fleet + schedule (sin tocar operador) */
+body:not(.operator-mode)[data-panel="board"] #executiveDeck {
+  background: radial-gradient(120% 160% at 0% 0%, rgba(39, 88, 145, 0.28), rgba(12, 18, 32, 0.92));
+  border: 1px solid rgba(104, 156, 221, 0.26);
+  box-shadow: 0 28px 60px rgba(5, 10, 22, 0.52);
+  border-radius: 28px;
+  padding: 24px;
+}
+body:not(.operator-mode)[data-panel="board"] #executiveDeck .panel-head h3,
+body:not(.operator-mode)[data-panel="board"] #executiveDeck .topbar-kicker,
+body:not(.operator-mode)[data-panel="board"] #executiveDeck #liveRefreshBadge { color: #e8eef9; }
+body:not(.operator-mode)[data-panel="board"] #executiveDeckGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+body:not(.operator-mode)[data-panel="board"] .executive-card {
+  min-height: 180px;
+  padding: 20px;
+  border-radius: 22px;
+  border: 1px solid rgba(123, 172, 234, 0.24);
+  background: linear-gradient(170deg, rgba(19, 36, 64, 0.93), rgba(11, 18, 31, 0.94));
+  box-shadow: 0 18px 44px rgba(6, 10, 20, 0.46);
+}
+body:not(.operator-mode)[data-panel="board"] .executive-card strong { color: #f8fbff; font-size: 36px; }
+body:not(.operator-mode)[data-panel="board"] .executive-card p,
+body:not(.operator-mode)[data-panel="board"] .executive-card .executive-kicker,
+body:not(.operator-mode)[data-panel="board"] .executive-meta { color: rgba(224, 236, 255, 0.78); }
+body:not(.operator-mode)[data-panel="board"] .executive-card.focus-card {
+  background: linear-gradient(135deg, #11335f, #0f223f 55%, #1b2e4c);
+  border-color: rgba(147, 198, 255, 0.34);
+}
+body:not(.operator-mode)[data-panel="board"] #filtersPanel {
+  background: linear-gradient(160deg, rgba(12, 20, 36, 0.95), rgba(10, 16, 30, 0.94));
+  border: 1px solid rgba(119, 162, 216, 0.22);
+  border-radius: 22px;
+  gap: 14px;
+}
+body:not(.operator-mode)[data-panel="board"] #boardPanel {
+  background: linear-gradient(180deg, rgba(11, 20, 36, 0.97), rgba(12, 18, 31, 0.95));
+  border: 1px solid rgba(118, 162, 216, 0.24);
+}
+body:not(.operator-mode)[data-panel="board"] #boardPanel .panel-head h3 { color: #f2f6ff; font-size: 30px; }
+body:not(.operator-mode)[data-panel="board"] #garantiasList { gap: 16px; }
+body:not(.operator-mode)[data-panel="board"] #garantiasList .card {
+  border-radius: 22px;
+  padding: 20px;
+  background: linear-gradient(168deg, rgba(22, 34, 58, 0.96), rgba(13, 20, 34, 0.96));
+  border: 1px solid rgba(127, 175, 233, 0.22);
+  box-shadow: 0 16px 38px rgba(6, 9, 18, 0.42);
+}
+body:not(.operator-mode)[data-panel="board"] #garantiasList .card .title,
+body:not(.operator-mode)[data-panel="board"] #garantiasList .card .description,
+body:not(.operator-mode)[data-panel="board"] #garantiasList .card .mini-grid strong { color: #f3f7ff; }
+body:not(.operator-mode)[data-panel="board"] #garantiasList .card .meta,
+body:not(.operator-mode)[data-panel="board"] #garantiasList .card .mini-grid,
+body:not(.operator-mode)[data-panel="board"] #garantiasList .card .mini-grid div { color: rgba(214, 226, 244, 0.8); }
+
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel {
+  background: linear-gradient(180deg, rgba(10, 18, 32, 0.97), rgba(10, 16, 28, 0.95));
+  border: 1px solid rgba(124, 169, 224, 0.22);
+}
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-item {
+  border-radius: 18px;
+  background: linear-gradient(160deg, rgba(18, 31, 54, 0.92), rgba(12, 19, 34, 0.92));
+  border: 1px solid rgba(120, 165, 223, 0.22);
+  box-shadow: 0 12px 30px rgba(4, 8, 16, 0.45);
+}
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-item.selected {
+  border-color: rgba(148, 196, 255, 0.85);
+  box-shadow: 0 0 0 2px rgba(132, 187, 255, 0.4), 0 18px 38px rgba(3, 10, 20, 0.5);
+}
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-main strong,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-sub,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-status,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-num { color: #e6f0ff; }
+body:not(.operator-mode)[data-panel="fleet"] .fleet-detail-premium,
+body:not(.operator-mode)[data-panel="fleet"] #fleetDetail {
+  background: linear-gradient(178deg, rgba(16, 30, 54, 0.95), rgba(10, 18, 30, 0.95));
+  border: 1px solid rgba(123, 170, 229, 0.22);
+  border-radius: 24px;
+}
+body:not(.operator-mode)[data-panel="fleet"] .fleet-owner-hero {
+  background: linear-gradient(130deg, #0f2f59, #132946 52%, #172238 100%);
+  border-color: rgba(145, 197, 255, 0.24);
+}
+body:not(.operator-mode)[data-panel="fleet"] .owner-card,
+body:not(.operator-mode)[data-panel="fleet"] .owner-gallery-card,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-timeline-box,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-columns section {
+  background: linear-gradient(170deg, rgba(21, 33, 56, 0.92), rgba(12, 20, 34, 0.94));
+  border: 1px solid rgba(118, 165, 223, 0.2);
+}
+body:not(.operator-mode)[data-panel="fleet"] .owner-card strong,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-detail-head h3,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-detail-summary strong,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-meta-grid strong,
+body:not(.operator-mode)[data-panel="fleet"] .timeline-item strong,
+body:not(.operator-mode)[data-panel="fleet"] .timeline-item p,
+body:not(.operator-mode)[data-panel="fleet"] .owner-list-row span,
+body:not(.operator-mode)[data-panel="fleet"] .owner-list-row strong,
+body:not(.operator-mode)[data-panel="fleet"] .table-row { color: #ecf3ff; }
+
+body:not(.operator-mode)[data-panel="schedule"] #schedulePanel {
+  background: linear-gradient(180deg, rgba(10, 19, 34, 0.96), rgba(9, 16, 28, 0.96));
+  border: 1px solid rgba(120, 166, 224, 0.22);
+}
+body:not(.operator-mode)[data-panel="schedule"] .schedule-toolbar,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-manual-card,
+body:not(.operator-mode)[data-panel="schedule"] #scheduleCalendar {
+  background: linear-gradient(165deg, rgba(17, 31, 56, 0.93), rgba(11, 18, 32, 0.95));
+  border: 1px solid rgba(120, 165, 224, 0.2);
+  border-radius: 20px;
+}
+body:not(.operator-mode)[data-panel="schedule"] .schedule-summary .stat {
+  background: linear-gradient(180deg, rgba(32, 52, 84, 0.9), rgba(17, 28, 46, 0.92));
+  border: 1px solid rgba(136, 188, 252, 0.22);
+}
+body:not(.operator-mode)[data-panel="schedule"] .schedule-summary .stat span,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-summary .stat small,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-summary .stat strong,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-manual-card,
+body:not(.operator-mode)[data-panel="schedule"] #schedulePanel h3,
+body:not(.operator-mode)[data-panel="schedule"] #schedulePanel .topbar-kicker,
+body:not(.operator-mode)[data-panel="schedule"] .calendar-head span,
+body:not(.operator-mode)[data-panel="schedule"] .date-chip,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-card strong,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-card .label,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-card .muted { color: #e5eeff; }
+body:not(.operator-mode)[data-panel="schedule"] .calendar-cell {
+  background: linear-gradient(180deg, rgba(25, 42, 70, 0.93), rgba(15, 26, 44, 0.95));
+  border: 1px solid rgba(125, 175, 238, 0.24);
+}
+body:not(.operator-mode)[data-panel="schedule"] .calendar-cell.active {
+  border-color: rgba(167, 209, 255, 0.95);
+  box-shadow: 0 0 0 2px rgba(160, 205, 255, 0.32), 0 12px 28px rgba(5, 11, 20, 0.46);
+}
+body:not(.operator-mode)[data-panel="schedule"] .schedule-card {
+  background: linear-gradient(172deg, rgba(18, 32, 56, 0.94), rgba(11, 20, 34, 0.95));
+  border: 1px solid rgba(122, 170, 229, 0.24);
+  box-shadow: 0 16px 36px rgba(4, 9, 16, 0.45);
+  border-radius: 20px;
+}
+
+@media (max-width: 1200px) {
+  body:not(.operator-mode)[data-panel="board"] #executiveDeckGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
+  body:not(.operator-mode)[data-panel="board"] #executiveDeckGrid { grid-template-columns: 1fr; }
+}
+
+/* V2 polish pass: homologación visual premium entre board/fleet/schedule/sidebar */
+body:not(.operator-mode)[data-role="admin"],
+body:not(.operator-mode)[data-role="operativo"],
+body:not(.operator-mode)[data-role="supervisor"],
+body:not(.operator-mode)[data-role="supervisor_flotas"] {
+  --premium-surface: linear-gradient(170deg, rgba(18, 31, 55, 0.94), rgba(10, 18, 32, 0.95));
+  --premium-surface-soft: linear-gradient(172deg, rgba(22, 38, 64, 0.92), rgba(12, 21, 36, 0.94));
+  --premium-border: 1px solid rgba(129, 174, 232, 0.22);
+  --premium-radius: 20px;
+  --premium-shadow: 0 16px 36px rgba(5, 10, 18, 0.44);
+  --premium-gap: 16px;
+}
+body:not(.operator-mode)[data-role="admin"] .panel,
+body:not(.operator-mode)[data-role="operativo"] .panel,
+body:not(.operator-mode)[data-role="supervisor"] .panel,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .panel {
+  border-radius: 24px;
+}
+body:not(.operator-mode)[data-role="admin"] .panel-head,
+body:not(.operator-mode)[data-role="operativo"] .panel-head,
+body:not(.operator-mode)[data-role="supervisor"] .panel-head,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .panel-head {
+  margin-bottom: 18px;
+  gap: 10px;
+}
+body:not(.operator-mode)[data-role="admin"] .panel-head h3,
+body:not(.operator-mode)[data-role="operativo"] .panel-head h3,
+body:not(.operator-mode)[data-role="supervisor"] .panel-head h3,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .panel-head h3 {
+  font-size: 30px;
+  letter-spacing: -.03em;
+  line-height: 1.08;
+}
+body:not(.operator-mode)[data-role="admin"] .topbar-kicker,
+body:not(.operator-mode)[data-role="operativo"] .topbar-kicker,
+body:not(.operator-mode)[data-role="supervisor"] .topbar-kicker,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .topbar-kicker {
+  letter-spacing: .14em;
+  font-weight: 800;
+}
+body:not(.operator-mode)[data-role="admin"] .badge,
+body:not(.operator-mode)[data-role="operativo"] .badge,
+body:not(.operator-mode)[data-role="supervisor"] .badge,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .badge {
+  min-height: 28px;
+  padding: 6px 12px;
+  font-size: 11px;
+  letter-spacing: .05em;
+}
+body:not(.operator-mode)[data-role="admin"] .btn,
+body:not(.operator-mode)[data-role="operativo"] .btn,
+body:not(.operator-mode)[data-role="supervisor"] .btn,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .btn {
+  min-height: 40px;
+  border-radius: 12px;
+  font-weight: 650;
+  padding: 9px 14px;
+}
+body:not(.operator-mode)[data-role="admin"] .toolbar,
+body:not(.operator-mode)[data-role="operativo"] .toolbar,
+body:not(.operator-mode)[data-role="supervisor"] .toolbar,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .toolbar,
+body:not(.operator-mode)[data-role="admin"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="operativo"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="supervisor"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="admin"] .fleet-line-filters,
+body:not(.operator-mode)[data-role="operativo"] .fleet-line-filters,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .fleet-line-filters {
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--premium-radius);
+}
+body:not(.operator-mode)[data-role="admin"] input,
+body:not(.operator-mode)[data-role="operativo"] input,
+body:not(.operator-mode)[data-role="supervisor"] input,
+body:not(.operator-mode)[data-role="supervisor_flotas"] input,
+body:not(.operator-mode)[data-role="admin"] select,
+body:not(.operator-mode)[data-role="operativo"] select,
+body:not(.operator-mode)[data-role="supervisor"] select,
+body:not(.operator-mode)[data-role="supervisor_flotas"] select,
+body:not(.operator-mode)[data-role="admin"] textarea,
+body:not(.operator-mode)[data-role="operativo"] textarea,
+body:not(.operator-mode)[data-role="supervisor"] textarea,
+body:not(.operator-mode)[data-role="supervisor_flotas"] textarea {
+  min-height: 42px;
+  border-radius: 12px;
+}
+body:not(.operator-mode)[data-role="admin"] .cards,
+body:not(.operator-mode)[data-role="operativo"] .cards,
+body:not(.operator-mode)[data-role="supervisor"] .cards,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .cards,
+body:not(.operator-mode)[data-role="admin"] .table-list,
+body:not(.operator-mode)[data-role="operativo"] .table-list,
+body:not(.operator-mode)[data-role="supervisor"] .table-list,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .table-list { gap: var(--premium-gap); }
+
+body:not(.operator-mode)[data-panel="board"] #garantiasList .card,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-item,
+body:not(.operator-mode)[data-panel="fleet"] .owner-card,
+body:not(.operator-mode)[data-panel="fleet"] .owner-gallery-card,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-columns section,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-timeline-box,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-card,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-manual-card,
+body:not(.operator-mode)[data-panel="schedule"] #scheduleCalendar,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-toolbar {
+  background: var(--premium-surface);
+  border: var(--premium-border);
+  border-radius: var(--premium-radius);
+  box-shadow: var(--premium-shadow);
+}
+body:not(.operator-mode)[data-panel="board"] .executive-actions,
+body:not(.operator-mode)[data-panel="board"] .action-row,
+body:not(.operator-mode)[data-panel="fleet"] .action-row,
+body:not(.operator-mode)[data-panel="schedule"] .action-row {
+  gap: 10px;
+  align-items: center;
+}
+body:not(.operator-mode)[data-panel="fleet"] .fleet-owner-deck,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-owner-insights,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-columns,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-list-pro { gap: 16px; }
+body:not(.operator-mode)[data-panel="fleet"] .fleet-detail-summary article,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-summary .stat {
+  background: var(--premium-surface-soft);
+  border: var(--premium-border);
+  border-radius: 16px;
+  min-height: 92px;
+}
+
+body.executive-mode .sidebar {
+  border-right: 1px solid rgba(136, 180, 236, 0.22);
+  box-shadow: 12px 0 36px rgba(5, 10, 18, 0.32);
+}
+body.executive-mode .profile-panel,
+body.executive-mode .sidebar .stat,
+body.executive-mode .nav-btn,
+body.executive-mode .system-note {
+  border-radius: 14px;
+}
+body.executive-mode .nav-btn {
+  min-height: 40px;
+  border: 1px solid rgba(134, 176, 230, 0.16);
+  padding: 9px 12px;
+}
+body.executive-mode .nav-group-label {
+  font-size: 11px;
+  letter-spacing: .12em;
+  opacity: .88;
+}
+body.executive-mode .profile-panel {
+  padding: 12px;
+  border: 1px solid rgba(132, 174, 230, 0.18);
+  background: linear-gradient(170deg, rgba(30, 45, 70, 0.68), rgba(17, 27, 42, 0.72));
+}
+
+.evidence-strip .evidence-thumb {
+  width: 96px;
+  height: 96px;
+  border: 1px solid rgba(126, 170, 228, 0.26);
+  border-radius: 14px;
+  padding: 0;
+  background: #0f1b2e;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(5, 10, 18, 0.34);
+}
+.evidence-strip .evidence-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.evidence-strip .signature-thumb img { object-fit: contain; background: #fff; }
+
+/* V2 final polish: board KPI language as master visual system */
+body:not(.operator-mode)[data-role="admin"],
+body:not(.operator-mode)[data-role="operativo"],
+body:not(.operator-mode)[data-role="supervisor"],
+body:not(.operator-mode)[data-role="supervisor_flotas"] {
+  --glass-bg: linear-gradient(155deg, rgba(22, 39, 66, 0.86), rgba(12, 21, 36, 0.9));
+  --glass-bg-strong: linear-gradient(145deg, rgba(31, 54, 86, 0.92), rgba(15, 27, 45, 0.94));
+  --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 18px 40px rgba(3, 8, 18, 0.42);
+  --glass-radius: 20px;
+  --glass-pad: 16px;
+  --glass-gap: 16px;
+}
+
+/* unified hierarchy */
+body:not(.operator-mode)[data-role="admin"] .panel-head h3,
+body:not(.operator-mode)[data-role="operativo"] .panel-head h3,
+body:not(.operator-mode)[data-role="supervisor"] .panel-head h3,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .panel-head h3 {
+  font-size: clamp(24px, 2.1vw, 30px) !important;
+  font-weight: 800 !important;
+  letter-spacing: -.025em !important;
+}
+body:not(.operator-mode)[data-role="admin"] .muted,
+body:not(.operator-mode)[data-role="operativo"] .muted,
+body:not(.operator-mode)[data-role="supervisor"] .muted,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .muted { color: rgba(214, 227, 248, 0.7) !important; }
+
+/* chips + buttons unified */
+body:not(.operator-mode)[data-role="admin"] .badge,
+body:not(.operator-mode)[data-role="operativo"] .badge,
+body:not(.operator-mode)[data-role="supervisor"] .badge,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .badge {
+  border-radius: 999px !important;
+  padding: 6px 12px !important;
+  min-height: 28px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+}
+body:not(.operator-mode)[data-role="admin"] .btn,
+body:not(.operator-mode)[data-role="operativo"] .btn,
+body:not(.operator-mode)[data-role="supervisor"] .btn,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .btn {
+  min-height: 40px !important;
+  border-radius: 12px !important;
+}
+body:not(.operator-mode)[data-role="admin"] .btn-primary,
+body:not(.operator-mode)[data-role="operativo"] .btn-primary,
+body:not(.operator-mode)[data-role="supervisor"] .btn-primary,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .btn-primary {
+  background: linear-gradient(145deg, rgba(111, 178, 255, 0.34), rgba(63, 126, 210, 0.52)) !important;
+  border: 1px solid rgba(169, 211, 255, 0.36) !important;
+  color: #eef6ff !important;
+}
+body:not(.operator-mode)[data-role="admin"] .btn-secondary,
+body:not(.operator-mode)[data-role="operativo"] .btn-secondary,
+body:not(.operator-mode)[data-role="supervisor"] .btn-secondary,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .btn-secondary,
+body:not(.operator-mode)[data-role="admin"] .btn-ghost,
+body:not(.operator-mode)[data-role="operativo"] .btn-ghost,
+body:not(.operator-mode)[data-role="supervisor"] .btn-ghost,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .btn-ghost {
+  background: rgba(12, 24, 42, 0.55) !important;
+  border: 1px solid rgba(165, 205, 255, 0.24) !important;
+  color: #dceaff !important;
+}
+
+/* core glass containers for target modules */
+body:not(.operator-mode)[data-panel="board"] #executiveDeck,
+body:not(.operator-mode)[data-panel="board"] #filtersPanel,
+body:not(.operator-mode)[data-panel="board"] #boardPanel,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel,
+body:not(.operator-mode)[data-panel="schedule"] #schedulePanel,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-toolbar,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-manual-card,
+body:not(.operator-mode)[data-panel="schedule"] #scheduleCalendar {
+  background: var(--glass-bg-strong) !important;
+  border: var(--glass-border) !important;
+  box-shadow: var(--glass-shadow) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: calc(var(--glass-radius) + 2px) !important;
+}
+
+/* consistent grid/order */
+body:not(.operator-mode)[data-panel="board"] #garantiasList,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-list,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-list-pro {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
+  gap: var(--glass-gap) !important;
+  align-items: stretch !important;
+}
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-list {
+  grid-template-columns: 1fr !important;
+}
+
+/* unified card geometry */
+body:not(.operator-mode)[data-panel="board"] #garantiasList .card,
+body:not(.operator-mode)[data-panel="board"] .executive-card,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-item,
+body:not(.operator-mode)[data-panel="fleet"] .owner-card,
+body:not(.operator-mode)[data-panel="fleet"] .owner-gallery-card,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-columns section,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-timeline-box,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-card,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-summary .stat {
+  background: var(--glass-bg) !important;
+  border: var(--glass-border) !important;
+  border-radius: var(--glass-radius) !important;
+  box-shadow: var(--glass-shadow) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: var(--glass-pad) !important;
+}
+body:not(.operator-mode)[data-panel="board"] #garantiasList .card,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-card {
+  min-height: 320px;
+}
+body:not(.operator-mode)[data-panel="board"] .executive-card {
+  min-height: 188px !important;
+}
+
+/* reportes evidence alignment */
+body:not(.operator-mode)[data-panel="board"] .evidence-strip {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)) !important;
+  gap: 10px !important;
+}
+body:not(.operator-mode)[data-panel="board"] .action-area,
+body:not(.operator-mode)[data-panel="board"] .action-row,
+body:not(.operator-mode)[data-panel="fleet"] .action-row,
+body:not(.operator-mode)[data-panel="schedule"] .action-row {
+  gap: 10px !important;
+}
+
+/* sidebar integration with same language */
+body.executive-mode .sidebar,
+body.executive-mode .profile-panel,
+body.executive-mode .nav-btn,
+body.executive-mode .sidebar .stat {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+body.executive-mode .sidebar {
+  background: linear-gradient(180deg, rgba(13, 24, 42, 0.94), rgba(11, 18, 31, 0.97)) !important;
+  border-right: var(--glass-border) !important;
+}
+body.executive-mode .nav-btn {
+  background: rgba(20, 34, 57, 0.7) !important;
+  border: 1px solid rgba(159, 204, 255, 0.18) !important;
+}
+body.executive-mode .nav-btn.active,
+body.executive-mode .nav-btn:hover {
+  background: linear-gradient(145deg, rgba(105, 169, 246, 0.28), rgba(45, 90, 160, 0.42)) !important;
+  border-color: rgba(173, 215, 255, 0.35) !important;
+}
+
+/* V2 final contrast+legibility pass (single premium system, non-operator only) */
+body:not(.operator-mode)[data-role="admin"],
+body:not(.operator-mode)[data-role="operativo"],
+body:not(.operator-mode)[data-role="supervisor"],
+body:not(.operator-mode)[data-role="supervisor_flotas"] {
+  --ui-bg: linear-gradient(165deg, rgba(18, 33, 56, 0.92), rgba(11, 20, 34, 0.95));
+  --ui-bg-strong: linear-gradient(155deg, rgba(24, 44, 74, 0.94), rgba(12, 23, 40, 0.96));
+  --ui-brd: 1px solid rgba(173, 214, 255, 0.2);
+  --ui-txt: #eaf3ff;
+  --ui-sub: rgba(205, 222, 245, 0.84);
+  --ui-lbl: rgba(220, 234, 255, 0.92);
+  --ui-ph: rgba(173, 196, 224, 0.86);
+  --ui-shadow: 0 16px 34px rgba(4, 10, 20, 0.42);
+}
+
+/* Remove white islands in target modules */
+body:not(.operator-mode)[data-role="admin"] #boardPanel,
+body:not(.operator-mode)[data-role="operativo"] #boardPanel,
+body:not(.operator-mode)[data-role="supervisor"] #boardPanel,
+body:not(.operator-mode)[data-role="supervisor_flotas"] #boardPanel,
+body:not(.operator-mode)[data-role="admin"] #schedulePanel,
+body:not(.operator-mode)[data-role="operativo"] #schedulePanel,
+body:not(.operator-mode)[data-role="supervisor"] #schedulePanel,
+body:not(.operator-mode)[data-role="supervisor_flotas"] #schedulePanel,
+body:not(.operator-mode)[data-role="admin"] #fleetPanel,
+body:not(.operator-mode)[data-role="operativo"] #fleetPanel,
+body:not(.operator-mode)[data-role="supervisor"] #fleetPanel,
+body:not(.operator-mode)[data-role="supervisor_flotas"] #fleetPanel,
+body:not(.operator-mode)[data-role="admin"] #reportFormPanel,
+body:not(.operator-mode)[data-role="operativo"] #reportFormPanel,
+body:not(.operator-mode)[data-role="supervisor"] #reportFormPanel,
+body:not(.operator-mode)[data-role="supervisor_flotas"] #reportFormPanel,
+body:not(.operator-mode)[data-role="admin"] .toolbar,
+body:not(.operator-mode)[data-role="operativo"] .toolbar,
+body:not(.operator-mode)[data-role="supervisor"] .toolbar,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .toolbar,
+body:not(.operator-mode)[data-role="admin"] .history-search-box,
+body:not(.operator-mode)[data-role="operativo"] .history-search-box,
+body:not(.operator-mode)[data-role="supervisor"] .history-search-box,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .history-search-box,
+body:not(.operator-mode)[data-role="admin"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="operativo"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="supervisor"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="admin"] .schedule-manual-card,
+body:not(.operator-mode)[data-role="operativo"] .schedule-manual-card,
+body:not(.operator-mode)[data-role="supervisor"] .schedule-manual-card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .schedule-manual-card,
+body:not(.operator-mode)[data-role="admin"] #scheduleCalendar,
+body:not(.operator-mode)[data-role="operativo"] #scheduleCalendar,
+body:not(.operator-mode)[data-role="supervisor"] #scheduleCalendar,
+body:not(.operator-mode)[data-role="supervisor_flotas"] #scheduleCalendar,
+body:not(.operator-mode)[data-role="admin"] .owner-card,
+body:not(.operator-mode)[data-role="operativo"] .owner-card,
+body:not(.operator-mode)[data-role="supervisor"] .owner-card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .owner-card,
+body:not(.operator-mode)[data-role="admin"] .owner-gallery-card,
+body:not(.operator-mode)[data-role="operativo"] .owner-gallery-card,
+body:not(.operator-mode)[data-role="supervisor"] .owner-gallery-card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .owner-gallery-card,
+body:not(.operator-mode)[data-role="admin"] .fleet-line-item,
+body:not(.operator-mode)[data-role="operativo"] .fleet-line-item,
+body:not(.operator-mode)[data-role="supervisor"] .fleet-line-item,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .fleet-line-item,
+body:not(.operator-mode)[data-role="admin"] .schedule-card,
+body:not(.operator-mode)[data-role="operativo"] .schedule-card,
+body:not(.operator-mode)[data-role="supervisor"] .schedule-card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .schedule-card,
+body:not(.operator-mode)[data-role="admin"] #garantiasList .card,
+body:not(.operator-mode)[data-role="operativo"] #garantiasList .card,
+body:not(.operator-mode)[data-role="supervisor"] #garantiasList .card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] #garantiasList .card {
+  background: var(--ui-bg) !important;
+  border: var(--ui-brd) !important;
+  box-shadow: var(--ui-shadow) !important;
+  color: var(--ui-txt) !important;
+}
+
+/* Legibility */
+body:not(.operator-mode)[data-role="admin"] h1,
+body:not(.operator-mode)[data-role="operativo"] h1,
+body:not(.operator-mode)[data-role="supervisor"] h1,
+body:not(.operator-mode)[data-role="supervisor_flotas"] h1,
+body:not(.operator-mode)[data-role="admin"] h2,
+body:not(.operator-mode)[data-role="operativo"] h2,
+body:not(.operator-mode)[data-role="supervisor"] h2,
+body:not(.operator-mode)[data-role="supervisor_flotas"] h2,
+body:not(.operator-mode)[data-role="admin"] h3,
+body:not(.operator-mode)[data-role="operativo"] h3,
+body:not(.operator-mode)[data-role="supervisor"] h3,
+body:not(.operator-mode)[data-role="supervisor_flotas"] h3,
+body:not(.operator-mode)[data-role="admin"] strong,
+body:not(.operator-mode)[data-role="operativo"] strong,
+body:not(.operator-mode)[data-role="supervisor"] strong,
+body:not(.operator-mode)[data-role="supervisor_flotas"] strong { color: var(--ui-txt) !important; }
+body:not(.operator-mode)[data-role="admin"] .muted,
+body:not(.operator-mode)[data-role="operativo"] .muted,
+body:not(.operator-mode)[data-role="supervisor"] .muted,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .muted,
+body:not(.operator-mode)[data-role="admin"] .small,
+body:not(.operator-mode)[data-role="operativo"] .small,
+body:not(.operator-mode)[data-role="supervisor"] .small,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .small,
+body:not(.operator-mode)[data-role="admin"] label,
+body:not(.operator-mode)[data-role="operativo"] label,
+body:not(.operator-mode)[data-role="supervisor"] label,
+body:not(.operator-mode)[data-role="supervisor_flotas"] label,
+body:not(.operator-mode)[data-role="admin"] .label,
+body:not(.operator-mode)[data-role="operativo"] .label,
+body:not(.operator-mode)[data-role="supervisor"] .label,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .label { color: var(--ui-lbl) !important; }
+
+/* Premium forms */
+body:not(.operator-mode)[data-role="admin"] input,
+body:not(.operator-mode)[data-role="operativo"] input,
+body:not(.operator-mode)[data-role="supervisor"] input,
+body:not(.operator-mode)[data-role="supervisor_flotas"] input,
+body:not(.operator-mode)[data-role="admin"] select,
+body:not(.operator-mode)[data-role="operativo"] select,
+body:not(.operator-mode)[data-role="supervisor"] select,
+body:not(.operator-mode)[data-role="supervisor_flotas"] select,
+body:not(.operator-mode)[data-role="admin"] textarea,
+body:not(.operator-mode)[data-role="operativo"] textarea,
+body:not(.operator-mode)[data-role="supervisor"] textarea,
+body:not(.operator-mode)[data-role="supervisor_flotas"] textarea {
+  background: var(--ui-bg-strong) !important;
+  color: var(--ui-txt) !important;
+  border: 1px solid rgba(166, 206, 255, 0.28) !important;
+  min-height: 42px !important;
+}
+body:not(.operator-mode)[data-role="admin"] input::placeholder,
+body:not(.operator-mode)[data-role="operativo"] input::placeholder,
+body:not(.operator-mode)[data-role="supervisor"] input::placeholder,
+body:not(.operator-mode)[data-role="supervisor_flotas"] input::placeholder,
+body:not(.operator-mode)[data-role="admin"] textarea::placeholder,
+body:not(.operator-mode)[data-role="operativo"] textarea::placeholder,
+body:not(.operator-mode)[data-role="supervisor"] textarea::placeholder,
+body:not(.operator-mode)[data-role="supervisor_flotas"] textarea::placeholder { color: var(--ui-ph) !important; }
+body:not(.operator-mode)[data-role="admin"] input:focus,
+body:not(.operator-mode)[data-role="operativo"] input:focus,
+body:not(.operator-mode)[data-role="supervisor"] input:focus,
+body:not(.operator-mode)[data-role="supervisor_flotas"] input:focus,
+body:not(.operator-mode)[data-role="admin"] select:focus,
+body:not(.operator-mode)[data-role="operativo"] select:focus,
+body:not(.operator-mode)[data-role="supervisor"] select:focus,
+body:not(.operator-mode)[data-role="supervisor_flotas"] select:focus,
+body:not(.operator-mode)[data-role="admin"] textarea:focus,
+body:not(.operator-mode)[data-role="operativo"] textarea:focus,
+body:not(.operator-mode)[data-role="supervisor"] textarea:focus,
+body:not(.operator-mode)[data-role="supervisor_flotas"] textarea:focus {
+  border-color: rgba(182, 221, 255, 0.68) !important;
+  box-shadow: 0 0 0 3px rgba(121, 181, 255, 0.18) !important;
+}
+
+/* Sidebar contrast */
+body.executive-mode .sidebar .muted,
+body.executive-mode .nav-group-label { color: rgba(219, 235, 255, 0.78) !important; }
+body.executive-mode .profile-panel strong,
+body.executive-mode .currentRoleBadge,
+body.executive-mode .nav-btn { color: #e9f3ff !important; }
+body.executive-mode .nav-btn.active,
+body.executive-mode .nav-btn:hover {
+  color: #ffffff !important;
+  box-shadow: 0 0 0 1px rgba(176, 216, 255, 0.34), 0 10px 22px rgba(6, 14, 28, 0.35) !important;
+}
+
+/* spacing consistency */
+body:not(.operator-mode)[data-role="admin"] .cards,
+body:not(.operator-mode)[data-role="operativo"] .cards,
+body:not(.operator-mode)[data-role="supervisor"] .cards,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .cards,
+body:not(.operator-mode)[data-role="admin"] .table-list,
+body:not(.operator-mode)[data-role="operativo"] .table-list,
+body:not(.operator-mode)[data-role="supervisor"] .table-list,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .table-list,
+body:not(.operator-mode)[data-role="admin"] .mini-grid,
+body:not(.operator-mode)[data-role="operativo"] .mini-grid,
+body:not(.operator-mode)[data-role="supervisor"] .mini-grid,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .mini-grid { gap: 14px !important; }
+
+/* V2 final visual direction: light premium (Apple/Vision-inspired), non-operator only */
+body:not(.operator-mode)[data-role="admin"],
+body:not(.operator-mode)[data-role="operativo"],
+body:not(.operator-mode)[data-role="supervisor"],
+body:not(.operator-mode)[data-role="supervisor_flotas"] {
+  --lp-bg: #f4f5f7;
+  --lp-surface: linear-gradient(165deg, rgba(255,255,255,0.88), rgba(249,250,252,0.86));
+  --lp-surface-soft: linear-gradient(170deg, rgba(255,255,255,0.75), rgba(247,248,251,0.72));
+  --lp-border: 1px solid rgba(27, 52, 84, 0.10);
+  --lp-shadow: 0 10px 24px rgba(16, 24, 40, 0.08);
+  --lp-text: #1f2937;
+  --lp-sub: #4b5563;
+  --lp-muted: #6b7280;
+  --lp-accent: #4c6fff;
+}
+
+/* global light foundation */
+body:not(.operator-mode)[data-role="admin"],
+body:not(.operator-mode)[data-role="operativo"],
+body:not(.operator-mode)[data-role="supervisor"],
+body:not(.operator-mode)[data-role="supervisor_flotas"] {
+  background: radial-gradient(circle at 8% -10%, rgba(226, 236, 250, 0.65), transparent 35%),
+              radial-gradient(circle at 95% -5%, rgba(234, 240, 248, 0.75), transparent 42%),
+              var(--lp-bg) !important;
+  color: var(--lp-text);
+}
+body:not(.operator-mode)[data-role="admin"] .shell,
+body:not(.operator-mode)[data-role="operativo"] .shell,
+body:not(.operator-mode)[data-role="supervisor"] .shell,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .shell {
+  background: transparent !important;
+}
+
+/* sidebar (vision-like glass) */
+body.executive-mode .sidebar {
+  background: linear-gradient(180deg, rgba(255,255,255,0.78), rgba(247,249,252,0.76)) !important;
+  border-right: 1px solid rgba(22, 41, 67, 0.10) !important;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.08) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+body.executive-mode .brand-lockup h2,
+body.executive-mode .profile-panel strong,
+body.executive-mode .nav-btn,
+body.executive-mode .nav-group-label,
+body.executive-mode .sidebar .muted,
+body.executive-mode .sidebar .stat,
+body.executive-mode .sidebar .stat span,
+body.executive-mode .sidebar .stat strong { color: var(--lp-text) !important; }
+body.executive-mode .profile-panel,
+body.executive-mode .sidebar .stat,
+body.executive-mode .system-note {
+  background: var(--lp-surface-soft) !important;
+  border: var(--lp-border) !important;
+  box-shadow: var(--lp-shadow) !important;
+}
+body.executive-mode .nav-btn {
+  background: rgba(255,255,255,0.66) !important;
+  border: 1px solid rgba(35, 60, 92, 0.10) !important;
+}
+body.executive-mode .nav-btn:hover,
+body.executive-mode .nav-btn.active {
+  background: linear-gradient(155deg, rgba(240,246,255,0.96), rgba(230,239,252,0.94)) !important;
+  border-color: rgba(76, 111, 255, 0.28) !important;
+  color: #1f2a44 !important;
+}
+
+/* modules/cards unified clear glass */
+body:not(.operator-mode)[data-role="admin"] .panel,
+body:not(.operator-mode)[data-role="operativo"] .panel,
+body:not(.operator-mode)[data-role="supervisor"] .panel,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .panel,
+body:not(.operator-mode)[data-role="admin"] .card,
+body:not(.operator-mode)[data-role="operativo"] .card,
+body:not(.operator-mode)[data-role="supervisor"] .card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .card,
+body:not(.operator-mode)[data-role="admin"] .owner-card,
+body:not(.operator-mode)[data-role="operativo"] .owner-card,
+body:not(.operator-mode)[data-role="supervisor"] .owner-card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .owner-card,
+body:not(.operator-mode)[data-role="admin"] .owner-gallery-card,
+body:not(.operator-mode)[data-role="operativo"] .owner-gallery-card,
+body:not(.operator-mode)[data-role="supervisor"] .owner-gallery-card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .owner-gallery-card,
+body:not(.operator-mode)[data-role="admin"] .fleet-line-item,
+body:not(.operator-mode)[data-role="operativo"] .fleet-line-item,
+body:not(.operator-mode)[data-role="supervisor"] .fleet-line-item,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .fleet-line-item,
+body:not(.operator-mode)[data-role="admin"] .schedule-card,
+body:not(.operator-mode)[data-role="operativo"] .schedule-card,
+body:not(.operator-mode)[data-role="supervisor"] .schedule-card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .schedule-card,
+body:not(.operator-mode)[data-role="admin"] .table-row,
+body:not(.operator-mode)[data-role="operativo"] .table-row,
+body:not(.operator-mode)[data-role="supervisor"] .table-row,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .table-row,
+body:not(.operator-mode)[data-role="admin"] .toolbar,
+body:not(.operator-mode)[data-role="operativo"] .toolbar,
+body:not(.operator-mode)[data-role="supervisor"] .toolbar,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .toolbar,
+body:not(.operator-mode)[data-role="admin"] .history-search-box,
+body:not(.operator-mode)[data-role="operativo"] .history-search-box,
+body:not(.operator-mode)[data-role="supervisor"] .history-search-box,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .history-search-box,
+body:not(.operator-mode)[data-role="admin"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="operativo"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="supervisor"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="admin"] .schedule-manual-card,
+body:not(.operator-mode)[data-role="operativo"] .schedule-manual-card,
+body:not(.operator-mode)[data-role="supervisor"] .schedule-manual-card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .schedule-manual-card,
+body:not(.operator-mode)[data-role="admin"] #scheduleCalendar,
+body:not(.operator-mode)[data-role="operativo"] #scheduleCalendar,
+body:not(.operator-mode)[data-role="supervisor"] #scheduleCalendar,
+body:not(.operator-mode)[data-role="supervisor_flotas"] #scheduleCalendar,
+body:not(.operator-mode)[data-role="admin"] #executiveDeck,
+body:not(.operator-mode)[data-role="operativo"] #executiveDeck,
+body:not(.operator-mode)[data-role="supervisor"] #executiveDeck,
+body:not(.operator-mode)[data-role="supervisor_flotas"] #executiveDeck {
+  background: var(--lp-surface) !important;
+  border: var(--lp-border) !important;
+  box-shadow: var(--lp-shadow) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--lp-text) !important;
+}
+
+/* board KPI and text hierarchy */
+body:not(.operator-mode)[data-role="admin"] .executive-card,
+body:not(.operator-mode)[data-role="operativo"] .executive-card,
+body:not(.operator-mode)[data-role="supervisor"] .executive-card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .executive-card {
+  min-height: 176px !important;
+}
+body:not(.operator-mode)[data-role="admin"] .executive-card strong,
+body:not(.operator-mode)[data-role="operativo"] .executive-card strong,
+body:not(.operator-mode)[data-role="supervisor"] .executive-card strong,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .executive-card strong { color: #111827 !important; }
+body:not(.operator-mode)[data-role="admin"] .executive-kicker,
+body:not(.operator-mode)[data-role="operativo"] .executive-kicker,
+body:not(.operator-mode)[data-role="supervisor"] .executive-kicker,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .executive-kicker,
+body:not(.operator-mode)[data-role="admin"] .topbar-kicker,
+body:not(.operator-mode)[data-role="operativo"] .topbar-kicker,
+body:not(.operator-mode)[data-role="supervisor"] .topbar-kicker,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .topbar-kicker {
+  color: #55637a !important;
+  letter-spacing: .12em !important;
+}
+body:not(.operator-mode)[data-role="admin"] h1,
+body:not(.operator-mode)[data-role="operativo"] h1,
+body:not(.operator-mode)[data-role="supervisor"] h1,
+body:not(.operator-mode)[data-role="supervisor_flotas"] h1,
+body:not(.operator-mode)[data-role="admin"] h2,
+body:not(.operator-mode)[data-role="operativo"] h2,
+body:not(.operator-mode)[data-role="supervisor"] h2,
+body:not(.operator-mode)[data-role="supervisor_flotas"] h2,
+body:not(.operator-mode)[data-role="admin"] h3,
+body:not(.operator-mode)[data-role="operativo"] h3,
+body:not(.operator-mode)[data-role="supervisor"] h3,
+body:not(.operator-mode)[data-role="supervisor_flotas"] h3,
+body:not(.operator-mode)[data-role="admin"] strong,
+body:not(.operator-mode)[data-role="operativo"] strong,
+body:not(.operator-mode)[data-role="supervisor"] strong,
+body:not(.operator-mode)[data-role="supervisor_flotas"] strong { color: var(--lp-text) !important; }
+body:not(.operator-mode)[data-role="admin"] .muted,
+body:not(.operator-mode)[data-role="operativo"] .muted,
+body:not(.operator-mode)[data-role="supervisor"] .muted,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .muted,
+body:not(.operator-mode)[data-role="admin"] .small,
+body:not(.operator-mode)[data-role="operativo"] .small,
+body:not(.operator-mode)[data-role="supervisor"] .small,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .small { color: var(--lp-sub) !important; }
+
+/* forms premium light */
+body:not(.operator-mode)[data-role="admin"] label,
+body:not(.operator-mode)[data-role="operativo"] label,
+body:not(.operator-mode)[data-role="supervisor"] label,
+body:not(.operator-mode)[data-role="supervisor_flotas"] label,
+body:not(.operator-mode)[data-role="admin"] .label,
+body:not(.operator-mode)[data-role="operativo"] .label,
+body:not(.operator-mode)[data-role="supervisor"] .label,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .label { color: #374151 !important; }
+body:not(.operator-mode)[data-role="admin"] input,
+body:not(.operator-mode)[data-role="operativo"] input,
+body:not(.operator-mode)[data-role="supervisor"] input,
+body:not(.operator-mode)[data-role="supervisor_flotas"] input,
+body:not(.operator-mode)[data-role="admin"] select,
+body:not(.operator-mode)[data-role="operativo"] select,
+body:not(.operator-mode)[data-role="supervisor"] select,
+body:not(.operator-mode)[data-role="supervisor_flotas"] select,
+body:not(.operator-mode)[data-role="admin"] textarea,
+body:not(.operator-mode)[data-role="operativo"] textarea,
+body:not(.operator-mode)[data-role="supervisor"] textarea,
+body:not(.operator-mode)[data-role="supervisor_flotas"] textarea {
+  background: linear-gradient(165deg, rgba(255,255,255,0.95), rgba(245,248,252,0.92)) !important;
+  border: 1px solid rgba(33, 58, 90, 0.16) !important;
+  color: #1f2937 !important;
+  min-height: 42px !important;
+}
+body:not(.operator-mode)[data-role="admin"] input::placeholder,
+body:not(.operator-mode)[data-role="operativo"] input::placeholder,
+body:not(.operator-mode)[data-role="supervisor"] input::placeholder,
+body:not(.operator-mode)[data-role="supervisor_flotas"] input::placeholder,
+body:not(.operator-mode)[data-role="admin"] textarea::placeholder,
+body:not(.operator-mode)[data-role="operativo"] textarea::placeholder,
+body:not(.operator-mode)[data-role="supervisor"] textarea::placeholder,
+body:not(.operator-mode)[data-role="supervisor_flotas"] textarea::placeholder {
+  color: #708198 !important;
+}
+body:not(.operator-mode)[data-role="admin"] input:focus,
+body:not(.operator-mode)[data-role="operativo"] input:focus,
+body:not(.operator-mode)[data-role="supervisor"] input:focus,
+body:not(.operator-mode)[data-role="supervisor_flotas"] input:focus,
+body:not(.operator-mode)[data-role="admin"] select:focus,
+body:not(.operator-mode)[data-role="operativo"] select:focus,
+body:not(.operator-mode)[data-role="supervisor"] select:focus,
+body:not(.operator-mode)[data-role="supervisor_flotas"] select:focus,
+body:not(.operator-mode)[data-role="admin"] textarea:focus,
+body:not(.operator-mode)[data-role="operativo"] textarea:focus,
+body:not(.operator-mode)[data-role="supervisor"] textarea:focus,
+body:not(.operator-mode)[data-role="supervisor_flotas"] textarea:focus {
+  border-color: rgba(76, 111, 255, 0.40) !important;
+  box-shadow: 0 0 0 3px rgba(76, 111, 255, 0.14) !important;
+}
+
+/* chips/buttons clear minimal */
+body:not(.operator-mode)[data-role="admin"] .badge,
+body:not(.operator-mode)[data-role="operativo"] .badge,
+body:not(.operator-mode)[data-role="supervisor"] .badge,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .badge {
+  background: linear-gradient(160deg, rgba(244, 248, 255, 0.95), rgba(236, 243, 252, 0.92)) !important;
+  border: 1px solid rgba(44, 66, 98, 0.16) !important;
+  color: #2e3d57 !important;
+}
+body:not(.operator-mode)[data-role="admin"] .btn,
+body:not(.operator-mode)[data-role="operativo"] .btn,
+body:not(.operator-mode)[data-role="supervisor"] .btn,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .btn {
+  border-radius: 12px !important;
+  min-height: 40px !important;
+  font-weight: 600 !important;
+}
+body:not(.operator-mode)[data-role="admin"] .btn-primary,
+body:not(.operator-mode)[data-role="operativo"] .btn-primary,
+body:not(.operator-mode)[data-role="supervisor"] .btn-primary,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .btn-primary {
+  background: linear-gradient(155deg, #4c6fff, #6b8cff) !important;
+  color: #fff !important;
+  border: 1px solid rgba(76, 111, 255, 0.45) !important;
+}
+body:not(.operator-mode)[data-role="admin"] .btn-secondary,
+body:not(.operator-mode)[data-role="operativo"] .btn-secondary,
+body:not(.operator-mode)[data-role="supervisor"] .btn-secondary,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .btn-secondary,
+body:not(.operator-mode)[data-role="admin"] .btn-ghost,
+body:not(.operator-mode)[data-role="operativo"] .btn-ghost,
+body:not(.operator-mode)[data-role="supervisor"] .btn-ghost,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .btn-ghost {
+  background: rgba(255,255,255,0.8) !important;
+  color: #24324b !important;
+  border: 1px solid rgba(45, 68, 102, 0.20) !important;
+}
+
+/* spacing harmonization */
+body:not(.operator-mode)[data-role="admin"] .cards,
+body:not(.operator-mode)[data-role="operativo"] .cards,
+body:not(.operator-mode)[data-role="supervisor"] .cards,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .cards,
+body:not(.operator-mode)[data-role="admin"] .table-list,
+body:not(.operator-mode)[data-role="operativo"] .table-list,
+body:not(.operator-mode)[data-role="supervisor"] .table-list,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .table-list,
+body:not(.operator-mode)[data-role="admin"] .mini-grid,
+body:not(.operator-mode)[data-role="operativo"] .mini-grid,
+body:not(.operator-mode)[data-role="supervisor"] .mini-grid,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .mini-grid { gap: 16px !important; }
+
+/* V2 ultra-fine polish: Apple/Vision premium finishing (non-operator) */
+body:not(.operator-mode)[data-role="admin"],
+body:not(.operator-mode)[data-role="operativo"],
+body:not(.operator-mode)[data-role="supervisor"],
+body:not(.operator-mode)[data-role="supervisor_flotas"] {
+  --fin-text: #18212f;
+  --fin-sub: #4f5d72;
+  --fin-label: #344054;
+  --fin-placeholder: #7b8799;
+  --fin-border: 1px solid rgba(23, 42, 69, 0.12);
+  --fin-shadow: 0 6px 16px rgba(15, 23, 42, 0.07);
+  --fin-shadow-hover: 0 10px 24px rgba(15, 23, 42, 0.10);
+  --fin-radius: 16px;
+}
+
+/* perfect legibility */
+body:not(.operator-mode)[data-role="admin"] .muted,
+body:not(.operator-mode)[data-role="operativo"] .muted,
+body:not(.operator-mode)[data-role="supervisor"] .muted,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .muted,
+body:not(.operator-mode)[data-role="admin"] .small,
+body:not(.operator-mode)[data-role="operativo"] .small,
+body:not(.operator-mode)[data-role="supervisor"] .small,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .small { color: var(--fin-sub) !important; }
+body:not(.operator-mode)[data-role="admin"] label,
+body:not(.operator-mode)[data-role="operativo"] label,
+body:not(.operator-mode)[data-role="supervisor"] label,
+body:not(.operator-mode)[data-role="supervisor_flotas"] label,
+body:not(.operator-mode)[data-role="admin"] .label,
+body:not(.operator-mode)[data-role="operativo"] .label,
+body:not(.operator-mode)[data-role="supervisor"] .label,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .label { color: var(--fin-label) !important; font-weight: 600; }
+
+/* shadows/borders/cards */
+body:not(.operator-mode)[data-role="admin"] .panel,
+body:not(.operator-mode)[data-role="operativo"] .panel,
+body:not(.operator-mode)[data-role="supervisor"] .panel,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .panel,
+body:not(.operator-mode)[data-role="admin"] .card,
+body:not(.operator-mode)[data-role="operativo"] .card,
+body:not(.operator-mode)[data-role="supervisor"] .card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .card,
+body:not(.operator-mode)[data-role="admin"] .owner-card,
+body:not(.operator-mode)[data-role="operativo"] .owner-card,
+body:not(.operator-mode)[data-role="supervisor"] .owner-card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .owner-card,
+body:not(.operator-mode)[data-role="admin"] .schedule-card,
+body:not(.operator-mode)[data-role="operativo"] .schedule-card,
+body:not(.operator-mode)[data-role="supervisor"] .schedule-card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .schedule-card,
+body:not(.operator-mode)[data-role="admin"] .fleet-line-item,
+body:not(.operator-mode)[data-role="operativo"] .fleet-line-item,
+body:not(.operator-mode)[data-role="supervisor"] .fleet-line-item,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .fleet-line-item {
+  border: var(--fin-border) !important;
+  box-shadow: var(--fin-shadow) !important;
+  border-radius: var(--fin-radius) !important;
+}
+body:not(.operator-mode)[data-role="admin"] .card:hover,
+body:not(.operator-mode)[data-role="operativo"] .card:hover,
+body:not(.operator-mode)[data-role="supervisor"] .card:hover,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .card:hover,
+body:not(.operator-mode)[data-role="admin"] .fleet-line-item:hover,
+body:not(.operator-mode)[data-role="operativo"] .fleet-line-item:hover,
+body:not(.operator-mode)[data-role="supervisor"] .fleet-line-item:hover,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .fleet-line-item:hover {
+  box-shadow: var(--fin-shadow-hover) !important;
+}
+
+/* spacing */
+body:not(.operator-mode)[data-role="admin"] .panel,
+body:not(.operator-mode)[data-role="operativo"] .panel,
+body:not(.operator-mode)[data-role="supervisor"] .panel,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .panel { padding: 18px !important; }
+body:not(.operator-mode)[data-role="admin"] .panel-head,
+body:not(.operator-mode)[data-role="operativo"] .panel-head,
+body:not(.operator-mode)[data-role="supervisor"] .panel-head,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .panel-head { margin-bottom: 16px !important; }
+
+/* typography hierarchy */
+body:not(.operator-mode)[data-role="admin"] .panel-head h3,
+body:not(.operator-mode)[data-role="operativo"] .panel-head h3,
+body:not(.operator-mode)[data-role="supervisor"] .panel-head h3,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .panel-head h3 {
+  font-size: clamp(23px, 1.9vw, 28px) !important;
+  line-height: 1.15 !important;
+  color: var(--fin-text) !important;
+}
+
+/* buttons */
+body:not(.operator-mode)[data-role="admin"] .btn,
+body:not(.operator-mode)[data-role="operativo"] .btn,
+body:not(.operator-mode)[data-role="supervisor"] .btn,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .btn {
+  min-height: 40px !important;
+  border-radius: 11px !important;
+  transition: all .18s ease;
+}
+body:not(.operator-mode)[data-role="admin"] .btn:hover,
+body:not(.operator-mode)[data-role="operativo"] .btn:hover,
+body:not(.operator-mode)[data-role="supervisor"] .btn:hover,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .btn:hover { transform: translateY(-1px); }
+
+/* forms */
+body:not(.operator-mode)[data-role="admin"] input,
+body:not(.operator-mode)[data-role="operativo"] input,
+body:not(.operator-mode)[data-role="supervisor"] input,
+body:not(.operator-mode)[data-role="supervisor_flotas"] input,
+body:not(.operator-mode)[data-role="admin"] select,
+body:not(.operator-mode)[data-role="operativo"] select,
+body:not(.operator-mode)[data-role="supervisor"] select,
+body:not(.operator-mode)[data-role="supervisor_flotas"] select,
+body:not(.operator-mode)[data-role="admin"] textarea,
+body:not(.operator-mode)[data-role="operativo"] textarea,
+body:not(.operator-mode)[data-role="supervisor"] textarea,
+body:not(.operator-mode)[data-role="supervisor_flotas"] textarea {
+  border: var(--fin-border) !important;
+  color: var(--fin-text) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
+}
+body:not(.operator-mode)[data-role="admin"] input::placeholder,
+body:not(.operator-mode)[data-role="operativo"] input::placeholder,
+body:not(.operator-mode)[data-role="supervisor"] input::placeholder,
+body:not(.operator-mode)[data-role="supervisor_flotas"] input::placeholder,
+body:not(.operator-mode)[data-role="admin"] textarea::placeholder,
+body:not(.operator-mode)[data-role="operativo"] textarea::placeholder,
+body:not(.operator-mode)[data-role="supervisor"] textarea::placeholder,
+body:not(.operator-mode)[data-role="supervisor_flotas"] textarea::placeholder { color: var(--fin-placeholder) !important; }
+
+/* sidebar interaction */
+body.executive-mode .nav-btn {
+  border-radius: 12px !important;
+  padding: 9px 12px !important;
+}
+body.executive-mode .nav-btn.active {
+  box-shadow: 0 0 0 1px rgba(76,111,255,.24), 0 8px 18px rgba(76,111,255,.12) !important;
+}
+
+/* V2 stock-master unification pass (final) */
+body:not(.operator-mode)[data-role="admin"],
+body:not(.operator-mode)[data-role="operativo"],
+body:not(.operator-mode)[data-role="supervisor"],
+body:not(.operator-mode)[data-role="supervisor_flotas"] {
+  --stock-bg-main: #f5f7fb;
+  --stock-surface: linear-gradient(180deg,#ffffff,#f8fafc);
+  --stock-border: 1px solid rgba(15,23,42,.08);
+  --stock-shadow: 0 10px 24px rgba(15,23,42,.06);
+  --stock-radius: 18px;
+  --stock-text: #111827;
+  --stock-sub: #475467;
+}
+
+/* Header/user block alignment fix: keep inside normal flow */
+body.executive-mode .sidebar-top {
+  display: block !important;
+  position: static !important;
+  overflow: auto !important;
+  padding: 0 !important;
+}
+body.executive-mode .profile-panel {
+  position: static !important;
+  margin: 10px 0 12px !important;
+}
+
+/* Base light background and module consistency */
+body:not(.operator-mode)[data-role="admin"],
+body:not(.operator-mode)[data-role="operativo"],
+body:not(.operator-mode)[data-role="supervisor"],
+body:not(.operator-mode)[data-role="supervisor_flotas"] {
+  background: var(--stock-bg-main) !important;
+  color: var(--stock-text) !important;
+}
+body:not(.operator-mode)[data-role="admin"] .panel,
+body:not(.operator-mode)[data-role="operativo"] .panel,
+body:not(.operator-mode)[data-role="supervisor"] .panel,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .panel,
+body:not(.operator-mode)[data-role="admin"] .card,
+body:not(.operator-mode)[data-role="operativo"] .card,
+body:not(.operator-mode)[data-role="supervisor"] .card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .card,
+body:not(.operator-mode)[data-role="admin"] .owner-card,
+body:not(.operator-mode)[data-role="operativo"] .owner-card,
+body:not(.operator-mode)[data-role="supervisor"] .owner-card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .owner-card,
+body:not(.operator-mode)[data-role="admin"] .owner-gallery-card,
+body:not(.operator-mode)[data-role="operativo"] .owner-gallery-card,
+body:not(.operator-mode)[data-role="supervisor"] .owner-gallery-card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .owner-gallery-card,
+body:not(.operator-mode)[data-role="admin"] .table-row,
+body:not(.operator-mode)[data-role="operativo"] .table-row,
+body:not(.operator-mode)[data-role="supervisor"] .table-row,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .table-row,
+body:not(.operator-mode)[data-role="admin"] .toolbar,
+body:not(.operator-mode)[data-role="operativo"] .toolbar,
+body:not(.operator-mode)[data-role="supervisor"] .toolbar,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .toolbar,
+body:not(.operator-mode)[data-role="admin"] .history-search-box,
+body:not(.operator-mode)[data-role="operativo"] .history-search-box,
+body:not(.operator-mode)[data-role="supervisor"] .history-search-box,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .history-search-box,
+body:not(.operator-mode)[data-role="admin"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="operativo"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="supervisor"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .schedule-toolbar,
+body:not(.operator-mode)[data-role="admin"] .schedule-manual-card,
+body:not(.operator-mode)[data-role="operativo"] .schedule-manual-card,
+body:not(.operator-mode)[data-role="supervisor"] .schedule-manual-card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .schedule-manual-card,
+body:not(.operator-mode)[data-role="admin"] #scheduleCalendar,
+body:not(.operator-mode)[data-role="operativo"] #scheduleCalendar,
+body:not(.operator-mode)[data-role="supervisor"] #scheduleCalendar,
+body:not(.operator-mode)[data-role="supervisor_flotas"] #scheduleCalendar,
+body:not(.operator-mode)[data-role="admin"] .fleet-line-item,
+body:not(.operator-mode)[data-role="operativo"] .fleet-line-item,
+body:not(.operator-mode)[data-role="supervisor"] .fleet-line-item,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .fleet-line-item {
+  background: var(--stock-surface) !important;
+  border: var(--stock-border) !important;
+  box-shadow: var(--stock-shadow) !important;
+  border-radius: var(--stock-radius) !important;
+  color: var(--stock-text) !important;
+}
+
+/* Stock-like forms */
+body:not(.operator-mode)[data-role="admin"] input,
+body:not(.operator-mode)[data-role="operativo"] input,
+body:not(.operator-mode)[data-role="supervisor"] input,
+body:not(.operator-mode)[data-role="supervisor_flotas"] input,
+body:not(.operator-mode)[data-role="admin"] select,
+body:not(.operator-mode)[data-role="operativo"] select,
+body:not(.operator-mode)[data-role="supervisor"] select,
+body:not(.operator-mode)[data-role="supervisor_flotas"] select,
+body:not(.operator-mode)[data-role="admin"] textarea,
+body:not(.operator-mode)[data-role="operativo"] textarea,
+body:not(.operator-mode)[data-role="supervisor"] textarea,
+body:not(.operator-mode)[data-role="supervisor_flotas"] textarea {
+  background: #fff !important;
+  border: 1px solid rgba(15,23,42,.12) !important;
+  color: #111827 !important;
+  border-radius: 12px !important;
+  min-height: 42px !important;
+  padding: 10px 12px !important;
+}
+body:not(.operator-mode)[data-role="admin"] input::placeholder,
+body:not(.operator-mode)[data-role="operativo"] input::placeholder,
+body:not(.operator-mode)[data-role="supervisor"] input::placeholder,
+body:not(.operator-mode)[data-role="supervisor_flotas"] input::placeholder,
+body:not(.operator-mode)[data-role="admin"] textarea::placeholder,
+body:not(.operator-mode)[data-role="operativo"] textarea::placeholder,
+body:not(.operator-mode)[data-role="supervisor"] textarea::placeholder,
+body:not(.operator-mode)[data-role="supervisor_flotas"] textarea::placeholder {
+  color: #667085 !important;
+}
+
+/* Stock-like buttons and spacing */
+body:not(.operator-mode)[data-role="admin"] .btn,
+body:not(.operator-mode)[data-role="operativo"] .btn,
+body:not(.operator-mode)[data-role="supervisor"] .btn,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .btn {
+  border-radius: 12px !important;
+  min-height: 40px !important;
+  padding: 9px 14px !important;
+}
+body:not(.operator-mode)[data-role="admin"] .btn-primary,
+body:not(.operator-mode)[data-role="operativo"] .btn-primary,
+body:not(.operator-mode)[data-role="supervisor"] .btn-primary,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .btn-primary {
+  background: #111827 !important;
+  border: 1px solid #111827 !important;
+  color: #fff !important;
+}
+body:not(.operator-mode)[data-role="admin"] .btn-secondary,
+body:not(.operator-mode)[data-role="operativo"] .btn-secondary,
+body:not(.operator-mode)[data-role="supervisor"] .btn-secondary,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .btn-secondary,
+body:not(.operator-mode)[data-role="admin"] .btn-ghost,
+body:not(.operator-mode)[data-role="operativo"] .btn-ghost,
+body:not(.operator-mode)[data-role="supervisor"] .btn-ghost,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .btn-ghost {
+  background: #fff !important;
+  border: 1px solid rgba(15,23,42,.12) !important;
+  color: #111827 !important;
+}
+
+body:not(.operator-mode)[data-role="admin"] .cards,
+body:not(.operator-mode)[data-role="operativo"] .cards,
+body:not(.operator-mode)[data-role="supervisor"] .cards,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .cards,
+body:not(.operator-mode)[data-role="admin"] .table-list,
+body:not(.operator-mode)[data-role="operativo"] .table-list,
+body:not(.operator-mode)[data-role="supervisor"] .table-list,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .table-list,
+body:not(.operator-mode)[data-role="admin"] .mini-grid,
+body:not(.operator-mode)[data-role="operativo"] .mini-grid,
+body:not(.operator-mode)[data-role="supervisor"] .mini-grid,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .mini-grid {
+  gap: 16px !important;
+}
+
+/* Typography cleanup */
+body:not(.operator-mode)[data-role="admin"] h1,
+body:not(.operator-mode)[data-role="operativo"] h1,
+body:not(.operator-mode)[data-role="supervisor"] h1,
+body:not(.operator-mode)[data-role="supervisor_flotas"] h1,
+body:not(.operator-mode)[data-role="admin"] h2,
+body:not(.operator-mode)[data-role="operativo"] h2,
+body:not(.operator-mode)[data-role="supervisor"] h2,
+body:not(.operator-mode)[data-role="supervisor_flotas"] h2,
+body:not(.operator-mode)[data-role="admin"] h3,
+body:not(.operator-mode)[data-role="operativo"] h3,
+body:not(.operator-mode)[data-role="supervisor"] h3,
+body:not(.operator-mode)[data-role="supervisor_flotas"] h3,
+body:not(.operator-mode)[data-role="admin"] strong,
+body:not(.operator-mode)[data-role="operativo"] strong,
+body:not(.operator-mode)[data-role="supervisor"] strong,
+body:not(.operator-mode)[data-role="supervisor_flotas"] strong { color: #111827 !important; }
+body:not(.operator-mode)[data-role="admin"] .muted,
+body:not(.operator-mode)[data-role="operativo"] .muted,
+body:not(.operator-mode)[data-role="supervisor"] .muted,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .muted,
+body:not(.operator-mode)[data-role="admin"] .small,
+body:not(.operator-mode)[data-role="operativo"] .small,
+body:not(.operator-mode)[data-role="supervisor"] .small,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .small,
+body:not(.operator-mode)[data-role="admin"] .label,
+body:not(.operator-mode)[data-role="operativo"] .label,
+body:not(.operator-mode)[data-role="supervisor"] .label,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .label,
+body:not(.operator-mode)[data-role="admin"] label,
+body:not(.operator-mode)[data-role="operativo"] label,
+body:not(.operator-mode)[data-role="supervisor"] label,
+body:not(.operator-mode)[data-role="supervisor_flotas"] label { color: var(--stock-sub) !important; }
+
+/* Hard override: remove all dark/navy surfaces from board/report/schedule/fleet (stock-refacciones baseline) */
+body:not(.operator-mode)[data-panel="board"],
+body:not(.operator-mode)[data-panel="report"],
+body:not(.operator-mode)[data-panel="schedule"],
+body:not(.operator-mode)[data-panel="fleet"] {
+  --sr-surface: linear-gradient(180deg,#ffffff,#f8fafc);
+  --sr-border: 1px solid rgba(15,23,42,.08);
+  --sr-shadow: 0 10px 24px rgba(15,23,42,.06);
+}
+
+body:not(.operator-mode)[data-panel="board"] #executiveDeck,
+body:not(.operator-mode)[data-panel="board"] #executiveDeckGrid .executive-card,
+body:not(.operator-mode)[data-panel="board"] #executiveDeckGrid .executive-card.focus-card,
+body:not(.operator-mode)[data-panel="board"] #boardPanel,
+body:not(.operator-mode)[data-panel="board"] #garantiasList .card,
+body:not(.operator-mode)[data-panel="board"] #filtersPanel,
+body:not(.operator-mode)[data-panel="report"] #reportFormPanel,
+body:not(.operator-mode)[data-panel="schedule"] #schedulePanel,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-toolbar,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-manual-card,
+body:not(.operator-mode)[data-panel="schedule"] #scheduleCalendar,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-card,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-summary .stat,
+body:not(.operator-mode)[data-panel="schedule"] .calendar-cell,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-owner-hero,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-item,
+body:not(.operator-mode)[data-panel="fleet"] #fleetDetail,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-detail-premium,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-timeline-box,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-columns section,
+body:not(.operator-mode)[data-panel="fleet"] .owner-card,
+body:not(.operator-mode)[data-panel="fleet"] .owner-gallery-card,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-detail-summary article,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-status-admin,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-cost-form {
+  background: var(--sr-surface) !important;
+  border: var(--sr-border) !important;
+  box-shadow: var(--sr-shadow) !important;
+  color: #111827 !important;
+}
+
+/* calendar and KPI text legibility on clear cards */
+body:not(.operator-mode)[data-panel="schedule"] .calendar-head span,
+body:not(.operator-mode)[data-panel="schedule"] .date-chip,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-summary .stat span,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-summary .stat strong,
+body:not(.operator-mode)[data-panel="schedule"] .schedule-summary .stat small,
+body:not(.operator-mode)[data-panel="board"] .executive-kicker,
+body:not(.operator-mode)[data-panel="board"] .executive-card strong,
+body:not(.operator-mode)[data-panel="board"] .executive-card p,
+body:not(.operator-mode)[data-panel="board"] .executive-meta,
+body:not(.operator-mode)[data-panel="board"] .executive-chip,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-main strong,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-sub,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-status,
+body:not(.operator-mode)[data-panel="fleet"] .timeline-item,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-detail-head h3,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-detail-summary strong {
+  color: #111827 !important;
+}
+
+/* ensure report/new-report forms are stock-like even if older dark rules exist */
+body:not(.operator-mode) #reportFormPanel .grid-form,
+body:not(.operator-mode) #reportFormPanel .grid-form > div,
+body:not(.operator-mode) #reportFormPanel .grid-form .col-span-2,
+body:not(.operator-mode) #reportFormPanel canvas {
+  background: transparent !important;
+  color: #111827 !important;
+}
+
+/* Final typography contrast fix for clear premium mode (Reportes + Flotas) */
+body:not(.operator-mode)[data-panel="board"] #boardPanel h3,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel h3,
+body:not(.operator-mode)[data-panel="fleet"] #fleetDetail h3,
+body:not(.operator-mode)[data-panel="report"] #reportFormPanel h3,
+body:not(.operator-mode)[data-panel="board"] #garantiasList .title,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-main strong {
+  color: #0A0A0A !important;
+}
+body:not(.operator-mode)[data-panel="board"] .topbar-kicker,
+body:not(.operator-mode)[data-panel="board"] .card-top .meta,
+body:not(.operator-mode)[data-panel="fleet"] .topbar-kicker,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-detail-head p,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-sub {
+  color: #1F2937 !important;
+}
+body:not(.operator-mode)[data-panel="board"] #garantiasList .description,
+body:not(.operator-mode)[data-panel="board"] #garantiasList .mini-grid div,
+body:not(.operator-mode)[data-panel="fleet"] #fleetDetail .table-row,
+body:not(.operator-mode)[data-panel="fleet"] #fleetDetail .timeline-item p,
+body:not(.operator-mode)[data-panel="fleet"] #fleetDetail .owner-list-row span,
+body:not(.operator-mode)[data-panel="fleet"] #fleetDetail .owner-list-row strong,
+body:not(.operator-mode)[data-panel="fleet"] #fleetDetail .fleet-line-status,
+body:not(.operator-mode)[data-panel="report"] #reportFormPanel .grid-form {
+  color: #374151 !important;
+}
+body:not(.operator-mode)[data-panel="board"] #garantiasList label,
+body:not(.operator-mode)[data-panel="board"] #garantiasList .label,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel label,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .label,
+body:not(.operator-mode)[data-panel="report"] #reportFormPanel label,
+body:not(.operator-mode)[data-panel="report"] #reportFormPanel .label {
+  color: #4B5563 !important;
+}
+body:not(.operator-mode)[data-panel="board"] #garantiasList .small,
+body:not(.operator-mode)[data-panel="board"] #garantiasList .muted,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .small,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .muted,
+body:not(.operator-mode)[data-panel="report"] #reportFormPanel .small,
+body:not(.operator-mode)[data-panel="report"] #reportFormPanel .muted {
+  color: #6B7280 !important;
+}
+body:not(.operator-mode)[data-panel="board"] #boardPanel input::placeholder,
+body:not(.operator-mode)[data-panel="board"] #boardPanel textarea::placeholder,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel input::placeholder,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel textarea::placeholder,
+body:not(.operator-mode)[data-panel="report"] #reportFormPanel input::placeholder,
+body:not(.operator-mode)[data-panel="report"] #reportFormPanel textarea::placeholder {
+  color: #9CA3AF !important;
+}
+
+/* informative chips in reportes/flotas */
+body:not(.operator-mode)[data-panel="board"] #garantiasList .badge,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .badge,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-chip,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-dot {
+  color: #374151 !important;
+}
+
+/* Final fleet typography contrast fix + demo premium microinteractions */
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-num {
+  color: #111827 !important;
+  font-weight: 700 !important;
+}
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-main strong,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-detail-head h3,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-owner-copy h3,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-detail-summary strong {
+  color: #0A0A0A !important;
+  font-weight: 600 !important;
+}
+body:not(.operator-mode)[data-panel="fleet"] .topbar-kicker,
+body:not(.operator-mode)[data-panel="fleet"] .owner-card-head strong,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-sub,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-meta-grid .label,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-detail-summary span,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-owner-kpis span {
+  color: #1F2937 !important;
+  font-weight: 600 !important;
+}
+body:not(.operator-mode)[data-panel="fleet"] .owner-list-row span,
+body:not(.operator-mode)[data-panel="fleet"] .owner-list-row strong,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-meta-grid strong,
+body:not(.operator-mode)[data-panel="fleet"] .table-row,
+body:not(.operator-mode)[data-panel="fleet"] .timeline-item p {
+  color: #374151 !important;
+  font-weight: 400 !important;
+}
+body:not(.operator-mode)[data-panel="fleet"] .label,
+body:not(.operator-mode)[data-panel="fleet"] label,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-chip {
+  color: #4B5563 !important;
+  font-weight: 500 !important;
+}
+body:not(.operator-mode)[data-panel="fleet"] .small,
+body:not(.operator-mode)[data-panel="fleet"] .muted,
+body:not(.operator-mode)[data-panel="fleet"] .timeline-item small,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-status {
+  color: #6B7280 !important;
+  font-weight: 400 !important;
+}
+
+/* Demo premium: smooth transitions and subtle interactions */
+body:not(.operator-mode) .panel,
+body:not(.operator-mode) .card,
+body:not(.operator-mode) .owner-card,
+body:not(.operator-mode) .schedule-card,
+body:not(.operator-mode) .fleet-line-item,
+body:not(.operator-mode) .table-row {
+  transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease, background-color .18s ease;
+}
+body:not(.operator-mode) .card:hover,
+body:not(.operator-mode) .owner-card:hover,
+body:not(.operator-mode) .schedule-card:hover,
+body:not(.operator-mode) .fleet-line-item:hover,
+body:not(.operator-mode) .table-row:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(15,23,42,.09) !important;
+}
+body:not(.operator-mode) .btn {
+  transition: transform .14s ease, box-shadow .18s ease, background-color .18s ease, border-color .18s ease, color .18s ease;
+}
+body:not(.operator-mode) .btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(15,23,42,.10);
+}
+body:not(.operator-mode) input,
+body:not(.operator-mode) select,
+body:not(.operator-mode) textarea {
+  transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
+}
+body:not(.operator-mode) .badge,
+body:not(.operator-mode) .fleet-chip,
+body:not(.operator-mode) .fleet-dot {
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease, transform .16s ease;
+}
+body:not(.operator-mode) .badge:hover,
+body:not(.operator-mode) .fleet-chip:hover,
+body:not(.operator-mode) .fleet-dot:hover { transform: translateY(-1px); }
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-item.selected {
+  box-shadow: 0 0 0 1px rgba(99, 122, 160, .18), 0 14px 28px rgba(15,23,42,.11) !important;
+}
+body.executive-mode .nav-btn {
+  transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease, transform .12s ease;
+}
+body.executive-mode .nav-btn:hover { transform: translateY(-1px); }
+
+@keyframes panelSoftIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+body:not(.operator-mode)[data-panel="board"] #boardPanel,
+body:not(.operator-mode)[data-panel="report"] #reportFormPanel,
+body:not(.operator-mode)[data-panel="schedule"] #schedulePanel,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel,
+body:not(.operator-mode)[data-panel="analytics"] #analyticsPanel {
+  animation: panelSoftIn .20s ease-out;
+}
+
+/* Final premium depth + microinteraction pass (Apple/Stripe/Notion feel) */
+body:not(.operator-mode)[data-role="admin"],
+body:not(.operator-mode)[data-role="operativo"],
+body:not(.operator-mode)[data-role="supervisor"],
+body:not(.operator-mode)[data-role="supervisor_flotas"] {
+  --depth-panel: 0 8px 24px rgba(0,0,0,0.04);
+  --depth-card: 0 12px 32px rgba(0,0,0,0.06);
+}
+
+/* depth hierarchy */
+body:not(.operator-mode) { box-shadow: none !important; }
+body:not(.operator-mode) .panel,
+body:not(.operator-mode) .toolbar,
+body:not(.operator-mode) .history-search-box,
+body:not(.operator-mode) .schedule-toolbar,
+body:not(.operator-mode) .schedule-manual-card,
+body:not(.operator-mode) #scheduleCalendar,
+body:not(.operator-mode) #reportFormPanel,
+body:not(.operator-mode) #fleetPanel,
+body:not(.operator-mode) #boardPanel { box-shadow: var(--depth-panel) !important; }
+body:not(.operator-mode) .card,
+body:not(.operator-mode) .owner-card,
+body:not(.operator-mode) .owner-gallery-card,
+body:not(.operator-mode) .schedule-card,
+body:not(.operator-mode) .fleet-line-item,
+body:not(.operator-mode) .table-row,
+body:not(.operator-mode) .executive-card,
+body:not(.operator-mode) .schedule-summary .stat,
+body:not(.operator-mode) .fleet-detail-summary article { box-shadow: var(--depth-card) !important; }
+
+/* key number impact */
+body:not(.operator-mode)[data-panel="board"] .executive-card strong,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-num,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-detail-summary strong,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-owner-kpis strong {
+  font-weight: 700 !important;
+  color: #0A0A0A !important;
+  font-size: clamp(24px, 2.4vw, 32px) !important;
+  letter-spacing: -.02em;
+}
+
+/* premium microinteractions */
+body:not(.operator-mode) .btn {
+  transition: all .2s ease !important;
+}
+body:not(.operator-mode) .btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(0,0,0,.08);
+}
+body:not(.operator-mode) .card,
+body:not(.operator-mode) .owner-card,
+body:not(.operator-mode) .schedule-card,
+body:not(.operator-mode) .fleet-line-item,
+body:not(.operator-mode) .table-row,
+body:not(.operator-mode) .executive-card {
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease !important;
+}
+body:not(.operator-mode) .card:hover,
+body:not(.operator-mode) .owner-card:hover,
+body:not(.operator-mode) .schedule-card:hover,
+body:not(.operator-mode) .fleet-line-item:hover,
+body:not(.operator-mode) .table-row:hover,
+body:not(.operator-mode) .executive-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 36px rgba(0,0,0,.08) !important;
+}
+body.executive-mode .nav-btn {
+  transition: all .2s ease !important;
+}
+body.executive-mode .nav-btn:hover,
+body.executive-mode .nav-btn.active {
+  box-shadow: 0 8px 18px rgba(0,0,0,.08) !important;
+}
+body:not(.operator-mode) input,
+body:not(.operator-mode) select,
+body:not(.operator-mode) textarea {
+  transition: all .2s ease !important;
+}
+body:not(.operator-mode) input:focus,
+body:not(.operator-mode) select:focus,
+body:not(.operator-mode) textarea:focus {
+  border-color: rgba(17,24,39,.26) !important;
+  box-shadow: 0 0 0 3px rgba(17,24,39,.08) !important;
+}
+
+/* Supervisor_flotas flagship visual: premium owner command center */
+body[data-role="supervisor_flotas"][data-panel="fleet"] #fleetPanel,
+body[data-role="supervisor_flotas"][data-panel="fleet"] #fleetOwnerDeck,
+body[data-role="supervisor_flotas"][data-panel="fleet"] #fleetDetail,
+body[data-role="supervisor_flotas"][data-panel="fleet"] .owner-card,
+body[data-role="supervisor_flotas"][data-panel="fleet"] .owner-gallery-card,
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-columns section,
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-timeline-box,
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-line-item {
+  background: linear-gradient(180deg,#ffffff,#f8fafc) !important;
+  border: 1px solid rgba(15,23,42,.08) !important;
+  box-shadow: 0 12px 30px rgba(15,23,42,.07) !important;
+  border-radius: 18px !important;
+}
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-hero {
+  display:grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap:16px;
+  padding:22px;
+  border-radius:22px;
+  background: linear-gradient(160deg, rgba(255,255,255,.96), rgba(246,249,253,.94)) !important;
+  border:1px solid rgba(15,23,42,.08);
+  box-shadow: 0 14px 34px rgba(15,23,42,.08);
+  animation: ownerDeckIn .22s ease-out;
+}
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-copy h3 {
+  font-size: clamp(30px, 2.4vw, 38px);
+  margin: 6px 0 10px;
+  color:#0A0A0A;
+  letter-spacing:-.03em;
+}
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-copy p { color:#374151; line-height:1.6; }
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-kpis {
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap:12px;
+}
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-kpis article {
+  padding:14px;
+  border-radius:16px;
+  background: linear-gradient(180deg,#fff,#f8fafc);
+  border:1px solid rgba(15,23,42,.08);
+  box-shadow: 0 8px 22px rgba(15,23,42,.06);
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-kpis article:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgba(15,23,42,.10); }
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-kpis strong {
+  font-size: clamp(28px, 2.1vw, 34px) !important;
+  color:#0A0A0A !important;
+  font-weight:700;
+  letter-spacing:-.03em;
+}
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-kpis span { color:#1F2937 !important; font-weight:600; }
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-kpis small { color:#6B7280; }
+
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-alerts {
+  margin-top: 14px;
+  display:grid;
+  grid-template-columns: repeat(auto-fit,minmax(240px,1fr));
+  gap:12px;
+}
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-alert {
+  padding:14px 16px;
+  border-radius:14px;
+  background: linear-gradient(180deg,#fff,#f8fafc);
+  border:1px solid rgba(15,23,42,.08);
+  box-shadow: 0 8px 20px rgba(15,23,42,.06);
+}
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-alert span { display:block; font-size:11px; letter-spacing:.10em; text-transform:uppercase; color:#1F2937; font-weight:700; }
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-alert strong { display:block; margin-top:8px; font-size:14px; line-height:1.5; color:#374151; }
+
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-line-item {
+  grid-template-columns: 104px 34px 1fr auto auto;
+  padding: 14px;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-line-item:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(15,23,42,.10) !important; }
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-line-num { font-size:30px !important; letter-spacing:-.02em; }
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-line-main strong { font-size:18px; }
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-line-micro { margin-top:6px; font-size:12px; color:#6B7280; font-weight:500; }
+
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-detail-head,
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-detail-summary,
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-hero,
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-insights,
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-columns {
+  animation: ownerDeckIn .2s ease-out;
+}
+
+@keyframes ownerDeckIn {
+  from { opacity:0; transform: translateY(8px); }
+  to { opacity:1; transform: translateY(0); }
+}
+
+@media (max-width: 1100px) {
+  body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-hero { grid-template-columns:1fr; }
+  body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+
+/* Fleet unit detail as floating premium window */
+body.fleet-detail-modal-open::before {
+  content:"";
+  position:fixed;
+  inset:0;
+  background: rgba(17,24,39,.24);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  z-index: 90;
+}
+body.fleet-detail-modal-open #fleetPanel #fleetDetail {
+  position: fixed !important;
+  inset: 6vh 4vw;
+  z-index: 95;
+  max-width: min(1240px, 92vw);
+  margin: 0 auto;
+  max-height: 88vh;
+  overflow: auto;
+  padding: 20px;
+  border-radius: 22px;
+  background: linear-gradient(180deg,#fff,#f8fafc) !important;
+  border:1px solid rgba(15,23,42,.08);
+  box-shadow: 0 24px 64px rgba(15,23,42,.24);
+}
+body.fleet-detail-modal-open #fleetPanel #fleetUnitsList {
+  filter: blur(0.3px);
+  opacity: .82;
+}
+
+/* Fleet cards alignment polish */
+.fleet-line-item {
+  grid-template-columns: 104px 34px minmax(0,1fr) auto auto;
+  align-items:center;
+  gap: 10px;
+}
+.fleet-line-num { line-height: 1; }
+.fleet-line-main { min-width: 0; }
+.fleet-line-meta {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-top:6px;
+  flex-wrap: wrap;
+}
+.fleet-line-meta span { font-size:12px; color:#374151; font-weight:600; }
+.fleet-line-meta small { font-size:11px; color:#6B7280; }
+.fleet-line-status { font-size:11px; white-space:nowrap; }
+.fleet-line-tags { gap:6px; }
+
+/* Extend premium clear look to all non-operator roles */
+body:not(.operator-mode)[data-role="admin"] .panel,
+body:not(.operator-mode)[data-role="operativo"] .panel,
+body:not(.operator-mode)[data-role="supervisor"] .panel,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .panel,
+body:not(.operator-mode)[data-role="admin"] .card,
+body:not(.operator-mode)[data-role="operativo"] .card,
+body:not(.operator-mode)[data-role="supervisor"] .card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .card,
+body:not(.operator-mode)[data-role="admin"] .owner-card,
+body:not(.operator-mode)[data-role="operativo"] .owner-card,
+body:not(.operator-mode)[data-role="supervisor"] .owner-card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .owner-card,
+body:not(.operator-mode)[data-role="admin"] .table-row,
+body:not(.operator-mode)[data-role="operativo"] .table-row,
+body:not(.operator-mode)[data-role="supervisor"] .table-row,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .table-row {
+  background: linear-gradient(180deg,#fff,#f8fafc) !important;
+  border:1px solid rgba(15,23,42,.08) !important;
+  box-shadow: 0 10px 22px rgba(15,23,42,.06) !important;
+}
+
+@media (max-width: 980px) {
+  body.fleet-detail-modal-open #fleetPanel #fleetDetail {
+    inset: 4vh 3vw;
+    max-height: 90vh;
+    padding: 14px;
+  }
+  .fleet-line-item { grid-template-columns: 1fr; align-items:flex-start; }
+}
+
+/* Critical fleet UX fix: centered modal must be visible above blur */
+body.fleet-detail-modal-open::before {
+  z-index: 9998 !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  background: rgba(0,0,0,.10) !important;
+}
+body.fleet-detail-modal-open #fleetPanel #fleetDetail {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  width: min(80vw, 1240px) !important;
+  max-height: 88vh !important;
+  overflow: auto !important;
+  z-index: 9999 !important;
+  opacity: 1 !important;
+  display: block !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* Critical fleet UX fix: responsive radar grid (not vertical list) */
+body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList.fleet-line-list {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+  gap: 16px !important;
+  align-items: stretch !important;
+}
+body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item {
+  height: 100%;
+}
+
+/* Card internal alignment polish */
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-num { align-self: start; }
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-main { display:grid; gap:4px; }
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-status { align-self:end; }
+
+@media (max-width: 980px) {
+  body.fleet-detail-modal-open #fleetPanel #fleetDetail {
+    width: 94vw !important;
+    max-height: 90vh !important;
+  }
+  body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList.fleet-line-list {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Fleet modal root (real top-layer modal implementation) */
+.fleet-detail-modal-root {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fleet-detail-modal-root.hidden { display: none !important; }
+.fleet-detail-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: rgba(15,23,42,0.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.fleet-detail-modal-shell {
+  position: relative;
+  z-index: 10000;
+  width: min(1100px, 92vw);
+  max-height: 88vh;
+  overflow: auto;
+  border-radius: 22px;
+  background: linear-gradient(180deg,#fff,#f8fafc);
+  border: 1px solid rgba(15,23,42,.08);
+  box-shadow: 0 26px 60px rgba(15,23,42,.20);
+}
+.fleet-detail-modal-content {
+  padding: 18px;
+}
+
+/* Force radar units as true responsive grid */
+body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList.fleet-line-list {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)) !important;
+  gap: 20px !important;
+  align-items: start !important;
+}
+
+@media (max-width: 980px) {
+  .fleet-detail-modal-shell {
+    width: 95vw;
+    max-height: 90vh;
+  }
+  .fleet-detail-modal-content {
+    padding: 14px;
+  }
+  body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList.fleet-line-list {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+}
