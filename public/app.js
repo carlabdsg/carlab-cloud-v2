@@ -512,6 +512,7 @@ function switchPanel(panel) {
   if (state.user?.role === 'supervisor_flotas' && ['users','requests','companies','report','stock','cobranza'].includes(panel)) panel = 'fleet';
   if (!isRole('admin') && ['stock','cobranza'].includes(panel)) panel = state.user?.role === 'supervisor_flotas' ? 'fleet' : 'board';
   if (state.user?.role === 'supervisor' && ['users','requests','companies','fleet','parts','report','stock','cobranza'].includes(panel)) panel = 'board';
+  if (panel !== 'fleet') document.body.classList.remove('fleet-detail-modal-open');
   state.activePanel = panel;
   document.getElementById('boardPanel')?.classList.toggle('hidden', panel !== 'board');
   els.reportFormPanel?.classList.toggle('hidden', panel !== 'report');
@@ -1986,7 +1987,10 @@ function renderFleet() {
       <div class="fleet-line-main">
         <strong>${escapeHtml(status.text)}</strong>
         <div class="fleet-line-sub">${escapeHtml(unit.empresa || '—')}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}${unit.marca ? ' · ' + escapeHtml(unit.marca) : ''}</div>
-        <div class="fleet-line-micro">Costo acumulado ${money(unit.costoTotal || 0)} · ${Number(unit.reportsCount || unit.reportesCount || 0)} reportes</div>
+        <div class="fleet-line-meta">
+          <span>Costo acumulado ${money(unit.costoTotal || 0)}</span>
+          <small>${Number(unit.reportsCount || unit.reportesCount || 0)} reportes</small>
+        </div>
       </div>
       <div class="fleet-line-tags">
         <span class="fleet-chip ${poliza.cls}">${poliza.text}</span>
@@ -1998,6 +2002,7 @@ function renderFleet() {
       try {
         if (state.selectedFleetUnit?.unit?.id === unit.id) {
           state.selectedFleetUnit = null;
+          document.body.classList.remove('fleet-detail-modal-open');
           renderFleet();
           renderFleetDetail();
           return;
@@ -2017,9 +2022,11 @@ function renderFleetDetail() {
   if (!els.fleetDetail) return;
   const data = state.selectedFleetUnit;
   if (!data?.unit) {
+    document.body.classList.remove('fleet-detail-modal-open');
     els.fleetDetail.innerHTML = '<div class="muted">Selecciona una unidad para ver historial, reportes, agenda, refacciones y costos.</div>';
     return;
   }
+  document.body.classList.add('fleet-detail-modal-open');
   const u = data.unit;
   const sem = fleetSemaforo(u);
   const reportsArr = data.reports || [];
@@ -2100,7 +2107,7 @@ function renderFleetDetail() {
   els.fleetDetail.innerHTML = `
     <div class="panel-head fleet-detail-head">
       <div><div class="topbar-kicker">EXPEDIENTE DE UNIDAD</div><h3>${escapeHtml(u.numeroEconomico)} · ${escapeHtml(u.empresa)}</h3><p class="muted">Vista premium para dueño: patrimonio, agenda, refacciones y evidencia visual en una sola ficha.</p></div>
-      <div class="stack-inline">${isRole('admin') ? '<button id="fleetEditInlineBtn" class="btn btn-ghost" type="button">Editar</button><button id="fleetDeleteInlineBtn" class="btn btn-ghost" type="button">Eliminar</button>' : ''}<span class="fleet-dot ${sem.cls}">${sem.label}</span></div>
+      <div class="stack-inline">${isRole('admin') ? '<button id="fleetEditInlineBtn" class="btn btn-ghost" type="button">Editar</button><button id="fleetDeleteInlineBtn" class="btn btn-ghost" type="button">Eliminar</button>' : ''}<button id="fleetCloseDetailBtn" class="btn btn-ghost" type="button">Cerrar</button><span class="fleet-dot ${sem.cls}">${sem.label}</span></div>
     </div>
     <div class="fleet-detail-summary">
       <article><span>Costo total</span><strong>${money(u.costoTotal)}</strong></article>
@@ -2137,6 +2144,12 @@ function renderFleetDetail() {
       <section><div class="topbar-kicker">COSTOS</div><div class="table-list compact-list">${costs}</div>${adminCostsEditor}</section>
     </div>
   `;
+  document.getElementById('fleetCloseDetailBtn')?.addEventListener('click', () => {
+    state.selectedFleetUnit = null;
+    document.body.classList.remove('fleet-detail-modal-open');
+    renderFleet();
+    renderFleetDetail();
+  });
   if (isRole('admin')) {
     document.getElementById('fleetManualStatus').value = ({ operando:'operando', 'en_taller':'en_taller', detenida:'detenida', programada:'programada' })[sem.key || 'operando'] || 'operando';
     document.getElementById('fleetApplyStatusBtn')?.addEventListener('click', async () => {
@@ -2486,6 +2499,12 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (!els.partsRequestModal?.classList.contains('hidden')) closeIndependentRequestModal();
     if (!els.imageLightbox?.classList.contains('hidden')) closeImageLightbox();
+    if (document.body.classList.contains('fleet-detail-modal-open')) {
+      state.selectedFleetUnit = null;
+      document.body.classList.remove('fleet-detail-modal-open');
+      renderFleet();
+      renderFleetDetail();
+    }
   }
 });
 els.partsRequestClose?.addEventListener('click', closeIndependentRequestModal);
@@ -2572,11 +2591,11 @@ function renderFleetOwnerDeck() {
     .slice(0,3);
   const topCostUnit = risky[0];
   const insights = [
-    topCostUnit ? `Unidad ${topCostUnit.numeroEconomico || '—'} concentra ${m.totalCost ? Math.round((Number(topCostUnit.costoTotal || 0) / m.totalCost) * 100) : 0}% del gasto.` : 'Aún no hay unidad dominante por costo.',
-    `${Math.min(3, m.total)} unidades concentran ${Math.round(m.top3Share || 0)}% del costo total.`,
-    `${m.reincidentes} unidad${m.reincidentes === 1 ? '' : 'es'} con reincidencia detectada.`,
-    `${m.pendingParts} unidad${m.pendingParts === 1 ? '' : 'es'} en espera de refacción.`,
-    `Agenda inmediata: ${m.upcoming} ingreso${m.upcoming === 1 ? '' : 's'} próximo${m.upcoming === 1 ? '' : 's'}.`
+    { title:'Hallazgo principal', text: topCostUnit ? `La unidad ${topCostUnit.numeroEconomico || '—'} concentra ${m.totalCost ? Math.round((Number(topCostUnit.costoTotal || 0) / m.totalCost) * 100) : 0}% del gasto acumulado.` : 'Todavía no hay unidad dominante por costo.' },
+    { title:'Concentración de costo', text:`${Math.min(3, m.total)} unidades concentran ${Math.round(m.top3Share || 0)}% del costo total de la flota.` },
+    { title:'Reincidencia detectada', text:`${m.reincidentes} unidad${m.reincidentes === 1 ? '' : 'es'} requieren seguimiento por repetición de incidencias.` },
+    { title:'Atención prioritaria', text:`${m.pendingParts} unidad${m.pendingParts === 1 ? '' : 'es'} siguen en espera de refacción y pueden impactar operación.` },
+    { title:'Agenda próxima', text:`Hay ${m.upcoming} ingreso${m.upcoming === 1 ? '' : 's'} próximo${m.upcoming === 1 ? '' : 's'} programado${m.upcoming === 1 ? '' : 's'} para taller.` }
   ];
   els.fleetOwnerDeck.innerHTML = `
     <section class="fleet-owner-hero">
@@ -2593,7 +2612,7 @@ function renderFleetOwnerDeck() {
       </div>
     </section>
     <section class="fleet-owner-alerts">
-      ${insights.map((text, idx) => `<article class="fleet-owner-alert"><span>Insight ${idx + 1}</span><strong>${escapeHtml(text)}</strong></article>`).join('')}
+      ${insights.map(item => `<article class="fleet-owner-alert"><span>${escapeHtml(item.title)}</span><strong>${escapeHtml(item.text)}</strong></article>`).join('')}
     </section>
     <section class="fleet-owner-insights">
       <article class="owner-card">

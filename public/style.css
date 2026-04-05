@@ -5179,3 +5179,83 @@ body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-columns {
   body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-hero { grid-template-columns:1fr; }
   body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-owner-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
+
+/* Fleet unit detail as floating premium window */
+body.fleet-detail-modal-open::before {
+  content:"";
+  position:fixed;
+  inset:0;
+  background: rgba(17,24,39,.24);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  z-index: 90;
+}
+body.fleet-detail-modal-open #fleetPanel #fleetDetail {
+  position: fixed !important;
+  inset: 6vh 4vw;
+  z-index: 95;
+  max-width: min(1240px, 92vw);
+  margin: 0 auto;
+  max-height: 88vh;
+  overflow: auto;
+  padding: 20px;
+  border-radius: 22px;
+  background: linear-gradient(180deg,#fff,#f8fafc) !important;
+  border:1px solid rgba(15,23,42,.08);
+  box-shadow: 0 24px 64px rgba(15,23,42,.24);
+}
+body.fleet-detail-modal-open #fleetPanel #fleetUnitsList {
+  filter: blur(0.3px);
+  opacity: .82;
+}
+
+/* Fleet cards alignment polish */
+.fleet-line-item {
+  grid-template-columns: 104px 34px minmax(0,1fr) auto auto;
+  align-items:center;
+  gap: 10px;
+}
+.fleet-line-num { line-height: 1; }
+.fleet-line-main { min-width: 0; }
+.fleet-line-meta {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-top:6px;
+  flex-wrap: wrap;
+}
+.fleet-line-meta span { font-size:12px; color:#374151; font-weight:600; }
+.fleet-line-meta small { font-size:11px; color:#6B7280; }
+.fleet-line-status { font-size:11px; white-space:nowrap; }
+.fleet-line-tags { gap:6px; }
+
+/* Extend premium clear look to all non-operator roles */
+body:not(.operator-mode)[data-role="admin"] .panel,
+body:not(.operator-mode)[data-role="operativo"] .panel,
+body:not(.operator-mode)[data-role="supervisor"] .panel,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .panel,
+body:not(.operator-mode)[data-role="admin"] .card,
+body:not(.operator-mode)[data-role="operativo"] .card,
+body:not(.operator-mode)[data-role="supervisor"] .card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .card,
+body:not(.operator-mode)[data-role="admin"] .owner-card,
+body:not(.operator-mode)[data-role="operativo"] .owner-card,
+body:not(.operator-mode)[data-role="supervisor"] .owner-card,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .owner-card,
+body:not(.operator-mode)[data-role="admin"] .table-row,
+body:not(.operator-mode)[data-role="operativo"] .table-row,
+body:not(.operator-mode)[data-role="supervisor"] .table-row,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .table-row {
+  background: linear-gradient(180deg,#fff,#f8fafc) !important;
+  border:1px solid rgba(15,23,42,.08) !important;
+  box-shadow: 0 10px 22px rgba(15,23,42,.06) !important;
+}
+
+@media (max-width: 980px) {
+  body.fleet-detail-modal-open #fleetPanel #fleetDetail {
+    inset: 4vh 3vw;
+    max-height: 90vh;
+    padding: 14px;
+  }
+  .fleet-line-item { grid-template-columns: 1fr; align-items:flex-start; }
+}
