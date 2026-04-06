@@ -1985,21 +1985,24 @@ function renderFleet() {
     const row = document.createElement('article');
     row.className = `fleet-line-item ${selected ? 'selected' : ''}`;
     row.innerHTML = `
-      <div class="fleet-line-num">${escapeHtml(unit.numeroEconomico || '—')}</div>
-      <div class="fleet-line-emoji">${status.emoji}</div>
-      <div class="fleet-line-main">
-        <strong>${escapeHtml(status.text)}</strong>
-        <div class="fleet-line-sub">${escapeHtml(unit.empresa || '—')}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}${unit.marca ? ' · ' + escapeHtml(unit.marca) : ''}</div>
-        <div class="fleet-line-meta">
-          <span>Costo acumulado ${money(unit.costoTotal || 0)}</span>
-          <small>${Number(unit.reportsCount || unit.reportesCount || 0)} reportes</small>
+      <div class="cardUnidad">
+        <div class="headerUnidad">
+          <div class="numeroUnidad">${escapeHtml(unit.numeroEconomico || '—')}</div>
+          <div class="estadoUnidad"><span>${status.emoji}</span><span>${escapeHtml(status.text)}</span></div>
+        </div>
+        <div class="infoUnidad">
+          <span>${escapeHtml(unit.empresa || '—')}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}${unit.marca ? ' · ' + escapeHtml(unit.marca) : ''}</span>
+          <span>${unit.numeroObra ? `Obra ${escapeHtml(unit.numeroObra)}` : 'Sin obra asignada'}</span>
+        </div>
+        <div class="costoUnidad">Costo acumulado: ${money(unit.costoTotal || 0)} · ${Number(unit.reportsCount || unit.reportesCount || 0)} reportes</div>
+        <div class="footerUnidad">
+          <div class="chipsUnidad">
+            <span class="fleet-chip ${poliza.cls}">${poliza.text}</span>
+            <span class="fleet-chip ${camp.cls}">${camp.text}</span>
+          </div>
+          <div class="metaUnidad">${unit.lastReportAt ? fmtDate(unit.lastReportAt) : 'Sin movimiento'}</div>
         </div>
       </div>
-      <div class="fleet-line-tags">
-        <span class="fleet-chip ${poliza.cls}">${poliza.text}</span>
-        <span class="fleet-chip ${camp.cls}">${camp.text}</span>
-      </div>
-      <div class="fleet-line-status">${unit.lastReportAt ? fmtDate(unit.lastReportAt) : 'Sin movimiento'}</div>
     `;
     row.addEventListener('click', async () => {
       try {

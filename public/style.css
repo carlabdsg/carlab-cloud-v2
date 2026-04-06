@@ -5412,3 +5412,59 @@ body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item {
 body:not(.operator-mode)[data-panel="fleet"] #fleetDetail {
   display: none !important;
 }
+
+/* Layout interno estable de tarjetas de unidades (sin absolute/overlay) */
+body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item {
+  padding: 0 !important;
+  display: block !important;
+}
+body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item .cardUnidad {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+}
+body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item .headerUnidad {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item .numeroUnidad {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+}
+body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item .estadoUnidad {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  text-align: right;
+}
+body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item .infoUnidad {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item .costoUnidad {
+  font-weight: 600;
+  font-size: 14px;
+}
+body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item .footerUnidad {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item .chipsUnidad {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item .metaUnidad {
+  font-size: 12px;
+  color: #6B7280;
+}
