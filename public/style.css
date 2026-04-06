@@ -5387,10 +5387,8 @@ body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList.fleet-line-list {
 }
 
 /* Blindaje flotas: estructura real de grid en contenedor dedicado */
-body:not(.operator-mode)[data-panel="fleet"] .fleet-layout {
-  grid-template-columns: 1fr !important;
-}
 body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsGrid {
+  display: block;
   width: 100%;
   max-width: none;
 }
