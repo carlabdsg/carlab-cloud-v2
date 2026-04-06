@@ -5386,18 +5386,21 @@ body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList.fleet-line-list {
   }
 }
 
-/* Blindaje flotas: grid real para vista principal de unidades */
+/* Blindaje flotas: estructura real de grid en contenedor dedicado */
 body:not(.operator-mode)[data-panel="fleet"] .fleet-layout {
   grid-template-columns: 1fr !important;
 }
-body:not(.operator-mode)[data-panel="fleet"] #fleetDetail {
-  display: none !important;
+body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsGrid {
+  width: 100%;
+  max-width: none;
 }
 body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList.fleet-line-list {
   display: grid !important;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)) !important;
   gap: 20px !important;
   align-items: start !important;
+  width: 100%;
+  max-width: none !important;
   max-height: none !important;
   overflow: visible !important;
   position: static !important;
@@ -5407,4 +5410,7 @@ body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item {
   width: auto !important;
   max-width: none !important;
   grid-column: auto !important;
+}
+body:not(.operator-mode)[data-panel="fleet"] #fleetDetail {
+  display: none !important;
 }
