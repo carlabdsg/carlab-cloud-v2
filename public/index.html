@@ -426,11 +426,11 @@
 
           <div id="fleetOwnerDeck" class="fleet-owner-deck"></div>
 
-          <div class="fleet-layout compact-fleet-layout">
+          <div id="fleetUnitsGrid" class="fleet-units-grid">
             <div id="fleetUnitsList" class="fleet-line-list"></div>
-            <div id="fleetDetail" class="panel-subtle fleet-detail-premium">
-              <div class="muted">Selecciona una unidad para ver historial, reportes, póliza, campaña y costos.</div>
-            </div>
+          </div>
+          <div id="fleetDetail" class="panel-subtle fleet-detail-premium hidden" aria-hidden="true">
+            <div class="muted">Selecciona una unidad para ver historial, reportes, póliza, campaña y costos.</div>
           </div>
         </section>
 
@@ -606,6 +606,13 @@
     <button id="imageLightboxClose" class="image-lightbox-close" type="button" aria-label="Cerrar">×</button>
     <img id="imageLightboxImg" alt="Vista ampliada" />
     <div id="imageLightboxCaption" class="image-lightbox-caption"></div>
+  </div>
+
+  <div id="reportDetailModal" class="modal-shell hidden" role="dialog" aria-modal="true">
+    <div class="parts-request-modal report-detail-modal">
+      <button id="reportDetailClose" class="parts-request-close" type="button" aria-label="Cerrar">×</button>
+      <div id="reportDetailContent"></div>
+    </div>
   </div>
 
   <div id="partsRequestModal" class="modal-shell hidden" role="dialog" aria-modal="true">
