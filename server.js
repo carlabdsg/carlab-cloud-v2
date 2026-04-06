@@ -463,11 +463,22 @@ async function addAuditLog(garantiaId, userId, accion, detalle) {
 async function nextGarantiaFolio(client = pool) {
   await client.query(`SELECT pg_advisory_xact_lock($1)`, [71000]);
   const result = await client.query(`
-    SELECT COALESCE(MAX(NULLIF(regexp_replace(folio, '\D', '', 'g'), '')::int), 0) AS max_num
+    SELECT folio
     FROM garantias
-    WHERE folio ~ '^GAR-[0-9]+$'
+    WHERE folio IS NOT NULL AND folio <> ''
+    ORDER BY created_at DESC NULLS LAST, updated_at DESC NULLS LAST
+    LIMIT 2000
   `);
-  let next = Number(result.rows[0]?.max_num || 0) + 1;
+  let maxNum = 0;
+  for (const row of result.rows) {
+    const raw = String(row?.folio || '').trim().toUpperCase();
+    if (!raw.startsWith('GAR-')) continue;
+    const numericPart = raw.slice(4).replace(/[^0-9]/g, '');
+    if (!numericPart) continue;
+    const parsed = Number.parseInt(numericPart, 10);
+    if (Number.isFinite(parsed) && parsed > maxNum) maxNum = parsed;
+  }
+  let next = maxNum + 1;
   let folio = `GAR-${String(next).padStart(5, '0')}`;
   for (;;) {
     const exists = await client.query(`SELECT 1 FROM garantias WHERE folio = $1 LIMIT 1`, [folio]);
