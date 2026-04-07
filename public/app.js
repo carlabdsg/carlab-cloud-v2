@@ -260,31 +260,60 @@ function fleetTagPoliza(unit) {
 function fleetTagCampania(unit) {
   return unit.campaignActiva ? { text:'Campaña activa', cls:'warn' } : { text:'Sin campaña', cls:'neutral' };
 }
-function renderBusIcon(unit) {
-  const marca = (unit.marca || '').toLowerCase().trim();
-  const svgFile = marca.includes('volvo') ? 'bus-volvo.svg' : 'bus-irizar.svg';
+function getBusSvgByBrand(marca) {
+  const m = (marca || '').toLowerCase().trim();
+  return m.includes('volvo') ? '/assets/buses/bus-volvo.svg' : '/assets/buses/bus-irizar.svg';
+}
+function getBusStatusClass(unit) {
   const sem = fleetSemaforo(unit);
-  let estadoCls = 'estado-gris';
-  if (sem.key === 'operando') estadoCls = 'estado-verde';
-  else if (sem.key === 'en_taller') estadoCls = 'estado-ambar';
-  else if (sem.key === 'detenida') estadoCls = 'estado-rojo';
-  else if (sem.key === 'programada') estadoCls = 'estado-ambar';
-  const el = document.createElement('span');
-  el.className = `bus-icon ${estadoCls}`;
-  el.title = `${unit.marca || 'Bus'} — ${sem.label}`;
-  el.innerHTML = `<img src="/assets/buses/${svgFile}" alt="${escapeHtml(unit.marca || 'Bus')}">`;
-  return el;
+  if (sem.key === 'detenida') return 'estado-rojo';
+  if (sem.key === 'en_taller' || sem.key === 'programada') return 'estado-ambar';
+  if (sem.key === 'operando') return 'estado-verde';
+  return 'estado-gris';
+}
+function getBusStateLabel(unit) {
+  const sem = fleetSemaforo(unit);
+  if (sem.key === 'detenida') return 'Detenida · Crítica';
+  if (sem.key === 'en_taller') return 'En taller · Pendiente';
+  if (sem.key === 'programada') return 'Espera programación';
+  if (sem.key === 'operando') return 'Sin pendientes';
+  return 'Sin estado';
 }
 function renderBusIconHtml(unit) {
-  const marca = (unit.marca || '').toLowerCase().trim();
-  const svgFile = marca.includes('volvo') ? 'bus-volvo.svg' : 'bus-irizar.svg';
-  const sem = fleetSemaforo(unit);
-  let estadoCls = 'estado-gris';
-  if (sem.key === 'operando') estadoCls = 'estado-verde';
-  else if (sem.key === 'en_taller') estadoCls = 'estado-ambar';
-  else if (sem.key === 'detenida') estadoCls = 'estado-rojo';
-  else if (sem.key === 'programada') estadoCls = 'estado-ambar';
-  return `<span class="bus-icon ${estadoCls}" title="${escapeHtml(unit.marca || 'Bus')} — ${sem.label}"><img src="/assets/buses/${svgFile}" alt="${escapeHtml(unit.marca || 'Bus')}"></span>`;
+  const cls = getBusStatusClass(unit);
+  return `<span class="bus-icon ${cls}" title="${escapeHtml(unit.marca || 'Bus')} — ${getBusStateLabel(unit)}"><img src="${getBusSvgByBrand(unit.marca)}" alt="${escapeHtml(unit.marca || 'Bus')}"></span>`;
+}
+function renderBusHeroHtml(unit) {
+  const cls = getBusStatusClass(unit);
+  const poliza = fleetTagPoliza(unit);
+  const camp = fleetTagCampania(unit);
+  return `
+    <div class="fleet-hero-visual ${cls}">
+      <img class="fleet-bus-svg" src="${getBusSvgByBrand(unit.marca)}" alt="${escapeHtml(unit.marca || 'Bus')}">
+      <div class="fleet-bus-line"></div>
+      <div class="fleet-bus-status-text">${getBusStateLabel(unit)}</div>
+    </div>
+    <div class="fleet-hero-content">
+      <div class="fleet-hero-top">
+        <div>
+          <div class="fleet-hero-numero">${escapeHtml(unit.numeroEconomico || '—')}</div>
+          <div class="fleet-hero-marca">${escapeHtml(unit.marca || '—')} ${unit.modelo ? '· ' + escapeHtml(unit.modelo) : ''}</div>
+        </div>
+        <div class="fleet-hero-badges">
+          <span class="fleet-chip ${poliza.cls}">${poliza.text}</span>
+          <span class="fleet-chip ${camp.cls}">${camp.text}</span>
+        </div>
+      </div>
+      <div class="fleet-hero-info">
+        <span><strong>Empresa:</strong> ${escapeHtml(unit.empresa || '—')}</span>
+        <span><strong>Obra:</strong> ${unit.numeroObra ? escapeHtml(unit.numeroObra) : 'Sin asignar'}</span>
+        <span><strong>Costo:</strong> ${money(unit.costoTotal || 0)}</span>
+        <span><strong>Reportes:</strong> ${Number(unit.reportsCount || unit.reportesCount || 0)}</span>
+      </div>
+      <div class="fleet-hero-footer">
+        <span>${unit.lastReportAt ? 'Último movimiento: ' + fmtDate(unit.lastReportAt) : 'Sin movimiento'}</span>
+      </div>
+    </div>`;
 }
 function countBy(items, getter) {
   const map = new Map();
@@ -2004,32 +2033,11 @@ function renderFleet() {
   }
 
   visibleUnits.forEach(unit => {
-    const status = fleetStatusLuxury(unit);
-    const poliza = fleetTagPoliza(unit);
-    const camp = fleetTagCampania(unit);
     const selected = state.selectedFleetUnit?.unit?.id === unit.id;
+    const cls = getBusStatusClass(unit);
     const row = document.createElement('article');
-    row.className = `fleet-line-item ${selected ? 'selected' : ''}`;
-    row.innerHTML = `
-      <div class="cardUnidad">
-        <div class="headerUnidad">
-          <div class="numeroUnidad">${escapeHtml(unit.numeroEconomico || '—')}</div>
-          <div class="estadoUnidad">${renderBusIconHtml(unit)}<span>${escapeHtml(status.text)}</span></div>
-        </div>
-        <div class="infoUnidad">
-          <span>${escapeHtml(unit.empresa || '—')}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}${unit.marca ? ' · ' + escapeHtml(unit.marca) : ''}</span>
-          <span>${unit.numeroObra ? `Obra ${escapeHtml(unit.numeroObra)}` : 'Sin obra asignada'}</span>
-        </div>
-        <div class="costoUnidad">Costo acumulado: ${money(unit.costoTotal || 0)} · ${Number(unit.reportsCount || unit.reportesCount || 0)} reportes</div>
-        <div class="footerUnidad">
-          <div class="chipsUnidad">
-            <span class="fleet-chip ${poliza.cls}">${poliza.text}</span>
-            <span class="fleet-chip ${camp.cls}">${camp.text}</span>
-          </div>
-          <div class="metaUnidad">${unit.lastReportAt ? fmtDate(unit.lastReportAt) : 'Sin movimiento'}</div>
-        </div>
-      </div>
-    `;
+    row.className = `fleet-line-item`;
+    row.innerHTML = `<div class="fleet-hero-card ${cls}${selected ? ' selected' : ''}">${renderBusHeroHtml(unit)}</div>`;
     row.addEventListener('click', async () => {
       try {
         if (state.selectedFleetUnit?.unit?.id === unit.id) {
@@ -2173,7 +2181,7 @@ function renderFleetDetail() {
   const detailHtml = `
     <div class="panel-head fleet-detail-head">
       <div><div class="topbar-kicker">EXPEDIENTE DE UNIDAD</div><h3>${escapeHtml(u.numeroEconomico)} · ${escapeHtml(u.empresa)}</h3><p class="muted">Vista premium para dueño: patrimonio, agenda, refacciones y evidencia visual en una sola ficha.</p></div>
-      <div class="stack-inline">${isRole('admin') ? '<button id="fleetEditInlineBtn" class="btn btn-ghost" type="button">Editar</button><button id="fleetDeleteInlineBtn" class="btn btn-ghost" type="button">Eliminar</button>' : ''}<button id="fleetCloseDetailBtn" class="btn btn-ghost" type="button">Cerrar</button>${renderBusIconHtml(u)}<span class="fleet-dot ${sem.cls}">${sem.label}</span></div>
+      <div class="stack-inline">${isRole('admin') ? '<button id="fleetEditInlineBtn" class="btn btn-ghost" type="button">Editar</button><button id="fleetDeleteInlineBtn" class="btn btn-ghost" type="button">Eliminar</button>' : ''}<button id="fleetCloseDetailBtn" class="btn btn-ghost" type="button">Cerrar</button>${renderBusIconHtml(u)}<span class="bus-state-label" style="font-size:13px">${sem.label}</span></div>
     </div>
     <div class="fleet-detail-summary">
       <article><span>Costo total</span><strong>${money(u.costoTotal)}</strong></article>
