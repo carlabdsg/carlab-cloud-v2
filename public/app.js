@@ -1,3 +1,4 @@
+/* CARLAB v4.1.1 — fleet bus SVG color system active */
 const state = {
   token: localStorage.getItem('carlabToken') || '',
   user: null,
