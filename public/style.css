@@ -5392,12 +5392,15 @@ body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsGrid {
   width: 100%;
   max-width: none;
 }
-/* ── Fleet Card System ── */
+/* ── Fleet Card System (final, overrides all legacy) ── */
+
+/* Estado colors */
 .estado-verde  { --bus-color: #22c55e; }
 .estado-ambar  { --bus-color: #f59e0b; }
 .estado-rojo   { --bus-color: #ef4444; }
 .estado-gris   { --bus-color: #94a3b8; }
 
+/* Grid container — force auto-fit grid over any legacy rule */
 #fleetUnitsList.fleet-line-list {
   display: grid !important;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)) !important;
@@ -5407,11 +5410,14 @@ body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsGrid {
   overflow: visible !important;
   position: static !important;
 }
+
+/* fleet-card: the card itself IS the fleet-line-item now */
 .fleet-line-item.fleet-card {
   all: unset !important;
   display: flex !important;
   flex-direction: column !important;
   gap: 14px !important;
+  min-height: 100% !important;
   padding: 18px !important;
   border-radius: 22px !important;
   background: rgba(255,255,255,.94) !important;
@@ -5429,35 +5435,118 @@ body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsGrid {
   border-color: rgba(99,102,241,.45) !important;
   box-shadow: 0 8px 24px rgba(99,102,241,.12), 0 0 0 2px rgba(99,102,241,.18) !important;
 }
-.fleet-card__header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
-.fleet-card__identity { display:flex; align-items:flex-start; gap:12px; }
-.fleet-card__numero { font-size:42px; line-height:1; font-weight:800; color:#0f172a; }
-.fleet-card__meta { display:flex; flex-direction:column; gap:4px; padding-top:4px; }
-.fleet-card__marca-modelo { color:#334155; font-size:14px; }
-.fleet-card__empresa { color:#64748b; font-size:13px; }
-.fleet-card__badges { display:flex; gap:6px; flex-wrap:wrap; flex-shrink:0; }
-.fleet-card__visual { display:flex; flex-direction:column; align-items:center; gap:10px; padding:6px 0; }
-.fleet-card__bus-wrap { display:flex; justify-content:center; align-items:center; min-height:72px; color:var(--bus-color,#94a3b8); }
-.fleet-card__bus-wrap svg { width:170px; max-width:100%; height:auto; display:block; filter:drop-shadow(0 4px 12px rgba(15,23,42,.08)); }
-.fleet-card__glow {
-  width:72%; height:7px; border-radius:999px;
-  background: color-mix(in srgb, var(--bus-color,#94a3b8) 55%, white);
-  box-shadow: 0 0 18px color-mix(in srgb, var(--bus-color,#94a3b8) 45%, white), 0 0 32px color-mix(in srgb, var(--bus-color,#94a3b8) 25%, transparent);
-  opacity:.9;
+
+/* Header */
+.fleet-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
 }
-.fleet-card__status { font-size:15px; font-weight:700; color:var(--bus-color,#94a3b8); text-align:center; }
-.fleet-card__body { display:grid; grid-template-columns:1fr; gap:8px; }
-.fleet-card__row { display:flex; justify-content:space-between; gap:12px; font-size:14px; }
-.fleet-card__row span { color:#64748b; }
-.fleet-card__row strong { color:#0f172a; text-align:right; }
+.fleet-card__identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.fleet-card__numero {
+  font-size: 42px;
+  line-height: 1;
+  font-weight: 800;
+  color: #0f172a;
+}
+.fleet-card__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 4px;
+}
+.fleet-card__marca-modelo,
+.fleet-card__empresa {
+  color: #334155;
+  font-size: 14px;
+}
+.fleet-card__empresa { color: #64748b; font-size: 13px; }
+.fleet-card__badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
 
-.bus-icon { width:54px; height:24px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--bus-color,#94a3b8); }
-.bus-icon svg { width:100%; height:100%; }
-.stack-inline .bus-icon { width:64px; height:28px; }
-.table-row .bus-icon { width:44px; height:20px; }
+/* Visual: bus + glow + status */
+.fleet-card__visual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+.fleet-card__bus-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 72px;
+  color: var(--bus-color, #94a3b8);
+}
+.fleet-card__bus-wrap svg {
+  width: 170px;
+  max-width: 100%;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 4px 12px rgba(15,23,42,.08));
+}
+.fleet-card__glow {
+  width: 72%;
+  height: 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bus-color, #94a3b8) 55%, white);
+  box-shadow:
+    0 0 18px color-mix(in srgb, var(--bus-color, #94a3b8) 45%, white),
+    0 0 32px color-mix(in srgb, var(--bus-color, #94a3b8) 25%, transparent);
+  opacity: .9;
+}
+.fleet-card__status {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--bus-color, #94a3b8);
+  text-align: center;
+}
 
-@media (max-width:640px) {
-  #fleetUnitsList.fleet-line-list { grid-template-columns:1fr !important; }
-  .fleet-card__numero { font-size:32px; }
-  .fleet-card__bus-wrap svg { width:140px; }
+/* Body rows */
+.fleet-card__body {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.fleet-card__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+.fleet-card__row span { color: #64748b; }
+.fleet-card__row strong { color: #0f172a; text-align: right; }
+
+/* Bus icon (small, for detail header & history) */
+.bus-icon {
+  width: 54px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--bus-color, #94a3b8);
+}
+.bus-icon svg { width: 100%; height: 100%; }
+.stack-inline .bus-icon { width: 64px; height: 28px; }
+.table-row .bus-icon { width: 44px; height: 20px; }
+
+/* Responsive */
+@media (max-width: 640px) {
+  #fleetUnitsList.fleet-line-list {
+    grid-template-columns: 1fr !important;
+  }
+  .fleet-card__numero { font-size: 32px; }
+  .fleet-card__bus-wrap svg { width: 140px; }
 }
