@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 50" fill="currentColor">
+  <!-- Irizar-style coach silhouette -->
+  <path d="M8 38 C8 18, 12 12, 20 10 L95 10 C102 10, 108 14, 110 20 L112 34 C112 37, 110 38, 108 38 Z" opacity="0.92"/>
+  <!-- Windshield -->
+  <path d="M96 12 C101 12, 106 15, 108 20 L109 30 L96 30 Z" fill="#fff" opacity="0.25"/>
+  <!-- Side windows -->
+  <rect x="22" y="14" width="10" height="12" rx="2" fill="#fff" opacity="0.2"/>
+  <rect x="35" y="14" width="10" height="12" rx="2" fill="#fff" opacity="0.2"/>
+  <rect x="48" y="14" width="10" height="12" rx="2" fill="#fff" opacity="0.2"/>
+  <rect x="61" y="14" width="10" height="12" rx="2" fill="#fff" opacity="0.2"/>
+  <rect x="74" y="14" width="10" height="12" rx="2" fill="#fff" opacity="0.2"/>
+  <!-- Accent stripe -->
+  <rect x="10" y="30" width="100" height="3" rx="1" fill="#fff" opacity="0.12"/>
+  <!-- Wheels -->
+  <circle cx="28" cy="40" r="6" fill="#23272f"/>
+  <circle cx="28" cy="40" r="3" fill="#444"/>
+  <circle cx="98" cy="40" r="6" fill="#23272f"/>
+  <circle cx="98" cy="40" r="3" fill="#444"/>
+  <!-- Headlight -->
+  <rect x="110" y="24" width="3" height="5" rx="1" fill="#fff" opacity="0.35"/>
+</svg>

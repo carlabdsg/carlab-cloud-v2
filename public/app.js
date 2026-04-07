@@ -260,6 +260,32 @@ function fleetTagPoliza(unit) {
 function fleetTagCampania(unit) {
   return unit.campaignActiva ? { text:'Campaña activa', cls:'warn' } : { text:'Sin campaña', cls:'neutral' };
 }
+function renderBusIcon(unit) {
+  const marca = (unit.marca || '').toLowerCase().trim();
+  const svgFile = marca.includes('volvo') ? 'bus-volvo.svg' : 'bus-irizar.svg';
+  const sem = fleetSemaforo(unit);
+  let estadoCls = 'estado-gris';
+  if (sem.key === 'operando') estadoCls = 'estado-verde';
+  else if (sem.key === 'en_taller') estadoCls = 'estado-ambar';
+  else if (sem.key === 'detenida') estadoCls = 'estado-rojo';
+  else if (sem.key === 'programada') estadoCls = 'estado-ambar';
+  const el = document.createElement('span');
+  el.className = `bus-icon ${estadoCls}`;
+  el.title = `${unit.marca || 'Bus'} — ${sem.label}`;
+  el.innerHTML = `<img src="/assets/buses/${svgFile}" alt="${escapeHtml(unit.marca || 'Bus')}">`;
+  return el;
+}
+function renderBusIconHtml(unit) {
+  const marca = (unit.marca || '').toLowerCase().trim();
+  const svgFile = marca.includes('volvo') ? 'bus-volvo.svg' : 'bus-irizar.svg';
+  const sem = fleetSemaforo(unit);
+  let estadoCls = 'estado-gris';
+  if (sem.key === 'operando') estadoCls = 'estado-verde';
+  else if (sem.key === 'en_taller') estadoCls = 'estado-ambar';
+  else if (sem.key === 'detenida') estadoCls = 'estado-rojo';
+  else if (sem.key === 'programada') estadoCls = 'estado-ambar';
+  return `<span class="bus-icon ${estadoCls}" title="${escapeHtml(unit.marca || 'Bus')} — ${sem.label}"><img src="/assets/buses/${svgFile}" alt="${escapeHtml(unit.marca || 'Bus')}"></span>`;
+}
 function countBy(items, getter) {
   const map = new Map();
   items.forEach(item => {
@@ -1988,7 +2014,7 @@ function renderFleet() {
       <div class="cardUnidad">
         <div class="headerUnidad">
           <div class="numeroUnidad">${escapeHtml(unit.numeroEconomico || '—')}</div>
-          <div class="estadoUnidad"><span>${status.emoji}</span><span>${escapeHtml(status.text)}</span></div>
+          <div class="estadoUnidad">${renderBusIconHtml(unit)}<span>${escapeHtml(status.text)}</span></div>
         </div>
         <div class="infoUnidad">
           <span>${escapeHtml(unit.empresa || '—')}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}${unit.marca ? ' · ' + escapeHtml(unit.marca) : ''}</span>
@@ -2147,7 +2173,7 @@ function renderFleetDetail() {
   const detailHtml = `
     <div class="panel-head fleet-detail-head">
       <div><div class="topbar-kicker">EXPEDIENTE DE UNIDAD</div><h3>${escapeHtml(u.numeroEconomico)} · ${escapeHtml(u.empresa)}</h3><p class="muted">Vista premium para dueño: patrimonio, agenda, refacciones y evidencia visual en una sola ficha.</p></div>
-      <div class="stack-inline">${isRole('admin') ? '<button id="fleetEditInlineBtn" class="btn btn-ghost" type="button">Editar</button><button id="fleetDeleteInlineBtn" class="btn btn-ghost" type="button">Eliminar</button>' : ''}<button id="fleetCloseDetailBtn" class="btn btn-ghost" type="button">Cerrar</button><span class="fleet-dot ${sem.cls}">${sem.label}</span></div>
+      <div class="stack-inline">${isRole('admin') ? '<button id="fleetEditInlineBtn" class="btn btn-ghost" type="button">Editar</button><button id="fleetDeleteInlineBtn" class="btn btn-ghost" type="button">Eliminar</button>' : ''}<button id="fleetCloseDetailBtn" class="btn btn-ghost" type="button">Cerrar</button>${renderBusIconHtml(u)}<span class="fleet-dot ${sem.cls}">${sem.label}</span></div>
     </div>
     <div class="fleet-detail-summary">
       <article><span>Costo total</span><strong>${money(u.costoTotal)}</strong></article>
@@ -2469,7 +2495,7 @@ async function loadRequests() { if (!isRole('admin')) return; state.registration
 function paintUnitHistory(history) {
   const q = normalizeText(els.unitHistorySearchInput?.value || '');
   const filtered = !q ? history : history.filter(item => normalizeText([item.numeroObra, item.modelo, item.empresa, item.tipoIncidente, item.descripcionFallo].join(' ')).includes(q));
-  els.unitHistoryResult.innerHTML = filtered.length ? filtered.map(item => `<div class="table-row"><div><strong>Obra ${escapeHtml(item.numeroObra)}</strong><div class="small muted">${escapeHtml(item.modelo)} · ${escapeHtml(item.empresa)}</div><div class="small muted">${escapeHtml(item.descripcionFallo || '')}</div></div><div>${escapeHtml(item.tipoIncidente)}</div><div><span class="badge ${badgeClassValidation(item.estatusValidacion)}">${escapeHtml(item.estatusValidacion)}</span></div><div>${fmtDate(item.createdAt)}</div></div>`).join('') : '<div class="empty-state"><strong>Sin historial.</strong><span>No hay coincidencias para esa unidad.</span></div>';
+  els.unitHistoryResult.innerHTML = filtered.length ? filtered.map(item => { const histUnit = { marca: item.marca || item.modelo || '', estatusOperativo: item.estatusOperativo || '' }; return `<div class="table-row">${renderBusIconHtml(histUnit)}<div><strong>Obra ${escapeHtml(item.numeroObra)}</strong><div class="small muted">${escapeHtml(item.modelo)} · ${escapeHtml(item.empresa)}</div><div class="small muted">${escapeHtml(item.descripcionFallo || '')}</div></div><div>${escapeHtml(item.tipoIncidente)}</div><div><span class="badge ${badgeClassValidation(item.estatusValidacion)}">${escapeHtml(item.estatusValidacion)}</span></div><div>${fmtDate(item.createdAt)}</div></div>`; }).join('') : '<div class="empty-state"><strong>Sin historial.</strong><span>No hay coincidencias para esa unidad.</span></div>';
 }
 
 async function renderUnitHistory() {
