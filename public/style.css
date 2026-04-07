@@ -5563,3 +5563,43 @@ body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item {
   }
   .fleet-bus-svg { width: 180px; }
 }
+
+/* ── Hero card overrides: neutralize all fleet-line-item legacy styles ── */
+.fleet-line-item:has(.fleet-hero-card) {
+  display: block !important;
+  grid-template-columns: none !important;
+  padding: 0 !important;
+  border: none !important;
+  background: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  min-height: 0 !important;
+  align-content: normal !important;
+}
+.fleet-line-item:has(.fleet-hero-card):hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+body:not(.operator-mode) .fleet-line-item:has(.fleet-hero-card),
+body:not(.operator-mode) .fleet-line-item:has(.fleet-hero-card):hover,
+body:not(.operator-mode)[data-role="admin"] .fleet-line-item:has(.fleet-hero-card),
+body:not(.operator-mode)[data-role="operativo"] .fleet-line-item:has(.fleet-hero-card),
+body:not(.operator-mode)[data-role="supervisor"] .fleet-line-item:has(.fleet-hero-card),
+body:not(.operator-mode)[data-role="supervisor_flotas"] .fleet-line-item:has(.fleet-hero-card),
+body:not(.operator-mode)[data-role="admin"] .fleet-line-item:has(.fleet-hero-card):hover,
+body:not(.operator-mode)[data-role="operativo"] .fleet-line-item:has(.fleet-hero-card):hover,
+body:not(.operator-mode)[data-role="supervisor"] .fleet-line-item:has(.fleet-hero-card):hover,
+body:not(.operator-mode)[data-role="supervisor_flotas"] .fleet-line-item:has(.fleet-hero-card):hover,
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-line-item:has(.fleet-hero-card),
+body[data-role="supervisor_flotas"][data-panel="fleet"] .fleet-line-item:has(.fleet-hero-card):hover,
+body:not(.operator-mode)[data-panel="fleet"] .fleet-line-item:has(.fleet-hero-card) {
+  display: block !important;
+  grid-template-columns: none !important;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  min-height: 0 !important;
+  transform: none !important;
+}
