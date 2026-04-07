@@ -1,4 +1,3 @@
-/* CARLAB v4.1.1 — fleet bus SVG color system active */
 const state = {
   token: localStorage.getItem('carlabToken') || '',
   user: null,
@@ -241,82 +240,29 @@ function normalizeText(value='') {
 }
 
 function fleetSemaforo(unit) {
-  const st = unit.manualStatus || unit.estatusOperativo || '';
-  if (st === 'terminada' || st === 'sin actividad' || st === 'operando') return { key:'operando', label: 'Operando', cls: 'fleet-ok' };
-  if (st === 'en proceso' || st === 'en_taller') return { key:'en_taller', label: 'En taller', cls: 'fleet-warn' };
-  if (st === 'espera refacción' || st === 'detenida') return { key:'detenida', label: 'Detenida', cls: 'fleet-bad' };
-  if (st === 'aceptada' || st === 'programada') return { key:'programada', label: 'Programada', cls: 'fleet-info' };
+  const st = normalizeText(unit.manualStatus || unit.estatusOperativo || unit.status || '');
+  if (['terminada','sin actividad','operando','sin pendientes','aceptada finalizada'].includes(st)) return { key:'operando', label: 'Operando', cls: 'fleet-ok' };
+  if (['en proceso','en_taller','en taller','pendiente','espera programacion','espera programación','programada','aceptada'].includes(st)) return { key:'programada', label: st.includes('taller') ? 'En taller' : 'Programada', cls: 'fleet-warn' };
+  if (['espera refaccion','espera refacción','detenida','rechazada','critica','crítica','urgente'].includes(st)) return { key:'detenida', label: 'Detenida', cls: 'fleet-bad' };
   return { key:'operando', label: 'Operando', cls: 'fleet-ok' };
+}
+function fleetBusAsset(unit) {
+  return normalizeText(unit.marca || '').includes('volvo') ? '/assets/buses/bus-volvo.svg' : '/assets/buses/bus-irizar.svg';
 }
 function fleetStatusLuxury(unit) {
   const sem = fleetSemaforo(unit);
-  if (sem.key === 'operando') return { emoji:'🟢', text:'Sin pendientes', chip:'good' };
-  if (sem.key === 'programada') return { emoji:'🟠', text:'Espera programación', chip:'warn' };
-  if (sem.key === 'en_taller') return { emoji:'🔴', text:'En taller', chip:'bad' };
-  return { emoji:'🟠', text:'Espera refacción', chip:'warn' };
+  if (sem.key === 'operando') return { text:'Sin pendientes', chip:'good', visual:'status-green' };
+  if (sem.key === 'programada') {
+    const label = normalizeText(unit.manualStatus || unit.estatusOperativo || '').includes('taller') ? 'En taller' : 'Espera programación';
+    return { text: label, chip:'warn', visual:'status-amber' };
+  }
+  return { text:'Detenida / crítica', chip:'bad', visual:'status-red' };
 }
 function fleetTagPoliza(unit) {
   return unit.polizaActiva ? { text:'Póliza activa', cls:'good' } : { text:'Sin póliza', cls:'neutral' };
 }
 function fleetTagCampania(unit) {
   return unit.campaignActiva ? { text:'Campaña activa', cls:'warn' } : { text:'Sin campaña', cls:'neutral' };
-}
-const BUS_SVG_IRIZAR = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 50" fill="currentColor"><path d="M8 38 C8 18, 12 12, 20 10 L95 10 C102 10, 108 14, 110 20 L112 34 C112 37, 110 38, 108 38 Z" opacity=".92"/><path d="M96 12 C101 12, 106 15, 108 20 L109 30 L96 30 Z" opacity=".25"/><rect x="22" y="14" width="10" height="12" rx="2" opacity=".2"/><rect x="35" y="14" width="10" height="12" rx="2" opacity=".2"/><rect x="48" y="14" width="10" height="12" rx="2" opacity=".2"/><rect x="61" y="14" width="10" height="12" rx="2" opacity=".2"/><rect x="74" y="14" width="10" height="12" rx="2" opacity=".2"/><rect x="10" y="30" width="100" height="3" rx="1" opacity=".12"/><circle cx="28" cy="40" r="6" opacity=".5"/><circle cx="28" cy="40" r="3" opacity=".3"/><circle cx="98" cy="40" r="6" opacity=".5"/><circle cx="98" cy="40" r="3" opacity=".3"/><rect x="110" y="24" width="3" height="5" rx="1" opacity=".35"/></svg>';
-const BUS_SVG_VOLVO = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 50" fill="currentColor"><path d="M6 38 L6 16 C6 12, 10 10, 14 10 L100 10 C106 10, 112 14, 112 18 L112 34 C112 37, 110 38, 108 38 Z" opacity=".92"/><path d="M100 12 L110 12 C112 12, 112 16, 112 18 L112 30 L100 30 Z" opacity=".25"/><rect x="16" y="13" width="12" height="13" rx="1.5" opacity=".2"/><rect x="31" y="13" width="12" height="13" rx="1.5" opacity=".2"/><rect x="46" y="13" width="12" height="13" rx="1.5" opacity=".2"/><rect x="61" y="13" width="12" height="13" rx="1.5" opacity=".2"/><rect x="76" y="13" width="12" height="13" rx="1.5" opacity=".2"/><rect x="8" y="30" width="102" height="3" rx="1" opacity=".1"/><circle cx="26" cy="40" r="6" opacity=".5"/><circle cx="26" cy="40" r="3" opacity=".3"/><circle cx="96" cy="40" r="6" opacity=".5"/><circle cx="96" cy="40" r="3" opacity=".3"/><rect x="112" y="20" width="3" height="4" rx="1" opacity=".35"/><rect x="112" y="26" width="3" height="4" rx="1" opacity=".35"/></svg>';
-function normalizeStatus(value) {
-  return (value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
-}
-function getFleetStatusClass(unit) {
-  const st = normalizeStatus(unit.manualStatus || unit.estatusOperativo || '');
-  if (['sin pendientes','terminada','aceptada finalizada','operando','sin actividad'].includes(st)) return 'estado-verde';
-  if (['espera programacion','programada','pendiente','en taller','en_taller','en proceso'].includes(st)) return 'estado-ambar';
-  if (['detenida','rechazada','critica','urgente','espera refaccion'].includes(st)) return 'estado-rojo';
-  return 'estado-gris';
-}
-function getFleetStatusLabel(unit) {
-  const cls = getFleetStatusClass(unit);
-  if (cls === 'estado-verde') return 'Sin pendientes';
-  if (cls === 'estado-ambar') return 'Espera programación';
-  if (cls === 'estado-rojo') return 'Detenida / Crítica';
-  return 'Sin estado';
-}
-function getBusAssetByBrand(unit) {
-  const m = (unit.marca || '').toLowerCase().trim();
-  return m.includes('volvo') ? BUS_SVG_VOLVO : BUS_SVG_IRIZAR;
-}
-function renderBusIconHtml(unit) {
-  const cls = getFleetStatusClass(unit);
-  return `<span class="bus-icon ${cls}" title="${escapeHtml(unit.marca || 'Bus')}">${getBusAssetByBrand(unit)}</span>`;
-}
-function renderFleetCard(unit) {
-  const cls = getFleetStatusClass(unit);
-  const poliza = fleetTagPoliza(unit);
-  const camp = fleetTagCampania(unit);
-  return `
-  <div class="fleet-card__header">
-    <div class="fleet-card__identity">
-      <div class="fleet-card__numero">${escapeHtml(unit.numeroEconomico || '—')}</div>
-      <div class="fleet-card__meta">
-        <div class="fleet-card__marca-modelo">${escapeHtml(unit.marca || '—')}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}</div>
-        <div class="fleet-card__empresa">${escapeHtml(unit.empresa || '—')}</div>
-      </div>
-    </div>
-    <div class="fleet-card__badges">
-      <span class="fleet-chip ${poliza.cls}">${poliza.text}</span>
-      <span class="fleet-chip ${camp.cls}">${camp.text}</span>
-    </div>
-  </div>
-  <div class="fleet-card__visual">
-    <div class="fleet-card__bus-wrap">${getBusAssetByBrand(unit)}</div>
-    <div class="fleet-card__glow"></div>
-    <div class="fleet-card__status">${getFleetStatusLabel(unit)}</div>
-  </div>
-  <div class="fleet-card__body">
-    <div class="fleet-card__row"><span>Obra:</span><strong>${unit.numeroObra ? escapeHtml(unit.numeroObra) : 'Sin asignar'}</strong></div>
-    <div class="fleet-card__row"><span>Costo:</span><strong>${money(unit.costoTotal || 0)}</strong></div>
-    <div class="fleet-card__row"><span>Reportes:</span><strong>${Number(unit.reportsCount || unit.reportesCount || 0)}</strong></div>
-    <div class="fleet-card__row"><span>Último movimiento:</span><strong>${unit.lastReportAt ? fmtDate(unit.lastReportAt) : 'Sin movimiento'}</strong></div>
-  </div>`;
 }
 function countBy(items, getter) {
   const map = new Map();
@@ -2036,11 +1982,44 @@ function renderFleet() {
   }
 
   visibleUnits.forEach(unit => {
+    const status = fleetStatusLuxury(unit);
+    const poliza = fleetTagPoliza(unit);
+    const camp = fleetTagCampania(unit);
     const selected = state.selectedFleetUnit?.unit?.id === unit.id;
-    const cls = getFleetStatusClass(unit);
     const row = document.createElement('article');
-    row.className = `fleet-line-item fleet-card ${cls}${selected ? ' selected' : ''}`;
-    row.innerHTML = renderFleetCard(unit);
+    row.className = `fleet-line-item ${selected ? 'selected' : ''}`;
+    row.innerHTML = `
+      <div class="cardUnidad ${status.visual}">
+        <div class="headerUnidad">
+          <div>
+            <div class="numeroUnidad">${escapeHtml(unit.numeroEconomico || '—')}</div>
+            <div class="unidadTitulo">${escapeHtml(unit.empresa || '—')}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}${unit.marca ? ' · ' + escapeHtml(unit.marca) : ''}</div>
+          </div>
+          <div class="chipsUnidad chipsUnidad--top">
+            <span class="fleet-chip ${poliza.cls}">${poliza.text}</span>
+            <span class="fleet-chip ${camp.cls}">${camp.text}</span>
+          </div>
+        </div>
+        <div class="busHeroRow">
+          <div class="busHeroVisual">
+            <div class="busHeroSilhouette" style="--bus-mask:url('${fleetBusAsset(unit)}')" aria-hidden="true"></div>
+            <div class="busHeroGlow"></div>
+            <div class="busHeroStatus">${escapeHtml(status.text)}</div>
+          </div>
+          <div class="busHeroMeta">
+            <div class="infoUnidad infoUnidad--hero">
+              <span>${unit.numeroObra ? `Obra ${escapeHtml(unit.numeroObra)}` : 'Sin obra asignada'}</span>
+              <span>${escapeHtml(unit.nombreFlota || 'Sin nombre de flota')}</span>
+            </div>
+            <div class="costoUnidad">Costo acumulado: ${money(unit.costoTotal || 0)}</div>
+            <div class="busHeroStats">
+              <div class="busHeroStat"><span>Reportes</span><strong>${Number(unit.reportsCount || unit.reportesCount || 0)}</strong></div>
+              <div class="busHeroStat"><span>Último movimiento</span><strong>${unit.lastReportAt ? fmtDate(unit.lastReportAt) : 'Sin movimiento'}</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
     row.addEventListener('click', async () => {
       try {
         if (state.selectedFleetUnit?.unit?.id === unit.id) {
@@ -2184,7 +2163,7 @@ function renderFleetDetail() {
   const detailHtml = `
     <div class="panel-head fleet-detail-head">
       <div><div class="topbar-kicker">EXPEDIENTE DE UNIDAD</div><h3>${escapeHtml(u.numeroEconomico)} · ${escapeHtml(u.empresa)}</h3><p class="muted">Vista premium para dueño: patrimonio, agenda, refacciones y evidencia visual en una sola ficha.</p></div>
-      <div class="stack-inline">${isRole('admin') ? '<button id="fleetEditInlineBtn" class="btn btn-ghost" type="button">Editar</button><button id="fleetDeleteInlineBtn" class="btn btn-ghost" type="button">Eliminar</button>' : ''}<button id="fleetCloseDetailBtn" class="btn btn-ghost" type="button">Cerrar</button>${renderBusIconHtml(u)}<span style="font-size:13px;font-weight:700">${sem.label}</span></div>
+      <div class="stack-inline">${isRole('admin') ? '<button id="fleetEditInlineBtn" class="btn btn-ghost" type="button">Editar</button><button id="fleetDeleteInlineBtn" class="btn btn-ghost" type="button">Eliminar</button>' : ''}<button id="fleetCloseDetailBtn" class="btn btn-ghost" type="button">Cerrar</button><span class="fleet-dot ${sem.cls}">${sem.label}</span></div>
     </div>
     <div class="fleet-detail-summary">
       <article><span>Costo total</span><strong>${money(u.costoTotal)}</strong></article>
@@ -2506,7 +2485,7 @@ async function loadRequests() { if (!isRole('admin')) return; state.registration
 function paintUnitHistory(history) {
   const q = normalizeText(els.unitHistorySearchInput?.value || '');
   const filtered = !q ? history : history.filter(item => normalizeText([item.numeroObra, item.modelo, item.empresa, item.tipoIncidente, item.descripcionFallo].join(' ')).includes(q));
-  els.unitHistoryResult.innerHTML = filtered.length ? filtered.map(item => { const histUnit = { marca: item.marca || item.modelo || '', estatusOperativo: item.estatusOperativo || '' }; return `<div class="table-row">${renderBusIconHtml(histUnit)}<div><strong>Obra ${escapeHtml(item.numeroObra)}</strong><div class="small muted">${escapeHtml(item.modelo)} · ${escapeHtml(item.empresa)}</div><div class="small muted">${escapeHtml(item.descripcionFallo || '')}</div></div><div>${escapeHtml(item.tipoIncidente)}</div><div><span class="badge ${badgeClassValidation(item.estatusValidacion)}">${escapeHtml(item.estatusValidacion)}</span></div><div>${fmtDate(item.createdAt)}</div></div>`; }).join('') : '<div class="empty-state"><strong>Sin historial.</strong><span>No hay coincidencias para esa unidad.</span></div>';
+  els.unitHistoryResult.innerHTML = filtered.length ? filtered.map(item => `<div class="table-row"><div><strong>Obra ${escapeHtml(item.numeroObra)}</strong><div class="small muted">${escapeHtml(item.modelo)} · ${escapeHtml(item.empresa)}</div><div class="small muted">${escapeHtml(item.descripcionFallo || '')}</div></div><div>${escapeHtml(item.tipoIncidente)}</div><div><span class="badge ${badgeClassValidation(item.estatusValidacion)}">${escapeHtml(item.estatusValidacion)}</span></div><div>${fmtDate(item.createdAt)}</div></div>`).join('') : '<div class="empty-state"><strong>Sin historial.</strong><span>No hay coincidencias para esa unidad.</span></div>';
 }
 
 async function renderUnitHistory() {
