@@ -5413,212 +5413,142 @@ body:not(.operator-mode)[data-panel="fleet"] #fleetDetail {
   display: none !important;
 }
 
-/* Layout interno estable de tarjetas de unidades (sin absolute/overlay) */
+/* Layout interno estable de tarjetas de unidades */
 body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item {
   padding: 0 !important;
   display: block !important;
-}
-body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item .cardUnidad {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 16px;
-}
-body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item .headerUnidad {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 10px;
-}
-body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item .numeroUnidad {
-  font-size: 26px;
-  font-weight: 700;
-  line-height: 1;
-}
-body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item .estadoUnidad {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 600;
-  font-size: 13px;
-  text-align: right;
-}
-body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item .infoUnidad {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 13px;
-  line-height: 1.35;
-}
-body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item .costoUnidad {
-  font-weight: 600;
-  font-size: 14px;
-}
-body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item .footerUnidad {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item .chipsUnidad {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item .metaUnidad {
-  font-size: 12px;
-  color: #6B7280;
+  border: none !important;
+  background: none !important;
+  box-shadow: none !important;
 }
 
-/* ── Bus Icon System ── */
+/* ── Estado colors (variable driven) ── */
+.estado-verde  { --bus-color: #22c55e; }
+.estado-ambar  { --bus-color: #f59e0b; }
+.estado-rojo   { --bus-color: #ef4444; }
+.estado-gris   { --bus-color: #94a3b8; }
+
+/* ── Bus Icon (small, for detail header & history) ── */
 .bus-icon {
   width: 54px;
   height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: color .25s ease, transform .2s ease;
+  transition: color .25s ease;
   flex-shrink: 0;
+  color: var(--bus-color, #94a3b8);
 }
 .bus-icon img {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,.08));
 }
-.bus-icon:hover { transform: scale(1.08); }
+.stack-inline .bus-icon { width: 64px; height: 28px; }
+.table-row .bus-icon { width: 44px; height: 20px; }
 
-.estado-verde  { --bus-color: #22c55e; color: #16a34a; }
-.estado-ambar  { --bus-color: #f59e0b; color: #d97706; }
-.estado-rojo   { --bus-color: #ef4444; color: #dc2626; }
-.estado-gris   { --bus-color: #94a3b8; color: #64748b; }
-
-.estadoUnidad .bus-icon + span { vertical-align: middle; }
-
-/* Bus icon in fleet detail header */
-.stack-inline .bus-icon {
-  width: 64px;
-  height: 28px;
-}
-
-/* Bus icon in history rows */
-.table-row .bus-icon {
-  width: 44px;
-  height: 20px;
-}
-
-/* ── Unit Hero Card (fleet radar) ── */
-.unit-hero-card {
+/* ── Fleet Hero Card ── */
+.fleet-hero-card {
   display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 28px;
+  grid-template-columns: 260px 1fr;
+  gap: 24px;
   align-items: center;
   border-radius: 24px;
-  padding: 28px 30px;
-  background: linear-gradient(135deg, rgba(255,255,255,.92) 0%, rgba(248,250,252,.88) 100%);
-  box-shadow: 0 18px 60px rgba(15,23,42,.07), 0 2px 8px rgba(15,23,42,.04);
-  border: 1px solid rgba(226,232,240,.6);
+  padding: 24px 26px;
+  background: rgba(255,255,255,.92);
+  box-shadow: 0 12px 35px rgba(15,23,42,.08);
+  border: 1px solid rgba(226,232,240,.55);
   transition: box-shadow .25s ease, transform .2s ease;
   cursor: pointer;
 }
-.unit-hero-card:hover {
-  box-shadow: 0 24px 64px rgba(15,23,42,.10), 0 4px 12px rgba(15,23,42,.05);
+.fleet-hero-card:hover {
+  box-shadow: 0 18px 48px rgba(15,23,42,.11), 0 4px 12px rgba(15,23,42,.05);
   transform: translateY(-2px);
 }
-.unit-hero-card.selected {
-  border-color: rgba(99,102,241,.35);
-  box-shadow: 0 18px 60px rgba(99,102,241,.10), 0 0 0 2px rgba(99,102,241,.15);
+.fleet-hero-card.selected {
+  border-color: rgba(99,102,241,.4);
+  box-shadow: 0 12px 35px rgba(99,102,241,.12), 0 0 0 2px rgba(99,102,241,.18);
 }
 
-.unit-visual-panel {
+/* Left panel: bus visual */
+.fleet-hero-visual {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 8px 0;
 }
-
-.bus-silhouette {
-  width: 240px;
+.fleet-bus-svg {
+  width: 220px;
   height: auto;
   display: block;
   color: var(--bus-color, #94a3b8);
   filter: drop-shadow(0 8px 18px rgba(15,23,42,.10));
   transition: color .3s ease;
 }
-
-.bus-glow-line {
+.fleet-bus-line {
   width: 78%;
-  height: 5px;
+  height: 6px;
   margin-top: 14px;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(255,255,255,.08), var(--bus-color, #94a3b8), rgba(255,255,255,.15));
-  box-shadow: 0 0 16px color-mix(in srgb, var(--bus-color, #94a3b8) 50%, transparent);
-  opacity: .85;
+  background: linear-gradient(90deg, rgba(255,255,255,.15), var(--bus-color, #94a3b8), rgba(255,255,255,.15));
+  box-shadow: 0 0 16px var(--bus-color, #94a3b8);
+  opacity: .9;
   transition: background .3s ease, box-shadow .3s ease;
 }
-
-.bus-state-label {
+.fleet-bus-status-text {
   margin-top: 12px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
-  letter-spacing: .02em;
-  color: color-mix(in srgb, var(--bus-color, #94a3b8) 75%, #334155);
+  color: var(--bus-color, #94a3b8);
   transition: color .3s ease;
+  text-align: center;
 }
 
-.unit-content-panel {
+/* Right panel: content */
+.fleet-hero-content {
   display: flex;
   flex-direction: column;
   gap: 10px;
   min-width: 0;
 }
-
-.unit-content-header {
+.fleet-hero-top {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
 }
-
-.unit-content-title {
-  font-size: 22px;
+.fleet-hero-numero {
+  font-size: 24px;
   font-weight: 800;
   line-height: 1.15;
   color: #0f172a;
 }
-
-.unit-content-subtitle {
+.fleet-hero-marca {
   font-size: 14px;
   color: #475569;
   font-weight: 500;
-  line-height: 1.4;
+  margin-top: 2px;
 }
-
-.unit-content-badges {
+.fleet-hero-badges {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
   flex-shrink: 0;
 }
-
-.unit-content-meta {
+.fleet-hero-info {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 20px;
+  gap: 6px 20px;
   font-size: 13px;
   color: #64748b;
   line-height: 1.5;
 }
-.unit-content-meta strong {
+.fleet-hero-info strong {
   color: #334155;
   font-weight: 600;
 }
-
-.unit-content-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
+.fleet-hero-footer {
   padding-top: 8px;
   border-top: 1px solid rgba(226,232,240,.5);
   font-size: 12px;
@@ -5626,11 +5556,10 @@ body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item .m
 }
 
 @media (max-width: 820px) {
-  .unit-hero-card {
+  .fleet-hero-card {
     grid-template-columns: 1fr;
-    gap: 18px;
-    padding: 22px 18px;
+    gap: 16px;
+    padding: 20px 16px;
   }
-  .bus-silhouette { width: 180px; }
-  .unit-visual-panel { padding: 0; }
+  .fleet-bus-svg { width: 180px; }
 }

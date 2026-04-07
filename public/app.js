@@ -285,33 +285,32 @@ function renderBusIconHtml(unit) {
 }
 function renderBusHeroHtml(unit) {
   const cls = getBusStatusClass(unit);
-  const status = fleetStatusLuxury(unit);
   const poliza = fleetTagPoliza(unit);
   const camp = fleetTagCampania(unit);
   return `
-    <div class="unit-visual-panel ${cls}">
-      <img class="bus-silhouette" src="${getBusSvgByBrand(unit.marca)}" alt="${escapeHtml(unit.marca || 'Bus')}">
-      <div class="bus-glow-line"></div>
-      <div class="bus-state-label">${getBusStateLabel(unit)}</div>
+    <div class="fleet-hero-visual ${cls}">
+      <img class="fleet-bus-svg" src="${getBusSvgByBrand(unit.marca)}" alt="${escapeHtml(unit.marca || 'Bus')}">
+      <div class="fleet-bus-line"></div>
+      <div class="fleet-bus-status-text">${getBusStateLabel(unit)}</div>
     </div>
-    <div class="unit-content-panel">
-      <div class="unit-content-header">
+    <div class="fleet-hero-content">
+      <div class="fleet-hero-top">
         <div>
-          <div class="unit-content-title">${escapeHtml(unit.numeroEconomico || '—')}</div>
-          <div class="unit-content-subtitle">${escapeHtml(unit.marca || '—')} ${unit.modelo ? '· ' + escapeHtml(unit.modelo) : ''}</div>
+          <div class="fleet-hero-numero">${escapeHtml(unit.numeroEconomico || '—')}</div>
+          <div class="fleet-hero-marca">${escapeHtml(unit.marca || '—')} ${unit.modelo ? '· ' + escapeHtml(unit.modelo) : ''}</div>
         </div>
-        <div class="unit-content-badges">
+        <div class="fleet-hero-badges">
           <span class="fleet-chip ${poliza.cls}">${poliza.text}</span>
           <span class="fleet-chip ${camp.cls}">${camp.text}</span>
         </div>
       </div>
-      <div class="unit-content-meta">
+      <div class="fleet-hero-info">
         <span><strong>Empresa:</strong> ${escapeHtml(unit.empresa || '—')}</span>
         <span><strong>Obra:</strong> ${unit.numeroObra ? escapeHtml(unit.numeroObra) : 'Sin asignar'}</span>
         <span><strong>Costo:</strong> ${money(unit.costoTotal || 0)}</span>
         <span><strong>Reportes:</strong> ${Number(unit.reportsCount || unit.reportesCount || 0)}</span>
       </div>
-      <div class="unit-content-footer">
+      <div class="fleet-hero-footer">
         <span>${unit.lastReportAt ? 'Último movimiento: ' + fmtDate(unit.lastReportAt) : 'Sin movimiento'}</span>
       </div>
     </div>`;
@@ -2035,9 +2034,10 @@ function renderFleet() {
 
   visibleUnits.forEach(unit => {
     const selected = state.selectedFleetUnit?.unit?.id === unit.id;
+    const cls = getBusStatusClass(unit);
     const row = document.createElement('article');
     row.className = `fleet-line-item`;
-    row.innerHTML = `<div class="unit-hero-card ${selected ? 'selected' : ''}">${renderBusHeroHtml(unit)}</div>`;
+    row.innerHTML = `<div class="fleet-hero-card ${cls}${selected ? ' selected' : ''}">${renderBusHeroHtml(unit)}</div>`;
     row.addEventListener('click', async () => {
       try {
         if (state.selectedFleetUnit?.unit?.id === unit.id) {
