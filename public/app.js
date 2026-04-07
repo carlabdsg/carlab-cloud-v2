@@ -260,60 +260,62 @@ function fleetTagPoliza(unit) {
 function fleetTagCampania(unit) {
   return unit.campaignActiva ? { text:'Campaña activa', cls:'warn' } : { text:'Sin campaña', cls:'neutral' };
 }
-function getBusSvgByBrand(marca) {
-  const m = (marca || '').toLowerCase().trim();
-  return m.includes('volvo') ? '/assets/buses/bus-volvo.svg' : '/assets/buses/bus-irizar.svg';
+const BUS_SVG_IRIZAR = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 50" fill="currentColor"><path d="M8 38 C8 18, 12 12, 20 10 L95 10 C102 10, 108 14, 110 20 L112 34 C112 37, 110 38, 108 38 Z" opacity=".92"/><path d="M96 12 C101 12, 106 15, 108 20 L109 30 L96 30 Z" opacity=".25"/><rect x="22" y="14" width="10" height="12" rx="2" opacity=".2"/><rect x="35" y="14" width="10" height="12" rx="2" opacity=".2"/><rect x="48" y="14" width="10" height="12" rx="2" opacity=".2"/><rect x="61" y="14" width="10" height="12" rx="2" opacity=".2"/><rect x="74" y="14" width="10" height="12" rx="2" opacity=".2"/><rect x="10" y="30" width="100" height="3" rx="1" opacity=".12"/><circle cx="28" cy="40" r="6" opacity=".5"/><circle cx="28" cy="40" r="3" opacity=".3"/><circle cx="98" cy="40" r="6" opacity=".5"/><circle cx="98" cy="40" r="3" opacity=".3"/><rect x="110" y="24" width="3" height="5" rx="1" opacity=".35"/></svg>';
+const BUS_SVG_VOLVO = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 50" fill="currentColor"><path d="M6 38 L6 16 C6 12, 10 10, 14 10 L100 10 C106 10, 112 14, 112 18 L112 34 C112 37, 110 38, 108 38 Z" opacity=".92"/><path d="M100 12 L110 12 C112 12, 112 16, 112 18 L112 30 L100 30 Z" opacity=".25"/><rect x="16" y="13" width="12" height="13" rx="1.5" opacity=".2"/><rect x="31" y="13" width="12" height="13" rx="1.5" opacity=".2"/><rect x="46" y="13" width="12" height="13" rx="1.5" opacity=".2"/><rect x="61" y="13" width="12" height="13" rx="1.5" opacity=".2"/><rect x="76" y="13" width="12" height="13" rx="1.5" opacity=".2"/><rect x="8" y="30" width="102" height="3" rx="1" opacity=".1"/><circle cx="26" cy="40" r="6" opacity=".5"/><circle cx="26" cy="40" r="3" opacity=".3"/><circle cx="96" cy="40" r="6" opacity=".5"/><circle cx="96" cy="40" r="3" opacity=".3"/><rect x="112" y="20" width="3" height="4" rx="1" opacity=".35"/><rect x="112" y="26" width="3" height="4" rx="1" opacity=".35"/></svg>';
+function normalizeStatus(value) {
+  return (value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
 }
-function getBusStatusClass(unit) {
-  const sem = fleetSemaforo(unit);
-  if (sem.key === 'detenida') return 'estado-rojo';
-  if (sem.key === 'en_taller' || sem.key === 'programada') return 'estado-ambar';
-  if (sem.key === 'operando') return 'estado-verde';
+function getFleetStatusClass(unit) {
+  const st = normalizeStatus(unit.manualStatus || unit.estatusOperativo || '');
+  if (['sin pendientes','terminada','aceptada finalizada','operando','sin actividad'].includes(st)) return 'estado-verde';
+  if (['espera programacion','programada','pendiente','en taller','en_taller','en proceso'].includes(st)) return 'estado-ambar';
+  if (['detenida','rechazada','critica','urgente','espera refaccion'].includes(st)) return 'estado-rojo';
   return 'estado-gris';
 }
-function getBusStateLabel(unit) {
-  const sem = fleetSemaforo(unit);
-  if (sem.key === 'detenida') return 'Detenida · Crítica';
-  if (sem.key === 'en_taller') return 'En taller · Pendiente';
-  if (sem.key === 'programada') return 'Espera programación';
-  if (sem.key === 'operando') return 'Sin pendientes';
+function getFleetStatusLabel(unit) {
+  const cls = getFleetStatusClass(unit);
+  if (cls === 'estado-verde') return 'Sin pendientes';
+  if (cls === 'estado-ambar') return 'Espera programación';
+  if (cls === 'estado-rojo') return 'Detenida / Crítica';
   return 'Sin estado';
 }
-function renderBusIconHtml(unit) {
-  const cls = getBusStatusClass(unit);
-  return `<span class="bus-icon ${cls}" title="${escapeHtml(unit.marca || 'Bus')} — ${getBusStateLabel(unit)}"><img src="${getBusSvgByBrand(unit.marca)}" alt="${escapeHtml(unit.marca || 'Bus')}"></span>`;
+function getBusAssetByBrand(unit) {
+  const m = (unit.marca || '').toLowerCase().trim();
+  return m.includes('volvo') ? BUS_SVG_VOLVO : BUS_SVG_IRIZAR;
 }
-function renderBusHeroHtml(unit) {
-  const cls = getBusStatusClass(unit);
+function renderBusIconHtml(unit) {
+  const cls = getFleetStatusClass(unit);
+  return `<span class="bus-icon ${cls}" title="${escapeHtml(unit.marca || 'Bus')}">${getBusAssetByBrand(unit)}</span>`;
+}
+function renderFleetCard(unit) {
+  const cls = getFleetStatusClass(unit);
   const poliza = fleetTagPoliza(unit);
   const camp = fleetTagCampania(unit);
   return `
-    <div class="fleet-hero-visual ${cls}">
-      <img class="fleet-bus-svg" src="${getBusSvgByBrand(unit.marca)}" alt="${escapeHtml(unit.marca || 'Bus')}">
-      <div class="fleet-bus-line"></div>
-      <div class="fleet-bus-status-text">${getBusStateLabel(unit)}</div>
+  <div class="fleet-card__header">
+    <div class="fleet-card__identity">
+      <div class="fleet-card__numero">${escapeHtml(unit.numeroEconomico || '—')}</div>
+      <div class="fleet-card__meta">
+        <div class="fleet-card__marca-modelo">${escapeHtml(unit.marca || '—')}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}</div>
+        <div class="fleet-card__empresa">${escapeHtml(unit.empresa || '—')}</div>
+      </div>
     </div>
-    <div class="fleet-hero-content">
-      <div class="fleet-hero-top">
-        <div>
-          <div class="fleet-hero-numero">${escapeHtml(unit.numeroEconomico || '—')}</div>
-          <div class="fleet-hero-marca">${escapeHtml(unit.marca || '—')} ${unit.modelo ? '· ' + escapeHtml(unit.modelo) : ''}</div>
-        </div>
-        <div class="fleet-hero-badges">
-          <span class="fleet-chip ${poliza.cls}">${poliza.text}</span>
-          <span class="fleet-chip ${camp.cls}">${camp.text}</span>
-        </div>
-      </div>
-      <div class="fleet-hero-info">
-        <span><strong>Empresa:</strong> ${escapeHtml(unit.empresa || '—')}</span>
-        <span><strong>Obra:</strong> ${unit.numeroObra ? escapeHtml(unit.numeroObra) : 'Sin asignar'}</span>
-        <span><strong>Costo:</strong> ${money(unit.costoTotal || 0)}</span>
-        <span><strong>Reportes:</strong> ${Number(unit.reportsCount || unit.reportesCount || 0)}</span>
-      </div>
-      <div class="fleet-hero-footer">
-        <span>${unit.lastReportAt ? 'Último movimiento: ' + fmtDate(unit.lastReportAt) : 'Sin movimiento'}</span>
-      </div>
-    </div>`;
+    <div class="fleet-card__badges">
+      <span class="fleet-chip ${poliza.cls}">${poliza.text}</span>
+      <span class="fleet-chip ${camp.cls}">${camp.text}</span>
+    </div>
+  </div>
+  <div class="fleet-card__visual">
+    <div class="fleet-card__bus-wrap">${getBusAssetByBrand(unit)}</div>
+    <div class="fleet-card__glow"></div>
+    <div class="fleet-card__status">${getFleetStatusLabel(unit)}</div>
+  </div>
+  <div class="fleet-card__body">
+    <div class="fleet-card__row"><span>Obra:</span><strong>${unit.numeroObra ? escapeHtml(unit.numeroObra) : 'Sin asignar'}</strong></div>
+    <div class="fleet-card__row"><span>Costo:</span><strong>${money(unit.costoTotal || 0)}</strong></div>
+    <div class="fleet-card__row"><span>Reportes:</span><strong>${Number(unit.reportsCount || unit.reportesCount || 0)}</strong></div>
+    <div class="fleet-card__row"><span>Último movimiento:</span><strong>${unit.lastReportAt ? fmtDate(unit.lastReportAt) : 'Sin movimiento'}</strong></div>
+  </div>`;
 }
 function countBy(items, getter) {
   const map = new Map();
@@ -2034,10 +2036,10 @@ function renderFleet() {
 
   visibleUnits.forEach(unit => {
     const selected = state.selectedFleetUnit?.unit?.id === unit.id;
-    const cls = getBusStatusClass(unit);
+    const cls = getFleetStatusClass(unit);
     const row = document.createElement('article');
-    row.className = `fleet-line-item`;
-    row.innerHTML = `<div class="fleet-hero-card ${cls}${selected ? ' selected' : ''}">${renderBusHeroHtml(unit)}</div>`;
+    row.className = `fleet-line-item fleet-card ${cls}${selected ? ' selected' : ''}`;
+    row.innerHTML = renderFleetCard(unit);
     row.addEventListener('click', async () => {
       try {
         if (state.selectedFleetUnit?.unit?.id === unit.id) {
@@ -2181,7 +2183,7 @@ function renderFleetDetail() {
   const detailHtml = `
     <div class="panel-head fleet-detail-head">
       <div><div class="topbar-kicker">EXPEDIENTE DE UNIDAD</div><h3>${escapeHtml(u.numeroEconomico)} · ${escapeHtml(u.empresa)}</h3><p class="muted">Vista premium para dueño: patrimonio, agenda, refacciones y evidencia visual en una sola ficha.</p></div>
-      <div class="stack-inline">${isRole('admin') ? '<button id="fleetEditInlineBtn" class="btn btn-ghost" type="button">Editar</button><button id="fleetDeleteInlineBtn" class="btn btn-ghost" type="button">Eliminar</button>' : ''}<button id="fleetCloseDetailBtn" class="btn btn-ghost" type="button">Cerrar</button>${renderBusIconHtml(u)}<span class="bus-state-label" style="font-size:13px">${sem.label}</span></div>
+      <div class="stack-inline">${isRole('admin') ? '<button id="fleetEditInlineBtn" class="btn btn-ghost" type="button">Editar</button><button id="fleetDeleteInlineBtn" class="btn btn-ghost" type="button">Eliminar</button>' : ''}<button id="fleetCloseDetailBtn" class="btn btn-ghost" type="button">Cerrar</button>${renderBusIconHtml(u)}<span style="font-size:13px;font-weight:700">${sem.label}</span></div>
     </div>
     <div class="fleet-detail-summary">
       <article><span>Costo total</span><strong>${money(u.costoTotal)}</strong></article>
