@@ -700,7 +700,7 @@ async function exportPdf(item) {
   if (images.length) {
     y = ensurePdfSpace(doc, y, 52); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Evidencias fotográficas', 8);
     let x = 14; let rowHeight = 0;
-    for (const src of images.slice(0, 6)) {
+    for (const src of images) {
       if (x > 136) { x = 14; y += rowHeight + 8; rowHeight = 0; }
       y = ensurePdfSpace(doc, y, 48);
       doc.setDrawColor(255,255,255); doc.roundedRect(x, y, 56, 42, 3, 3, 'F');
@@ -1888,7 +1888,7 @@ async function exportCommercialPdf(quote) {
     if (images.length) {
       y = ensurePdfSpace(doc, y, 52); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Evidencias fotográficas', 8);
       let x = 14; let rowHeight = 0;
-      for (const src of images.slice(0, 6)) {
+      for (const src of images) {
         if (x > 136) { x = 14; y += rowHeight + 8; rowHeight = 0; }
         y = ensurePdfSpace(doc, y, 48);
         doc.roundedRect(x, y, 56, 42, 3, 3);
@@ -2361,7 +2361,7 @@ function renderGarantias() {
       const div = document.createElement('div'); div.innerHTML = `<strong>${escapeHtml(label)}</strong>${escapeHtml(String(value || '—'))}`; miniGrid.appendChild(div);
     });
     const strip = node.querySelector('.evidence-strip');
-    [...(item.evidencias || []), ...(item.evidenciasRefaccion || [])].slice(0,6).forEach((src, idx) => {
+    [...(item.evidencias || []), ...(item.evidenciasRefaccion || [])].forEach((src, idx) => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'evidence-thumb';
