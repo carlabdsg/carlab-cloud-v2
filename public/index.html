@@ -302,11 +302,33 @@
               </div>
             </div>
             <div class="col-span-2"><label>Descripción del fallo</label><textarea id="descripcionFallo" rows="4" required></textarea></div>
-            <div class="col-span-2"><label>Evidencias generales</label><input id="evidencias" type="file" accept="image/*" multiple /><div class="muted small">En iPhone puedes tomar una foto, volver a abrir cámara y seguir agregando más. También puedes elegir varias desde galería.</div><div id="previewEvidencias" class="preview-grid"></div></div>
+            <div class="col-span-2">
+              <label>Evidencias generales</label>
+              <div class="evidence-input-stack">
+                <input id="evidencias" type="file" accept="image/*" multiple />
+                <div class="stack-inline evidence-capture-row">
+                  <label class="btn btn-secondary evidence-capture-btn" for="evidenciasCamara">Tomar foto con cámara</label>
+                  <input id="evidenciasCamara" class="camera-capture-input" type="file" accept="image/*" capture="environment" />
+                  <span class="muted small">En Android y iPhone puedes tomar una foto y seguir agregando más una por una desde la cámara. También puedes elegir varias desde galería.</span>
+                </div>
+              </div>
+              <div id="previewEvidencias" class="preview-grid"></div>
+            </div>
             <div class="col-span-2"><label class="checkbox-row"><input id="solicitaRefaccion" type="checkbox" /> Solicita refacción</label></div>
             <div id="refaccionFields" class="col-span-2 hidden stack gap-12">
               <div><label>Detalle de refacción solicitada</label><textarea id="detalleRefaccion" rows="3"></textarea></div>
-              <div><label>Evidencia de refacción</label><input id="evidenciasRefaccion" type="file" accept="image/*" multiple /><div id="previewRefaccion" class="preview-grid"></div></div>
+              <div>
+                <label>Evidencia de refacción</label>
+                <div class="evidence-input-stack">
+                  <input id="evidenciasRefaccion" type="file" accept="image/*" multiple />
+                  <div class="stack-inline evidence-capture-row">
+                    <label class="btn btn-secondary evidence-capture-btn" for="evidenciasRefaccionCamara">Tomar foto de refacción</label>
+                    <input id="evidenciasRefaccionCamara" class="camera-capture-input" type="file" accept="image/*" capture="environment" />
+                    <span class="muted small">Úsalo cuando quieras capturar la refacción directo desde la cámara.</span>
+                  </div>
+                </div>
+                <div id="previewRefaccion" class="preview-grid"></div>
+              </div>
             </div>
             <div class="col-span-2">
               <label>Firma del operador</label>

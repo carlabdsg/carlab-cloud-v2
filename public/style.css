@@ -5617,3 +5617,29 @@ body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .busHeroStat strong
     justify-content:flex-start;
   }
 }
+
+
+/* === Evidencia cámara Android/iPhone + PDF con continuidad === */
+.evidence-input-stack{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.evidence-capture-row{
+  justify-content:flex-start;
+}
+.evidence-capture-btn{
+  cursor:pointer;
+  margin:0;
+}
+.camera-capture-input{
+  position:absolute !important;
+  width:1px !important;
+  height:1px !important;
+  padding:0 !important;
+  margin:-1px !important;
+  overflow:hidden !important;
+  clip:rect(0,0,0,0) !important;
+  white-space:nowrap !important;
+  border:0 !important;
+}

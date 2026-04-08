@@ -128,7 +128,7 @@ function bind() {
     'tabLoginBtn','tabRegisterBtn','welcomeText','currentUserName','currentUserEmail','currentRoleBadge','avatarCircle','pageTitle','roleSummaryText','roleBrief','logoutBtn',
     'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navFleetBtn','navPartsBtn','navStockBtn','navCobranzaBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel','stockPanel','cobranzaPanel',
     'reportForm','numeroObra','modelo','numeroEconomico','empresa','kilometraje','contactoNombre','telefono','descripcionFallo','solicitaRefaccion','refaccionFields','detalleRefaccion',
-    'evidencias','evidenciasRefaccion','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn','searchInput','validationFilter','operationalFilter',
+    'evidencias','evidenciasCamara','evidenciasRefaccion','evidenciasRefaccionCamara','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn','searchInput','validationFilter','operationalFilter',
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
     'executiveDeck','executiveDeckGrid','liveRefreshBadge','topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistorySearchInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','partsPanel','partsRefreshBtn','partsSummary','partsList','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn','fleetOwnerDeck','imageLightbox','imageLightboxImg','imageLightboxClose',
@@ -388,8 +388,17 @@ function drawPreviews(container, items, target = 'evidence') {
   });
 }
 
-els.evidencias?.addEventListener('change', async e => { const incoming = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file))); state.currentEvidence = [...state.currentEvidence, ...incoming]; drawPreviews(els.previewEvidencias, state.currentEvidence, 'evidence'); e.target.value=''; });
-els.evidenciasRefaccion?.addEventListener('change', async e => { const incoming = await Promise.all([...e.target.files].map(file => fileToCompressedDataUrl(file))); state.currentRefEvidence = [...state.currentRefEvidence, ...incoming]; drawPreviews(els.previewRefaccion, state.currentRefEvidence, 'ref'); e.target.value=''; });
+async function appendEvidenceFromInput(inputEl, targetKey, previewEl, previewType) {
+  if (!inputEl?.files?.length) return;
+  const incoming = await Promise.all([...inputEl.files].map(file => fileToCompressedDataUrl(file)));
+  state[targetKey] = [...state[targetKey], ...incoming.filter(Boolean)];
+  drawPreviews(previewEl, state[targetKey], previewType);
+  inputEl.value = '';
+}
+els.evidencias?.addEventListener('change', async e => { await appendEvidenceFromInput(e.target, 'currentEvidence', els.previewEvidencias, 'evidence'); });
+els.evidenciasCamara?.addEventListener('change', async e => { await appendEvidenceFromInput(e.target, 'currentEvidence', els.previewEvidencias, 'evidence'); });
+els.evidenciasRefaccion?.addEventListener('change', async e => { await appendEvidenceFromInput(e.target, 'currentRefEvidence', els.previewRefaccion, 'ref'); });
+els.evidenciasRefaccionCamara?.addEventListener('change', async e => { await appendEvidenceFromInput(e.target, 'currentRefEvidence', els.previewRefaccion, 'ref'); });
 els.solicitaRefaccion?.addEventListener('change', () => els.refaccionFields?.classList.toggle('hidden', !els.solicitaRefaccion.checked));
 
 function resetReportForm() {
@@ -649,6 +658,39 @@ async function addPdfImage(doc, imgSrc, x, y, w, h) {
   if (!data) return;
   try { doc.addImage(data, 'PNG', x, y, w, h); } catch { try { doc.addImage(data, 'JPEG', x, y, w, h); } catch {} }
 }
+async function renderPdfEvidenceGallery(doc, images = [], startY = 18, title = 'Evidencias fotográficas') {
+  if (!images.length) return startY;
+  let y = ensurePdfSpace(doc, startY, 52);
+  const drawHeading = (text) => {
+    doc.setFontSize(12);
+    doc.setTextColor(20, 20, 20);
+    doc.text(String(text), 14, y);
+    y += 8;
+  };
+  drawHeading(title);
+  let x = 14;
+  let rowHeight = 0;
+  for (const src of images) {
+    if (x > 136) {
+      x = 14;
+      y += rowHeight + 8;
+      rowHeight = 0;
+    }
+    if (y + 48 > 275) {
+      doc.addPage();
+      y = 18;
+      x = 14;
+      rowHeight = 0;
+      drawHeading('Evidencias fotográficas (continuación)');
+    }
+    doc.setDrawColor(255, 255, 255);
+    doc.roundedRect(x, y, 56, 42, 3, 3, 'F');
+    await addPdfImage(doc, src, x + 1, y + 1, 54, 40);
+    x += 60;
+    rowHeight = Math.max(rowHeight, 42);
+  }
+  return y + rowHeight + 8;
+}
 async function exportPdf(item) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
@@ -698,16 +740,7 @@ async function exportPdf(item) {
 
   const images = [ ...(item.evidencias || []), ...(item.evidenciasRefaccion || []) ];
   if (images.length) {
-    y = ensurePdfSpace(doc, y, 52); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Evidencias fotográficas', 8);
-    let x = 14; let rowHeight = 0;
-    for (const src of images) {
-      if (x > 136) { x = 14; y += rowHeight + 8; rowHeight = 0; }
-      y = ensurePdfSpace(doc, y, 48);
-      doc.setDrawColor(255,255,255); doc.roundedRect(x, y, 56, 42, 3, 3, 'F');
-      await addPdfImage(doc, src, x + 1, y + 1, 54, 40);
-      x += 60; rowHeight = Math.max(rowHeight, 42);
-    }
-    y += rowHeight + 8;
+    y = await renderPdfEvidenceGallery(doc, images, y, 'Evidencias fotográficas');
   }
   if (item.firma) {
     y = ensurePdfSpace(doc, y, 42); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Firma', 8);
@@ -1886,16 +1919,7 @@ async function exportCommercialPdf(quote) {
 
     const images = [ ...(item.evidencias || []), ...(item.evidenciasRefaccion || []) ];
     if (images.length) {
-      y = ensurePdfSpace(doc, y, 52); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Evidencias fotográficas', 8);
-      let x = 14; let rowHeight = 0;
-      for (const src of images) {
-        if (x > 136) { x = 14; y += rowHeight + 8; rowHeight = 0; }
-        y = ensurePdfSpace(doc, y, 48);
-        doc.roundedRect(x, y, 56, 42, 3, 3);
-        await addPdfImage(doc, src, x + 1, y + 1, 54, 40);
-        x += 60; rowHeight = Math.max(rowHeight, 42);
-      }
-      y += rowHeight + 8;
+      y = await renderPdfEvidenceGallery(doc, images, y, 'Evidencias fotográficas');
     }
     if (item.firma) {
       y = ensurePdfSpace(doc, y, 42); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Firma', 8);
