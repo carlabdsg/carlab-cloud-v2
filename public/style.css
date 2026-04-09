@@ -5473,7 +5473,7 @@ body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item .m
 /* ===== Flotas SVG semáforo estable ===== */
 body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList.fleet-line-list {
   display:grid !important;
-  grid-template-columns:repeat(auto-fill,minmax(340px,1fr)) !important;
+  grid-template-columns:repeat(auto-fit,minmax(320px,1fr)) !important;
   gap:18px !important;
   align-items:stretch !important;
 }
@@ -5505,6 +5505,7 @@ body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .fleet-line-item.se
 body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .cardUnidad.status-green { --bus-color:#22c55e; }
 body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .cardUnidad.status-amber { --bus-color:#f59e0b; }
 body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .cardUnidad.status-red { --bus-color:#ef4444; }
+body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .cardUnidad.status-gray { --bus-color:#94a3b8; }
 body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .headerUnidad {
   display:flex;
   justify-content:space-between;
