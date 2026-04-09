@@ -2012,35 +2012,48 @@ function renderFleet() {
     const selected = state.selectedFleetUnit?.unit?.id === unit.id;
     const row = document.createElement('article');
     row.className = `fleet-line-item ${selected ? 'selected' : ''}`;
+    const isCritical = status.visual === 'status-red';
     row.innerHTML = `
-      <div class="cardUnidad ${status.visual}">
+      <div class="cardUnidad ${status.visual}${isCritical ? ' cardUnidad--critical' : ''}">
         <div class="headerUnidad">
-          <div>
+          <div class="headerUnidad__left">
             <div class="numeroUnidad">${escapeHtml(unit.numeroEconomico || '—')}</div>
-            <div class="unidadTitulo">${escapeHtml(unit.empresa || '—')}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}${unit.marca ? ' · ' + escapeHtml(unit.marca) : ''}</div>
+            <div class="unidadMarcaModelo">${escapeHtml(unit.marca || '—')}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}</div>
           </div>
-          <div class="chipsUnidad chipsUnidad--top">
-            <span class="fleet-chip ${poliza.cls}">${poliza.text}</span>
-            <span class="fleet-chip ${camp.cls}">${camp.text}</span>
+          <div class="headerUnidad__right">
+            <div class="chipsUnidad chipsUnidad--top">
+              <span class="fleet-chip ${poliza.cls}">${poliza.text}</span>
+              <span class="fleet-chip ${camp.cls}">${camp.text}</span>
+            </div>
+            <span class="fleet-chip fleet-chip--status ${status.chip}">${escapeHtml(status.text)}</span>
           </div>
         </div>
         <div class="busHeroRow">
           <div class="busHeroVisual">
             <div class="busHeroSilhouette" style="--bus-mask:url('${fleetBusAsset(unit)}')" aria-hidden="true"></div>
             <div class="busHeroGlow"></div>
-            <div class="busHeroStatus">${escapeHtml(status.text)}</div>
+            <div class="busHeroStatusLabel">${escapeHtml(status.text)}</div>
           </div>
           <div class="busHeroMeta">
-            <div class="infoUnidad infoUnidad--hero">
-              <span>${unit.numeroObra ? `Obra ${escapeHtml(unit.numeroObra)}` : 'Sin obra asignada'}</span>
-              <span>${escapeHtml(unit.nombreFlota || 'Sin nombre de flota')}</span>
+            <div class="metaBlock">
+              <span class="metaLabel">Empresa</span>
+              <span class="metaValue">${escapeHtml(unit.empresa || '—')}</span>
             </div>
-            <div class="costoUnidad">Costo acumulado: ${money(unit.costoTotal || 0)}</div>
+            <div class="metaBlock">
+              <span class="metaLabel">Obra</span>
+              <span class="metaValue">${unit.numeroObra ? escapeHtml(unit.numeroObra) : '—'}</span>
+            </div>
+            <div class="metaDivider"></div>
+            <div class="costoUnidad"><span class="costoLabel">Costo acumulado</span><span class="costoValue">${money(unit.costoTotal || 0)}</span></div>
             <div class="busHeroStats">
               <div class="busHeroStat"><span>Reportes</span><strong>${Number(unit.reportsCount || unit.reportesCount || 0)}</strong></div>
-              <div class="busHeroStat"><span>Último movimiento</span><strong>${unit.lastReportAt ? fmtDate(unit.lastReportAt) : 'Sin movimiento'}</strong></div>
+              <div class="busHeroStat"><span>Último mov.</span><strong>${unit.lastReportAt ? fmtDate(unit.lastReportAt) : '—'}</strong></div>
             </div>
           </div>
+        </div>
+        <div class="cardUnidad__footer">
+          <span class="footerFlota">${escapeHtml(unit.nombreFlota || 'Sin flota')}</span>
+          <span class="footerCTA">Abrir ficha <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
         </div>
       </div>
     `;
