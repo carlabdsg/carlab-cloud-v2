@@ -264,42 +264,6 @@ function fleetTagPoliza(unit) {
 function fleetTagCampania(unit) {
   return unit.campaignActiva ? { text:'Campaña activa', cls:'warn' } : { text:'Sin campaña', cls:'neutral' };
 }
-
-function fleetPriorityKicker(unit) {
-  const sem = fleetSemaforo(unit);
-  const reports = Number(unit.reportsCount || unit.reportesCount || 0);
-  const cost = Number(unit.costoTotal || 0);
-  if (sem.key === 'detenida') return 'Atención inmediata';
-  if (cost >= 5000 || reports >= 3) return 'Seguimiento intensivo';
-  if (sem.key === 'programada') return 'Ventana de intervención';
-  return 'Unidad estable';
-}
-function fleetHeatScore(unit) {
-  const sem = fleetSemaforo(unit).key;
-  const reports = Number(unit.reportsCount || unit.reportesCount || 0);
-  const cost = Number(unit.costoTotal || 0);
-  let score = sem === 'detenida' ? 88 : sem === 'programada' ? 61 : 32;
-  score += Math.min(24, reports * 6);
-  score += Math.min(18, Math.round(cost / 1200));
-  return Math.max(12, Math.min(99, score));
-}
-function fleetHealthLabel(unit) {
-  const score = fleetHeatScore(unit);
-  if (score >= 85) return 'Crítica';
-  if (score >= 65) return 'Atención';
-  if (score >= 45) return 'Vigilada';
-  return 'Estable';
-}
-function fleetStageText(unit) {
-  const raw = normalizeText(unit.manualStatus || unit.estatusOperativo || unit.status || '');
-  if (!raw) return 'Sin clasificación';
-  if (raw.includes('taller')) return 'Intervención en taller';
-  if (raw.includes('program')) return 'Ingreso programado';
-  if (raw.includes('pendient')) return 'Pendiente de atención';
-  if (raw.includes('sin pendientes')) return 'Sin pendientes';
-  if (raw.includes('rechaz')) return 'Revisión rechazada';
-  return raw.charAt(0).toUpperCase() + raw.slice(1);
-}
 function countBy(items, getter) {
   const map = new Map();
   items.forEach(item => {
@@ -2041,73 +2005,40 @@ function renderFleet() {
     els.fleetUnitsList.innerHTML = '<div class="empty-state"><strong>Sin coincidencias.</strong><span>Ajusta búsqueda o estado para encontrar la unidad correcta.</span></div>';
   }
 
-  visibleUnits.forEach((unit, index) => {
+  visibleUnits.forEach(unit => {
     const status = fleetStatusLuxury(unit);
     const poliza = fleetTagPoliza(unit);
     const camp = fleetTagCampania(unit);
     const selected = state.selectedFleetUnit?.unit?.id === unit.id;
-    const score = fleetHeatScore(unit);
-    const stageText = fleetStageText(unit);
     const row = document.createElement('article');
     row.className = `fleet-line-item ${selected ? 'selected' : ''}`;
-    row.style.setProperty('--stagger', String(index % 8));
     row.innerHTML = `
       <div class="cardUnidad ${status.visual}">
-        <div class="fleetAmbientGrid" aria-hidden="true"></div>
-        <div class="fleetAuraBlob fleetAuraBlob--one" aria-hidden="true"></div>
-        <div class="fleetAuraBlob fleetAuraBlob--two" aria-hidden="true"></div>
         <div class="headerUnidad">
-          <div class="headerUnidadLeft">
-            <div class="fleetKickerRow">
-              <span class="fleetKickerTag">${escapeHtml(fleetPriorityKicker(unit))}</span>
-              <span class="fleetHealthPill">Nivel ${escapeHtml(fleetHealthLabel(unit))}</span>
-            </div>
+          <div>
             <div class="numeroUnidad">${escapeHtml(unit.numeroEconomico || '—')}</div>
             <div class="unidadTitulo">${escapeHtml(unit.empresa || '—')}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}${unit.marca ? ' · ' + escapeHtml(unit.marca) : ''}</div>
           </div>
-          <div class="chipsUnidad chipsUnidad--top chipsUnidad--premium">
+          <div class="chipsUnidad chipsUnidad--top">
             <span class="fleet-chip ${poliza.cls}">${poliza.text}</span>
             <span class="fleet-chip ${camp.cls}">${camp.text}</span>
           </div>
         </div>
-        <div class="busHeroRow busHeroRow--premium">
-          <div class="busHeroVisual busHeroVisual--premium">
-            <div class="fleetBusRadar" aria-hidden="true"></div>
-            <div class="busHeroSilhouette busHeroSilhouette--premium" style="--bus-mask:url('${fleetBusAsset(unit)}')" aria-hidden="true"></div>
+        <div class="busHeroRow">
+          <div class="busHeroVisual">
+            <div class="busHeroSilhouette" style="--bus-mask:url('${fleetBusAsset(unit)}')" aria-hidden="true"></div>
             <div class="busHeroGlow"></div>
             <div class="busHeroStatus">${escapeHtml(status.text)}</div>
-            <div class="fleetStageCopy">${escapeHtml(stageText)}</div>
           </div>
-          <div class="busHeroMeta busHeroMeta--premium">
-            <div class="fleetSignalBar">
-              <span>Presión operativa</span>
-              <strong>${score}/100</strong>
+          <div class="busHeroMeta">
+            <div class="infoUnidad infoUnidad--hero">
+              <span>${unit.numeroObra ? `Obra ${escapeHtml(unit.numeroObra)}` : 'Sin obra asignada'}</span>
+              <span>${escapeHtml(unit.nombreFlota || 'Sin nombre de flota')}</span>
             </div>
-            <div class="fleetSignalTrack"><i style="width:${score}%"></i></div>
-            <div class="fleetInfoGrid">
-              <div class="fleetInfoCard">
-                <span>Obra</span>
-                <strong>${unit.numeroObra ? escapeHtml(unit.numeroObra) : 'Sin obra'}</strong>
-              </div>
-              <div class="fleetInfoCard">
-                <span>Flota</span>
-                <strong>${escapeHtml(unit.nombreFlota || 'Sin nombre')}</strong>
-              </div>
-              <div class="fleetInfoCard">
-                <span>Costo acumulado</span>
-                <strong>${money(unit.costoTotal || 0)}</strong>
-              </div>
-              <div class="fleetInfoCard">
-                <span>Reportes</span>
-                <strong>${Number(unit.reportsCount || unit.reportesCount || 0)}</strong>
-              </div>
-            </div>
-            <div class="fleetFooterRail">
-              <div class="fleetLastMove">
-                <span>Último movimiento</span>
-                <strong>${unit.lastReportAt ? fmtDate(unit.lastReportAt) : 'Sin movimiento'}</strong>
-              </div>
-              <button type="button" class="fleetInspectBtn">Abrir ficha</button>
+            <div class="costoUnidad">Costo acumulado: ${money(unit.costoTotal || 0)}</div>
+            <div class="busHeroStats">
+              <div class="busHeroStat"><span>Reportes</span><strong>${Number(unit.reportsCount || unit.reportesCount || 0)}</strong></div>
+              <div class="busHeroStat"><span>Último movimiento</span><strong>${unit.lastReportAt ? fmtDate(unit.lastReportAt) : 'Sin movimiento'}</strong></div>
             </div>
           </div>
         </div>
@@ -2128,15 +2059,10 @@ function renderFleet() {
         renderFleetDetail();
       } catch (error) { notify(error.message, true); }
     });
-    row.querySelector('.fleetInspectBtn')?.addEventListener('click', (event) => {
-      event.stopPropagation();
-      row.click();
-    });
     els.fleetUnitsList?.appendChild(row);
   });
   renderFleetDetail();
 }
-
 
 function ensureFleetDetailModalRoot() {
   let root = document.getElementById('fleetDetailModalRoot');
@@ -2800,49 +2726,40 @@ function renderFleetOwnerDeck() {
   const nextUnits = (state.schedules || [])
     .filter(s => (!state.user?.empresa || s.empresa === state.user.empresa) && s.scheduledFor)
     .sort((a,b) => new Date(a.scheduledFor) - new Date(b.scheduledFor))
-    .slice(0,4);
+    .slice(0,3);
   const topCostUnit = risky[0];
-  const concentration = Math.round(m.top3Share || 0);
-  const mission = topCostUnit ? `La unidad ${topCostUnit.numeroEconomico || '—'} lidera el gasto acumulado con ${money(topCostUnit.costoTotal || 0)}.` : 'Aún no hay una unidad dominante por costo.';
-  const flashCards = [
-    { label:'Operando', value:m.operando, note:'con disponibilidad total', tone:'ok' },
-    { label:'En intervención', value:m.enTaller, note:'trabajo en progreso', tone:'warn' },
-    { label:'Críticas', value:m.detenidas, note:'requieren seguimiento', tone:'bad' },
-    { label:'Próximos ingresos', value:m.upcoming, note:'agenda inmediata', tone:'neutral' }
+  const insights = [
+    { title:'Hallazgo principal', text: topCostUnit ? `La unidad ${topCostUnit.numeroEconomico || '—'} concentra ${m.totalCost ? Math.round((Number(topCostUnit.costoTotal || 0) / m.totalCost) * 100) : 0}% del gasto acumulado.` : 'Todavía no hay unidad dominante por costo.' },
+    { title:'Concentración de costo', text:`${Math.min(3, m.total)} unidades concentran ${Math.round(m.top3Share || 0)}% del costo total de la flota.` },
+    { title:'Reincidencia detectada', text:`${m.reincidentes} unidad${m.reincidentes === 1 ? '' : 'es'} requieren seguimiento por repetición de incidencias.` },
+    { title:'Atención prioritaria', text:`${m.pendingParts} unidad${m.pendingParts === 1 ? '' : 'es'} siguen en espera de refacción y pueden impactar operación.` },
+    { title:'Agenda próxima', text:`Hay ${m.upcoming} ingreso${m.upcoming === 1 ? '' : 's'} próximo${m.upcoming === 1 ? '' : 's'} programado${m.upcoming === 1 ? '' : 's'} para taller.` }
   ];
   els.fleetOwnerDeck.innerHTML = `
-    <section class="fleet-owner-hero fleet-owner-hero--premium">
-      <div class="fleet-owner-copy fleet-owner-copy--premium">
-        <div class="topbar-kicker">FLOTA · CONTROL EJECUTIVO</div>
-        <h3>Centro de operaciones con lectura instantánea de riesgo, costo y disponibilidad</h3>
-        <p>${escapeHtml(mission)} El tablero está optimizado para vender confianza: semáforo vivo, presión operativa y agenda inmediata en una sola cabina.</p>
-        <div class="fleet-owner-ribbon">
-          <span class="fleet-owner-ribbon__pill">Concentración top 3 · ${concentration}%</span>
-          <span class="fleet-owner-ribbon__pill">Reincidencia · ${m.reincidentes}</span>
-          <span class="fleet-owner-ribbon__pill">Pendientes de refacción · ${m.pendingParts}</span>
-        </div>
+    <section class="fleet-owner-hero">
+      <div class="fleet-owner-copy">
+        <div class="topbar-kicker">CENTRO DE MANDO DEL DUEÑO</div>
+        <h3>Control patrimonial y financiero de flota</h3>
+        <p>Lectura ejecutiva en segundos: costo, criticidad, concentración y próximos ingresos de taller.</p>
       </div>
-      <div class="fleet-owner-kpis fleet-owner-kpis--premium">
-        <article class="fleet-kpi-card is-currency"><span>Costo total visible</span><strong data-count="${Number(m.totalCost || 0)}" data-currency="1">${money(m.totalCost)}</strong><small>lectura financiera consolidada</small></article>
-        <article class="fleet-kpi-card"><span>Flota activa</span><strong data-count="${Number(m.total || 0)}">${m.total}</strong><small>unidades bajo monitoreo</small></article>
-        <article class="fleet-kpi-card"><span>Disponibilidad</span><strong data-count="${Number(m.operando || 0)}">${m.operando}</strong><small>operando hoy</small></article>
-        <article class="fleet-kpi-card"><span>Presión crítica</span><strong data-count="${Number(m.detenidas + m.enTaller)}">${m.detenidas + m.enTaller}</strong><small>taller + detenidas</small></article>
+      <div class="fleet-owner-kpis">
+        <article><span>Costo total</span><strong data-count="${Number(m.totalCost || 0)}" data-currency="1">${money(m.totalCost)}</strong><small>Acumulado visible</small></article>
+        <article><span>Unidades activas</span><strong data-count="${Number(m.operando || 0)}">${m.operando}</strong><small>Operando hoy</small></article>
+        <article><span>Unidades críticas</span><strong data-count="${Number(m.detenidas + m.enTaller)}">${m.detenidas + m.enTaller}</strong><small>Taller + detenidas</small></article>
+        <article><span>Concentración</span><strong data-count="${Number(m.top3Share || 0)}" data-suffix="%">${Math.round(m.top3Share || 0)}%</strong><small>Top 3 unidades</small></article>
       </div>
     </section>
-    <section class="fleet-flash-strip">
-      ${flashCards.map(item => `<article class="fleet-flash-card tone-${item.tone}"><span>${item.label}</span><strong data-count="${Number(item.value || 0)}">${item.value}</strong><small>${item.note}</small></article>`).join('')}
+    <section class="fleet-owner-alerts">
+      ${insights.map(item => `<article class="fleet-owner-alert"><span>${escapeHtml(item.title)}</span><strong>${escapeHtml(item.text)}</strong></article>`).join('')}
     </section>
-    <section class="fleet-owner-insights fleet-owner-insights--premium">
-      <article class="owner-card owner-card--premium">
-        <div class="owner-card-head"><strong>Radar financiero prioritario</strong><span class="badge badge-info">Costo + reincidencia</span></div>
-        <div class="owner-list owner-list--premium">${risky.length ? risky.map((unit, idx) => {
-          const pct = m.totalCost ? Math.round((Number(unit.costoTotal || 0) / m.totalCost) * 100) : 0;
-          return `<button type="button" class="owner-list-row owner-list-row--premium" onclick="focusFleetUnit(${JSON.stringify(unit.id)})"><span>#${idx + 1} · ${escapeHtml(unit.numeroEconomico || '—')}</span><small>${escapeHtml(unit.empresa || '—')}</small><strong>${money(unit.costoTotal || 0)} · ${pct}%</strong></button>`;
-        }).join('') : '<div class="muted">Sin costos acumulados todavía.</div>'}</div>
+    <section class="fleet-owner-insights">
+      <article class="owner-card">
+        <div class="owner-card-head"><strong>Unidades que más te cuestan</strong><span class="badge badge-info">Impacto financiero</span></div>
+        <div class="owner-list">${risky.length ? risky.map(unit => `<button type="button" class="owner-list-row" onclick="focusFleetUnit(${JSON.stringify(unit.id)})"><span>${escapeHtml(unit.numeroEconomico || '—')}</span><small>${escapeHtml(unit.empresa || '—')}</small><strong>${money(unit.costoTotal || 0)}</strong></button>`).join('') : '<div class="muted">Sin costos acumulados todavía.</div>'}</div>
       </article>
-      <article class="owner-card owner-card--premium">
-        <div class="owner-card-head"><strong>Agenda operativa inmediata</strong><span class="badge badge-info">Ingresos confirmados</span></div>
-        <div class="owner-list owner-list--premium">${nextUnits.length ? nextUnits.map(item => `<div class="owner-list-row owner-list-row--premium static"><span>${escapeHtml(item.unidad || '—')}</span><small>${escapeHtml(item.empresa || '—')}</small><strong>${escapeHtml(fmtDate(item.scheduledFor || item.proposedAt))}</strong></div>`).join('') : '<div class="muted">Sin citas próximas registradas.</div>'}</div>
+      <article class="owner-card">
+        <div class="owner-card-head"><strong>Agenda inmediata</strong><span class="badge badge-info">Ingresos</span></div>
+        <div class="owner-list">${nextUnits.length ? nextUnits.map(item => `<div class="owner-list-row static"><span>${escapeHtml(item.unidad || '—')}</span><small>${escapeHtml(item.empresa || '—')}</small><strong>${escapeHtml(fmtDate(item.scheduledFor || item.proposedAt))}</strong></div>`).join('') : '<div class="muted">Sin citas próximas registradas.</div>'}</div>
       </article>
     </section>`;
   animateFleetOwnerNumbers(els.fleetOwnerDeck);
