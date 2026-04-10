@@ -312,7 +312,9 @@ function mapFleetCost(row) {
     concepto: row.concepto || '',
     monto: Number(row.monto || 0),
     createdAt: row.created_at,
-    createdByNombre: row.created_by_nombre || ''
+    createdByNombre: row.created_by_nombre || '',
+    sourceQuoteId: row.source_quote_id || '',
+    sourceItemType: row.source_item_type || ''
   };
 }
 
@@ -1573,6 +1575,44 @@ async function recalculateFleetCampaignFlag(fleetUnitId, client = pool) {
   );
 }
 
+
+async function fetchVirtualFleetQuoteCosts(fleetUnit, client = pool) {
+  if (!fleetUnit?.empresa || !fleetUnit?.numero_economico) return [];
+  const result = await client.query(
+    `SELECT
+       CONCAT('virtual-', q.id, '-', qi.id) AS id,
+       COALESCE(g.fleet_unit_id, $1) AS fleet_unit_id,
+       q.garantia_id,
+       CASE WHEN qi.type = 'mano_obra' THEN 'mano_obra' ELSE 'refaccion' END AS tipo,
+       COALESCE(NULLIF(TRIM(qi.description), ''), CONCAT('Cobranza ', COALESCE(q.folio, ''))) AS concepto,
+       qi.total AS monto,
+       COALESCE(q.paid_at, q.updated_at, qi.created_at) AS created_at,
+       'Cobranza pagada' AS created_by_nombre,
+       q.id AS source_quote_id,
+       qi.type AS source_item_type
+     FROM work_quotes q
+     JOIN work_quote_items qi ON qi.quote_id = q.id
+     LEFT JOIN garantias g ON g.id = q.garantia_id
+     WHERE q.payment_status = 'pagada'
+       AND qi.type IN ('refaccion','mano_obra')
+       AND (
+         g.fleet_unit_id = $1
+         OR (
+           LOWER(REGEXP_REPLACE(TRIM(COALESCE(q.company_name, g.empresa, '')), '\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(TRIM(COALESCE($2,'')), '\s+', ' ', 'g'))
+           AND REGEXP_REPLACE(COALESCE(q.unit_number, g.numero_economico, ''), '[^0-9A-Za-z]+', '', 'g') = REGEXP_REPLACE(COALESCE($3,''), '[^0-9A-Za-z]+', '', 'g')
+         )
+       )
+       AND qi.total > 0
+       AND NOT EXISTS (
+         SELECT 1 FROM fleet_cost_entries fce
+         WHERE fce.source_quote_id = q.id
+       )
+     ORDER BY COALESCE(q.paid_at, q.updated_at, qi.created_at) DESC, qi.created_at DESC`,
+    [fleetUnit.id, fleetUnit.empresa, fleetUnit.numero_economico]
+  );
+  return result.rows;
+}
+
 async function syncQuoteCostsToFleet(quoteId, actor = {}, externalClient = null) {
   const client = externalClient || await pool.connect();
   const release = !externalClient;
@@ -1756,9 +1796,60 @@ app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supe
         WHERE g.empresa = fu.empresa AND g.numero_economico = fu.numero_economico
       ) AS last_report_at,
       COALESCE((SELECT COUNT(*) FROM garantias g WHERE g.empresa = fu.empresa AND g.numero_economico = fu.numero_economico),0) AS reportes_count,
-      COALESCE((SELECT SUM(CASE WHEN tipo='refaccion' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_refacciones,
-      COALESCE((SELECT SUM(CASE WHEN tipo='mano_obra' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_mano_obra,
-      COALESCE((SELECT SUM(monto) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_total,
+      (
+        COALESCE((SELECT SUM(CASE WHEN tipo='refaccion' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0)
+        + CASE WHEN EXISTS (SELECT 1 FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id) THEN 0 ELSE COALESCE((
+            SELECT SUM(qi.total)
+            FROM work_quotes q
+            JOIN work_quote_items qi ON qi.quote_id = q.id
+            LEFT JOIN garantias g ON g.id = q.garantia_id
+            WHERE q.payment_status = 'pagada'
+              AND qi.type = 'refaccion'
+              AND (
+                g.fleet_unit_id = fu.id
+                OR (
+                  LOWER(REGEXP_REPLACE(TRIM(COALESCE(q.company_name, g.empresa, '')), '\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(TRIM(COALESCE(fu.empresa,'')), '\s+', ' ', 'g'))
+                  AND REGEXP_REPLACE(COALESCE(q.unit_number, g.numero_economico, ''), '[^0-9A-Za-z]+', '', 'g') = REGEXP_REPLACE(COALESCE(fu.numero_economico,''), '[^0-9A-Za-z]+', '', 'g')
+                )
+              )
+          ),0) END
+      ) AS costo_refacciones,
+      (
+        COALESCE((SELECT SUM(CASE WHEN tipo='mano_obra' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0)
+        + CASE WHEN EXISTS (SELECT 1 FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id) THEN 0 ELSE COALESCE((
+            SELECT SUM(qi.total)
+            FROM work_quotes q
+            JOIN work_quote_items qi ON qi.quote_id = q.id
+            LEFT JOIN garantias g ON g.id = q.garantia_id
+            WHERE q.payment_status = 'pagada'
+              AND qi.type = 'mano_obra'
+              AND (
+                g.fleet_unit_id = fu.id
+                OR (
+                  LOWER(REGEXP_REPLACE(TRIM(COALESCE(q.company_name, g.empresa, '')), '\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(TRIM(COALESCE(fu.empresa,'')), '\s+', ' ', 'g'))
+                  AND REGEXP_REPLACE(COALESCE(q.unit_number, g.numero_economico, ''), '[^0-9A-Za-z]+', '', 'g') = REGEXP_REPLACE(COALESCE(fu.numero_economico,''), '[^0-9A-Za-z]+', '', 'g')
+                )
+              )
+          ),0) END
+      ) AS costo_mano_obra,
+      (
+        COALESCE((SELECT SUM(monto) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0)
+        + CASE WHEN EXISTS (SELECT 1 FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id) THEN 0 ELSE COALESCE((
+            SELECT SUM(qi.total)
+            FROM work_quotes q
+            JOIN work_quote_items qi ON qi.quote_id = q.id
+            LEFT JOIN garantias g ON g.id = q.garantia_id
+            WHERE q.payment_status = 'pagada'
+              AND qi.type IN ('refaccion','mano_obra')
+              AND (
+                g.fleet_unit_id = fu.id
+                OR (
+                  LOWER(REGEXP_REPLACE(TRIM(COALESCE(q.company_name, g.empresa, '')), '\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(TRIM(COALESCE(fu.empresa,'')), '\s+', ' ', 'g'))
+                  AND REGEXP_REPLACE(COALESCE(q.unit_number, g.numero_economico, ''), '[^0-9A-Za-z]+', '', 'g') = REGEXP_REPLACE(COALESCE(fu.numero_economico,''), '[^0-9A-Za-z]+', '', 'g')
+                )
+              )
+          ),0) END
+      ) AS costo_total,
       COALESCE((SELECT CASE WHEN COUNT(*) > 0 THEN TRUE ELSE FALSE END FROM campaign_records cr WHERE cr.fleet_unit_id = fu.id AND cr.status <> 'realizada'), fu.campaign_activa) AS campaign_activa
     FROM fleet_units fu
     ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
@@ -1843,9 +1934,60 @@ app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','
   }
   const unit = await pool.query(`
     SELECT fu.*,
-      COALESCE((SELECT SUM(CASE WHEN tipo='refaccion' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_refacciones,
-      COALESCE((SELECT SUM(CASE WHEN tipo='mano_obra' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_mano_obra,
-      COALESCE((SELECT SUM(monto) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_total,
+      (
+        COALESCE((SELECT SUM(CASE WHEN tipo='refaccion' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0)
+        + CASE WHEN EXISTS (SELECT 1 FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id) THEN 0 ELSE COALESCE((
+            SELECT SUM(qi.total)
+            FROM work_quotes q
+            JOIN work_quote_items qi ON qi.quote_id = q.id
+            LEFT JOIN garantias g ON g.id = q.garantia_id
+            WHERE q.payment_status = 'pagada'
+              AND qi.type = 'refaccion'
+              AND (
+                g.fleet_unit_id = fu.id
+                OR (
+                  LOWER(REGEXP_REPLACE(TRIM(COALESCE(q.company_name, g.empresa, '')), '\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(TRIM(COALESCE(fu.empresa,'')), '\s+', ' ', 'g'))
+                  AND REGEXP_REPLACE(COALESCE(q.unit_number, g.numero_economico, ''), '[^0-9A-Za-z]+', '', 'g') = REGEXP_REPLACE(COALESCE(fu.numero_economico,''), '[^0-9A-Za-z]+', '', 'g')
+                )
+              )
+          ),0) END
+      ) AS costo_refacciones,
+      (
+        COALESCE((SELECT SUM(CASE WHEN tipo='mano_obra' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0)
+        + CASE WHEN EXISTS (SELECT 1 FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id) THEN 0 ELSE COALESCE((
+            SELECT SUM(qi.total)
+            FROM work_quotes q
+            JOIN work_quote_items qi ON qi.quote_id = q.id
+            LEFT JOIN garantias g ON g.id = q.garantia_id
+            WHERE q.payment_status = 'pagada'
+              AND qi.type = 'mano_obra'
+              AND (
+                g.fleet_unit_id = fu.id
+                OR (
+                  LOWER(REGEXP_REPLACE(TRIM(COALESCE(q.company_name, g.empresa, '')), '\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(TRIM(COALESCE(fu.empresa,'')), '\s+', ' ', 'g'))
+                  AND REGEXP_REPLACE(COALESCE(q.unit_number, g.numero_economico, ''), '[^0-9A-Za-z]+', '', 'g') = REGEXP_REPLACE(COALESCE(fu.numero_economico,''), '[^0-9A-Za-z]+', '', 'g')
+                )
+              )
+          ),0) END
+      ) AS costo_mano_obra,
+      (
+        COALESCE((SELECT SUM(monto) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0)
+        + CASE WHEN EXISTS (SELECT 1 FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id) THEN 0 ELSE COALESCE((
+            SELECT SUM(qi.total)
+            FROM work_quotes q
+            JOIN work_quote_items qi ON qi.quote_id = q.id
+            LEFT JOIN garantias g ON g.id = q.garantia_id
+            WHERE q.payment_status = 'pagada'
+              AND qi.type IN ('refaccion','mano_obra')
+              AND (
+                g.fleet_unit_id = fu.id
+                OR (
+                  LOWER(REGEXP_REPLACE(TRIM(COALESCE(q.company_name, g.empresa, '')), '\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(TRIM(COALESCE(fu.empresa,'')), '\s+', ' ', 'g'))
+                  AND REGEXP_REPLACE(COALESCE(q.unit_number, g.numero_economico, ''), '[^0-9A-Za-z]+', '', 'g') = REGEXP_REPLACE(COALESCE(fu.numero_economico,''), '[^0-9A-Za-z]+', '', 'g')
+                )
+              )
+          ),0) END
+      ) AS costo_total,
       COALESCE((SELECT CASE WHEN COUNT(*) > 0 THEN TRUE ELSE FALSE END FROM campaign_records cr WHERE cr.fleet_unit_id = fu.id AND cr.status <> 'realizada'), fu.campaign_activa) AS campaign_activa
     FROM fleet_units fu WHERE fu.id = $1 ${extra}
   `, params);
@@ -1868,6 +2010,7 @@ app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','
     WHERE fleet_unit_id = $1
     ORDER BY created_at DESC
   `, [u.id]);
+  const virtualCosts = costs.rowCount ? [] : await fetchVirtualFleetQuoteCosts(u);
   const campaigns = await pool.query(`
     SELECT cr.*, cg.campaign_name, cg.id AS campaign_group_id
     FROM campaign_records cr
@@ -1878,7 +2021,7 @@ app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','
   res.json({
     unit: mapFleetUnit(u),
     reports: reports.rows.map(mapGarantia),
-    costs: costs.rows.map(mapFleetCost),
+    costs: [...costs.rows.map(mapFleetCost), ...virtualCosts.map(mapFleetCost)],
     campaigns: campaigns.rows.map(mapCampaignRecord)
   });
 });
