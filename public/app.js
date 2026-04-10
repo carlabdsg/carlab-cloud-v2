@@ -256,8 +256,7 @@ function fleetStatusLuxury(unit) {
     const label = normalizeText(unit.manualStatus || unit.estatusOperativo || '').includes('taller') ? 'En taller' : 'Espera programación';
     return { text: label, chip:'warn', visual:'status-amber' };
   }
-  if (sem.key === 'detenida') return { text:'Detenida / crítica', chip:'bad', visual:'status-red' };
-  return { text:'Sin estado', chip:'neutral', visual:'status-gray' };
+  return { text:'Detenida / crítica', chip:'bad', visual:'status-red' };
 }
 function fleetTagPoliza(unit) {
   return unit.polizaActiva ? { text:'Póliza activa', cls:'good' } : { text:'Sin póliza', cls:'neutral' };
