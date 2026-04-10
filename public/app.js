@@ -38,12 +38,6 @@ const state = {
   directSaleDraftPartId: '',
   quoteDrafts: {},
   directSaleItems: [],
-  campaigns: [],
-  campaignGroups: [],
-  selectedCampaignGroupId: '',
-  selectedCampaignName: '',
-  editingCampaignId: '',
-  campaignEvidence: [],
 };
 
 const api = {
@@ -124,14 +118,6 @@ const api = {
   getDirectSales() { return this.request('/api/cobranza/direct-sales'); },
   createDirectSale(payload) { return this.request('/api/cobranza/direct-sales', { method: 'POST', body: JSON.stringify(payload || {}) }); },
   updateDirectSale(id, payload) { return this.request(`/api/cobranza/direct-sales/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
-  getCampaignGroups() { return this.request('/api/campaign-groups'); },
-  createCampaignGroup(payload) { return this.request('/api/campaign-groups', { method: 'POST', body: JSON.stringify(payload || {}) }); },
-  updateCampaignGroup(id, payload) { return this.request(`/api/campaign-groups/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
-  deleteCampaignGroup(id) { return this.request(`/api/campaign-groups/${id}`, { method: 'DELETE' }); },
-  getCampaigns() { return this.request('/api/campaigns'); },
-  createCampaign(payload) { return this.request('/api/campaigns', { method: 'POST', body: JSON.stringify(payload || {}) }); },
-  updateCampaign(id, payload) { return this.request(`/api/campaigns/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
-  deleteCampaign(id) { return this.request(`/api/campaigns/${id}`, { method: 'DELETE' }); },
 
 };
 
@@ -140,14 +126,14 @@ function bind() {
   [
     'loginView','dashboardView','loginForm','loginEmail','loginPassword','loginError','registerForm','registerMessage','regNombre','regEmail','regTelefono','regEmpresa','regNumeroEconomico','regPassword',
     'tabLoginBtn','tabRegisterBtn','welcomeText','currentUserName','currentUserEmail','currentRoleBadge','avatarCircle','pageTitle','roleSummaryText','roleBrief','logoutBtn',
-    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navFleetBtn','navPartsBtn','navStockBtn','navCobranzaBtn','navCampaignsBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel','stockPanel','cobranzaPanel','campaignsPanel',
+    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navFleetBtn','navPartsBtn','navStockBtn','navCobranzaBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel','stockPanel','cobranzaPanel',
     'reportForm','numeroObra','modelo','numeroEconomico','empresa','kilometraje','contactoNombre','telefono','descripcionFallo','solicitaRefaccion','refaccionFields','detalleRefaccion',
     'evidencias','evidenciasCamara','evidenciasRefaccion','evidenciasRefaccionCamara','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn','searchInput','validationFilter','operationalFilter',
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
     'executiveDeck','executiveDeckGrid','liveRefreshBadge','topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistorySearchInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','partsPanel','partsRefreshBtn','partsSummary','partsList','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn','fleetOwnerDeck','imageLightbox','imageLightboxImg','imageLightboxClose',
     'navFleetBtn','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsGrid','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas','fleetNewBtn','fleetCancelBtn','fleetFormBox','fleetSearchInput','fleetStatusFilter',
-    'partsRequestModal','partsRequestClose','partsRequestCancel','partsRequestForm','partsRequestEmpresa','partsRequestUnidad','partsRequestSolicitud','partsRequestPriority','partsRequestNotes','partsRequestOwnerHint','imageLightboxCaption','reportDetailModal','reportDetailClose','reportDetailContent','stockRefreshBtn','stockSummary','stockList','stockMovements','stockPartForm','stockPartId','stockNombre','stockSku','stockProveedor','stockActual','stockMinimo','stockCosto','stockPrecio','stockUbicacion','stockNotas','stockSaveBtn','stockCancelBtn','scheduleManualForm','scheduleManualEmpresa','scheduleManualUnidad','scheduleManualTelefono','scheduleManualFolio','scheduleManualDatetime','scheduleManualContacto','scheduleManualNotes','scheduleManualCancelBtn','cobranzaRefreshBtn','cobranzaSummary','cobranzaQuotesList','cobranzaQuoteDetail','directSaleForm','directSaleCustomer','directSalePhone','directSaleCompany','directSaleUnit','directSaleType','directSaleConcept','directSaleStockPart','directSaleQty','directSalePrice','directSaleMethod','directSalePaymentStatus','directSaleNotes','directSaleAddConceptBtn','directSaleItemsList','directSaleResetBtn','directSalePdfBtn','directSaleTotal','directSalesList','stockAssignModal','stockAssignClose','stockAssignCancel','stockAssignForm','stockAssignPartName','stockAssignPartMeta','stockAssignQty','stockAssignUnit','stockAssignCompany','stockAssignFolio','stockAssignNotes','campaignsRefreshBtn','campaignsSummary','campaignsList','campaignDetail','campaignForm','campaignId','campaignName','campaignEmpresa','campaignFleetUnit','campaignStatus','campaignNotes','campaignEvidenceInput','campaignEvidenceCamera','campaignEvidencePreview','campaignSaveBtn','campaignCancelBtn'
+    'partsRequestModal','partsRequestClose','partsRequestCancel','partsRequestForm','partsRequestEmpresa','partsRequestUnidad','partsRequestSolicitud','partsRequestPriority','partsRequestNotes','partsRequestOwnerHint','imageLightboxCaption','reportDetailModal','reportDetailClose','reportDetailContent','stockRefreshBtn','stockSummary','stockList','stockMovements','stockPartForm','stockPartId','stockNombre','stockSku','stockProveedor','stockActual','stockMinimo','stockCosto','stockPrecio','stockUbicacion','stockNotas','stockSaveBtn','stockCancelBtn','scheduleManualForm','scheduleManualEmpresa','scheduleManualUnidad','scheduleManualTelefono','scheduleManualFolio','scheduleManualDatetime','scheduleManualContacto','scheduleManualNotes','scheduleManualCancelBtn','cobranzaRefreshBtn','cobranzaSummary','cobranzaQuotesList','cobranzaQuoteDetail','directSaleForm','directSaleCustomer','directSalePhone','directSaleCompany','directSaleUnit','directSaleType','directSaleConcept','directSaleStockPart','directSaleQty','directSalePrice','directSaleMethod','directSalePaymentStatus','directSaleNotes','directSaleAddConceptBtn','directSaleItemsList','directSaleResetBtn','directSalePdfBtn','directSaleTotal','directSalesList','stockAssignModal','stockAssignClose','stockAssignCancel','stockAssignForm','stockAssignPartName','stockAssignPartMeta','stockAssignQty','stockAssignUnit','stockAssignCompany','stockAssignFolio','stockAssignNotes'
   ].forEach(id => els[id] = document.getElementById(id));
 }
 bind();
@@ -254,29 +240,29 @@ function normalizeText(value='') {
 }
 
 function fleetSemaforo(unit) {
-  if (unit?.campaignActiva) return { key:'campania', label: 'Campaña activa', cls: 'fleet-campaign' };
   const st = normalizeText(unit.manualStatus || unit.estatusOperativo || unit.status || '');
-  if (['en_taller','en taller','espera refaccion','espera refacción','detenida','critica','crítica','urgente'].includes(st)) return { key:'en_taller', label: 'En taller / espera refacción', cls: 'fleet-bad' };
-  if (['programada','en programacion','en programación','espera programacion','espera programación'].includes(st)) return { key:'programada', label: 'Programación', cls: 'fleet-warn' };
-  if (['terminada','sin actividad','operando','sin pendientes','aceptada finalizada'].includes(st)) return { key:'operando', label: 'Sin pendientes', cls: 'fleet-ok' };
-  if (['en proceso','pendiente','aceptada'].includes(st)) return { key:'en_taller', label: 'En taller / espera refacción', cls: 'fleet-bad' };
-  return { key:'operando', label: 'Sin pendientes', cls: 'fleet-ok' };
+  if (['terminada','sin actividad','operando','sin pendientes','aceptada finalizada'].includes(st)) return { key:'operando', label: 'Operando', cls: 'fleet-ok' };
+  if (['en proceso','en_taller','en taller','pendiente','espera programacion','espera programación','programada','aceptada'].includes(st)) return { key:'programada', label: st.includes('taller') ? 'En taller' : 'Programada', cls: 'fleet-warn' };
+  if (['espera refaccion','espera refacción','detenida','rechazada','critica','crítica','urgente'].includes(st)) return { key:'detenida', label: 'Detenida', cls: 'fleet-bad' };
+  return { key:'operando', label: 'Operando', cls: 'fleet-ok' };
 }
 function fleetBusAsset(unit) {
   return normalizeText(unit.marca || '').includes('volvo') ? '/assets/buses/bus-volvo.svg' : '/assets/buses/bus-irizar.svg';
 }
 function fleetStatusLuxury(unit) {
   const sem = fleetSemaforo(unit);
-  if (sem.key === 'campania') return { text:'Campaña activa', chip:'campaign', visual:'status-blue' };
   if (sem.key === 'operando') return { text:'Sin pendientes', chip:'good', visual:'status-green' };
-  if (sem.key === 'programada') return { text:'Programación', chip:'warn', visual:'status-amber' };
-  return { text:'En taller / espera refacción', chip:'bad', visual:'status-red' };
+  if (sem.key === 'programada') {
+    const label = normalizeText(unit.manualStatus || unit.estatusOperativo || '').includes('taller') ? 'En taller' : 'Espera programación';
+    return { text: label, chip:'warn', visual:'status-amber' };
+  }
+  return { text:'Detenida / crítica', chip:'bad', visual:'status-red' };
 }
 function fleetTagPoliza(unit) {
   return unit.polizaActiva ? { text:'Póliza activa', cls:'good' } : { text:'Sin póliza', cls:'neutral' };
 }
 function fleetTagCampania(unit) {
-  return unit.campaignActiva ? { text:'Campaña activa', cls:'campaign' } : { text:'Sin campaña', cls:'neutral' };
+  return unit.campaignActiva ? { text:'Campaña activa', cls:'warn' } : { text:'Sin campaña', cls:'neutral' };
 }
 function countBy(items, getter) {
   const map = new Map();
@@ -393,9 +379,8 @@ function drawPreviews(container, items, target = 'evidence') {
     remove.textContent = '×';
     remove.addEventListener('click', () => {
       if (target === 'ref') state.currentRefEvidence.splice(index, 1);
-      else if (target === 'campaign') state.campaignEvidence.splice(index, 1);
       else state.currentEvidence.splice(index, 1);
-      drawPreviews(container, target === 'ref' ? state.currentRefEvidence : target === 'campaign' ? state.campaignEvidence : state.currentEvidence, target);
+      drawPreviews(container, target === 'ref' ? state.currentRefEvidence : state.currentEvidence, target);
     });
     wrap.appendChild(img);
     wrap.appendChild(remove);
@@ -500,7 +485,7 @@ function roleCopy(role) {
     operador: { title:'Portal de operador', summary:'Reportas fallas, subes evidencia y ves el estatus sin depender de llamadas.', panels:[['Levantar incidencia','Captura la falla con datos, fotos, refacción y firma.'],['Seguimiento','Consulta si fue aceptada, rechazada o quedó pendiente.'],['Sin cruces','Solo ves tus reportes. No puedes decidir ni alterar revisiones.']], boardKicker:'OPERADOR', listTitle:'Mis reportes de garantía', legend:'Aquí ves solo tus reportes y su estatus actual.' },
     operativo: { title:'Mesa de validación operativa', summary:'Revisas reportes, decides si proceden y mueves el trabajo hasta terminar.', panels:[['Decisión','Acepta, rechaza o marca pendiente de revisión.'],['Flujo','Mueve el trabajo a en proceso, espera refacción o terminada.'],['Patrones','También ves unidades reincidentes para atacar la raíz.']], boardKicker:'OPERATIVO', listTitle:'Bandeja operativa', legend:'Aquí validas, autorizas y avanzas el trabajo.' },
     supervisor: { title:'Portal de supervisor', summary:'Consulta únicamente la información de tu empresa en modo corporativo de solo lectura.', panels:[['Visibilidad','Revisa empresas, unidades, evidencias y avances.'],['Lectura ejecutiva','Historial por unidad y top de fallas sin tocar procesos.'],['Sin edición','No cambias decisiones ni alteras procesos.']], boardKicker:'SUPERVISOR', listTitle:'Bandeja supervisada', legend:'Monitoreo integral con lectura operativa y comercial.' },
-    supervisor_flotas: { title:'Centro de flotas Carlab', summary:'Supervisión de unidades, semáforo vivo, historial y lectura por empresa sin tocar usuarios ni validaciones.', panels:[['Semáforo vivo','Detecta qué unidad opera, cuál cayó al taller, cuál está en programación y cuál trae campaña activa.'],['Lectura por unidad','Historial de reportes, costos, campañas y último movimiento en una sola vista.'],['Control enfocado','Supervisa flotas y campañas sin entrar a módulos ajenos.']], boardKicker:'FLOTAS', listTitle:'Radar de unidades', legend:'Tablero ejecutivo para seguir flota, carga histórica y reincidencia por empresa.' },
+    supervisor_flotas: { title:'Centro de flotas Carlab', summary:'Supervisión de unidades, semáforo vivo, historial y lectura por empresa sin tocar usuarios ni validaciones.', panels:[['Semáforo vivo','Detecta qué unidad opera, cuál cayó al taller y cuál reincide.'],['Lectura por unidad','Historial de reportes, costos y último movimiento en una sola vista.'],['Control enfocado','Supervisa flotas sin entrar a módulos ajenos.']], boardKicker:'FLOTAS', listTitle:'Radar de unidades', legend:'Tablero ejecutivo para seguir flota, carga histórica y reincidencia por empresa.' },
   }[role];
 }
 
@@ -519,7 +504,7 @@ function updateHeaderForRole() {
   if (els.roleBrief) els.roleBrief.innerHTML = copy.panels.map(([title, desc]) => `<article><strong>${escapeHtml(title)}</strong><span>${escapeHtml(desc)}</span></article>`).join('');
 }
 function setActiveNav(activeBtn) {
-  [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navScheduleBtn,els.navFleetBtn,els.navPartsBtn,els.navStockBtn,els.navCobranzaBtn,els.navCampaignsBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
+  [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navScheduleBtn,els.navFleetBtn,els.navPartsBtn,els.navStockBtn,els.navCobranzaBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
   if (activeBtn && !activeBtn.classList.contains('hidden')) activeBtn.classList.add('active');
 }
 
@@ -539,8 +524,7 @@ function updateOperatorAppNav(panel) {
 function switchPanel(panel) {
   if (state.user?.role === 'supervisor_flotas' && ['users','requests','companies','report','stock','cobranza'].includes(panel)) panel = 'fleet';
   if (!isRole('admin') && ['stock','cobranza'].includes(panel)) panel = state.user?.role === 'supervisor_flotas' ? 'fleet' : 'board';
-  if (!isRole('admin','supervisor_flotas','operativo') && panel === 'campaigns') panel = state.user?.role === 'supervisor_flotas' ? 'fleet' : 'board';
-  if (state.user?.role === 'supervisor' && ['users','requests','companies','fleet','parts','report','stock','cobranza','campaigns'].includes(panel)) panel = 'board';
+  if (state.user?.role === 'supervisor' && ['users','requests','companies','fleet','parts','report','stock','cobranza'].includes(panel)) panel = 'board';
   if (panel !== 'fleet') {
     document.body.classList.remove('fleet-detail-modal-open');
     document.getElementById('fleetDetailModalRoot')?.classList.add('hidden');
@@ -558,7 +542,6 @@ function switchPanel(panel) {
   els.partsPanel?.classList.toggle('hidden', panel !== 'parts');
   els.stockPanel?.classList.toggle('hidden', panel !== 'stock');
   els.cobranzaPanel?.classList.toggle('hidden', panel !== 'cobranza');
-  els.campaignsPanel?.classList.toggle('hidden', panel !== 'campaigns');
   document.body.dataset.panel = panel;
   const board = panel === 'board';
   els.filtersPanel?.classList.toggle('hidden', !board);
@@ -568,7 +551,6 @@ function switchPanel(panel) {
   if (panel === 'parts') loadPartsPending();
   if (panel === 'stock') loadStock();
   if (panel === 'cobranza') loadCobranza();
-  if (panel === 'campaigns') loadCampaigns();
   updateOperatorAppNav(panel);
   setActiveNav(
     panel === 'report' ? els.navNewReportBtn :
@@ -582,7 +564,6 @@ function switchPanel(panel) {
     panel === 'parts' ? els.navPartsBtn :
     panel === 'stock' ? els.navStockBtn :
     panel === 'cobranza' ? els.navCobranzaBtn :
-    panel === 'campaigns' ? els.navCampaignsBtn :
     els.navBoardBtn
   );
   if (panel === 'report') window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -602,16 +583,13 @@ function showDashboard() {
   els.navScheduleBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo','operador'));
   els.navFleetBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas','operativo'));
   els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas'));
-  els.navCampaignsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas','operativo'));
   els.navStockBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navCobranzaBtn?.classList.toggle('hidden', !isRole('admin'));
-  els.navCampaignsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas','operativo'));
   document.querySelectorAll('[data-role-admin-only]').forEach(el => el.classList.toggle('hidden', !isRole('admin')));
   if (state.user?.role === 'supervisor') {
     els.navFleetBtn?.classList.add('hidden');
     els.navPartsBtn?.classList.add('hidden');
     els.navCobranzaBtn?.classList.add('hidden');
-    els.navCampaignsBtn?.classList.add('hidden');
     els.navUsersBtn?.classList.add('hidden');
     els.navRequestsBtn?.classList.add('hidden');
     els.navCompaniesBtn?.classList.add('hidden');
@@ -625,7 +603,6 @@ function showDashboard() {
     if (els.navCobranzaBtn) { els.navCobranzaBtn.classList.add('hidden'); els.navCobranzaBtn.style.display = 'none'; }
   }
   els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas'));
-  els.navCampaignsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas','operativo'));
   updateHeaderForRole(); switchPanel(state.user?.role === 'operador' ? 'report' : (state.user?.role === 'supervisor_flotas' ? 'fleet' : 'board'));
 }
 function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); els.operatorAppNav?.classList.add('hidden'); document.body.classList.remove('executive-mode','operator-mode'); document.body.dataset.role=''; document.body.dataset.panel='login'; }
@@ -878,14 +855,13 @@ function renderSchedules() {
   const selectedDate = els.scheduleDateInput?.value || new Date().toISOString().slice(0,10);
   if (els.scheduleDateInput && !els.scheduleDateInput.value) els.scheduleDateInput.value = selectedDate;
 
-  const sourceSchedules = isRole('supervisor_flotas') ? state.schedules.filter(item => new Date(item.scheduledFor || item.proposedAt || item.requestedAt || 0).getTime() >= (Date.now() - 3600000)) : state.schedules;
-  const total = sourceSchedules.length;
-  const proposed = sourceSchedules.filter(item => item.status === 'proposed').length;
-  const confirmed = sourceSchedules.filter(item => item.status === 'confirmed').length;
-  const waiting = sourceSchedules.filter(item => item.status === 'waiting_operator').length;
-  const cancelled = sourceSchedules.filter(item => item.status === 'cancelled').length;
+  const total = state.schedules.length;
+  const proposed = state.schedules.filter(item => item.status === 'proposed').length;
+  const confirmed = state.schedules.filter(item => item.status === 'confirmed').length;
+  const waiting = state.schedules.filter(item => item.status === 'waiting_operator').length;
+  const cancelled = state.schedules.filter(item => item.status === 'cancelled').length;
 
-  const schedulesForDay = sourceSchedules.filter(item => {
+  const schedulesForDay = state.schedules.filter(item => {
     const raw = item.scheduledFor || item.proposedAt || item.requestedAt;
     if (!raw) return false;
     return String(raw).slice(0,10) === selectedDate;
@@ -899,14 +875,14 @@ function renderSchedules() {
     const last = new Date(year, month + 1, 0);
     const startWeek = (first.getDay() + 6) % 7;
     const days = [];
-    const groupedDates = [...new Set(sourceSchedules.map(item => {
+    const groupedDates = [...new Set(state.schedules.map(item => {
       const raw = item.scheduledFor || item.proposedAt || item.requestedAt;
       return raw ? String(raw).slice(0,10) : '';
     }).filter(Boolean))].sort();
     for (let i = 0; i < startWeek; i++) days.push('<div class="calendar-cell empty"></div>');
     for (let d = 1; d <= last.getDate(); d++) {
       const iso = new Date(year, month, d).toISOString().slice(0,10);
-      const items = sourceSchedules.filter(item => {
+      const items = state.schedules.filter(item => {
         const raw = item.scheduledFor || item.proposedAt || item.requestedAt;
         return raw && String(raw).slice(0,10) === iso;
       });
@@ -1975,206 +1951,6 @@ async function exportCommercialPdf(quote) {
   }
 }
 
-
-function campaignStatusMeta(status = 'sin_programar') {
-  return ({
-    sin_programar: { label:'Sin programar', badge:'badge-rejected', visual:'status-red' },
-    programada: { label:'Programada', badge:'badge-review', visual:'status-amber' },
-    realizada: { label:'Realizada', badge:'badge-accepted', visual:'status-green' },
-  })[status] || { label:status || 'Sin programar', badge:'badge-info', visual:'status-red' };
-}
-
-function currentCampaignGroup() {
-  return (state.campaignGroups || []).find(g => g.id === state.selectedCampaignGroupId) || null;
-}
-
-function resetCampaignForm(prefill = {}) {
-  state.editingCampaignId = prefill.id || '';
-  state.campaignEvidence = Array.isArray(prefill.evidencia) ? [...prefill.evidencia] : [];
-  if (els.campaignForm) els.campaignForm.reset();
-  if (els.campaignId) els.campaignId.value = prefill.id || '';
-  if (els.campaignName) els.campaignName.value = prefill.campaignName || currentCampaignGroup()?.campaignName || '';
-  const companies = [...new Set((state.fleetUnits || []).map(u => u.empresa).filter(Boolean))].sort();
-  if (els.campaignEmpresa) {
-    const forced = isRole('supervisor_flotas') ? (state.user?.empresa || '') : '';
-    els.campaignEmpresa.innerHTML = '<option value="">Selecciona empresa</option>' + companies.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
-    els.campaignEmpresa.value = prefill.empresa || currentCampaignGroup()?.empresa || forced || '';
-    els.campaignEmpresa.disabled = isRole('supervisor_flotas');
-  }
-  if (els.campaignNotes) els.campaignNotes.value = prefill.notes || currentCampaignGroup()?.notes || '';
-  drawPreviews(els.campaignEvidencePreview, state.campaignEvidence, 'campaign');
-  if (els.campaignSaveBtn) els.campaignSaveBtn.textContent = state.editingCampaignId ? 'Guardar campaña' : 'Guardar campaña';
-}
-
-function campaignUnits(groupId = state.selectedCampaignGroupId) {
-  return (state.campaigns || []).filter(item => item.campaignGroupId === groupId || (!item.campaignGroupId && item.campaignName === currentCampaignGroup()?.campaignName && item.empresa === currentCampaignGroup()?.empresa));
-}
-
-async function loadCampaigns(force = false) {
-  if (!isRole('admin','supervisor_flotas','operativo')) return;
-  try {
-    if (!state.fleetUnits.length || force) await loadFleet();
-    const [groups, items] = await Promise.all([api.getCampaignGroups(), api.getCampaigns()]);
-    state.campaignGroups = groups || [];
-    state.campaigns = items || [];
-    if (!state.selectedCampaignGroupId && state.campaignGroups[0]) state.selectedCampaignGroupId = state.campaignGroups[0].id;
-    if (state.selectedCampaignGroupId && !(state.campaignGroups || []).some(item => item.id === state.selectedCampaignGroupId)) state.selectedCampaignGroupId = state.campaignGroups[0]?.id || '';
-    state.selectedCampaignName = currentCampaignGroup()?.campaignName || '';
-    renderCampaigns();
-  } catch (error) {
-    notify(error.message, true);
-  }
-}
-
-function campaignUnitOptionsHtml(group) {
-  const empresa = group?.empresa || els.campaignEmpresa?.value || state.user?.empresa || '';
-  const used = new Set(campaignUnits(group?.id).map(x => x.fleetUnitId));
-  return '<option value="">Selecciona unidad</option>' + (state.fleetUnits || []).filter(u => (!empresa || u.empresa === empresa) && !used.has(u.id)).map(u => `<option value="${u.id}">${escapeHtml(u.numeroEconomico || '—')} · ${escapeHtml(u.modelo || '')}</option>`).join('');
-}
-
-function renderCampaigns() {
-  const groups = state.campaignGroups || [];
-  if (els.campaignsSummary) {
-    const totalUnits = (state.campaigns || []).length;
-    const totalGroups = groups.length;
-    const pending = (state.campaigns || []).filter(x => x.status === 'sin_programar').length;
-    const programmed = (state.campaigns || []).filter(x => x.status === 'programada').length;
-    const done = (state.campaigns || []).filter(x => x.status === 'realizada').length;
-    els.campaignsSummary.innerHTML = `
-      <article class="parts-summary-card glass-card"><strong>Campañas</strong><span>${totalGroups}</span><small>Campañas madre registradas</small></article>
-      <article class="parts-summary-card"><strong>Unidades</strong><span>${totalUnits}</span><small>Tarjetas activas</small></article>
-      <article class="parts-summary-card"><strong>Sin programar</strong><span>${pending}</span><small>Rojo operativo</small></article>
-      <article class="parts-summary-card"><strong>Programadas</strong><span>${programmed}</span><small>Naranja operativo</small></article>
-      <article class="parts-summary-card"><strong>Realizadas</strong><span>${done}</span><small>Verde de cierre</small></article>`;
-  }
-  if (els.campaignsList) {
-    els.campaignsList.innerHTML = groups.length ? groups.map(group => {
-      const items = campaignUnits(group.id);
-      const pending = items.filter(x => x.status === 'sin_programar').length;
-      const programmed = items.filter(x => x.status === 'programada').length;
-      const done = items.filter(x => x.status === 'realizada').length;
-      const active = state.selectedCampaignGroupId === group.id;
-      return `
-        <article class="campaign-group-card ${active ? 'active' : ''}">
-          <button type="button" class="campaign-group-btn ${active ? 'active' : ''}" data-campaign-open="${escapeHtml(group.id)}">
-            <div><strong>${escapeHtml(group.campaignName)}</strong><div class="small muted">${escapeHtml(group.empresa || '—')} · ${items.length} unidad(es)</div></div>
-            <div class="campaign-group-stats"><span>${pending} R</span><span>${programmed} N</span><span>${done} V</span></div>
-          </button>
-        </article>`;
-    }).join('') : '<div class="muted">No hay campañas registradas todavía.</div>';
-    els.campaignsList.querySelectorAll('[data-campaign-open]').forEach(btn => btn.addEventListener('click', () => { state.selectedCampaignGroupId = btn.dataset.campaignOpen; state.selectedCampaignName = currentCampaignGroup()?.campaignName || ''; renderCampaigns(); }));
-  }
-  renderCampaignDetail();
-  if (isRole('admin')) resetCampaignForm();
-}
-
-function renderCampaignDetail() {
-  if (!els.campaignDetail) return;
-  const group = currentCampaignGroup();
-  const items = campaignUnits(group?.id);
-  if (!group) {
-    els.campaignDetail.innerHTML = '<div class="muted">Selecciona una campaña para ver sus unidades.</div>';
-    return;
-  }
-  const cards = items.map(item => {
-    const unit = (state.fleetUnits || []).find(u => u.id === item.fleetUnitId) || { numeroEconomico:item.numeroEconomico, empresa:item.empresa, modelo:'', marca:'', numeroObra:'', costoTotal:0, reportsCount:0, lastReportAt:null };
-    const meta = campaignStatusMeta(item.status);
-    return `
-      <article class="fleet-line-item campaign-tile-item">
-        <div class="cardUnidad ${meta.visual}">
-          <div class="headerUnidad">
-            <div>
-              <div class="numeroUnidad">${escapeHtml(item.numeroEconomico || unit.numeroEconomico || '—')}</div>
-              <div class="unidadTitulo">${escapeHtml(item.empresa || unit.empresa || '—')}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}${unit.marca ? ' · ' + escapeHtml(unit.marca) : ''}</div>
-            </div>
-            <div class="chipsUnidad chipsUnidad--top">
-              <span class="fleet-chip campaign">${escapeHtml(group.campaignName)}</span>
-              <span class="fleet-chip ${item.status === 'realizada' ? 'good' : item.status === 'programada' ? 'warn' : 'bad'}">${escapeHtml(meta.label)}</span>
-            </div>
-          </div>
-          <div class="busHeroRow">
-            <div class="busHeroVisual">
-              <div class="busHeroSilhouette" style="--bus-mask:url('${fleetBusAsset(unit)}')" aria-hidden="true"></div>
-              <div class="busHeroGlow"></div>
-              <div class="busHeroStatus">${escapeHtml(meta.label)}</div>
-            </div>
-            <div class="busHeroMeta">
-              <div class="infoUnidad infoUnidad--hero">
-                <span>${unit.numeroObra ? `Obra ${escapeHtml(unit.numeroObra)}` : 'Sin obra asignada'}</span>
-                <span>${escapeHtml(item.notes || 'Sin notas operativas')}</span>
-              </div>
-              <div class="costoUnidad">Campaña: ${escapeHtml(group.campaignName)}</div>
-              <div class="busHeroStats">
-                <div class="busHeroStat"><span>Reportes</span><strong>${Number(unit.reportsCount || unit.reportesCount || 0)}</strong></div>
-                <div class="busHeroStat"><span>Último movimiento</span><strong>${unit.lastReportAt ? fmtDate(unit.lastReportAt) : 'Sin movimiento'}</strong></div>
-              </div>
-            </div>
-          </div>
-          <div class="campaign-card-body">
-            ${buildImageGallery(item.evidencia || [], 'Sin evidencia cargada todavía.')}
-            <div class="action-row campaign-actions-row">
-              <button class="btn btn-secondary" type="button" data-campaign-focus-unit="${escapeHtml(item.fleetUnitId || '')}">Ver unidad</button>
-              ${isRole('admin') ? `<button class="btn btn-secondary" type="button" data-campaign-edit="${escapeHtml(item.id)}">Editar unidad</button><button class="btn btn-ghost" type="button" data-campaign-delete="${escapeHtml(item.id)}">Quitar</button>` : ''}
-            </div>
-          </div>
-        </div>
-      </article>`;
-  }).join('') || '<div class="muted">Esta campaña todavía no tiene unidades cargadas.</div>';
-  const addUnit = isRole('admin') ? `
-    <form id="campaignUnitForm" class="schedule-manual-grid campaign-unit-form">
-      <label><span>Agregar unidad a ${escapeHtml(group.campaignName)}</span><select id="campaignFleetUnit">${campaignUnitOptionsHtml(group)}</select></label>
-      <label><span>Estatus inicial</span><select id="campaignStatus"><option value="sin_programar">Sin programar</option><option value="programada">Programada</option><option value="realizada">Realizada</option></select></label>
-      <label class="span-2"><span>Notas por unidad</span><textarea id="campaignUnitNotes" rows="2" placeholder="Notas operativas para esta unidad"></textarea></label>
-      <label class="span-2"><span>Evidencia</span><input id="campaignEvidenceInput" type="file" accept="image/*" multiple /><div class="stack-inline evidence-capture-row"><label class="btn btn-secondary evidence-capture-btn" for="campaignEvidenceCamera">Tomar foto con cámara</label><input id="campaignEvidenceCamera" class="camera-capture-input" type="file" accept="image/*" capture="environment" /></div><div id="campaignEvidencePreview" class="preview-grid"></div></label>
-      <div class="schedule-manual-actions span-2"><button id="campaignUnitSaveBtn" class="btn btn-primary" type="submit">Agregar unidad</button></div>
-    </form>` : '';
-  els.campaignDetail.innerHTML = `<div class="campaign-detail-head"><div><div class="topbar-kicker">CAMPAÑA</div><h3>${escapeHtml(group.campaignName)}</h3><p class="muted">${escapeHtml(group.empresa || '—')}${group.notes ? ' · ' + escapeHtml(group.notes) : ''}</p></div><span class="badge badge-info">${items.length} unidad(es)</span></div>${addUnit}<div class="fleet-units-grid"><div class="fleet-line-list campaign-line-list campaign-card-grid">${cards}</div></div>`;
-  drawPreviews(document.getElementById('campaignEvidencePreview'), state.campaignEvidence, 'campaign');
-  document.getElementById('campaignEvidenceInput')?.addEventListener('change', async e => { await handleFiles([...e.target.files], 'campaign'); e.target.value=''; });
-  document.getElementById('campaignEvidenceCamera')?.addEventListener('change', async e => { await handleFiles([...e.target.files], 'campaign'); e.target.value=''; });
-  document.getElementById('campaignUnitForm')?.addEventListener('submit', async e => {
-    e.preventDefault();
-    try {
-      await api.createCampaign({ campaignGroupId: group.id, empresa: group.empresa, fleetUnitId: String(document.getElementById('campaignFleetUnit')?.value || '').trim(), status: String(document.getElementById('campaignStatus')?.value || 'sin_programar').trim(), notes: String(document.getElementById('campaignUnitNotes')?.value || '').trim(), evidencia: state.campaignEvidence || [] });
-      state.campaignEvidence = [];
-      notify('Unidad agregada a campaña.');
-      await Promise.all([loadCampaigns(true), loadFleet()]);
-    } catch (error) { notify(error.message, true); }
-  });
-  els.campaignDetail.querySelectorAll('[data-campaign-focus-unit]').forEach(btn => btn.addEventListener('click', async () => {
-    try {
-      state.selectedFleetUnit = await api.getFleetUnit(btn.dataset.campaignFocusUnit);
-      switchPanel('fleet');
-      renderFleet();
-    } catch (error) { notify(error.message, true); }
-  }));
-  els.campaignDetail.querySelectorAll('[data-campaign-edit]').forEach(btn => btn.addEventListener('click', () => {
-    const found = (state.campaigns || []).find(x => x.id === btn.dataset.campaignEdit);
-    if (found) {
-      state.editingCampaignId = found.id;
-      state.campaignEvidence = Array.isArray(found.evidencia) ? [...found.evidencia] : [];
-      const noteInput = document.getElementById('campaignUnitNotes');
-      const statusSelect = document.getElementById('campaignStatus');
-      const unitSelect = document.getElementById('campaignFleetUnit');
-      if (noteInput) noteInput.value = found.notes || '';
-      if (statusSelect) statusSelect.value = found.status || 'sin_programar';
-      if (unitSelect) { unitSelect.innerHTML = `<option value="${escapeHtml(found.fleetUnitId)}">${escapeHtml(found.numeroEconomico || '—')}</option>`; unitSelect.value = found.fleetUnitId; }
-      drawPreviews(document.getElementById('campaignEvidencePreview'), state.campaignEvidence, 'campaign');
-      const saveBtn = document.getElementById('campaignUnitSaveBtn');
-      if (saveBtn) saveBtn.textContent = 'Guardar unidad';
-      document.getElementById('campaignUnitForm')?.addEventListener('submit', async ev => {}, { once:true });
-    }
-  }));
-  els.campaignDetail.querySelectorAll('[data-campaign-delete]').forEach(btn => btn.addEventListener('click', async () => {
-    if (!confirm('¿Quitar esta unidad de la campaña?')) return;
-    try {
-      await api.deleteCampaign(btn.dataset.campaignDelete);
-      notify('Unidad removida de la campaña.');
-      await Promise.all([loadCampaigns(true), loadFleet()]);
-    } catch (error) { notify(error.message, true); }
-  }));
-}
-
 async function loadFleet() {
   try {
     const canManageFleet = isRole('admin','operativo');
@@ -2215,7 +1991,7 @@ function renderFleet() {
   const visibleUnits = state.fleetUnits.filter(unit => {
     const sem = fleetSemaforo(unit);
     const hayTexto = !fleetQuery || normalizeText([unit.numeroEconomico, unit.empresa, unit.marca, unit.modelo, unit.numeroObra, unit.nombreFlota].join(' ')).includes(fleetQuery);
-    const hayEstado = fleetStatus === 'todos' || sem.key === fleetStatus || (fleetStatus === 'en_taller' && sem.key === 'detenida');
+    const hayEstado = fleetStatus === 'todos' || sem.key === fleetStatus;
     return hayTexto && hayEstado;
   }).sort((a, b) => {
     const p = priorityRank(b) - priorityRank(a);
@@ -2333,18 +2109,16 @@ function renderFleetDetail() {
   modalRoot?.classList.remove('hidden');
   const u = data.unit;
   const sem = fleetSemaforo(u);
-  const reportsArr = (Array.isArray(data.reports) && data.reports.length ? data.reports : (state.garantias || []).filter(r => normalizeText(r.empresa) === normalizeText(u.empresa) && normalizeText(r.numeroEconomico) === normalizeText(u.numeroEconomico))).slice(0, 200);
-  const costsArr = Array.isArray(data.costs) ? data.costs : [];
-  const unitSchedules = (state.schedules || []).filter(item => item.unidad === u.numeroEconomico && item.empresa === u.empresa).filter(item => new Date(item.scheduledFor || item.proposedAt || item.requestedAt || 0).getTime() >= (Date.now() - 3600000)).slice(0,12);
+  const reportsArr = data.reports || [];
+  const costsArr = data.costs || [];
+  const unitSchedules = (state.schedules || []).filter(item => item.unidad === u.numeroEconomico && item.empresa === u.empresa).slice(0,4);
   const unitParts = (state.partsPending || []).filter(item => item.numeroEconomico === u.numeroEconomico && item.empresa === u.empresa);
-  const unitCampaigns = (Array.isArray(data.campaigns) && data.campaigns.length ? data.campaigns : (state.campaigns || []).filter(item => item.fleetUnitId === u.id || (normalizeText(item.empresa) === normalizeText(u.empresa) && normalizeText(item.numeroEconomico) === normalizeText(u.numeroEconomico))));
   const allImages = reportsArr.flatMap(r => [...(r.evidencias || []), ...(r.evidenciasRefaccion || [])]).filter(Boolean);
   const reports = reportsArr.map(r => `
-    <div class="table-row rich-row fleet-report-row">
-      <div><strong>${escapeHtml(r.folio || 'GAR-—')}</strong><div class="small muted">${escapeHtml(r.descripcionFallo || 'Sin descripción')}</div><div class="small muted">${escapeHtml(fmtDate(r.createdAt))}</div></div>
+    <div class="table-row rich-row">
+      <div><strong>${escapeHtml(r.folio || 'GAR-—')}</strong><div class="small muted">${escapeHtml(r.descripcionFallo || 'Sin descripción')}</div></div>
       <div><span class="badge ${badgeClassValidation(r.estatusValidacion || 'nueva')}">${escapeHtml(r.estatusValidacion || '—')}</span></div>
       <div><span class="badge ${badgeClassOperational(r.estatusOperativo || 'sin iniciar')}">${escapeHtml(r.estatusOperativo || '—')}</span></div>
-      <div class="action-row"><button class="btn btn-ghost" type="button" data-open-unit-report="${escapeHtml(r.id || '')}">Abrir</button></div>
     </div>
   `).join('') || '<div class="muted">Sin reportes ligados.</div>';
   const costs = costsArr.map(c => `
@@ -2363,7 +2137,6 @@ function renderFleetDetail() {
     ${buildImageGallery(item.evidenciasRefaccion || [], 'Sin foto cargada todavía.')}
   `).join('') || '<div class="muted">Esta unidad no tiene refacciones pendientes abiertas.</div>';
   const agenda = unitSchedules.map(item => `<div class="owner-list-row static"><span>${escapeHtml(item.status || 'programada')}</span><small>${escapeHtml(item.originalText || '')}</small><strong>${escapeHtml(fmtDate(item.scheduledFor || item.proposedAt || item.requestedAt))}</strong></div>`).join('') || '<div class="muted">Sin agenda próxima para esta unidad.</div>';
-  const campaigns = unitCampaigns.map(item => `<div class="owner-list-row static"><span>${escapeHtml(item.campaignName || 'Campaña')}</span><small>${escapeHtml(item.notes || 'Sin notas')}</small><strong>${escapeHtml(campaignStatusMeta(item.status).label)}</strong></div>${buildImageGallery(item.evidencia || [], 'Sin evidencia de campaña todavía.')}`).join('') || '<div class="muted">Sin campañas ligadas a esta unidad.</div>';
   const adminCostsEditor = isRole('admin') ? `
     <div class="admin-cost-editor-list">
       ${(state.unitCostsAdmin || []).map(c => `
@@ -2424,10 +2197,6 @@ function renderFleetDetail() {
       <article><span>Agenda</span><strong>${unitSchedules.length}</strong></article>
       <article><span>Fotos</span><strong>${allImages.length}</strong></article>
     </div>
-    <section class="owner-card owner-card-report-strip">
-      <div class="owner-card-head"><strong>Reportes ligados a esta unidad</strong><span class="badge badge-info">${reportsArr.length} registro(s)</span></div>
-      <div class="table-list compact-list fleet-scroll-area">${reports}</div>
-    </section>
     <div class="fleet-hero">
       <div class="fleet-hero-main">
         <div class="mini-grid fleet-meta-grid">
@@ -2443,17 +2212,16 @@ function renderFleetDetail() {
         ${statusControl}
         ${costForm}
       </div>
-      <aside class="fleet-timeline-box fleet-scroll-box"><div class="topbar-kicker">MOVIMIENTO RECIENTE</div><div class="fleet-scroll-area">${timeline}</div></aside>
+      <aside class="fleet-timeline-box"><div class="topbar-kicker">MOVIMIENTO RECIENTE</div>${timeline}</aside>
     </div>
     <div class="fleet-owner-insights detail-grid">
-      <article class="owner-card fleet-scroll-card"><div class="owner-card-head"><strong>Refacciones abiertas</strong><span class="badge badge-info">Con evidencia</span></div><div class="owner-list fleet-scroll-area">${parts}</div></article>
-      <article class="owner-card fleet-scroll-card"><div class="owner-card-head"><strong>Agenda de la unidad</strong><span class="badge badge-info">Próximas entradas</span></div><div class="owner-list fleet-scroll-area">${agenda}</div></article>
-      <article class="owner-card fleet-scroll-card"><div class="owner-card-head"><strong>Campañas de la unidad</strong><span class="badge badge-info">Seguimiento</span></div><div class="owner-list fleet-scroll-area">${campaigns}</div></article>
+      <article class="owner-card"><div class="owner-card-head"><strong>Refacciones abiertas</strong><span class="badge badge-info">Con evidencia</span></div><div class="owner-list">${parts}</div></article>
+      <article class="owner-card"><div class="owner-card-head"><strong>Agenda de la unidad</strong><span class="badge badge-info">Próximas entradas</span></div><div class="owner-list">${agenda}</div></article>
     </div>
     <div class="owner-card owner-gallery-card"><div class="owner-card-head"><strong>Galería de evidencia</strong><span class="badge badge-info">Fotos ampliables</span></div>${buildImageGallery(allImages, 'No hay evidencia cargada todavía para esta unidad.')}</div>
     <div class="fleet-columns">
-      <section class="fleet-scroll-card"><div class="topbar-kicker">HISTORIAL DE REPORTES</div><div class="table-list compact-list fleet-scroll-area">${reports}</div></section>
-      <section class="fleet-scroll-card"><div class="topbar-kicker">COSTOS</div><div class="table-list compact-list fleet-scroll-area">${costs}</div>${adminCostsEditor}</section>
+      <section><div class="topbar-kicker">REPORTES</div><div class="table-list compact-list">${reports}</div></section>
+      <section><div class="topbar-kicker">COSTOS</div><div class="table-list compact-list">${costs}</div>${adminCostsEditor}</section>
     </div>
   `;
   if (modalContent) modalContent.innerHTML = detailHtml;
@@ -2461,10 +2229,6 @@ function renderFleetDetail() {
   document.getElementById('fleetCloseDetailBtn')?.addEventListener('click', () => {
     closeFleetDetailModal();
   });
-  modalContent?.querySelectorAll('[data-open-unit-report]').forEach(btn => btn.addEventListener('click', () => {
-    const found = reportsArr.find(r => r.id === btn.dataset.openUnitReport);
-    if (found) openReportDetailModal(found);
-  }));
   if (isRole('admin')) {
     document.getElementById('fleetManualStatus').value = ({ operando:'operando', 'en_taller':'en_taller', detenida:'detenida', programada:'programada' })[sem.key || 'operando'] || 'operando';
     document.getElementById('fleetApplyStatusBtn')?.addEventListener('click', async () => {
@@ -2609,102 +2373,83 @@ function renderGarantias() {
   const items = filteredGarantias();
   if (els.garantiasList) els.garantiasList.innerHTML = '';
   els.emptyState?.classList.toggle('hidden', items.length > 0);
-  if (els.garantiasList && items.length) {
-    const quick = document.createElement('div');
-    quick.className = 'board-quick-strip';
-    quick.innerHTML = items.slice(0, 12).map(item => `<button type="button" class="board-quick-chip" data-report-open="${escapeHtml(item.id)}">${escapeHtml(item.folio || 'GAR-—')} · ${escapeHtml(item.numeroEconomico || '—')} · ${escapeHtml(item.empresa || '—')}</button>`).join('');
-    els.garantiasList.appendChild(quick);
-    quick.querySelectorAll('[data-report-open]').forEach(btn => btn.addEventListener('click', () => {
-      const found = items.find(x => x.id === btn.dataset.reportOpen);
-      if (found) openReportDetailModal(found);
-    }));
-  }
   items.forEach(item => {
-    try {
-      const node = els.garantiaCardTemplate.content.cloneNode(true);
-      node.querySelector('.title').textContent = `${item.folio || 'GAR-—'} · Unidad ${item.numeroEconomico || '—'} · Obra ${item.numeroObra || '—'}`;
-      node.querySelector('.meta').textContent = `${item.empresa || '—'} · ${item.modelo || '—'} · Reportó ${item.reportadoPorNombre || '—'} · ${fmtDate(item.createdAt)}`;
-      node.querySelector('.description').textContent = item.descripcionFallo || 'Sin descripción';
-      const validationBadge = node.querySelector('.validation-badge'); validationBadge.textContent = item.estatusValidacion || 'nueva'; validationBadge.classList.add(badgeClassValidation(item.estatusValidacion || 'nueva'));
-      const operationalBadge = node.querySelector('.operational-badge'); operationalBadge.textContent = item.estatusOperativo || 'sin iniciar'; operationalBadge.classList.add(badgeClassOperational(item.estatusOperativo || 'sin iniciar'));
-      const miniGrid = node.querySelector('.mini-grid');
-      [ ['Incidencia', item.tipoIncidente], ['Solicita refacción', item.solicitaRefaccion ? 'Sí' : 'No'], ['KM', item.kilometraje || '—'], ['Contacto', item.contactoNombre || '—'], ['Teléfono', item.telefono || '—'], ['Revisó', item.revisadoPorNombre || 'Pendiente'], ['Último cambio', fmtDate(item.updatedAt)], ['Obs. operativo', item.observacionesOperativo || '—'], ['Motivo decisión', item.motivoDecision || '—'] ].forEach(([label, value]) => {
-        const div = document.createElement('div'); div.innerHTML = `<strong>${escapeHtml(label)}</strong>${escapeHtml(String(value || '—'))}`; miniGrid.appendChild(div);
+    const node = els.garantiaCardTemplate.content.cloneNode(true);
+    node.querySelector('.title').textContent = `${item.folio || 'GAR-—'} · Unidad ${item.numeroEconomico} · Obra ${item.numeroObra}`;
+    node.querySelector('.meta').textContent = `${item.empresa} · ${item.modelo} · Reportó ${item.reportadoPorNombre || '—'} · ${fmtDate(item.createdAt)}`;
+    node.querySelector('.description').textContent = item.descripcionFallo;
+    const validationBadge = node.querySelector('.validation-badge'); validationBadge.textContent = item.estatusValidacion; validationBadge.classList.add(badgeClassValidation(item.estatusValidacion));
+    const operationalBadge = node.querySelector('.operational-badge'); operationalBadge.textContent = item.estatusOperativo; operationalBadge.classList.add(badgeClassOperational(item.estatusOperativo));
+    const miniGrid = node.querySelector('.mini-grid');
+    [ ['Incidencia', item.tipoIncidente], ['Solicita refacción', item.solicitaRefaccion ? 'Sí' : 'No'], ['KM', item.kilometraje || '—'], ['Contacto', item.contactoNombre || '—'], ['Teléfono', item.telefono || '—'], ['Revisó', item.revisadoPorNombre || 'Pendiente'], ['Último cambio', fmtDate(item.updatedAt)], ['Obs. operativo', item.observacionesOperativo || '—'], ['Motivo decisión', item.motivoDecision || '—'] ].forEach(([label, value]) => {
+      const div = document.createElement('div'); div.innerHTML = `<strong>${escapeHtml(label)}</strong>${escapeHtml(String(value || '—'))}`; miniGrid.appendChild(div);
+    });
+    const strip = node.querySelector('.evidence-strip');
+    [...(item.evidencias || []), ...(item.evidenciasRefaccion || [])].forEach((src, idx) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'evidence-thumb';
+      btn.innerHTML = `<img src="${src}" alt="Evidencia ${idx + 1}" />`;
+      btn.addEventListener('click', () => openImageLightbox(src, `Evidencia ${idx + 1}`));
+      strip.appendChild(btn);
+    });
+    if (item.firma) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'evidence-thumb signature-thumb';
+      btn.innerHTML = `<img src="${item.firma}" alt="Firma" />`;
+      btn.addEventListener('click', () => openImageLightbox(item.firma, 'Firma del operador'));
+      strip.appendChild(btn);
+    }
+    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('Ver ficha', 'btn btn-secondary', () => openReportDetailModal(item))); baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin') && item.estatusOperativo === 'terminada') baseRow.appendChild(button('Preparar cobro', 'btn btn-primary', async () => { await openQuoteFromReport(item.id); })); if (isRole('admin')) baseRow.appendChild(button('Editar', 'btn btn-secondary', async () => { await editarReporteAdmin(item); })); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
+    if (isRole('operativo','admin')) {
+      const reviewBox = document.createElement('div'); reviewBox.innerHTML = `
+        <label>Decisión operativa</label>
+        <div class="action-row">
+          <select class="reviewStatus"><option value="pendiente de revisión">Pendiente de revisión</option><option value="aceptada">Aceptada</option><option value="rechazada">Rechazada</option></select>
+          <input class="reviewReason" placeholder="Motivo o comentario" />
+          <button class="btn btn-primary reviewBtn" type="button">Guardar decisión</button>
+        </div>`;
+      reviewBox.querySelector('.reviewStatus').value = item.estatusValidacion === 'nueva' ? 'pendiente de revisión' : item.estatusValidacion;
+      reviewBox.querySelector('.reviewReason').value = item.estatusValidacion === 'rechazada' ? item.motivoDecision : item.observacionesOperativo;
+      [reviewBox.querySelector('.reviewStatus'), reviewBox.querySelector('.reviewReason')].forEach(el => {
+        el?.addEventListener('input', () => state.boardDirtyIds.add(item.id));
+        el?.addEventListener('change', () => state.boardDirtyIds.add(item.id));
       });
-      const strip = node.querySelector('.evidence-strip');
-      [...(item.evidencias || []), ...(item.evidenciasRefaccion || [])].forEach((src, idx) => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'evidence-thumb';
-        btn.innerHTML = `<img src="${src}" alt="Evidencia ${idx + 1}" />`;
-        btn.addEventListener('click', () => openImageLightbox(src, `Evidencia ${idx + 1}`));
-        strip.appendChild(btn);
+      reviewBox.querySelector('.reviewBtn').addEventListener('click', async () => {
+        try {
+          const status = reviewBox.querySelector('.reviewStatus').value; const text = reviewBox.querySelector('.reviewReason').value.trim();
+          await api.reviewGarantia(item.id, { estatusValidacion: status, observacionesOperativo: status !== 'rechazada' ? text : '', motivoDecision: status === 'rechazada' ? text : '' });
+          state.boardDirtyIds.delete(item.id);
+          notify('Decisión guardada.'); await loadGarantias();
+        } catch (error) { notify(error.message, true); }
       });
-      if (item.firma) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'evidence-thumb signature-thumb';
-        btn.innerHTML = `<img src="${item.firma}" alt="Firma" />`;
-        btn.addEventListener('click', () => openImageLightbox(item.firma, 'Firma del operador'));
-        strip.appendChild(btn);
-      }
-      const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('Ver ficha', 'btn btn-secondary', () => openReportDetailModal(item))); baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor','supervisor_flotas')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin') && item.estatusOperativo === 'terminada') baseRow.appendChild(button('Preparar cobro', 'btn btn-primary', async () => { await openQuoteFromReport(item.id); })); if (isRole('admin')) baseRow.appendChild(button('Editar', 'btn btn-secondary', async () => { await editarReporteAdmin(item); })); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
-      if (isRole('operativo','admin')) {
-        const reviewBox = document.createElement('div'); reviewBox.innerHTML = `
-          <label>Decisión operativa</label>
+      area.appendChild(reviewBox);
+      if (item.estatusValidacion === 'aceptada') {
+        const scheduleRow = document.createElement('div'); scheduleRow.className = 'action-row';
+        if (isRole('admin','operativo','supervisor_flotas')) scheduleRow.appendChild(button('Solicitar servicio', 'btn btn-primary', async () => { try { await api.requestSchedule(item.id); notify('Solicitud enviada por WhatsApp.'); await loadSchedules(); switchPanel('schedule'); } catch (error) { notify(error.message, true); } }));
+        if (isRole('operador')) scheduleRow.appendChild(button('Ver mi agenda', 'btn btn-secondary', async () => { await loadSchedules(); switchPanel('schedule'); }));
+        if (scheduleRow.children.length) area.appendChild(scheduleRow);
+        const operationalBox = document.createElement('div'); operationalBox.innerHTML = `
+          <label>Flujo del trabajo</label>
           <div class="action-row">
-            <select class="reviewStatus"><option value="pendiente de revisión">Pendiente de revisión</option><option value="aceptada">Aceptada</option><option value="rechazada">Rechazada</option></select>
-            <input class="reviewReason" placeholder="Motivo o comentario" />
-            <button class="btn btn-primary reviewBtn" type="button">Guardar decisión</button>
+            <select class="opStatus"><option value="sin iniciar">Sin iniciar</option><option value="en proceso">En proceso</option><option value="espera refacción">Espera refacción</option><option value="terminada">Terminada</option></select>
+            <input class="opNotes" placeholder="Observación operativa" value="${escapeHtml(item.observacionesOperativo || '')}" />
+            <button class="btn btn-secondary opBtn" type="button">Actualizar trabajo</button>
           </div>`;
-        reviewBox.querySelector('.reviewStatus').value = item.estatusValidacion === 'nueva' ? 'pendiente de revisión' : (item.estatusValidacion || 'pendiente de revisión');
-        reviewBox.querySelector('.reviewReason').value = item.estatusValidacion === 'rechazada' ? (item.motivoDecision || '') : (item.observacionesOperativo || '');
-        [reviewBox.querySelector('.reviewStatus'), reviewBox.querySelector('.reviewReason')].forEach(el => {
+        operationalBox.querySelector('.opStatus').value = item.estatusOperativo;
+        [operationalBox.querySelector('.opStatus'), operationalBox.querySelector('.opNotes')].forEach(el => {
           el?.addEventListener('input', () => state.boardDirtyIds.add(item.id));
           el?.addEventListener('change', () => state.boardDirtyIds.add(item.id));
         });
-        reviewBox.querySelector('.reviewBtn').addEventListener('click', async () => {
-          try {
-            const status = reviewBox.querySelector('.reviewStatus').value; const text = reviewBox.querySelector('.reviewReason').value.trim();
-            await api.reviewGarantia(item.id, { estatusValidacion: status, observacionesOperativo: status !== 'rechazada' ? text : '', motivoDecision: status === 'rechazada' ? text : '' });
-            state.boardDirtyIds.delete(item.id);
-            notify('Decisión guardada.'); await loadGarantias();
-          } catch (error) { notify(error.message, true); }
+        operationalBox.querySelector('.opBtn').addEventListener('click', async () => {
+          try { await api.updateOperational(item.id, { estatusOperativo: operationalBox.querySelector('.opStatus').value, observacionesOperativo: operationalBox.querySelector('.opNotes').value.trim() }); state.boardDirtyIds.delete(item.id); notify('Flujo actualizado.'); await loadGarantias(); }
+          catch (error) { notify(error.message, true); }
         });
-        area.appendChild(reviewBox);
-        if (item.estatusValidacion === 'aceptada') {
-          const scheduleRow = document.createElement('div'); scheduleRow.className = 'action-row';
-          if (isRole('admin','operativo','supervisor_flotas')) scheduleRow.appendChild(button('Solicitar servicio', 'btn btn-primary', async () => { try { await api.requestSchedule(item.id); notify('Solicitud enviada por WhatsApp.'); await loadSchedules(); switchPanel('schedule'); } catch (error) { notify(error.message, true); } }));
-          if (isRole('operador')) scheduleRow.appendChild(button('Ver mi agenda', 'btn btn-secondary', async () => { await loadSchedules(); switchPanel('schedule'); }));
-          if (scheduleRow.children.length) area.appendChild(scheduleRow);
-          const operationalBox = document.createElement('div'); operationalBox.innerHTML = `
-            <label>Flujo del trabajo</label>
-            <div class="action-row">
-              <select class="opStatus"><option value="sin iniciar">Sin iniciar</option><option value="en proceso">En proceso</option><option value="espera refacción">Espera refacción</option><option value="terminada">Terminada</option></select>
-              <input class="opNotes" placeholder="Observación operativa" value="${escapeHtml(item.observacionesOperativo || '')}" />
-              <button class="btn btn-secondary opBtn" type="button">Actualizar trabajo</button>
-            </div>`;
-          operationalBox.querySelector('.opStatus').value = item.estatusOperativo || 'sin iniciar';
-          [operationalBox.querySelector('.opStatus'), operationalBox.querySelector('.opNotes')].forEach(el => {
-            el?.addEventListener('input', () => state.boardDirtyIds.add(item.id));
-            el?.addEventListener('change', () => state.boardDirtyIds.add(item.id));
-          });
-          operationalBox.querySelector('.opBtn').addEventListener('click', async () => {
-            try { await api.updateOperational(item.id, { estatusOperativo: operationalBox.querySelector('.opStatus').value, observacionesOperativo: operationalBox.querySelector('.opNotes').value.trim() }); state.boardDirtyIds.delete(item.id); notify('Flujo actualizado.'); await loadGarantias(); }
-            catch (error) { notify(error.message, true); }
-          });
-          area.appendChild(operationalBox);
-        }
+        area.appendChild(operationalBox);
       }
-      els.garantiasList?.appendChild(node);
-    } catch (error) {
-      console.error('Error renderizando reporte:', error, item);
-      const fallback = document.createElement('article');
-      fallback.className = 'card';
-      fallback.innerHTML = `<div class="card-top"><div><h4 class="title">${escapeHtml(item.folio || 'GAR-—')} · Unidad ${escapeHtml(item.numeroEconomico || '—')}</h4><p class="meta">${escapeHtml(item.empresa || '—')} · ${escapeHtml(fmtDate(item.createdAt))}</p></div><div class="badge-stack"><span class="badge badge-info">${escapeHtml(item.estatusValidacion || 'nueva')}</span><span class="badge badge-info">${escapeHtml(item.estatusOperativo || 'sin iniciar')}</span></div></div><p class="description">${escapeHtml(item.descripcionFallo || 'Sin descripción')}</p><div class="action-area"></div>`;
-      fallback.querySelector('.action-area')?.appendChild(button('Ver ficha', 'btn btn-secondary', () => openReportDetailModal(item)));
-      els.garantiasList?.appendChild(fallback);
     }
+    els.garantiasList?.appendChild(node);
   });
 }
 
@@ -3070,7 +2815,6 @@ els.navAnalyticsBtn?.addEventListener('click', () => switchPanel('analytics'));
 els.navHistoryBtn?.addEventListener('click', () => switchPanel('history'));
 els.navScheduleBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
 els.navFleetBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
-els.navCampaignsBtn?.addEventListener('click', async () => { await loadCampaigns(true); switchPanel('campaigns'); });
 els.navPartsBtn?.addEventListener('click', async () => { await cargarSolicitudesIndependientes(); await loadPartsPending(true); switchPanel('parts'); });
 els.navStockBtn?.addEventListener('click', async () => { await loadStock(true); switchPanel('stock'); });
 els.navCobranzaBtn?.addEventListener('click', async () => { await loadCobranza(true); switchPanel('cobranza'); });
@@ -3180,11 +2924,6 @@ els.scheduleManualForm?.addEventListener('submit', async (e) => {
 });
 
 els.fleetRefreshBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
-els.campaignsRefreshBtn?.addEventListener('click', async () => { await Promise.all([loadCampaigns(true), loadFleet()]); switchPanel('campaigns'); });
-els.campaignEvidenceInput?.addEventListener('change', async e => { await appendEvidenceFromInput(e.target, 'campaignEvidence', els.campaignEvidencePreview, 'campaign'); });
-els.campaignEvidenceCamera?.addEventListener('change', async e => { await appendEvidenceFromInput(e.target, 'campaignEvidence', els.campaignEvidencePreview, 'campaign'); });
-els.campaignCancelBtn?.addEventListener('click', () => { state.editingCampaignId = ''; resetCampaignForm(); });
-els.campaignForm?.addEventListener('submit', async (e) => { e.preventDefault(); try { const payload = { campaignName: String(els.campaignName?.value || '').trim(), empresa: String(els.campaignEmpresa?.value || '').trim() || (state.user?.empresa || ''), notes: String(els.campaignNotes?.value || '').trim() }; if (state.editingCampaignId) await api.updateCampaignGroup(state.editingCampaignId, payload); else { const created = await api.createCampaignGroup(payload); state.selectedCampaignGroupId = created.id; } notify(state.editingCampaignId ? 'Campaña actualizada.' : 'Campaña registrada.'); await Promise.all([loadCampaigns(true), loadFleet()]); resetCampaignForm({ empresa: payload.empresa }); } catch (error) { notify(error.message, true); } });
 els.partsRefreshBtn?.addEventListener('click', async () => { await loadPartsPending(true); switchPanel('parts'); });
 els.fleetSearchInput?.addEventListener('input', renderFleet);
 els.fleetStatusFilter?.addEventListener('change', renderFleet);
@@ -3265,7 +3004,7 @@ els.companyForm?.addEventListener('submit', async (e) => {
     await Promise.allSettled([loadCompanies(), loadGarantias(), loadNotifications()]);
     if (isRole('admin')) await Promise.allSettled([loadUsers(), loadRequests()]);
     if (isRole('admin','operativo','supervisor','supervisor_flotas','operador')) await Promise.allSettled([loadSchedules('')]);
-    if (isRole('admin','operativo','supervisor_flotas')) await Promise.allSettled([loadFleet(), loadCampaigns(true)]);
+    if (isRole('admin','operativo','supervisor_flotas')) await Promise.allSettled([loadFleet()]);
     if (isRole('admin','supervisor_flotas')) await Promise.allSettled([cargarSolicitudesIndependientes(), loadPartsPending(true)]);
     resetReportForm(); resetCompanyForm(); resetFleetForm();
   } catch {
@@ -3279,6 +3018,7 @@ setInterval(async () => {
   try {
     if (!shouldPauseLiveRefresh()) await loadNotifications();
     if (state.activePanel === 'schedule' && !shouldPauseLiveRefresh('schedule')) await Promise.allSettled([loadSchedules('')]);
+    if (state.activePanel === 'fleet' && !shouldPauseLiveRefresh('fleet')) await Promise.allSettled([loadFleet()]);
     renderExecutiveDeck();
   } catch {}
 }, 15000);

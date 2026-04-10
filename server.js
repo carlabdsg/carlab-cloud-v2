@@ -292,14 +292,12 @@ function mapFleetUnit(row) {
     polizaActiva: !!row.poliza_activa,
     campaignActiva: !!row.campaign_activa,
     estatusOperativo: row.estatus_operativo || 'sin actividad',
-    manualStatus: row.manual_status || '',
     costoRefacciones: Number(row.costo_refacciones || 0),
     costoManoObra: Number(row.costo_mano_obra || 0),
     costoTotal: Number(row.costo_total || 0),
     reportesCount: Number(row.reportes_count || 0),
     lastReportAt: row.last_report_at || null,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at || row.created_at
+    createdAt: row.created_at
   };
 }
 
@@ -312,40 +310,7 @@ function mapFleetCost(row) {
     concepto: row.concepto || '',
     monto: Number(row.monto || 0),
     createdAt: row.created_at,
-    createdByNombre: row.created_by_nombre || '',
-    sourceQuoteId: row.source_quote_id || '',
-    sourceItemType: row.source_item_type || ''
-  };
-}
-
-
-function mapCampaignRecord(row) {
-  return {
-    id: row.id,
-    campaignGroupId: row.campaign_group_id || '',
-    campaignName: row.campaign_name || '',
-    empresa: row.empresa || '',
-    fleetUnitId: row.fleet_unit_id || '',
-    numeroEconomico: row.numero_economico || '',
-    unitLabel: row.unit_label || '',
-    status: row.status || 'sin_programar',
-    evidencia: Array.isArray(row.evidencia) ? row.evidencia : [],
-    notes: row.notes || '',
-    createdByNombre: row.created_by_nombre || '',
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
-function mapCampaignGroup(row) {
-  return {
-    id: row.id,
-    campaignName: row.campaign_name || '',
-    empresa: row.empresa || '',
-    notes: row.notes || '',
-    createdByNombre: row.created_by_nombre || '',
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdByNombre: row.created_by_nombre || ''
   };
 }
 
@@ -766,48 +731,6 @@ async function initDb() {
     ALTER TABLE garantias ADD COLUMN IF NOT EXISTS fleet_unit_id TEXT;
     ALTER TABLE fleet_units ADD COLUMN IF NOT EXISTS manual_status TEXT;
     ALTER TABLE fleet_units ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-
-CREATE TABLE IF NOT EXISTS campaign_groups (
-  id TEXT PRIMARY KEY,
-  campaign_name TEXT NOT NULL,
-  empresa TEXT NOT NULL,
-  notes TEXT,
-  created_by_id TEXT REFERENCES users(id),
-  created_by_nombre TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (campaign_name, empresa)
-);
-
-CREATE TABLE IF NOT EXISTS campaign_records (
-  id TEXT PRIMARY KEY,
-  campaign_group_id TEXT REFERENCES campaign_groups(id) ON DELETE CASCADE,
-  campaign_name TEXT NOT NULL,
-  empresa TEXT NOT NULL,
-  fleet_unit_id TEXT NOT NULL REFERENCES fleet_units(id) ON DELETE CASCADE,
-  numero_economico TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'sin_programar' CHECK (status IN ('sin_programar','programada','realizada')),
-  evidencia JSONB NOT NULL DEFAULT '[]'::jsonb,
-  notes TEXT,
-  created_by_id TEXT REFERENCES users(id),
-  created_by_nombre TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-ALTER TABLE campaign_records ADD COLUMN IF NOT EXISTS campaign_group_id TEXT;
-CREATE INDEX IF NOT EXISTS idx_campaign_groups_empresa ON campaign_groups(empresa, updated_at DESC);
-CREATE INDEX IF NOT EXISTS idx_campaign_records_name ON campaign_records(campaign_name, empresa, updated_at DESC);
-CREATE INDEX IF NOT EXISTS idx_campaign_records_group ON campaign_records(campaign_group_id, updated_at DESC);
-CREATE INDEX IF NOT EXISTS idx_campaign_records_unit ON campaign_records(fleet_unit_id, updated_at DESC);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_campaign_records_unique_unit_group ON campaign_records(campaign_group_id, fleet_unit_id) WHERE campaign_group_id IS NOT NULL;
-
-ALTER TABLE work_quotes ADD COLUMN IF NOT EXISTS costs_synced_to_fleet BOOLEAN NOT NULL DEFAULT FALSE;
-ALTER TABLE work_quotes ADD COLUMN IF NOT EXISTS costs_synced_at TIMESTAMPTZ;
-ALTER TABLE fleet_cost_entries ADD COLUMN IF NOT EXISTS source_quote_id TEXT;
-ALTER TABLE fleet_cost_entries ADD COLUMN IF NOT EXISTS source_item_type TEXT;
-CREATE INDEX IF NOT EXISTS idx_fleet_cost_entries_source_quote ON fleet_cost_entries(source_quote_id);
-
 
     ALTER TABLE users ADD COLUMN IF NOT EXISTS empresa TEXT;
     ALTER TABLE companies ADD COLUMN IF NOT EXISTS contacto TEXT;
@@ -1301,7 +1224,6 @@ app.post('/api/garantias', authRequired, requireRoles('operador', 'admin'), asyn
       await client.query('ROLLBACK');
       return res.status(409).json({ error: 'No se pudo reservar un folio único. Intenta nuevamente.' });
     }
-    const fleetUnitId = await resolveFleetUnitId(body.empresa, body.numeroEconomico, client);
     const result = await client.query(
       `INSERT INTO garantias (
         id, folio, numero_obra, modelo, numero_economico, empresa, kilometraje, contacto_nombre, telefono, tipo_incidente,
@@ -1309,9 +1231,9 @@ app.post('/api/garantias', authRequired, requireRoles('operador', 'admin'), asyn
         estatus_validacion, estatus_operativo,
         evidencias, evidencias_refaccion, firma,
         reportado_por_id, reportado_por_nombre, reportado_por_email,
-        fleet_unit_id, updated_at
+        updated_at
       ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'nueva','sin iniciar',$14::jsonb,$15::jsonb,$16,$17,$18,$19,$20,NOW()
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'nueva','sin iniciar',$14::jsonb,$15::jsonb,$16,$17,$18,$19,NOW()
       ) RETURNING *`,
       [
         id,
@@ -1333,7 +1255,6 @@ app.post('/api/garantias', authRequired, requireRoles('operador', 'admin'), asyn
         req.user.id,
         req.user.nombre,
         req.user.email,
-        fleetUnitId,
       ]
     );
     await client.query('COMMIT');
@@ -1377,7 +1298,6 @@ app.patch('/api/garantias/:id', authRequired, requireRoles('admin'), async (req,
     const current = await pool.query('SELECT * FROM garantias WHERE id = $1', [req.params.id]);
     if (!current.rowCount) return res.status(404).json({ error: 'Reporte no encontrado.' });
 
-    const fleetUnitId = await resolveFleetUnitId(payload.empresa, payload.numeroEconomico);
     const result = await pool.query(
       `UPDATE garantias SET
         numero_obra = $2,
@@ -1394,7 +1314,6 @@ app.patch('/api/garantias/:id', authRequired, requireRoles('admin'), async (req,
         evidencias = $13::jsonb,
         evidencias_refaccion = $14::jsonb,
         firma = $15,
-        fleet_unit_id = $16,
         updated_at = NOW()
        WHERE id = $1
        RETURNING *`,
@@ -1413,8 +1332,7 @@ app.patch('/api/garantias/:id', authRequired, requireRoles('admin'), async (req,
         payload.detalleRefaccion,
         JSON.stringify(payload.evidencias || []),
         JSON.stringify(payload.evidenciasRefaccion || []),
-        payload.firma,
-        fleetUnitId
+        payload.firma
       ]
     );
 
@@ -1526,214 +1444,226 @@ app.get('/api/history/unit/:numeroEconomico', authRequired, requireRoles('admin'
 });
 
 
-
-
-async function ensureCampaignGroup({ campaignName, empresa, notes = '', actor = {} }, client = pool) {
-  const result = await client.query(
-    `INSERT INTO campaign_groups (id, campaign_name, empresa, notes, created_by_id, created_by_nombre)
-     VALUES ($1,$2,$3,$4,$5,$6)
-     ON CONFLICT (campaign_name, empresa)
-     DO UPDATE SET
-       notes = CASE WHEN EXCLUDED.notes <> '' THEN EXCLUDED.notes ELSE campaign_groups.notes END,
-       updated_at = NOW()
-     RETURNING *`,
-    [cryptoRandomId(), campaignName, empresa, String(notes || '').trim(), actor.id || null, actor.nombre || 'Sistema']
-  );
-  return result.rows[0];
-}
-
-async function resolveFleetUnitId(empresa, numeroEconomico, client = pool) {
-  if (!empresa || !numeroEconomico) return null;
-  const found = await client.query(
-    `SELECT id
-     FROM fleet_units
-     WHERE LOWER(REGEXP_REPLACE(TRIM(empresa), '\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(TRIM($1), '\s+', ' ', 'g'))
-       AND LOWER(REGEXP_REPLACE(TRIM(numero_economico), '\s+', '', 'g')) = LOWER(REGEXP_REPLACE(TRIM($2), '\s+', '', 'g'))
-     LIMIT 1`,
-    [empresa, numeroEconomico]
-  );
-  return found.rows[0]?.id || null;
-}
-
-async function recalculateFleetCampaignFlag(fleetUnitId, client = pool) {
-  if (!fleetUnitId) return;
-  const active = await client.query(
-    `SELECT EXISTS(
-       SELECT 1
-       FROM campaign_records
-       WHERE fleet_unit_id = $1
-         AND status <> 'realizada'
-     ) AS has_active`,
-    [fleetUnitId]
-  );
-  await client.query(
-    `UPDATE fleet_units
-     SET campaign_activa = $2,
-         updated_at = NOW()
-     WHERE id = $1`,
-    [fleetUnitId, !!active.rows[0]?.has_active]
-  );
-}
-
-
-async function fetchVirtualFleetQuoteCosts(fleetUnit, client = pool) {
-  if (!fleetUnit?.empresa || !fleetUnit?.numero_economico) return [];
-  const result = await client.query(
-    `SELECT
-       CONCAT('virtual-', q.id, '-', qi.id) AS id,
-       COALESCE(g.fleet_unit_id, $1) AS fleet_unit_id,
-       q.garantia_id,
-       CASE WHEN qi.type = 'mano_obra' THEN 'mano_obra' ELSE 'refaccion' END AS tipo,
-       COALESCE(NULLIF(TRIM(qi.description), ''), CONCAT('Cobranza ', COALESCE(q.folio, ''))) AS concepto,
-       qi.total AS monto,
-       COALESCE(q.paid_at, q.updated_at, qi.created_at) AS created_at,
-       'Cobranza pagada' AS created_by_nombre,
-       q.id AS source_quote_id,
-       qi.type AS source_item_type
-     FROM work_quotes q
-     JOIN work_quote_items qi ON qi.quote_id = q.id
-     LEFT JOIN garantias g ON g.id = q.garantia_id
-     WHERE q.payment_status = 'pagada'
-       AND qi.type IN ('refaccion','mano_obra')
-       AND (
-         g.fleet_unit_id = $1
-         OR (
-           LOWER(REGEXP_REPLACE(TRIM(COALESCE(q.company_name, g.empresa, '')), '\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(TRIM(COALESCE($2,'')), '\s+', ' ', 'g'))
-           AND REGEXP_REPLACE(COALESCE(q.unit_number, g.numero_economico, ''), '[^0-9A-Za-z]+', '', 'g') = REGEXP_REPLACE(COALESCE($3,''), '[^0-9A-Za-z]+', '', 'g')
-         )
-       )
-       AND qi.total > 0
-       AND NOT EXISTS (
-         SELECT 1 FROM fleet_cost_entries fce
-         WHERE fce.source_quote_id = q.id
-       )
-     ORDER BY COALESCE(q.paid_at, q.updated_at, qi.created_at) DESC, qi.created_at DESC`,
-    [fleetUnit.id, fleetUnit.empresa, fleetUnit.numero_economico]
-  );
-  return result.rows;
-}
-
-async function syncQuoteCostsToFleet(quoteId, actor = {}, externalClient = null) {
-  const client = externalClient || await pool.connect();
-  const release = !externalClient;
+app.get('/api/schedules', authRequired, requireRoles('admin', 'operativo', 'supervisor', 'supervisor_flotas', 'operador'), async (req, res) => {
   try {
-    if (!externalClient) await client.query('BEGIN');
-    const quoteResult = await client.query(
-      `SELECT q.*, g.folio AS garantia_folio, g.empresa AS garantia_empresa, g.numero_economico AS garantia_unidad, g.fleet_unit_id AS garantia_fleet_unit_id
-       FROM work_quotes q
-       LEFT JOIN garantias g ON g.id = q.garantia_id
-       WHERE q.id = $1
-       FOR UPDATE`,
-      [quoteId]
-    );
-    if (!quoteResult.rowCount) throw new Error('Cobranza no encontrada.');
-    const quote = quoteResult.rows[0];
-    const paymentStatus = String(quote.payment_status || '').trim();
-    const companyName = String(quote.company_name || quote.garantia_empresa || '').trim();
-    const unitNumber = String(quote.unit_number || quote.garantia_unidad || '').trim();
-
-    let fleetUnitId = quote.garantia_fleet_unit_id || null;
-    if (!fleetUnitId) {
-      fleetUnitId = await resolveFleetUnitId(companyName, unitNumber, client);
-      if (!fleetUnitId) {
-        const relaxed = await client.query(
-          `SELECT id
-             FROM fleet_units
-            WHERE LOWER(TRIM(empresa)) = LOWER(TRIM($1))
-              AND REGEXP_REPLACE(COALESCE(numero_economico,''), '[^0-9A-Za-z]+', '', 'g') = REGEXP_REPLACE(COALESCE($2,''), '[^0-9A-Za-z]+', '', 'g')
-            LIMIT 1`,
-          [companyName, unitNumber]
-        );
-        fleetUnitId = relaxed.rows[0]?.id || null;
-      }
-      if (quote.garantia_id && fleetUnitId) {
-        await client.query(`UPDATE garantias SET fleet_unit_id = $2 WHERE id = $1`, [quote.garantia_id, fleetUnitId]).catch(() => {});
-      }
+    const date = String(req.query.date || '').trim();
+    const params = [];
+    let where = [];
+    if (date) {
+      params.push(date);
+      where.push(`DATE(sr.scheduled_for AT TIME ZONE 'UTC') = $${params.length}`);
     }
-
-    await client.query(`DELETE FROM fleet_cost_entries WHERE source_quote_id = $1`, [quoteId]).catch(() => {});
-
-    if (paymentStatus !== 'pagada') {
-      await client.query(
-        `UPDATE work_quotes
-            SET costs_synced_to_fleet = FALSE,
-                costs_synced_at = NULL,
-                updated_at = NOW()
-          WHERE id = $1`,
-        [quoteId]
-      );
-      if (!externalClient) await client.query('COMMIT');
-      return { synced: false, reason: 'not_paid', removed: true };
+    if (SUPERVISOR_ROLES.includes(req.user.role)) {
+      params.push(req.user.empresa || '');
+      where.push(`COALESCE(g.empresa, sr.empresa) = $${params.length}`);
     }
-
-    if (!fleetUnitId) {
-      await client.query(
-        `UPDATE work_quotes
-            SET costs_synced_to_fleet = FALSE,
-                updated_at = NOW()
-          WHERE id = $1`,
-        [quoteId]
-      );
-      if (!externalClient) await client.query('COMMIT');
-      return { synced: false, reason: 'unit_not_found' };
+    if (req.user.role === 'operador') {
+      params.push(req.user.id);
+      where.push(`g.reportado_por_id = $${params.length}`);
     }
-
-    const items = await client.query(
-      `SELECT id, type, description, total, qty, unit_price
-         FROM work_quote_items
-        WHERE quote_id = $1
-          AND type IN ('refaccion','mano_obra')
-        ORDER BY created_at ASC, id ASC`,
-      [quoteId]
-    );
-
-    let inserted = 0;
-    for (const item of items.rows) {
-      const amount = Number(item.total || (Number(item.qty || 0) * Number(item.unit_price || 0)) || 0);
-      if (!Number.isFinite(amount) || amount <= 0) continue;
-      const safeConcept = String(item.description || '').trim() || `${item.type === 'mano_obra' ? 'Mano de obra' : 'Refacción'} ${quote.folio || ''}`.trim();
-      await client.query(
-        `INSERT INTO fleet_cost_entries (
-           id, fleet_unit_id, garantia_id, tipo, concepto, monto, created_by_id, created_by_nombre, source_quote_id, source_item_type
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-        [
-          cryptoRandomId(),
-          fleetUnitId,
-          quote.garantia_id || null,
-          item.type === 'mano_obra' ? 'mano_obra' : 'refaccion',
-          safeConcept,
-          Number(amount.toFixed(2)),
-          actor.id || null,
-          actor.nombre || 'Sistema cobranza',
-          quoteId,
-          item.type
-        ]
-      );
-      inserted += 1;
-    }
-
-    await client.query(
-      `UPDATE work_quotes
-          SET costs_synced_to_fleet = $2,
-              costs_synced_at = CASE WHEN $2 THEN NOW() ELSE NULL END,
-              updated_at = NOW()
-        WHERE id = $1`,
-      [quoteId, inserted > 0]
-    );
-
-    if (quote.garantia_id && fleetUnitId) {
-      await client.query(`UPDATE garantias SET fleet_unit_id = $2 WHERE id = $1`, [quote.garantia_id, fleetUnitId]).catch(() => {});
-      await addAuditLog(quote.garantia_id, actor.id || null, 'sincronizar_cobro_flota', `Cobranza ${quote.folio || 'COB'} sincronizada a flota (${inserted} concepto(s)).`);
-    }
-    if (!externalClient) await client.query('COMMIT');
-    return { synced: inserted > 0, fleetUnitId, inserted };
+    const result = await pool.query(`
+      SELECT sr.*,
+        COALESCE(g.folio, sr.folio_manual) AS folio,
+        COALESCE(g.numero_economico, sr.numero_economico) AS numero_economico,
+        COALESCE(g.empresa, sr.empresa) AS empresa,
+        COALESCE(g.contacto_nombre, sr.contacto_nombre) AS contacto_nombre,
+        COALESCE(g.telefono, sr.telefono) AS telefono
+      FROM schedule_requests sr
+      LEFT JOIN garantias g ON g.id = sr.garantia_id
+      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+      ORDER BY COALESCE(sr.scheduled_for, sr.proposed_at, sr.requested_at) ASC
+    `, params);
+    res.json(result.rows.map(scheduleSummary));
   } catch (error) {
-    if (!externalClient) await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    if (release) client.release();
+    console.error('Error leyendo agenda:', error);
+    res.status(500).json({ error: 'No se pudo cargar la agenda.' });
   }
-}
+});
+
+app.post('/api/schedules/manual', authRequired, requireRoles('admin','operativo'), async (req, res) => {
+  try {
+    const empresa = String(req.body.empresa || '').trim();
+    const unidad = String(req.body.unidad || '').trim();
+    const telefono = normalizeMxPhone(req.body.telefono || '');
+    const folioManual = String(req.body.folio || '').trim();
+    const contactoNombre = String(req.body.contactoNombre || '').trim();
+    const scheduledFor = req.body.scheduledFor ? new Date(req.body.scheduledFor) : null;
+    const notes = String(req.body.notes || '').trim();
+    if (!empresa || !unidad || !scheduledFor || Number.isNaN(scheduledFor.getTime())) return res.status(400).json({ error: 'Completa empresa, unidad y fecha válida.' });
+    const result = await pool.query(`
+      INSERT INTO schedule_requests (id, garantia_id, telefono, status, notes, scheduled_for, confirmed_at, empresa, numero_economico, contacto_nombre, folio_manual)
+      VALUES ($1,NULL,$2,'confirmed',$3,$4,NOW(),$5,$6,$7,$8)
+      RETURNING *
+    `, [cryptoRandomId(), telefono, notes, scheduledFor.toISOString(), empresa, unidad, contactoNombre, folioManual]);
+    res.status(201).json(scheduleSummary(result.rows[0]));
+  } catch (error) {
+    console.error('Error guardando ingreso manual:', error);
+    res.status(500).json({ error: 'No se pudo programar el ingreso manual.' });
+  }
+});
+
+app.post('/api/garantias/:id/request-schedule', authRequired, requireRoles('admin', 'operativo', 'supervisor_flotas'), async (req, res) => {
+  const current = await pool.query('SELECT * FROM garantias WHERE id = $1', [req.params.id]);
+  if (!current.rowCount) return res.status(404).json({ error: 'Garantía no encontrada.' });
+  const garantia = current.rows[0];
+  if (garantia.estatus_validacion !== 'aceptada') return res.status(400).json({ error: 'Solo las garantías aceptadas pueden programarse.' });
+  const scheduleExisting = await pool.query(`SELECT * FROM schedule_requests WHERE garantia_id = $1 AND status IN ('waiting_operator','proposed','confirmed') ORDER BY created_at DESC LIMIT 1`, [req.params.id]);
+  let schedule;
+  if (scheduleExisting.rowCount) {
+    schedule = scheduleExisting.rows[0];
+  } else {
+    const created = await pool.query(`INSERT INTO schedule_requests (id, garantia_id, telefono, status, notes) VALUES ($1,$2,$3,'waiting_operator',$4) RETURNING *`, [cryptoRandomId(), req.params.id, garantia.telefono || '', `Solicitud enviada por ${req.user.nombre}`]);
+    schedule = created.rows[0];
+  }
+  try {
+    if (TWILIO_TEMPLATE_SCHEDULE_REQUEST) {
+      await sendWhatsAppTemplate({
+        telefono: garantia.telefono,
+        contentSid: TWILIO_TEMPLATE_SCHEDULE_REQUEST,
+        variables: { 1: garantia.folio || '' }
+      });
+    } else {
+      const bodyText = `CARLAB GARANTIAS\n\nTu reporte ${garantia.folio} fue aceptado. Responde con la fecha propuesta para ingresar la unidad al taller en formato DD/MM/AAAA HH:MM.\n\nEjemplo: 28/03/2026 09:30`;
+      await sendWhatsAppText({ telefono: garantia.telefono, body: bodyText });
+    }
+  } catch (error) {
+    console.error('Error solicitando programacion WhatsApp:', error.message);
+  }
+  await addAuditLog(req.params.id, req.user.id, 'solicitar_programacion', `${req.user.nombre} solicitó fecha de ingreso por WhatsApp`);
+  const joined = await pool.query(`SELECT sr.*, g.folio, g.numero_economico, g.empresa, g.contacto_nombre FROM schedule_requests sr LEFT JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id = $1`, [schedule.id]);
+  res.status(201).json(scheduleSummary(joined.rows[0]));
+});
+
+app.patch('/api/schedules/:id/confirm', authRequired, requireRoles('admin', 'operativo'), async (req, res) => {
+  const status = String(req.body.status || 'confirmed').trim();
+  const notes = String(req.body.notes || '').trim();
+  const found = await pool.query(`SELECT sr.*, g.folio, g.numero_economico, g.empresa, g.telefono FROM schedule_requests sr JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id = $1`, [req.params.id]);
+  if (!found.rowCount) return res.status(404).json({ error: 'Programación no encontrada.' });
+  const current = found.rows[0];
+  const scheduledFor = req.body.scheduledFor ? new Date(req.body.scheduledFor) : (current.scheduled_for ? new Date(current.scheduled_for) : null);
+
+  if (status === 'confirmed' && scheduledFor) {
+    const busy = await pool.query(
+      `SELECT sr.id FROM schedule_requests sr
+       WHERE sr.id <> $1
+         AND sr.status = 'confirmed'
+         AND DATE(sr.scheduled_for AT TIME ZONE 'UTC') = DATE($2::timestamptz AT TIME ZONE 'UTC')
+         AND TO_CHAR(sr.scheduled_for AT TIME ZONE 'UTC','HH24:MI') = TO_CHAR($2::timestamptz AT TIME ZONE 'UTC','HH24:MI')
+       LIMIT 1`,
+      [req.params.id, scheduledFor.toISOString()]
+    );
+    if (busy.rowCount) {
+      const recommended = new Date(scheduledFor.getTime() + 60*60*1000);
+      return res.status(409).json({
+        error: 'Ese horario ya está ocupado.',
+        recommended: recommended.toISOString()
+      });
+    }
+  }
+
+  const result = await pool.query(
+    `UPDATE schedule_requests
+     SET status = $2,
+         scheduled_for = $3,
+         confirmed_at = CASE WHEN $2 = 'confirmed' THEN NOW() ELSE confirmed_at END,
+         notes = COALESCE(NULLIF($4,''), notes),
+         updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [req.params.id, status, scheduledFor, notes]
+  );
+
+  const finalDate = scheduledFor || current.scheduled_for || current.proposed_at;
+  if (status === 'confirmed' && finalDate) {
+    try {
+      const when = current.notes && /\d/.test(current.notes)
+        ? (String(current.notes).split(': ').slice(1).join(': ') || new Date(finalDate).toLocaleString('es-MX'))
+        : new Date(finalDate).toLocaleString('es-MX');
+      await sendWhatsAppText({ telefono: current.telefono, body: `CARLAB GARANTIAS\n\nQuedo confirmada la cita del reporte ${current.folio || 'GAR-—'} para la unidad ${current.numero_economico} el ${when}. Te esperamos en taller.` });
+    } catch (error) { console.error('Error confirmando cita por WhatsApp:', error.message); }
+  }
+  if (status === 'rejected') {
+    try {
+      await sendWhatsAppText({ telefono: current.telefono, body: `CARLAB GARANTIAS\n\nLa fecha propuesta para la unidad ${current.numero_economico} no quedó disponible. Responde con otra opción en formato DD/MM/AAAA HH:MM.` });
+    } catch (error) { console.error('Error rechazando cita por WhatsApp:', error.message); }
+  }
+  const joined = await pool.query(`SELECT sr.*, g.folio, g.numero_economico, g.empresa, g.contacto_nombre, g.telefono FROM schedule_requests sr JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id = $1`, [req.params.id]);
+  res.json(scheduleSummary(joined.rows[0]));
+});
+
+app.post('/api/whatsapp/incoming', async (req, res) => {
+  const from = String(req.body.From || '').replace(/^whatsapp:/i, '').replace(/\D/g, '');
+  const body = String(req.body.Body || '').trim();
+  if (!from || !body) return res.type('text/xml').send('<Response></Response>');
+  const pending = await pool.query(`
+    SELECT sr.*, g.id AS garantia_id, g.folio, g.numero_economico, g.empresa, g.contacto_nombre, g.telefono
+    FROM schedule_requests sr
+    JOIN garantias g ON g.id = sr.garantia_id
+    WHERE sr.telefono = $1 AND sr.status IN ('waiting_operator','rejected')
+    ORDER BY sr.updated_at DESC LIMIT 1
+  `, [normalizeMxPhone(from)]);
+  if (!pending.rowCount) return res.type('text/xml').send('<Response></Response>');
+  const parsed = parseScheduleText(body);
+  if (!parsed) {
+    try { await sendWhatsAppText({ telefono: from, body: 'CARLAB GARANTIAS\n\nNo pude leer la fecha. Envia por favor DD/MM/AAAA HH:MM, por ejemplo 28/03/2026 09:30.' }); } catch {}
+    return res.type('text/xml').send('<Response></Response>');
+  }
+  const schedule = pending.rows[0];
+  await pool.query(`UPDATE schedule_requests SET status = 'proposed', proposed_at = $2, scheduled_for = $2, notes = $3, updated_at = NOW() WHERE id = $1`, [schedule.id, parsed.iso, `Propuesta recibida por WhatsApp: ${parsed.text}`]);
+  await addAuditLog(schedule.garantia_id, null, 'propuesta_programacion', `Operador propuso ${parsed.text} por WhatsApp`);
+  try { await sendWhatsAppText({ telefono: from, body: `CARLAB GARANTIAS\n\nRecibimos tu propuesta para el reporte ${schedule.folio || 'GAR-—'} de la unidad ${schedule.numero_economico}: ${parsed.text}. En cuanto la confirme operaciones, te avisamos por aqui.` }); } catch {}
+  res.type('text/xml').send('<Response></Response>');
+});
+
+app.post('/webhook/whatsapp', async (req, res) => {
+  req.url = '/api/whatsapp/incoming';
+  return app._router.handle(req, res, () => {});
+});
+
+app.post('/api/whatsapp/status', async (req, res) => {
+  console.log('WhatsApp status callback:', { sid: req.body.MessageSid, status: req.body.MessageStatus, to: req.body.To });
+  res.json({ ok: true });
+});
+
+
+app.get('/api/notifications', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas','operador'), async (req, res) => {
+  const params = [];
+  let whereGarantias = [];
+  let whereSchedules = [];
+  if (SUPERVISOR_ROLES.includes(req.user.role)) {
+    params.push(req.user.empresa || '');
+    whereGarantias.push(`g.empresa = $${params.length}`);
+    whereSchedules.push(`g.empresa = $${params.length}`);
+  }
+  if (req.user.role === 'operador') {
+    params.push(req.user.id);
+    whereGarantias.push(`g.reportado_por_id = $${params.length}`);
+    whereSchedules.push(`g.reportado_por_id = $${params.length}`);
+  }
+  const newReports = await pool.query(`
+    SELECT COUNT(*)::int AS count
+    FROM garantias g
+    ${whereGarantias.length ? `WHERE ${whereGarantias.join(' AND ')} AND g.estatus_validacion = 'nueva'` : `WHERE g.estatus_validacion = 'nueva'`}
+  `, params);
+  const pendingSchedules = await pool.query(`
+    SELECT COUNT(*)::int AS count
+    FROM schedule_requests sr
+    JOIN garantias g ON g.id = sr.garantia_id
+    ${whereSchedules.length ? `WHERE ${whereSchedules.join(' AND ')} AND sr.status IN ('waiting_operator','proposed')` : `WHERE sr.status IN ('waiting_operator','proposed')`}
+  `, params);
+  const todaySchedules = await pool.query(`
+    SELECT COUNT(*)::int AS count
+    FROM schedule_requests sr
+    JOIN garantias g ON g.id = sr.garantia_id
+    ${whereSchedules.length ? `WHERE ${whereSchedules.join(' AND ')} AND DATE(sr.scheduled_for AT TIME ZONE 'UTC') = CURRENT_DATE` : `WHERE DATE(sr.scheduled_for AT TIME ZONE 'UTC') = CURRENT_DATE`}
+  `, params);
+  res.json({
+    newReports: newReports.rows[0]?.count || 0,
+    pendingSchedules: pendingSchedules.rows[0]?.count || 0,
+    todaySchedules: todaySchedules.rows[0]?.count || 0
+  });
+});
+
 
 app.get('/api/fleet/summary', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
   const params = [];
@@ -1796,61 +1726,9 @@ app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supe
         WHERE g.empresa = fu.empresa AND g.numero_economico = fu.numero_economico
       ) AS last_report_at,
       COALESCE((SELECT COUNT(*) FROM garantias g WHERE g.empresa = fu.empresa AND g.numero_economico = fu.numero_economico),0) AS reportes_count,
-      (
-        COALESCE((SELECT SUM(CASE WHEN tipo='refaccion' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0)
-        + CASE WHEN EXISTS (SELECT 1 FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id) THEN 0 ELSE COALESCE((
-            SELECT SUM(qi.total)
-            FROM work_quotes q
-            JOIN work_quote_items qi ON qi.quote_id = q.id
-            LEFT JOIN garantias g ON g.id = q.garantia_id
-            WHERE q.payment_status = 'pagada'
-              AND qi.type = 'refaccion'
-              AND (
-                g.fleet_unit_id = fu.id
-                OR (
-                  LOWER(REGEXP_REPLACE(TRIM(COALESCE(q.company_name, g.empresa, '')), '\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(TRIM(COALESCE(fu.empresa,'')), '\s+', ' ', 'g'))
-                  AND REGEXP_REPLACE(COALESCE(q.unit_number, g.numero_economico, ''), '[^0-9A-Za-z]+', '', 'g') = REGEXP_REPLACE(COALESCE(fu.numero_economico,''), '[^0-9A-Za-z]+', '', 'g')
-                )
-              )
-          ),0) END
-      ) AS costo_refacciones,
-      (
-        COALESCE((SELECT SUM(CASE WHEN tipo='mano_obra' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0)
-        + CASE WHEN EXISTS (SELECT 1 FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id) THEN 0 ELSE COALESCE((
-            SELECT SUM(qi.total)
-            FROM work_quotes q
-            JOIN work_quote_items qi ON qi.quote_id = q.id
-            LEFT JOIN garantias g ON g.id = q.garantia_id
-            WHERE q.payment_status = 'pagada'
-              AND qi.type = 'mano_obra'
-              AND (
-                g.fleet_unit_id = fu.id
-                OR (
-                  LOWER(REGEXP_REPLACE(TRIM(COALESCE(q.company_name, g.empresa, '')), '\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(TRIM(COALESCE(fu.empresa,'')), '\s+', ' ', 'g'))
-                  AND REGEXP_REPLACE(COALESCE(q.unit_number, g.numero_economico, ''), '[^0-9A-Za-z]+', '', 'g') = REGEXP_REPLACE(COALESCE(fu.numero_economico,''), '[^0-9A-Za-z]+', '', 'g')
-                )
-              )
-          ),0) END
-      ) AS costo_mano_obra,
-      (
-        COALESCE((SELECT SUM(monto) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0)
-        + CASE WHEN EXISTS (SELECT 1 FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id) THEN 0 ELSE COALESCE((
-            SELECT SUM(qi.total)
-            FROM work_quotes q
-            JOIN work_quote_items qi ON qi.quote_id = q.id
-            LEFT JOIN garantias g ON g.id = q.garantia_id
-            WHERE q.payment_status = 'pagada'
-              AND qi.type IN ('refaccion','mano_obra')
-              AND (
-                g.fleet_unit_id = fu.id
-                OR (
-                  LOWER(REGEXP_REPLACE(TRIM(COALESCE(q.company_name, g.empresa, '')), '\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(TRIM(COALESCE(fu.empresa,'')), '\s+', ' ', 'g'))
-                  AND REGEXP_REPLACE(COALESCE(q.unit_number, g.numero_economico, ''), '[^0-9A-Za-z]+', '', 'g') = REGEXP_REPLACE(COALESCE(fu.numero_economico,''), '[^0-9A-Za-z]+', '', 'g')
-                )
-              )
-          ),0) END
-      ) AS costo_total,
-      COALESCE((SELECT CASE WHEN COUNT(*) > 0 THEN TRUE ELSE FALSE END FROM campaign_records cr WHERE cr.fleet_unit_id = fu.id AND cr.status <> 'realizada'), fu.campaign_activa) AS campaign_activa
+      COALESCE((SELECT SUM(CASE WHEN tipo='refaccion' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_refacciones,
+      COALESCE((SELECT SUM(CASE WHEN tipo='mano_obra' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_mano_obra,
+      COALESCE((SELECT SUM(monto) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_total
     FROM fleet_units fu
     ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
     ORDER BY fu.empresa ASC, fu.numero_economico ASC
@@ -1934,95 +1812,27 @@ app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','
   }
   const unit = await pool.query(`
     SELECT fu.*,
-      (
-        COALESCE((SELECT SUM(CASE WHEN tipo='refaccion' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0)
-        + CASE WHEN EXISTS (SELECT 1 FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id) THEN 0 ELSE COALESCE((
-            SELECT SUM(qi.total)
-            FROM work_quotes q
-            JOIN work_quote_items qi ON qi.quote_id = q.id
-            LEFT JOIN garantias g ON g.id = q.garantia_id
-            WHERE q.payment_status = 'pagada'
-              AND qi.type = 'refaccion'
-              AND (
-                g.fleet_unit_id = fu.id
-                OR (
-                  LOWER(REGEXP_REPLACE(TRIM(COALESCE(q.company_name, g.empresa, '')), '\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(TRIM(COALESCE(fu.empresa,'')), '\s+', ' ', 'g'))
-                  AND REGEXP_REPLACE(COALESCE(q.unit_number, g.numero_economico, ''), '[^0-9A-Za-z]+', '', 'g') = REGEXP_REPLACE(COALESCE(fu.numero_economico,''), '[^0-9A-Za-z]+', '', 'g')
-                )
-              )
-          ),0) END
-      ) AS costo_refacciones,
-      (
-        COALESCE((SELECT SUM(CASE WHEN tipo='mano_obra' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0)
-        + CASE WHEN EXISTS (SELECT 1 FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id) THEN 0 ELSE COALESCE((
-            SELECT SUM(qi.total)
-            FROM work_quotes q
-            JOIN work_quote_items qi ON qi.quote_id = q.id
-            LEFT JOIN garantias g ON g.id = q.garantia_id
-            WHERE q.payment_status = 'pagada'
-              AND qi.type = 'mano_obra'
-              AND (
-                g.fleet_unit_id = fu.id
-                OR (
-                  LOWER(REGEXP_REPLACE(TRIM(COALESCE(q.company_name, g.empresa, '')), '\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(TRIM(COALESCE(fu.empresa,'')), '\s+', ' ', 'g'))
-                  AND REGEXP_REPLACE(COALESCE(q.unit_number, g.numero_economico, ''), '[^0-9A-Za-z]+', '', 'g') = REGEXP_REPLACE(COALESCE(fu.numero_economico,''), '[^0-9A-Za-z]+', '', 'g')
-                )
-              )
-          ),0) END
-      ) AS costo_mano_obra,
-      (
-        COALESCE((SELECT SUM(monto) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0)
-        + CASE WHEN EXISTS (SELECT 1 FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id) THEN 0 ELSE COALESCE((
-            SELECT SUM(qi.total)
-            FROM work_quotes q
-            JOIN work_quote_items qi ON qi.quote_id = q.id
-            LEFT JOIN garantias g ON g.id = q.garantia_id
-            WHERE q.payment_status = 'pagada'
-              AND qi.type IN ('refaccion','mano_obra')
-              AND (
-                g.fleet_unit_id = fu.id
-                OR (
-                  LOWER(REGEXP_REPLACE(TRIM(COALESCE(q.company_name, g.empresa, '')), '\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(TRIM(COALESCE(fu.empresa,'')), '\s+', ' ', 'g'))
-                  AND REGEXP_REPLACE(COALESCE(q.unit_number, g.numero_economico, ''), '[^0-9A-Za-z]+', '', 'g') = REGEXP_REPLACE(COALESCE(fu.numero_economico,''), '[^0-9A-Za-z]+', '', 'g')
-                )
-              )
-          ),0) END
-      ) AS costo_total,
-      COALESCE((SELECT CASE WHEN COUNT(*) > 0 THEN TRUE ELSE FALSE END FROM campaign_records cr WHERE cr.fleet_unit_id = fu.id AND cr.status <> 'realizada'), fu.campaign_activa) AS campaign_activa
+      COALESCE((SELECT SUM(CASE WHEN tipo='refaccion' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_refacciones,
+      COALESCE((SELECT SUM(CASE WHEN tipo='mano_obra' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_mano_obra,
+      COALESCE((SELECT SUM(monto) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_total
     FROM fleet_units fu WHERE fu.id = $1 ${extra}
   `, params);
   if (!unit.rowCount) return res.status(404).json({ error: 'Unidad no encontrada.' });
   const u = unit.rows[0];
   const reports = await pool.query(`
     SELECT * FROM garantias
-    WHERE fleet_unit_id = $1
-       OR (
-         LOWER(REGEXP_REPLACE(TRIM(COALESCE(empresa,'')), '\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(TRIM(COALESCE($2,'')), '\s+', ' ', 'g'))
-         AND (
-           LOWER(REGEXP_REPLACE(TRIM(COALESCE(numero_economico,'')), '\s+', '', 'g')) = LOWER(REGEXP_REPLACE(TRIM(COALESCE($3,'')), '\s+', '', 'g'))
-           OR REGEXP_REPLACE(COALESCE(numero_economico,''), '[^0-9A-Za-z]+', '', 'g') = REGEXP_REPLACE(COALESCE($3,''), '[^0-9A-Za-z]+', '', 'g')
-         )
-       )
+    WHERE empresa = $1 AND numero_economico = $2
     ORDER BY created_at DESC
-  `, [u.id, u.empresa, u.numero_economico]);
+  `, [u.empresa, u.numero_economico]);
   const costs = await pool.query(`
     SELECT * FROM fleet_cost_entries
     WHERE fleet_unit_id = $1
     ORDER BY created_at DESC
   `, [u.id]);
-  const virtualCosts = costs.rowCount ? [] : await fetchVirtualFleetQuoteCosts(u);
-  const campaigns = await pool.query(`
-    SELECT cr.*, cg.campaign_name, cg.id AS campaign_group_id
-    FROM campaign_records cr
-    LEFT JOIN campaign_groups cg ON cg.id = cr.campaign_group_id
-    WHERE cr.fleet_unit_id = $1
-    ORDER BY cr.updated_at DESC, cr.created_at DESC
-  `, [u.id]);
   res.json({
     unit: mapFleetUnit(u),
     reports: reports.rows.map(mapGarantia),
-    costs: [...costs.rows.map(mapFleetCost), ...virtualCosts.map(mapFleetCost)],
-    campaigns: campaigns.rows.map(mapCampaignRecord)
+    costs: costs.rows.map(mapFleetCost)
   });
 });
 
@@ -2323,217 +2133,6 @@ app.patch('/api/parts/requests/:id', authRequired, requireRoles('admin','supervi
   }
 });
 
-
-
-
-app.get('/api/campaign-groups', authRequired, requireRoles('admin','supervisor_flotas','operativo'), async (req, res) => {
-  try {
-    const params = [];
-    const where = [];
-    if (req.user.role === 'supervisor_flotas') {
-      params.push(req.user.empresa || '');
-      where.push(`empresa = $${params.length}`);
-    } else if (req.query.empresa) {
-      params.push(String(req.query.empresa).trim());
-      where.push(`empresa = $${params.length}`);
-    }
-    const result = await pool.query(
-      `SELECT * FROM campaign_groups ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY updated_at DESC, created_at DESC`,
-      params
-    );
-    res.json(result.rows.map(mapCampaignGroup));
-  } catch (error) {
-    console.error('Error cargando grupos de campaña:', error);
-    res.status(500).json({ error: 'No se pudieron cargar las campañas.' });
-  }
-});
-
-app.post('/api/campaign-groups', authRequired, requireRoles('admin'), async (req, res) => {
-  try {
-    const campaignName = String(req.body.campaignName || '').trim();
-    const empresa = String(req.body.empresa || '').trim();
-    const notes = String(req.body.notes || '').trim();
-    if (!campaignName || !empresa) return res.status(400).json({ error: 'Completa nombre de campaña y empresa.' });
-    const group = await ensureCampaignGroup({ campaignName, empresa, notes, actor: req.user });
-    res.status(201).json(mapCampaignGroup(group));
-  } catch (error) {
-    console.error('Error creando campaña:', error);
-    res.status(500).json({ error: 'No se pudo crear la campaña.' });
-  }
-});
-
-app.patch('/api/campaign-groups/:id', authRequired, requireRoles('admin'), async (req, res) => {
-  try {
-    const current = await pool.query(`SELECT * FROM campaign_groups WHERE id = $1`, [req.params.id]);
-    if (!current.rowCount) return res.status(404).json({ error: 'Campaña no encontrada.' });
-    const campaignName = String(req.body.campaignName || current.rows[0].campaign_name || '').trim();
-    const empresa = String(req.body.empresa || current.rows[0].empresa || '').trim();
-    const notes = String(req.body.notes === undefined ? (current.rows[0].notes || '') : req.body.notes || '').trim();
-    const updated = await pool.query(
-      `UPDATE campaign_groups
-       SET campaign_name = $2, empresa = $3, notes = $4, updated_at = NOW()
-       WHERE id = $1
-       RETURNING *`,
-      [req.params.id, campaignName, empresa, notes]
-    );
-    await pool.query(
-      `UPDATE campaign_records SET campaign_name = $2, empresa = $3, updated_at = NOW() WHERE campaign_group_id = $1`,
-      [req.params.id, campaignName, empresa]
-    );
-    res.json(mapCampaignGroup(updated.rows[0]));
-  } catch (error) {
-    console.error('Error actualizando campaña:', error);
-    res.status(500).json({ error: 'No se pudo actualizar la campaña.' });
-  }
-});
-
-app.delete('/api/campaign-groups/:id', authRequired, requireRoles('admin'), async (req, res) => {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const rows = await client.query(`SELECT fleet_unit_id FROM campaign_records WHERE campaign_group_id = $1`, [req.params.id]);
-    await client.query(`DELETE FROM campaign_records WHERE campaign_group_id = $1`, [req.params.id]);
-    const deleted = await client.query(`DELETE FROM campaign_groups WHERE id = $1 RETURNING *`, [req.params.id]);
-    if (!deleted.rowCount) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Campaña no encontrada.' });
-    }
-    for (const row of rows.rows) {
-      await recalculateFleetCampaignFlag(row.fleet_unit_id, client);
-    }
-    await client.query('COMMIT');
-    res.json({ ok: true });
-  } catch (error) {
-    await client.query('ROLLBACK').catch(()=>{});
-    console.error('Error eliminando campaña:', error);
-    res.status(500).json({ error: 'No se pudo eliminar la campaña.' });
-  } finally {
-    client.release();
-  }
-});
-
-app.get('/api/campaigns', authRequired, requireRoles('admin','supervisor_flotas','operativo'), async (req, res) => {
-  try {
-    const params = [];
-    const where = [];
-    if (req.user.role === 'supervisor_flotas') {
-      params.push(req.user.empresa || '');
-      where.push(`cr.empresa = $${params.length}`);
-    } else if (req.query.empresa) {
-      params.push(String(req.query.empresa).trim());
-      where.push(`cr.empresa = $${params.length}`);
-    }
-    const result = await pool.query(
-      `SELECT cr.*,
-              cg.id AS campaign_group_id,
-              COALESCE(cg.campaign_name, cr.campaign_name) AS campaign_name,
-              CONCAT(COALESCE(fu.numero_economico,''), CASE WHEN COALESCE(fu.modelo,'') <> '' THEN ' · ' || fu.modelo ELSE '' END) AS unit_label
-       FROM campaign_records cr
-       LEFT JOIN campaign_groups cg ON cg.id = cr.campaign_group_id
-       LEFT JOIN fleet_units fu ON fu.id = cr.fleet_unit_id
-       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-       ORDER BY COALESCE(cg.campaign_name, cr.campaign_name) ASC, cr.updated_at DESC, cr.created_at DESC`,
-      params
-    );
-    res.json(result.rows.map(mapCampaignRecord));
-  } catch (error) {
-    console.error('Error cargando campañas:', error);
-    res.status(500).json({ error: 'No se pudieron cargar las campañas.' });
-  }
-});
-
-app.post('/api/campaigns', authRequired, requireRoles('admin'), async (req, res) => {
-  try {
-    const campaignGroupId = String(req.body.campaignGroupId || '').trim();
-    const campaignName = String(req.body.campaignName || '').trim();
-    const empresa = String(req.body.empresa || '').trim();
-    const fleetUnitId = String(req.body.fleetUnitId || '').trim();
-    const status = String(req.body.status || 'sin_programar').trim();
-    const evidencia = Array.isArray(req.body.evidencia) ? req.body.evidencia.filter(Boolean) : [];
-    const notes = String(req.body.notes || '').trim();
-    if (!empresa) return res.status(400).json({ error: 'Selecciona una empresa.' });
-    if (!['sin_programar','programada','realizada'].includes(status)) return res.status(400).json({ error: 'Estado de campaña inválido.' });
-    let group = null;
-    if (campaignGroupId) {
-      const found = await pool.query(`SELECT * FROM campaign_groups WHERE id = $1`, [campaignGroupId]);
-      group = found.rows[0] || null;
-    }
-    if (!group) {
-      if (!campaignName) return res.status(400).json({ error: 'Completa nombre de campaña.' });
-      group = await ensureCampaignGroup({ campaignName, empresa, notes, actor: req.user });
-    }
-    if (!fleetUnitId) return res.status(400).json({ error: 'Selecciona la unidad que se agregará a la campaña.' });
-    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 AND empresa = $2`, [fleetUnitId, empresa]);
-    if (!unit.rowCount) return res.status(404).json({ error: 'Unidad no encontrada en esa empresa.' });
-    const dup = await pool.query(`SELECT id FROM campaign_records WHERE campaign_group_id = $1 AND fleet_unit_id = $2 LIMIT 1`, [group.id, fleetUnitId]);
-    if (dup.rowCount) return res.status(409).json({ error: 'Esa unidad ya está dentro de la campaña.' });
-    const result = await pool.query(
-      `INSERT INTO campaign_records (
-         id, campaign_group_id, campaign_name, empresa, fleet_unit_id, numero_economico, status, evidencia, notes, created_by_id, created_by_nombre
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-       RETURNING *`,
-      [cryptoRandomId(), group.id, group.campaign_name, empresa, fleetUnitId, unit.rows[0].numero_economico, status, JSON.stringify(evidencia), notes, req.user.id, req.user.nombre]
-    );
-    await recalculateFleetCampaignFlag(fleetUnitId);
-    res.status(201).json(mapCampaignRecord({ ...result.rows[0], campaign_group_id: group.id }));
-  } catch (error) {
-    console.error('Error creando campaña:', error);
-    res.status(500).json({ error: 'No se pudo guardar la campaña.' });
-  }
-});
-
-app.patch('/api/campaigns/:id', authRequired, requireRoles('admin'), async (req, res) => {
-  try {
-    const found = await pool.query(`SELECT cr.*, cg.campaign_name AS group_campaign_name FROM campaign_records cr LEFT JOIN campaign_groups cg ON cg.id = cr.campaign_group_id WHERE cr.id = $1`, [req.params.id]);
-    if (!found.rowCount) return res.status(404).json({ error: 'Campaña no encontrada.' });
-    const current = found.rows[0];
-    const campaignName = String(current.group_campaign_name || current.campaign_name || '').trim();
-    const empresa = String(req.body.empresa || current.empresa || '').trim();
-    const status = String(req.body.status || current.status || 'sin_programar').trim();
-    const evidencia = Array.isArray(req.body.evidencia) ? req.body.evidencia.filter(Boolean) : (Array.isArray(current.evidencia) ? current.evidencia : []);
-    const notes = req.body.notes === undefined ? (current.notes || '') : String(req.body.notes || '').trim();
-    let fleetUnitId = String(req.body.fleetUnitId || current.fleet_unit_id || '').trim();
-    let numeroEconomico = current.numero_economico || '';
-    if (!['sin_programar','programada','realizada'].includes(status)) return res.status(400).json({ error: 'Estado de campaña inválido.' });
-    if (fleetUnitId !== current.fleet_unit_id || empresa !== current.empresa) {
-      const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 AND empresa = $2`, [fleetUnitId, empresa]);
-      if (!unit.rowCount) return res.status(404).json({ error: 'Unidad no encontrada en esa empresa.' });
-      numeroEconomico = unit.rows[0].numero_economico;
-    }
-    const result = await pool.query(
-      `UPDATE campaign_records
-       SET campaign_name = $2,
-           empresa = $3,
-           fleet_unit_id = $4,
-           numero_economico = $5,
-           status = $6,
-           evidencia = $7,
-           notes = $8,
-           updated_at = NOW()
-       WHERE id = $1
-       RETURNING *`,
-      [req.params.id, campaignName, empresa, fleetUnitId, numeroEconomico, status, JSON.stringify(evidencia), notes]
-    );
-    await recalculateFleetCampaignFlag(current.fleet_unit_id);
-    if (fleetUnitId !== current.fleet_unit_id) await recalculateFleetCampaignFlag(fleetUnitId);
-    res.json(mapCampaignRecord(result.rows[0]));
-  } catch (error) {
-    console.error('Error actualizando campaña:', error);
-    res.status(500).json({ error: 'No se pudo actualizar la campaña.' });
-  }
-});
-
-app.delete('/api/campaigns/:id', authRequired, requireRoles('admin'), async (req, res) => {
-  try {
-    const found = await pool.query(`DELETE FROM campaign_records WHERE id = $1 RETURNING fleet_unit_id`, [req.params.id]);
-    if (!found.rowCount) return res.status(404).json({ error: 'Campaña no encontrada.' });
-    await recalculateFleetCampaignFlag(found.rows[0].fleet_unit_id);
-    res.json({ ok: true });
-  } catch (error) {
-    console.error('Error eliminando campaña:', error);
-    res.status(500).json({ error: 'No se pudo eliminar la campaña.' });
-  }
-});
 
 app.get('/api/stock/parts', authRequired, requireRoles('admin'), async (_req, res) => {
   try {
@@ -2852,15 +2451,7 @@ app.patch('/api/cobranza/quotes/:id', authRequired, requireRoles('admin'), async
     const quotes = await fetchQuotesForAdmin();
     const quote = quotes.find(q => q.id === req.params.id);
     if (quote?.garantiaId) await addAuditLog(quote.garantiaId, req.user.id, 'actualizar_cobro', `Cobranza ${quote.folio} actualizada.`);
-    if (paymentStatus === 'pagada') {
-      try {
-        await syncQuoteCostsToFleet(req.params.id, req.user);
-      } catch (syncError) {
-        console.error('Error sincronizando cobranza pagada a flota:', syncError);
-      }
-    }
-    const refreshed = (await fetchQuotesForAdmin()).find(q => q.id === req.params.id) || quote;
-    res.json(refreshed);
+    res.json(quote);
   } catch (error) {
     console.error('Error actualizando cobranza:', error);
     res.status(500).json({ error:'No se pudo actualizar la cobranza.' });
@@ -2899,13 +2490,6 @@ app.put('/api/cobranza/quotes/:id/items', authRequired, requireRoles('admin'), a
       [req.params.id, totals.subtotal, totals.discount, totals.iva, totals.total, totals.anticipo, totals.saldo]
     );
     await client.query('COMMIT');
-    if (found.rows[0]?.payment_status === 'pagada') {
-      try {
-        await syncQuoteCostsToFleet(req.params.id, req.user);
-      } catch (syncError) {
-        console.error('Error sincronizando conceptos pagados a flota:', syncError);
-      }
-    }
     const quotes = await fetchQuotesForAdmin();
     res.json(quotes.find(q => q.id === req.params.id));
   } catch (error) {
