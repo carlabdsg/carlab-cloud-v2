@@ -39,6 +39,8 @@ const state = {
   quoteDrafts: {},
   directSaleItems: [],
   campaigns: [],
+  campaignGroups: [],
+  selectedCampaignGroupId: '',
   selectedCampaignName: '',
   editingCampaignId: '',
   campaignEvidence: [],
@@ -122,6 +124,10 @@ const api = {
   getDirectSales() { return this.request('/api/cobranza/direct-sales'); },
   createDirectSale(payload) { return this.request('/api/cobranza/direct-sales', { method: 'POST', body: JSON.stringify(payload || {}) }); },
   updateDirectSale(id, payload) { return this.request(`/api/cobranza/direct-sales/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
+  getCampaignGroups() { return this.request('/api/campaign-groups'); },
+  createCampaignGroup(payload) { return this.request('/api/campaign-groups', { method: 'POST', body: JSON.stringify(payload || {}) }); },
+  updateCampaignGroup(id, payload) { return this.request(`/api/campaign-groups/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
+  deleteCampaignGroup(id) { return this.request(`/api/campaign-groups/${id}`, { method: 'DELETE' }); },
   getCampaigns() { return this.request('/api/campaigns'); },
   createCampaign(payload) { return this.request('/api/campaigns', { method: 'POST', body: JSON.stringify(payload || {}) }); },
   updateCampaign(id, payload) { return this.request(`/api/campaigns/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
@@ -1978,17 +1984,8 @@ function campaignStatusMeta(status = 'sin_programar') {
   })[status] || { label:status || 'Sin programar', badge:'badge-info', visual:'status-red' };
 }
 
-function campaignGroups() {
-  const groups = new Map();
-  (state.campaigns || []).forEach(item => {
-    const key = item.campaignName || 'Sin nombre';
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(item);
-  });
-  return [...groups.entries()].map(([name, items]) => ({
-    name,
-    items: items.sort((a,b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))
-  })).sort((a,b) => new Date(b.items[0]?.updatedAt || 0) - new Date(a.items[0]?.updatedAt || 0));
+function currentCampaignGroup() {
+  return (state.campaignGroups || []).find(g => g.id === state.selectedCampaignGroupId) || null;
 }
 
 function resetCampaignForm(prefill = {}) {
@@ -1996,44 +1993,47 @@ function resetCampaignForm(prefill = {}) {
   state.campaignEvidence = Array.isArray(prefill.evidencia) ? [...prefill.evidencia] : [];
   if (els.campaignForm) els.campaignForm.reset();
   if (els.campaignId) els.campaignId.value = prefill.id || '';
-  if (els.campaignName) els.campaignName.value = prefill.campaignName || state.selectedCampaignName || '';
+  if (els.campaignName) els.campaignName.value = prefill.campaignName || currentCampaignGroup()?.campaignName || '';
   const companies = [...new Set((state.fleetUnits || []).map(u => u.empresa).filter(Boolean))].sort();
   if (els.campaignEmpresa) {
     const forced = isRole('supervisor_flotas') ? (state.user?.empresa || '') : '';
     els.campaignEmpresa.innerHTML = '<option value="">Selecciona empresa</option>' + companies.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
-    els.campaignEmpresa.value = prefill.empresa || forced || '';
+    els.campaignEmpresa.value = prefill.empresa || currentCampaignGroup()?.empresa || forced || '';
     els.campaignEmpresa.disabled = isRole('supervisor_flotas');
   }
-  syncCampaignUnitsSelect(prefill.fleetUnitId || '');
-  if (els.campaignStatus) els.campaignStatus.value = prefill.status || 'sin_programar';
-  if (els.campaignNotes) els.campaignNotes.value = prefill.notes || '';
+  if (els.campaignNotes) els.campaignNotes.value = prefill.notes || currentCampaignGroup()?.notes || '';
   drawPreviews(els.campaignEvidencePreview, state.campaignEvidence, 'campaign');
-  if (els.campaignSaveBtn) els.campaignSaveBtn.textContent = state.editingCampaignId ? 'Guardar campaña' : 'Registrar campaña';
+  if (els.campaignSaveBtn) els.campaignSaveBtn.textContent = state.editingCampaignId ? 'Guardar campaña' : 'Guardar campaña';
 }
 
-function syncCampaignUnitsSelect(selected = '') {
-  if (!els.campaignFleetUnit) return;
-  const empresa = els.campaignEmpresa?.value || (isRole('supervisor_flotas') ? state.user?.empresa : '');
-  const units = (state.fleetUnits || []).filter(u => !empresa || u.empresa === empresa);
-  els.campaignFleetUnit.innerHTML = '<option value="">Selecciona unidad</option>' + units.map(u => `<option value="${u.id}">${escapeHtml(u.numeroEconomico || '—')} · ${escapeHtml(u.modelo || '')}</option>`).join('');
-  els.campaignFleetUnit.value = selected || '';
+function campaignUnits(groupId = state.selectedCampaignGroupId) {
+  return (state.campaigns || []).filter(item => item.campaignGroupId === groupId || (!item.campaignGroupId && item.campaignName === currentCampaignGroup()?.campaignName && item.empresa === currentCampaignGroup()?.empresa));
 }
 
 async function loadCampaigns(force = false) {
   if (!isRole('admin','supervisor_flotas','operativo')) return;
   try {
     if (!state.fleetUnits.length || force) await loadFleet();
-    state.campaigns = await api.getCampaigns();
-    if (!state.selectedCampaignName && state.campaigns[0]) state.selectedCampaignName = state.campaigns[0].campaignName;
-    if (state.selectedCampaignName && !(state.campaigns || []).some(item => item.campaignName === state.selectedCampaignName)) state.selectedCampaignName = state.campaigns[0]?.campaignName || '';
+    const [groups, items] = await Promise.all([api.getCampaignGroups(), api.getCampaigns()]);
+    state.campaignGroups = groups || [];
+    state.campaigns = items || [];
+    if (!state.selectedCampaignGroupId && state.campaignGroups[0]) state.selectedCampaignGroupId = state.campaignGroups[0].id;
+    if (state.selectedCampaignGroupId && !(state.campaignGroups || []).some(item => item.id === state.selectedCampaignGroupId)) state.selectedCampaignGroupId = state.campaignGroups[0]?.id || '';
+    state.selectedCampaignName = currentCampaignGroup()?.campaignName || '';
     renderCampaigns();
   } catch (error) {
     notify(error.message, true);
   }
 }
 
+function campaignUnitOptionsHtml(group) {
+  const empresa = group?.empresa || els.campaignEmpresa?.value || state.user?.empresa || '';
+  const used = new Set(campaignUnits(group?.id).map(x => x.fleetUnitId));
+  return '<option value="">Selecciona unidad</option>' + (state.fleetUnits || []).filter(u => (!empresa || u.empresa === empresa) && !used.has(u.id)).map(u => `<option value="${u.id}">${escapeHtml(u.numeroEconomico || '—')} · ${escapeHtml(u.modelo || '')}</option>`).join('');
+}
+
 function renderCampaigns() {
-  const groups = campaignGroups();
+  const groups = state.campaignGroups || [];
   if (els.campaignsSummary) {
     const totalUnits = (state.campaigns || []).length;
     const totalGroups = groups.length;
@@ -2041,27 +2041,28 @@ function renderCampaigns() {
     const programmed = (state.campaigns || []).filter(x => x.status === 'programada').length;
     const done = (state.campaigns || []).filter(x => x.status === 'realizada').length;
     els.campaignsSummary.innerHTML = `
-      <article class="parts-summary-card glass-card"><strong>Campañas</strong><span>${totalGroups}</span><small>Grupos activos e históricos</small></article>
-      <article class="parts-summary-card"><strong>Unidades</strong><span>${totalUnits}</span><small>Tarjetas registradas</small></article>
-      <article class="parts-summary-card"><strong>Sin programar</strong><span>${pending}</span><small>Atención pendiente</small></article>
-      <article class="parts-summary-card"><strong>Programadas</strong><span>${programmed}</span><small>Ya con cita</small></article>
-      <article class="parts-summary-card"><strong>Realizadas</strong><span>${done}</span><small>Cierre completado</small></article>`;
+      <article class="parts-summary-card glass-card"><strong>Campañas</strong><span>${totalGroups}</span><small>Campañas madre registradas</small></article>
+      <article class="parts-summary-card"><strong>Unidades</strong><span>${totalUnits}</span><small>Tarjetas activas</small></article>
+      <article class="parts-summary-card"><strong>Sin programar</strong><span>${pending}</span><small>Rojo operativo</small></article>
+      <article class="parts-summary-card"><strong>Programadas</strong><span>${programmed}</span><small>Naranja operativo</small></article>
+      <article class="parts-summary-card"><strong>Realizadas</strong><span>${done}</span><small>Verde de cierre</small></article>`;
   }
   if (els.campaignsList) {
     els.campaignsList.innerHTML = groups.length ? groups.map(group => {
-      const pending = group.items.filter(x => x.status === 'sin_programar').length;
-      const programmed = group.items.filter(x => x.status === 'programada').length;
-      const done = group.items.filter(x => x.status === 'realizada').length;
-      const active = state.selectedCampaignName === group.name;
+      const items = campaignUnits(group.id);
+      const pending = items.filter(x => x.status === 'sin_programar').length;
+      const programmed = items.filter(x => x.status === 'programada').length;
+      const done = items.filter(x => x.status === 'realizada').length;
+      const active = state.selectedCampaignGroupId === group.id;
       return `
         <article class="campaign-group-card ${active ? 'active' : ''}">
-          <button type="button" class="campaign-group-btn ${active ? 'active' : ''}" data-campaign-open="${escapeHtml(group.name)}">
-            <div><strong>${escapeHtml(group.name)}</strong><div class="small muted">${escapeHtml(group.items[0]?.empresa || '—')} · ${group.items.length} unidad(es)</div></div>
+          <button type="button" class="campaign-group-btn ${active ? 'active' : ''}" data-campaign-open="${escapeHtml(group.id)}">
+            <div><strong>${escapeHtml(group.campaignName)}</strong><div class="small muted">${escapeHtml(group.empresa || '—')} · ${items.length} unidad(es)</div></div>
             <div class="campaign-group-stats"><span>${pending} R</span><span>${programmed} N</span><span>${done} V</span></div>
           </button>
         </article>`;
     }).join('') : '<div class="muted">No hay campañas registradas todavía.</div>';
-    els.campaignsList.querySelectorAll('[data-campaign-open]').forEach(btn => btn.addEventListener('click', () => { state.selectedCampaignName = btn.dataset.campaignOpen; renderCampaigns(); }));
+    els.campaignsList.querySelectorAll('[data-campaign-open]').forEach(btn => btn.addEventListener('click', () => { state.selectedCampaignGroupId = btn.dataset.campaignOpen; state.selectedCampaignName = currentCampaignGroup()?.campaignName || ''; renderCampaigns(); }));
   }
   renderCampaignDetail();
   if (isRole('admin')) resetCampaignForm();
@@ -2069,26 +2070,25 @@ function renderCampaigns() {
 
 function renderCampaignDetail() {
   if (!els.campaignDetail) return;
-  const name = state.selectedCampaignName || '';
-  const items = (state.campaigns || []).filter(item => item.campaignName === name);
-  if (!name || !items.length) {
+  const group = currentCampaignGroup();
+  const items = campaignUnits(group?.id);
+  if (!group) {
     els.campaignDetail.innerHTML = '<div class="muted">Selecciona una campaña para ver sus unidades.</div>';
     return;
   }
   const cards = items.map(item => {
-    const unit = (state.fleetUnits || []).find(u => u.id === item.fleetUnitId) || { numeroEconomico:item.numeroEconomico, empresa:item.empresa, modelo:'', marca:'', campaignActiva:item.status !== 'realizada', manualStatus:'operando' };
+    const unit = (state.fleetUnits || []).find(u => u.id === item.fleetUnitId) || { numeroEconomico:item.numeroEconomico, empresa:item.empresa, modelo:'', marca:'' };
     const meta = campaignStatusMeta(item.status);
-    const status = { ...fleetStatusLuxury({ ...unit, campaignActiva:false }), text: meta.label, visual: meta.visual };
     return `
       <article class="fleet-line-item campaign-tile-item">
-        <div class="cardUnidad ${status.visual}">
+        <div class="cardUnidad ${meta.visual}">
           <div class="headerUnidad">
             <div>
               <div class="numeroUnidad">${escapeHtml(item.numeroEconomico || '—')}</div>
               <div class="unidadTitulo">${escapeHtml(item.empresa || '—')}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}${unit.marca ? ' · ' + escapeHtml(unit.marca) : ''}</div>
             </div>
             <div class="chipsUnidad chipsUnidad--top">
-              <span class="fleet-chip campaign">${escapeHtml(name)}</span>
+              <span class="fleet-chip campaign">${escapeHtml(group.campaignName)}</span>
               <span class="fleet-chip ${item.status === 'realizada' ? 'good' : item.status === 'programada' ? 'warn' : 'bad'}">${escapeHtml(meta.label)}</span>
             </div>
           </div>
@@ -2099,8 +2099,8 @@ function renderCampaignDetail() {
               <div class="busHeroStatus">${escapeHtml(meta.label)}</div>
             </div>
             <div class="busHeroMeta">
-              <div class="infoUnidad infoUnidad--hero"><span>${escapeHtml(name)}</span><span>${escapeHtml(item.notes || 'Sin notas')}</span></div>
-              <div class="costoUnidad">Campaña: ${escapeHtml(name)}</div>
+              <div class="infoUnidad infoUnidad--hero"><span>${escapeHtml(group.campaignName)}</span><span>${escapeHtml(item.notes || 'Sin notas')}</span></div>
+              <div class="costoUnidad">Campaña: ${escapeHtml(group.campaignName)}</div>
               <div class="busHeroStats"><div class="busHeroStat"><span>Unidad</span><strong>${escapeHtml(item.numeroEconomico || '—')}</strong></div><div class="busHeroStat"><span>Actualizado</span><strong>${escapeHtml(fmtDate(item.updatedAt || item.createdAt))}</strong></div></div>
             </div>
           </div>
@@ -2108,13 +2108,33 @@ function renderCampaignDetail() {
             ${buildImageGallery(item.evidencia || [], 'Sin evidencia cargada todavía.')}
             <div class="action-row campaign-actions-row">
               <button class="btn btn-secondary" type="button" data-campaign-focus-unit="${escapeHtml(item.fleetUnitId || '')}">Ver unidad</button>
-              ${isRole('admin') ? `<button class="btn btn-secondary" type="button" data-campaign-edit="${escapeHtml(item.id)}">Editar</button><button class="btn btn-ghost" type="button" data-campaign-delete="${escapeHtml(item.id)}">Eliminar</button>` : ''}
+              ${isRole('admin') ? `<button class="btn btn-secondary" type="button" data-campaign-edit="${escapeHtml(item.id)}">Editar unidad</button><button class="btn btn-ghost" type="button" data-campaign-delete="${escapeHtml(item.id)}">Quitar</button>` : ''}
             </div>
           </div>
         </div>
       </article>`;
-  }).join('');
-  els.campaignDetail.innerHTML = `<div class="campaign-detail-head"><div><div class="topbar-kicker">CAMPAÑA</div><h3>${escapeHtml(name)}</h3></div><span class="badge badge-info">${items.length} unidad(es)</span></div><div class="fleet-units-grid"><div class="fleet-line-list campaign-line-list">${cards}</div></div>`;
+  }).join('') || '<div class="muted">Esta campaña todavía no tiene unidades cargadas.</div>';
+  const addUnit = isRole('admin') ? `
+    <form id="campaignUnitForm" class="schedule-manual-grid campaign-unit-form">
+      <label><span>Agregar unidad a ${escapeHtml(group.campaignName)}</span><select id="campaignFleetUnit">${campaignUnitOptionsHtml(group)}</select></label>
+      <label><span>Estatus inicial</span><select id="campaignStatus"><option value="sin_programar">Sin programar</option><option value="programada">Programada</option><option value="realizada">Realizada</option></select></label>
+      <label class="span-2"><span>Notas por unidad</span><textarea id="campaignUnitNotes" rows="2" placeholder="Notas operativas para esta unidad"></textarea></label>
+      <label class="span-2"><span>Evidencia</span><input id="campaignEvidenceInput" type="file" accept="image/*" multiple /><div class="stack-inline evidence-capture-row"><label class="btn btn-secondary evidence-capture-btn" for="campaignEvidenceCamera">Tomar foto con cámara</label><input id="campaignEvidenceCamera" class="camera-capture-input" type="file" accept="image/*" capture="environment" /></div><div id="campaignEvidencePreview" class="preview-grid"></div></label>
+      <div class="schedule-manual-actions span-2"><button id="campaignUnitSaveBtn" class="btn btn-primary" type="submit">Agregar unidad</button></div>
+    </form>` : '';
+  els.campaignDetail.innerHTML = `<div class="campaign-detail-head"><div><div class="topbar-kicker">CAMPAÑA</div><h3>${escapeHtml(group.campaignName)}</h3><p class="muted">${escapeHtml(group.empresa || '—')}${group.notes ? ' · ' + escapeHtml(group.notes) : ''}</p></div><span class="badge badge-info">${items.length} unidad(es)</span></div>${addUnit}<div class="fleet-units-grid"><div class="fleet-line-list campaign-line-list">${cards}</div></div>`;
+  drawPreviews(document.getElementById('campaignEvidencePreview'), state.campaignEvidence, 'campaign');
+  document.getElementById('campaignEvidenceInput')?.addEventListener('change', async e => { await handleFiles([...e.target.files], 'campaign'); e.target.value=''; });
+  document.getElementById('campaignEvidenceCamera')?.addEventListener('change', async e => { await handleFiles([...e.target.files], 'campaign'); e.target.value=''; });
+  document.getElementById('campaignUnitForm')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    try {
+      await api.createCampaign({ campaignGroupId: group.id, empresa: group.empresa, fleetUnitId: String(document.getElementById('campaignFleetUnit')?.value || '').trim(), status: String(document.getElementById('campaignStatus')?.value || 'sin_programar').trim(), notes: String(document.getElementById('campaignUnitNotes')?.value || '').trim(), evidencia: state.campaignEvidence || [] });
+      state.campaignEvidence = [];
+      notify('Unidad agregada a campaña.');
+      await Promise.all([loadCampaigns(true), loadFleet()]);
+    } catch (error) { notify(error.message, true); }
+  });
   els.campaignDetail.querySelectorAll('[data-campaign-focus-unit]').forEach(btn => btn.addEventListener('click', async () => {
     try {
       state.selectedFleetUnit = await api.getFleetUnit(btn.dataset.campaignFocusUnit);
@@ -2124,13 +2144,26 @@ function renderCampaignDetail() {
   }));
   els.campaignDetail.querySelectorAll('[data-campaign-edit]').forEach(btn => btn.addEventListener('click', () => {
     const found = (state.campaigns || []).find(x => x.id === btn.dataset.campaignEdit);
-    if (found) resetCampaignForm(found);
+    if (found) {
+      state.editingCampaignId = found.id;
+      state.campaignEvidence = Array.isArray(found.evidencia) ? [...found.evidencia] : [];
+      const noteInput = document.getElementById('campaignUnitNotes');
+      const statusSelect = document.getElementById('campaignStatus');
+      const unitSelect = document.getElementById('campaignFleetUnit');
+      if (noteInput) noteInput.value = found.notes || '';
+      if (statusSelect) statusSelect.value = found.status || 'sin_programar';
+      if (unitSelect) { unitSelect.innerHTML = `<option value="${escapeHtml(found.fleetUnitId)}">${escapeHtml(found.numeroEconomico || '—')}</option>`; unitSelect.value = found.fleetUnitId; }
+      drawPreviews(document.getElementById('campaignEvidencePreview'), state.campaignEvidence, 'campaign');
+      const saveBtn = document.getElementById('campaignUnitSaveBtn');
+      if (saveBtn) saveBtn.textContent = 'Guardar unidad';
+      document.getElementById('campaignUnitForm')?.addEventListener('submit', async ev => {}, { once:true });
+    }
   }));
   els.campaignDetail.querySelectorAll('[data-campaign-delete]').forEach(btn => btn.addEventListener('click', async () => {
-    if (!confirm('¿Eliminar este registro de campaña?')) return;
+    if (!confirm('¿Quitar esta unidad de la campaña?')) return;
     try {
       await api.deleteCampaign(btn.dataset.campaignDelete);
-      notify('Campaña eliminada.');
+      notify('Unidad removida de la campaña.');
       await Promise.all([loadCampaigns(true), loadFleet()]);
     } catch (error) { notify(error.message, true); }
   }));
@@ -3114,11 +3147,10 @@ els.scheduleManualForm?.addEventListener('submit', async (e) => {
 
 els.fleetRefreshBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
 els.campaignsRefreshBtn?.addEventListener('click', async () => { await Promise.all([loadCampaigns(true), loadFleet()]); switchPanel('campaigns'); });
-els.campaignEmpresa?.addEventListener('change', () => syncCampaignUnitsSelect());
 els.campaignEvidenceInput?.addEventListener('change', async e => { await appendEvidenceFromInput(e.target, 'campaignEvidence', els.campaignEvidencePreview, 'campaign'); });
 els.campaignEvidenceCamera?.addEventListener('change', async e => { await appendEvidenceFromInput(e.target, 'campaignEvidence', els.campaignEvidencePreview, 'campaign'); });
-els.campaignCancelBtn?.addEventListener('click', () => resetCampaignForm());
-els.campaignForm?.addEventListener('submit', async (e) => { e.preventDefault(); try { const payload = { campaignName: String(els.campaignName?.value || '').trim(), empresa: String(els.campaignEmpresa?.value || '').trim() || (state.user?.empresa || ''), fleetUnitId: String(els.campaignFleetUnit?.value || '').trim(), status: String(els.campaignStatus?.value || 'sin_programar').trim(), notes: String(els.campaignNotes?.value || '').trim(), evidencia: state.campaignEvidence || [] }; if (state.editingCampaignId) await api.updateCampaign(state.editingCampaignId, payload); else await api.createCampaign(payload); notify(state.editingCampaignId ? 'Campaña actualizada.' : 'Campaña registrada.'); await Promise.all([loadCampaigns(true), loadFleet()]); resetCampaignForm({ campaignName: payload.campaignName, empresa: payload.empresa }); } catch (error) { notify(error.message, true); } });
+els.campaignCancelBtn?.addEventListener('click', () => { state.editingCampaignId = ''; resetCampaignForm(); });
+els.campaignForm?.addEventListener('submit', async (e) => { e.preventDefault(); try { const payload = { campaignName: String(els.campaignName?.value || '').trim(), empresa: String(els.campaignEmpresa?.value || '').trim() || (state.user?.empresa || ''), notes: String(els.campaignNotes?.value || '').trim() }; if (state.editingCampaignId) await api.updateCampaignGroup(state.editingCampaignId, payload); else { const created = await api.createCampaignGroup(payload); state.selectedCampaignGroupId = created.id; } notify(state.editingCampaignId ? 'Campaña actualizada.' : 'Campaña registrada.'); await Promise.all([loadCampaigns(true), loadFleet()]); resetCampaignForm({ empresa: payload.empresa }); } catch (error) { notify(error.message, true); } });
 els.partsRefreshBtn?.addEventListener('click', async () => { await loadPartsPending(true); switchPanel('parts'); });
 els.fleetSearchInput?.addEventListener('input', renderFleet);
 els.fleetStatusFilter?.addEventListener('change', renderFleet);

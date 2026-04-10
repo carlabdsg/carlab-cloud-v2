@@ -622,11 +622,8 @@
       <input id="campaignId" type="hidden" />
       <label><span>Nombre de la campaña</span><input id="campaignName" placeholder="Ej. Revisión de filtraciones abril" required /></label>
       <label><span>Empresa</span><select id="campaignEmpresa"></select></label>
-      <label><span>Unidad</span><select id="campaignFleetUnit"></select></label>
-      <label><span>Estatus</span><select id="campaignStatus"><option value="sin_programar">Sin programar</option><option value="programada">Programada</option><option value="realizada">Realizada</option></select></label>
-      <label class="span-2"><span>Notas</span><textarea id="campaignNotes" rows="2" placeholder="Resumen o alcance"></textarea></label>
-      <label class="span-2"><span>Evidencia</span><input id="campaignEvidenceInput" type="file" accept="image/*" multiple /><div class="stack-inline evidence-capture-row"><label class="btn btn-secondary evidence-capture-btn" for="campaignEvidenceCamera">Tomar foto con cámara</label><input id="campaignEvidenceCamera" class="camera-capture-input" type="file" accept="image/*" capture="environment" /></div><div id="campaignEvidencePreview" class="preview-grid"></div></label>
-      <div class="schedule-manual-actions span-2"><button id="campaignCancelBtn" class="btn btn-ghost" type="button">Limpiar</button><button id="campaignSaveBtn" class="btn btn-primary" type="submit">Registrar campaña</button></div>
+      <label class="span-2"><span>Notas generales</span><textarea id="campaignNotes" rows="2" placeholder="Alcance, prioridad o contexto de la campaña"></textarea></label>
+      <div class="schedule-manual-actions span-2"><button id="campaignCancelBtn" class="btn btn-ghost" type="button">Limpiar</button><button id="campaignSaveBtn" class="btn btn-primary" type="submit">Guardar campaña</button></div>
     </form>
   </article>
 

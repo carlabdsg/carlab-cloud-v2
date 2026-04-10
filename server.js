@@ -320,6 +320,7 @@ function mapFleetCost(row) {
 function mapCampaignRecord(row) {
   return {
     id: row.id,
+    campaignGroupId: row.campaign_group_id || '',
     campaignName: row.campaign_name || '',
     empresa: row.empresa || '',
     fleetUnitId: row.fleet_unit_id || '',
@@ -327,6 +328,18 @@ function mapCampaignRecord(row) {
     unitLabel: row.unit_label || '',
     status: row.status || 'sin_programar',
     evidencia: Array.isArray(row.evidencia) ? row.evidencia : [],
+    notes: row.notes || '',
+    createdByNombre: row.created_by_nombre || '',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapCampaignGroup(row) {
+  return {
+    id: row.id,
+    campaignName: row.campaign_name || '',
+    empresa: row.empresa || '',
     notes: row.notes || '',
     createdByNombre: row.created_by_nombre || '',
     createdAt: row.created_at,
@@ -1266,6 +1279,7 @@ app.post('/api/garantias', authRequired, requireRoles('operador', 'admin'), asyn
       await client.query('ROLLBACK');
       return res.status(409).json({ error: 'No se pudo reservar un folio único. Intenta nuevamente.' });
     }
+    const fleetUnitId = await resolveFleetUnitId(body.empresa, body.numeroEconomico, client);
     const result = await client.query(
       `INSERT INTO garantias (
         id, folio, numero_obra, modelo, numero_economico, empresa, kilometraje, contacto_nombre, telefono, tipo_incidente,
@@ -1273,9 +1287,9 @@ app.post('/api/garantias', authRequired, requireRoles('operador', 'admin'), asyn
         estatus_validacion, estatus_operativo,
         evidencias, evidencias_refaccion, firma,
         reportado_por_id, reportado_por_nombre, reportado_por_email,
-        updated_at
+        fleet_unit_id, updated_at
       ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'nueva','sin iniciar',$14::jsonb,$15::jsonb,$16,$17,$18,$19,NOW()
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'nueva','sin iniciar',$14::jsonb,$15::jsonb,$16,$17,$18,$19,$20,NOW()
       ) RETURNING *`,
       [
         id,
@@ -1297,6 +1311,7 @@ app.post('/api/garantias', authRequired, requireRoles('operador', 'admin'), asyn
         req.user.id,
         req.user.nombre,
         req.user.email,
+        fleetUnitId,
       ]
     );
     await client.query('COMMIT');
@@ -1340,6 +1355,7 @@ app.patch('/api/garantias/:id', authRequired, requireRoles('admin'), async (req,
     const current = await pool.query('SELECT * FROM garantias WHERE id = $1', [req.params.id]);
     if (!current.rowCount) return res.status(404).json({ error: 'Reporte no encontrado.' });
 
+    const fleetUnitId = await resolveFleetUnitId(payload.empresa, payload.numeroEconomico);
     const result = await pool.query(
       `UPDATE garantias SET
         numero_obra = $2,
@@ -1356,6 +1372,7 @@ app.patch('/api/garantias/:id', authRequired, requireRoles('admin'), async (req,
         evidencias = $13::jsonb,
         evidencias_refaccion = $14::jsonb,
         firma = $15,
+        fleet_unit_id = $16,
         updated_at = NOW()
        WHERE id = $1
        RETURNING *`,
@@ -1374,7 +1391,8 @@ app.patch('/api/garantias/:id', authRequired, requireRoles('admin'), async (req,
         payload.detalleRefaccion,
         JSON.stringify(payload.evidencias || []),
         JSON.stringify(payload.evidenciasRefaccion || []),
-        payload.firma
+        payload.firma,
+        fleetUnitId
       ]
     );
 
@@ -1486,6 +1504,34 @@ app.get('/api/history/unit/:numeroEconomico', authRequired, requireRoles('admin'
 });
 
 
+
+
+async function ensureCampaignGroup({ campaignName, empresa, notes = '', actor = {} }, client = pool) {
+  const result = await client.query(
+    `INSERT INTO campaign_groups (id, campaign_name, empresa, notes, created_by_id, created_by_nombre)
+     VALUES ($1,$2,$3,$4,$5,$6)
+     ON CONFLICT (campaign_name, empresa)
+     DO UPDATE SET
+       notes = CASE WHEN EXCLUDED.notes <> '' THEN EXCLUDED.notes ELSE campaign_groups.notes END,
+       updated_at = NOW()
+     RETURNING *`,
+    [cryptoRandomId(), campaignName, empresa, String(notes || '').trim(), actor.id || null, actor.nombre || 'Sistema']
+  );
+  return result.rows[0];
+}
+
+async function resolveFleetUnitId(empresa, numeroEconomico, client = pool) {
+  if (!empresa || !numeroEconomico) return null;
+  const found = await client.query(
+    `SELECT id
+     FROM fleet_units
+     WHERE LOWER(TRIM(empresa)) = LOWER(TRIM($1))
+       AND LOWER(TRIM(numero_economico)) = LOWER(TRIM($2))
+     LIMIT 1`,
+    [empresa, numeroEconomico]
+  );
+  return found.rows[0]?.id || null;
+}
 
 async function recalculateFleetCampaignFlag(fleetUnitId, client = pool) {
   if (!fleetUnitId) return;
@@ -1965,9 +2011,13 @@ app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','
   const u = unit.rows[0];
   const reports = await pool.query(`
     SELECT * FROM garantias
-    WHERE empresa = $1 AND numero_economico = $2
+    WHERE fleet_unit_id = $1
+       OR (
+         LOWER(TRIM(empresa)) = LOWER(TRIM($2))
+         AND LOWER(TRIM(numero_economico)) = LOWER(TRIM($3))
+       )
     ORDER BY created_at DESC
-  `, [u.empresa, u.numero_economico]);
+  `, [u.id, u.empresa, u.numero_economico]);
   const costs = await pool.query(`
     SELECT * FROM fleet_cost_entries
     WHERE fleet_unit_id = $1
@@ -2279,6 +2329,93 @@ app.patch('/api/parts/requests/:id', authRequired, requireRoles('admin','supervi
 
 
 
+
+app.get('/api/campaign-groups', authRequired, requireRoles('admin','supervisor_flotas','operativo'), async (req, res) => {
+  try {
+    const params = [];
+    const where = [];
+    if (req.user.role === 'supervisor_flotas') {
+      params.push(req.user.empresa || '');
+      where.push(`empresa = $${params.length}`);
+    } else if (req.query.empresa) {
+      params.push(String(req.query.empresa).trim());
+      where.push(`empresa = $${params.length}`);
+    }
+    const result = await pool.query(
+      `SELECT * FROM campaign_groups ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY updated_at DESC, created_at DESC`,
+      params
+    );
+    res.json(result.rows.map(mapCampaignGroup));
+  } catch (error) {
+    console.error('Error cargando grupos de campaña:', error);
+    res.status(500).json({ error: 'No se pudieron cargar las campañas.' });
+  }
+});
+
+app.post('/api/campaign-groups', authRequired, requireRoles('admin'), async (req, res) => {
+  try {
+    const campaignName = String(req.body.campaignName || '').trim();
+    const empresa = String(req.body.empresa || '').trim();
+    const notes = String(req.body.notes || '').trim();
+    if (!campaignName || !empresa) return res.status(400).json({ error: 'Completa nombre de campaña y empresa.' });
+    const group = await ensureCampaignGroup({ campaignName, empresa, notes, actor: req.user });
+    res.status(201).json(mapCampaignGroup(group));
+  } catch (error) {
+    console.error('Error creando campaña:', error);
+    res.status(500).json({ error: 'No se pudo crear la campaña.' });
+  }
+});
+
+app.patch('/api/campaign-groups/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  try {
+    const current = await pool.query(`SELECT * FROM campaign_groups WHERE id = $1`, [req.params.id]);
+    if (!current.rowCount) return res.status(404).json({ error: 'Campaña no encontrada.' });
+    const campaignName = String(req.body.campaignName || current.rows[0].campaign_name || '').trim();
+    const empresa = String(req.body.empresa || current.rows[0].empresa || '').trim();
+    const notes = String(req.body.notes === undefined ? (current.rows[0].notes || '') : req.body.notes || '').trim();
+    const updated = await pool.query(
+      `UPDATE campaign_groups
+       SET campaign_name = $2, empresa = $3, notes = $4, updated_at = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [req.params.id, campaignName, empresa, notes]
+    );
+    await pool.query(
+      `UPDATE campaign_records SET campaign_name = $2, empresa = $3, updated_at = NOW() WHERE campaign_group_id = $1`,
+      [req.params.id, campaignName, empresa]
+    );
+    res.json(mapCampaignGroup(updated.rows[0]));
+  } catch (error) {
+    console.error('Error actualizando campaña:', error);
+    res.status(500).json({ error: 'No se pudo actualizar la campaña.' });
+  }
+});
+
+app.delete('/api/campaign-groups/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const rows = await client.query(`SELECT fleet_unit_id FROM campaign_records WHERE campaign_group_id = $1`, [req.params.id]);
+    await client.query(`DELETE FROM campaign_records WHERE campaign_group_id = $1`, [req.params.id]);
+    const deleted = await client.query(`DELETE FROM campaign_groups WHERE id = $1 RETURNING *`, [req.params.id]);
+    if (!deleted.rowCount) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Campaña no encontrada.' });
+    }
+    for (const row of rows.rows) {
+      await recalculateFleetCampaignFlag(row.fleet_unit_id, client);
+    }
+    await client.query('COMMIT');
+    res.json({ ok: true });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(()=>{});
+    console.error('Error eliminando campaña:', error);
+    res.status(500).json({ error: 'No se pudo eliminar la campaña.' });
+  } finally {
+    client.release();
+  }
+});
+
 app.get('/api/campaigns', authRequired, requireRoles('admin','supervisor_flotas','operativo'), async (req, res) => {
   try {
     const params = [];
@@ -2292,11 +2429,14 @@ app.get('/api/campaigns', authRequired, requireRoles('admin','supervisor_flotas'
     }
     const result = await pool.query(
       `SELECT cr.*,
+              cg.id AS campaign_group_id,
+              COALESCE(cg.campaign_name, cr.campaign_name) AS campaign_name,
               CONCAT(COALESCE(fu.numero_economico,''), CASE WHEN COALESCE(fu.modelo,'') <> '' THEN ' · ' || fu.modelo ELSE '' END) AS unit_label
        FROM campaign_records cr
+       LEFT JOIN campaign_groups cg ON cg.id = cr.campaign_group_id
        LEFT JOIN fleet_units fu ON fu.id = cr.fleet_unit_id
        ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-       ORDER BY cr.updated_at DESC, cr.created_at DESC`,
+       ORDER BY COALESCE(cg.campaign_name, cr.campaign_name) ASC, cr.updated_at DESC, cr.created_at DESC`,
       params
     );
     res.json(result.rows.map(mapCampaignRecord));
@@ -2308,25 +2448,38 @@ app.get('/api/campaigns', authRequired, requireRoles('admin','supervisor_flotas'
 
 app.post('/api/campaigns', authRequired, requireRoles('admin'), async (req, res) => {
   try {
+    const campaignGroupId = String(req.body.campaignGroupId || '').trim();
     const campaignName = String(req.body.campaignName || '').trim();
     const empresa = String(req.body.empresa || '').trim();
     const fleetUnitId = String(req.body.fleetUnitId || '').trim();
     const status = String(req.body.status || 'sin_programar').trim();
     const evidencia = Array.isArray(req.body.evidencia) ? req.body.evidencia.filter(Boolean) : [];
     const notes = String(req.body.notes || '').trim();
-    if (!campaignName || !empresa || !fleetUnitId) return res.status(400).json({ error: 'Completa campaña, empresa y unidad.' });
+    if (!empresa) return res.status(400).json({ error: 'Selecciona una empresa.' });
     if (!['sin_programar','programada','realizada'].includes(status)) return res.status(400).json({ error: 'Estado de campaña inválido.' });
+    let group = null;
+    if (campaignGroupId) {
+      const found = await pool.query(`SELECT * FROM campaign_groups WHERE id = $1`, [campaignGroupId]);
+      group = found.rows[0] || null;
+    }
+    if (!group) {
+      if (!campaignName) return res.status(400).json({ error: 'Completa nombre de campaña.' });
+      group = await ensureCampaignGroup({ campaignName, empresa, notes, actor: req.user });
+    }
+    if (!fleetUnitId) return res.status(400).json({ error: 'Selecciona la unidad que se agregará a la campaña.' });
     const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 AND empresa = $2`, [fleetUnitId, empresa]);
     if (!unit.rowCount) return res.status(404).json({ error: 'Unidad no encontrada en esa empresa.' });
+    const dup = await pool.query(`SELECT id FROM campaign_records WHERE campaign_group_id = $1 AND fleet_unit_id = $2 LIMIT 1`, [group.id, fleetUnitId]);
+    if (dup.rowCount) return res.status(409).json({ error: 'Esa unidad ya está dentro de la campaña.' });
     const result = await pool.query(
       `INSERT INTO campaign_records (
-         id, campaign_name, empresa, fleet_unit_id, numero_economico, status, evidencia, notes, created_by_id, created_by_nombre
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         id, campaign_group_id, campaign_name, empresa, fleet_unit_id, numero_economico, status, evidencia, notes, created_by_id, created_by_nombre
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
        RETURNING *`,
-      [cryptoRandomId(), campaignName, empresa, fleetUnitId, unit.rows[0].numero_economico, status, JSON.stringify(evidencia), notes, req.user.id, req.user.nombre]
+      [cryptoRandomId(), group.id, group.campaign_name, empresa, fleetUnitId, unit.rows[0].numero_economico, status, JSON.stringify(evidencia), notes, req.user.id, req.user.nombre]
     );
     await recalculateFleetCampaignFlag(fleetUnitId);
-    res.status(201).json(mapCampaignRecord(result.rows[0]));
+    res.status(201).json(mapCampaignRecord({ ...result.rows[0], campaign_group_id: group.id }));
   } catch (error) {
     console.error('Error creando campaña:', error);
     res.status(500).json({ error: 'No se pudo guardar la campaña.' });
@@ -2335,10 +2488,10 @@ app.post('/api/campaigns', authRequired, requireRoles('admin'), async (req, res)
 
 app.patch('/api/campaigns/:id', authRequired, requireRoles('admin'), async (req, res) => {
   try {
-    const found = await pool.query(`SELECT * FROM campaign_records WHERE id = $1`, [req.params.id]);
+    const found = await pool.query(`SELECT cr.*, cg.campaign_name AS group_campaign_name FROM campaign_records cr LEFT JOIN campaign_groups cg ON cg.id = cr.campaign_group_id WHERE cr.id = $1`, [req.params.id]);
     if (!found.rowCount) return res.status(404).json({ error: 'Campaña no encontrada.' });
     const current = found.rows[0];
-    const campaignName = String(req.body.campaignName || current.campaign_name || '').trim();
+    const campaignName = String(current.group_campaign_name || current.campaign_name || '').trim();
     const empresa = String(req.body.empresa || current.empresa || '').trim();
     const status = String(req.body.status || current.status || 'sin_programar').trim();
     const evidencia = Array.isArray(req.body.evidencia) ? req.body.evidencia.filter(Boolean) : (Array.isArray(current.evidencia) ? current.evidencia : []);
