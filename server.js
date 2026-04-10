@@ -808,6 +808,7 @@ async function initDb() {
     );
     ALTER TABLE campaign_groups ADD COLUMN IF NOT EXISTS nombre TEXT;
     ALTER TABLE campaign_groups ADD COLUMN IF NOT EXISTS campaign_nombre TEXT;
+    ALTER TABLE campaign_groups ADD COLUMN IF NOT EXISTS campaign_name TEXT;
     ALTER TABLE campaign_groups ADD COLUMN IF NOT EXISTS empresa TEXT;
     ALTER TABLE campaign_groups ADD COLUMN IF NOT EXISTS notas TEXT;
     ALTER TABLE campaign_groups ADD COLUMN IF NOT EXISTS created_by_id TEXT;
@@ -820,6 +821,15 @@ async function initDb() {
     UPDATE campaign_groups
     SET campaign_nombre = COALESCE(NULLIF(campaign_nombre, ''), nombre)
     WHERE COALESCE(campaign_nombre, '') = '' AND COALESCE(nombre, '') <> '';
+    UPDATE campaign_groups
+    SET campaign_name = COALESCE(NULLIF(campaign_name, ''), NULLIF(campaign_nombre, ''), nombre)
+    WHERE COALESCE(campaign_name, '') = '' AND (COALESCE(campaign_nombre, '') <> '' OR COALESCE(nombre, '') <> '');
+    UPDATE campaign_groups
+    SET nombre = COALESCE(NULLIF(nombre, ''), NULLIF(campaign_name, ''), campaign_nombre)
+    WHERE COALESCE(nombre, '') = '' AND (COALESCE(campaign_name, '') <> '' OR COALESCE(campaign_nombre, '') <> '');
+    UPDATE campaign_groups
+    SET campaign_nombre = COALESCE(NULLIF(campaign_nombre, ''), NULLIF(campaign_name, ''), nombre)
+    WHERE COALESCE(campaign_nombre, '') = '' AND (COALESCE(campaign_name, '') <> '' OR COALESCE(nombre, '') <> '');
 
     CREATE TABLE IF NOT EXISTS campaign_units (
       id TEXT PRIMARY KEY,
@@ -1953,7 +1963,7 @@ app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','
   let campaigns = { rows: [] };
   try {
     campaigns = await pool.query(`
-      SELECT cu.*, COALESCE(cg.nombre, cg.campaign_nombre, '') AS campaign_nombre
+      SELECT cu.*, COALESCE(cg.nombre, cg.campaign_nombre, cg.campaign_name, '') AS campaign_nombre
       FROM campaign_units cu
       JOIN campaign_groups cg ON cg.id = cu.campaign_group_id
       WHERE lower(regexp_replace(cu.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g'))
@@ -2000,7 +2010,7 @@ app.get('/api/campaigns', authRequired, requireRoles('admin','operativo','superv
       where.push(`lower(regexp_replace(cg.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($${params.length}, '[^a-zA-Z0-9]+','','g'))`);
     }
     const groups = await pool.query(`
-      SELECT cg.*, COALESCE(cg.nombre, cg.campaign_nombre, '') AS nombre_resuelto, COUNT(cu.id)::int AS unidades,
+      SELECT cg.*, COALESCE(cg.nombre, cg.campaign_nombre, cg.campaign_name, '') AS nombre_resuelto, COUNT(cu.id)::int AS unidades,
              COUNT(*) FILTER (WHERE cu.status = 'sin_programar')::int AS sin_programar,
              COUNT(*) FILTER (WHERE cu.status = 'programada')::int AS programadas,
              COUNT(*) FILTER (WHERE cu.status = 'realizada')::int AS realizadas
@@ -2010,7 +2020,7 @@ app.get('/api/campaigns', authRequired, requireRoles('admin','operativo','superv
       GROUP BY cg.id
       ORDER BY cg.updated_at DESC, cg.created_at DESC
     `, params);
-    res.json(groups.rows.map(r => ({ id:r.id, nombre:r.nombre || r.campaign_nombre || '', empresa:r.empresa || '', notas:r.notas || '', unidades:Number(r.unidades||0), sinProgramar:Number(r.sin_programar||0), programadas:Number(r.programadas||0), realizadas:Number(r.realizadas||0), createdAt:r.created_at, updatedAt:r.updated_at })));
+    res.json(groups.rows.map(r => ({ id:r.id, nombre:r.nombre || r.campaign_nombre || r.campaign_name || '', empresa:r.empresa || '', notas:r.notas || '', unidades:Number(r.unidades||0), sinProgramar:Number(r.sin_programar||0), programadas:Number(r.programadas||0), realizadas:Number(r.realizadas||0), createdAt:r.created_at, updatedAt:r.updated_at })));
   } catch (error) {
     console.error('Error leyendo campañas:', error);
     res.status(500).json({ error:'No se pudieron cargar las campañas.' });
@@ -2023,7 +2033,7 @@ app.post('/api/campaigns', authRequired, requireRoles('admin'), async (req, res)
     const empresa = String(req.body.empresa || '').trim();
     const notas = String(req.body.notas || '').trim();
     if (!nombre || !empresa) return res.status(400).json({ error:'Nombre y empresa son obligatorios.' });
-    const result = await pool.query(`INSERT INTO campaign_groups (id, nombre, campaign_nombre, empresa, notas, created_by_id, created_by_nombre) VALUES ($1,$2,$2,$3,$4,$5,$6) RETURNING *`, [cryptoRandomId(), nombre, empresa, notas, req.user.id, req.user.nombre]);
+    const result = await pool.query(`INSERT INTO campaign_groups (id, nombre, campaign_nombre, campaign_name, empresa, notas, created_by_id, created_by_nombre) VALUES ($1,$2,$2,$2,$3,$4,$5,$6) RETURNING *`, [cryptoRandomId(), nombre, empresa, notas, req.user.id, req.user.nombre]);
     res.status(201).json(result.rows[0]);
   } catch (error) { console.error('Error creando campaña:', error); res.status(500).json({ error:'No se pudo crear la campaña.' }); }
 });
@@ -2034,11 +2044,26 @@ app.patch('/api/campaigns/:id', authRequired, requireRoles('admin'), async (req,
     const empresa = String(req.body.empresa || '').trim();
     const notas = String(req.body.notas || '').trim();
     if (!nombre || !empresa) return res.status(400).json({ error:'Nombre y empresa son obligatorios.' });
-    const result = await pool.query(`UPDATE campaign_groups SET nombre=$2, campaign_nombre=$2, empresa=$3, notas=$4, updated_at=NOW() WHERE id=$1 RETURNING *`, [req.params.id, nombre, empresa, notas]);
+    const result = await pool.query(`UPDATE campaign_groups SET nombre=$2, campaign_nombre=$2, campaign_name=$2, empresa=$3, notas=$4, updated_at=NOW() WHERE id=$1 RETURNING *`, [req.params.id, nombre, empresa, notas]);
     if (!result.rowCount) return res.status(404).json({ error:'Campaña no encontrada.' });
     await markFleetCampaignFlagsForCompany(empresa);
     res.json(result.rows[0]);
   } catch (error) { console.error('Error actualizando campaña:', error); res.status(500).json({ error:'No se pudo actualizar la campaña.' }); }
+});
+
+
+app.delete('/api/campaigns/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  try {
+    const existing = await pool.query(`SELECT * FROM campaign_groups WHERE id=$1`, [req.params.id]);
+    if (!existing.rowCount) return res.status(404).json({ error:'Campaña no encontrada.' });
+    const empresa = existing.rows[0].empresa || '';
+    await pool.query(`DELETE FROM campaign_groups WHERE id=$1`, [req.params.id]);
+    await markFleetCampaignFlagsForCompany(empresa);
+    res.json({ ok:true });
+  } catch (error) {
+    console.error('Error eliminando campaña:', error);
+    res.status(500).json({ error:'No se pudo eliminar la campaña.' });
+  }
 });
 
 app.get('/api/campaigns/:id/units', authRequired, requireRoles('admin','operativo','supervisor_flotas'), async (req, res) => {
@@ -2054,7 +2079,7 @@ app.get('/api/campaigns/:id/units', authRequired, requireRoles('admin','operativ
       LEFT JOIN fleet_units fu ON lower(regexp_replace(fu.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace(cu.empresa, '[^a-zA-Z0-9]+','','g')) AND lower(regexp_replace(fu.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace(cu.numero_economico, '[^a-zA-Z0-9]+','','g'))
       WHERE cu.campaign_group_id = $1
       ORDER BY cu.updated_at DESC, cu.numero_economico ASC`, [req.params.id]);
-    res.json({ group: { id:group.rows[0].id, nombre:(group.rows[0].nombre || group.rows[0].campaign_nombre || ''), empresa:group.rows[0].empresa, notas:group.rows[0].notas || '' }, units: units.rows.map(r => ({ id:r.id, campaignGroupId:r.campaign_group_id, empresa:r.empresa || '', numeroEconomico:r.numero_economico || '', status:r.status || 'sin_programar', evidencia:Array.isArray(r.evidencia)?r.evidencia:[], notas:r.notas || '', fleetUnitId:r.fleet_unit_id || '', numeroObra:r.numero_obra || '', marca:r.marca || '', modelo:r.modelo || '', anio:r.anio || '', kilometraje:r.kilometraje || '', polizaActiva:!!r.poliza_activa, reportesCount:Number(r.reportes_count||0), lastReportAt:r.last_report_at || null, updatedAt:r.updated_at })) });
+    res.json({ group: { id:group.rows[0].id, nombre:(group.rows[0].nombre || group.rows[0].campaign_nombre || group.rows[0].campaign_name || ''), empresa:group.rows[0].empresa, notas:group.rows[0].notas || '' }, units: units.rows.map(r => ({ id:r.id, campaignGroupId:r.campaign_group_id, empresa:r.empresa || '', numeroEconomico:r.numero_economico || '', status:r.status || 'sin_programar', evidencia:Array.isArray(r.evidencia)?r.evidencia:[], notas:r.notas || '', fleetUnitId:r.fleet_unit_id || '', numeroObra:r.numero_obra || '', marca:r.marca || '', modelo:r.modelo || '', anio:r.anio || '', kilometraje:r.kilometraje || '', polizaActiva:!!r.poliza_activa, reportesCount:Number(r.reportes_count||0), lastReportAt:r.last_report_at || null, updatedAt:r.updated_at })) });
   } catch (error) { console.error('Error leyendo unidades de campaña:', error); res.status(500).json({ error:'No se pudieron cargar las unidades de campaña.' }); }
 });
 
