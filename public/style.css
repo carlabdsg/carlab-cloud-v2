@@ -5742,3 +5742,12 @@ body:not(.operator-mode)[data-panel="campaigns"] .cardUnidad.status-blue { --bus
 .campaign-form-card { margin-top:18px; }
 body[data-panel="campaigns"] .campaign-layout .owner-card { min-height: 0; }
 body[data-panel="campaigns"] #campaignDetail { min-height: 200px; }
+
+
+.board-quick-strip{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 14px}
+.board-quick-chip{border:1px solid rgba(148,163,184,.24);background:rgba(255,255,255,.9);border-radius:999px;padding:10px 14px;font:inherit;font-weight:700;color:#1f2937;cursor:pointer;box-shadow:0 8px 24px rgba(15,23,42,.06)}
+.board-quick-chip:hover{transform:translateY(-1px);box-shadow:0 12px 28px rgba(15,23,42,.1)}
+.owner-card-report-strip{margin:16px 0 18px}
+.fleet-report-row{grid-template-columns:minmax(0,1.7fr) auto auto auto;align-items:center;gap:10px}
+.campaign-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+body[data-panel="campaigns"] .campaign-card-grid .cardUnidad{height:100%}

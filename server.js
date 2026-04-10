@@ -802,6 +802,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_campaign_records_unique_unit_group ON camp
 
 ALTER TABLE work_quotes ADD COLUMN IF NOT EXISTS costs_synced_to_fleet BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE work_quotes ADD COLUMN IF NOT EXISTS costs_synced_at TIMESTAMPTZ;
+ALTER TABLE fleet_cost_entries ADD COLUMN IF NOT EXISTS source_quote_id TEXT;
+ALTER TABLE fleet_cost_entries ADD COLUMN IF NOT EXISTS source_item_type TEXT;
+CREATE INDEX IF NOT EXISTS idx_fleet_cost_entries_source_quote ON fleet_cost_entries(source_quote_id);
 
 
     ALTER TABLE users ADD COLUMN IF NOT EXISTS empresa TEXT;
@@ -1576,81 +1579,114 @@ async function syncQuoteCostsToFleet(quoteId, actor = {}, externalClient = null)
   try {
     if (!externalClient) await client.query('BEGIN');
     const quoteResult = await client.query(
-      `SELECT q.*, g.folio AS garantia_folio, g.empresa AS garantia_empresa, g.numero_economico AS garantia_unidad, fu.id AS fleet_unit_id
+      `SELECT q.*, g.folio AS garantia_folio, g.empresa AS garantia_empresa, g.numero_economico AS garantia_unidad, g.fleet_unit_id AS garantia_fleet_unit_id
        FROM work_quotes q
        LEFT JOIN garantias g ON g.id = q.garantia_id
-       LEFT JOIN fleet_units fu
-         ON fu.empresa = COALESCE(NULLIF(q.company_name,''), g.empresa)
-        AND fu.numero_economico = COALESCE(NULLIF(q.unit_number,''), g.numero_economico)
        WHERE q.id = $1
        FOR UPDATE`,
       [quoteId]
     );
     if (!quoteResult.rowCount) throw new Error('Cobranza no encontrada.');
     const quote = quoteResult.rows[0];
-    if (quote.payment_status !== 'pagada') {
-      if (!externalClient) await client.query('COMMIT');
-      return { synced: false, reason: 'not_paid' };
-    }
-    if (quote.costs_synced_to_fleet) {
-      if (!externalClient) await client.query('COMMIT');
-      return { synced: false, reason: 'already_synced', fleetUnitId: quote.fleet_unit_id || '' };
-    }
-    let fleetUnitId = quote.fleet_unit_id || null;
+    const paymentStatus = String(quote.payment_status || '').trim();
+    const companyName = String(quote.company_name || quote.garantia_empresa || '').trim();
+    const unitNumber = String(quote.unit_number || quote.garantia_unidad || '').trim();
+
+    let fleetUnitId = quote.garantia_fleet_unit_id || null;
     if (!fleetUnitId) {
-      fleetUnitId = await resolveFleetUnitId(quote.company_name || quote.garantia_empresa, quote.unit_number || quote.garantia_unidad, client);
-      if (fleetUnitId) {
-        await client.query(`UPDATE garantias SET fleet_unit_id = $2 WHERE id = $1 AND $1 IS NOT NULL`, [quote.garantia_id || null, fleetUnitId]).catch(() => {});
+      fleetUnitId = await resolveFleetUnitId(companyName, unitNumber, client);
+      if (!fleetUnitId) {
+        const relaxed = await client.query(
+          `SELECT id
+             FROM fleet_units
+            WHERE LOWER(TRIM(empresa)) = LOWER(TRIM($1))
+              AND REGEXP_REPLACE(COALESCE(numero_economico,''), '[^0-9A-Za-z]+', '', 'g') = REGEXP_REPLACE(COALESCE($2,''), '[^0-9A-Za-z]+', '', 'g')
+            LIMIT 1`,
+          [companyName, unitNumber]
+        );
+        fleetUnitId = relaxed.rows[0]?.id || null;
+      }
+      if (quote.garantia_id && fleetUnitId) {
+        await client.query(`UPDATE garantias SET fleet_unit_id = $2 WHERE id = $1`, [quote.garantia_id, fleetUnitId]).catch(() => {});
       }
     }
+
+    await client.query(`DELETE FROM fleet_cost_entries WHERE source_quote_id = $1`, [quoteId]).catch(() => {});
+
+    if (paymentStatus !== 'pagada') {
+      await client.query(
+        `UPDATE work_quotes
+            SET costs_synced_to_fleet = FALSE,
+                costs_synced_at = NULL,
+                updated_at = NOW()
+          WHERE id = $1`,
+        [quoteId]
+      );
+      if (!externalClient) await client.query('COMMIT');
+      return { synced: false, reason: 'not_paid', removed: true };
+    }
+
     if (!fleetUnitId) {
+      await client.query(
+        `UPDATE work_quotes
+            SET costs_synced_to_fleet = FALSE,
+                updated_at = NOW()
+          WHERE id = $1`,
+        [quoteId]
+      );
       if (!externalClient) await client.query('COMMIT');
       return { synced: false, reason: 'unit_not_found' };
     }
+
     const items = await client.query(
-      `SELECT type, description, total
-       FROM work_quote_items
-       WHERE quote_id = $1
-         AND type IN ('refaccion','mano_obra')`,
+      `SELECT id, type, description, total, qty, unit_price
+         FROM work_quote_items
+        WHERE quote_id = $1
+          AND type IN ('refaccion','mano_obra')
+        ORDER BY created_at ASC, id ASC`,
       [quoteId]
     );
+
     let inserted = 0;
     for (const item of items.rows) {
-      const amount = Number(item.total || 0);
-      if (amount <= 0) continue;
+      const amount = Number(item.total || (Number(item.qty || 0) * Number(item.unit_price || 0)) || 0);
+      if (!Number.isFinite(amount) || amount <= 0) continue;
+      const safeConcept = String(item.description || '').trim() || `${item.type === 'mano_obra' ? 'Mano de obra' : 'Refacción'} ${quote.folio || ''}`.trim();
       await client.query(
         `INSERT INTO fleet_cost_entries (
-           id, fleet_unit_id, garantia_id, tipo, concepto, monto, created_by_id, created_by_nombre
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+           id, fleet_unit_id, garantia_id, tipo, concepto, monto, created_by_id, created_by_nombre, source_quote_id, source_item_type
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
         [
           cryptoRandomId(),
           fleetUnitId,
           quote.garantia_id || null,
           item.type === 'mano_obra' ? 'mano_obra' : 'refaccion',
-          item.description || `Cobranza ${quote.folio || ''}`.trim(),
-          amount,
+          safeConcept,
+          Number(amount.toFixed(2)),
           actor.id || null,
-          actor.nombre || 'Sistema cobranza'
+          actor.nombre || 'Sistema cobranza',
+          quoteId,
+          item.type
         ]
       );
       inserted += 1;
     }
+
     await client.query(
       `UPDATE work_quotes
-       SET costs_synced_to_fleet = TRUE,
-           costs_synced_at = NOW(),
-           updated_at = NOW()
-       WHERE id = $1`,
-      [quoteId]
+          SET costs_synced_to_fleet = $2,
+              costs_synced_at = CASE WHEN $2 THEN NOW() ELSE NULL END,
+              updated_at = NOW()
+        WHERE id = $1`,
+      [quoteId, inserted > 0]
     );
+
     if (quote.garantia_id && fleetUnitId) {
       await client.query(`UPDATE garantias SET fleet_unit_id = $2 WHERE id = $1`, [quote.garantia_id, fleetUnitId]).catch(() => {});
-    }
-    if (quote.garantia_id) {
-      await addAuditLog(quote.garantia_id, actor.id || null, 'sincronizar_cobro_flota', `Cobranza ${quote.folio || 'COB'} enviada a costos de flota (${inserted} concepto(s)).`);
+      await addAuditLog(quote.garantia_id, actor.id || null, 'sincronizar_cobro_flota', `Cobranza ${quote.folio || 'COB'} sincronizada a flota (${inserted} concepto(s)).`);
     }
     if (!externalClient) await client.query('COMMIT');
-    return { synced: true, fleetUnitId, inserted };
+    return { synced: inserted > 0, fleetUnitId, inserted };
   } catch (error) {
     if (!externalClient) await client.query('ROLLBACK');
     throw error;
@@ -1658,227 +1694,6 @@ async function syncQuoteCostsToFleet(quoteId, actor = {}, externalClient = null)
     if (release) client.release();
   }
 }
-
-app.get('/api/schedules', authRequired, requireRoles('admin', 'operativo', 'supervisor', 'supervisor_flotas', 'operador'), async (req, res) => {
-  try {
-    const date = String(req.query.date || '').trim();
-    const params = [];
-    let where = [];
-    if (date) {
-      params.push(date);
-      where.push(`DATE(sr.scheduled_for AT TIME ZONE 'UTC') = $${params.length}`);
-    }
-    if (SUPERVISOR_ROLES.includes(req.user.role)) {
-      params.push(req.user.empresa || '');
-      where.push(`COALESCE(g.empresa, sr.empresa) = $${params.length}`);
-    }
-    if (req.user.role === 'operador') {
-      params.push(req.user.id);
-      where.push(`g.reportado_por_id = $${params.length}`);
-    }
-    const result = await pool.query(`
-      SELECT sr.*,
-        COALESCE(g.folio, sr.folio_manual) AS folio,
-        COALESCE(g.numero_economico, sr.numero_economico) AS numero_economico,
-        COALESCE(g.empresa, sr.empresa) AS empresa,
-        COALESCE(g.contacto_nombre, sr.contacto_nombre) AS contacto_nombre,
-        COALESCE(g.telefono, sr.telefono) AS telefono
-      FROM schedule_requests sr
-      LEFT JOIN garantias g ON g.id = sr.garantia_id
-      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-      ORDER BY COALESCE(sr.scheduled_for, sr.proposed_at, sr.requested_at) ASC
-    `, params);
-    res.json(result.rows.map(scheduleSummary));
-  } catch (error) {
-    console.error('Error leyendo agenda:', error);
-    res.status(500).json({ error: 'No se pudo cargar la agenda.' });
-  }
-});
-
-app.post('/api/schedules/manual', authRequired, requireRoles('admin','operativo'), async (req, res) => {
-  try {
-    const empresa = String(req.body.empresa || '').trim();
-    const unidad = String(req.body.unidad || '').trim();
-    const telefono = normalizeMxPhone(req.body.telefono || '');
-    const folioManual = String(req.body.folio || '').trim();
-    const contactoNombre = String(req.body.contactoNombre || '').trim();
-    const scheduledFor = req.body.scheduledFor ? new Date(req.body.scheduledFor) : null;
-    const notes = String(req.body.notes || '').trim();
-    if (!empresa || !unidad || !scheduledFor || Number.isNaN(scheduledFor.getTime())) return res.status(400).json({ error: 'Completa empresa, unidad y fecha válida.' });
-    const result = await pool.query(`
-      INSERT INTO schedule_requests (id, garantia_id, telefono, status, notes, scheduled_for, confirmed_at, empresa, numero_economico, contacto_nombre, folio_manual)
-      VALUES ($1,NULL,$2,'confirmed',$3,$4,NOW(),$5,$6,$7,$8)
-      RETURNING *
-    `, [cryptoRandomId(), telefono, notes, scheduledFor.toISOString(), empresa, unidad, contactoNombre, folioManual]);
-    res.status(201).json(scheduleSummary(result.rows[0]));
-  } catch (error) {
-    console.error('Error guardando ingreso manual:', error);
-    res.status(500).json({ error: 'No se pudo programar el ingreso manual.' });
-  }
-});
-
-app.post('/api/garantias/:id/request-schedule', authRequired, requireRoles('admin', 'operativo', 'supervisor_flotas'), async (req, res) => {
-  const current = await pool.query('SELECT * FROM garantias WHERE id = $1', [req.params.id]);
-  if (!current.rowCount) return res.status(404).json({ error: 'Garantía no encontrada.' });
-  const garantia = current.rows[0];
-  if (garantia.estatus_validacion !== 'aceptada') return res.status(400).json({ error: 'Solo las garantías aceptadas pueden programarse.' });
-  const scheduleExisting = await pool.query(`SELECT * FROM schedule_requests WHERE garantia_id = $1 AND status IN ('waiting_operator','proposed','confirmed') ORDER BY created_at DESC LIMIT 1`, [req.params.id]);
-  let schedule;
-  if (scheduleExisting.rowCount) {
-    schedule = scheduleExisting.rows[0];
-  } else {
-    const created = await pool.query(`INSERT INTO schedule_requests (id, garantia_id, telefono, status, notes) VALUES ($1,$2,$3,'waiting_operator',$4) RETURNING *`, [cryptoRandomId(), req.params.id, garantia.telefono || '', `Solicitud enviada por ${req.user.nombre}`]);
-    schedule = created.rows[0];
-  }
-  try {
-    if (TWILIO_TEMPLATE_SCHEDULE_REQUEST) {
-      await sendWhatsAppTemplate({
-        telefono: garantia.telefono,
-        contentSid: TWILIO_TEMPLATE_SCHEDULE_REQUEST,
-        variables: { 1: garantia.folio || '' }
-      });
-    } else {
-      const bodyText = `CARLAB GARANTIAS\n\nTu reporte ${garantia.folio} fue aceptado. Responde con la fecha propuesta para ingresar la unidad al taller en formato DD/MM/AAAA HH:MM.\n\nEjemplo: 28/03/2026 09:30`;
-      await sendWhatsAppText({ telefono: garantia.telefono, body: bodyText });
-    }
-  } catch (error) {
-    console.error('Error solicitando programacion WhatsApp:', error.message);
-  }
-  await addAuditLog(req.params.id, req.user.id, 'solicitar_programacion', `${req.user.nombre} solicitó fecha de ingreso por WhatsApp`);
-  const joined = await pool.query(`SELECT sr.*, g.folio, g.numero_economico, g.empresa, g.contacto_nombre FROM schedule_requests sr LEFT JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id = $1`, [schedule.id]);
-  res.status(201).json(scheduleSummary(joined.rows[0]));
-});
-
-app.patch('/api/schedules/:id/confirm', authRequired, requireRoles('admin', 'operativo'), async (req, res) => {
-  const status = String(req.body.status || 'confirmed').trim();
-  const notes = String(req.body.notes || '').trim();
-  const found = await pool.query(`SELECT sr.*, g.folio, g.numero_economico, g.empresa, g.telefono FROM schedule_requests sr JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id = $1`, [req.params.id]);
-  if (!found.rowCount) return res.status(404).json({ error: 'Programación no encontrada.' });
-  const current = found.rows[0];
-  const scheduledFor = req.body.scheduledFor ? new Date(req.body.scheduledFor) : (current.scheduled_for ? new Date(current.scheduled_for) : null);
-
-  if (status === 'confirmed' && scheduledFor) {
-    const busy = await pool.query(
-      `SELECT sr.id FROM schedule_requests sr
-       WHERE sr.id <> $1
-         AND sr.status = 'confirmed'
-         AND DATE(sr.scheduled_for AT TIME ZONE 'UTC') = DATE($2::timestamptz AT TIME ZONE 'UTC')
-         AND TO_CHAR(sr.scheduled_for AT TIME ZONE 'UTC','HH24:MI') = TO_CHAR($2::timestamptz AT TIME ZONE 'UTC','HH24:MI')
-       LIMIT 1`,
-      [req.params.id, scheduledFor.toISOString()]
-    );
-    if (busy.rowCount) {
-      const recommended = new Date(scheduledFor.getTime() + 60*60*1000);
-      return res.status(409).json({
-        error: 'Ese horario ya está ocupado.',
-        recommended: recommended.toISOString()
-      });
-    }
-  }
-
-  const result = await pool.query(
-    `UPDATE schedule_requests
-     SET status = $2,
-         scheduled_for = $3,
-         confirmed_at = CASE WHEN $2 = 'confirmed' THEN NOW() ELSE confirmed_at END,
-         notes = COALESCE(NULLIF($4,''), notes),
-         updated_at = NOW()
-     WHERE id = $1
-     RETURNING *`,
-    [req.params.id, status, scheduledFor, notes]
-  );
-
-  const finalDate = scheduledFor || current.scheduled_for || current.proposed_at;
-  if (status === 'confirmed' && finalDate) {
-    try {
-      const when = current.notes && /\d/.test(current.notes)
-        ? (String(current.notes).split(': ').slice(1).join(': ') || new Date(finalDate).toLocaleString('es-MX'))
-        : new Date(finalDate).toLocaleString('es-MX');
-      await sendWhatsAppText({ telefono: current.telefono, body: `CARLAB GARANTIAS\n\nQuedo confirmada la cita del reporte ${current.folio || 'GAR-—'} para la unidad ${current.numero_economico} el ${when}. Te esperamos en taller.` });
-    } catch (error) { console.error('Error confirmando cita por WhatsApp:', error.message); }
-  }
-  if (status === 'rejected') {
-    try {
-      await sendWhatsAppText({ telefono: current.telefono, body: `CARLAB GARANTIAS\n\nLa fecha propuesta para la unidad ${current.numero_economico} no quedó disponible. Responde con otra opción en formato DD/MM/AAAA HH:MM.` });
-    } catch (error) { console.error('Error rechazando cita por WhatsApp:', error.message); }
-  }
-  const joined = await pool.query(`SELECT sr.*, g.folio, g.numero_economico, g.empresa, g.contacto_nombre, g.telefono FROM schedule_requests sr JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id = $1`, [req.params.id]);
-  res.json(scheduleSummary(joined.rows[0]));
-});
-
-app.post('/api/whatsapp/incoming', async (req, res) => {
-  const from = String(req.body.From || '').replace(/^whatsapp:/i, '').replace(/\D/g, '');
-  const body = String(req.body.Body || '').trim();
-  if (!from || !body) return res.type('text/xml').send('<Response></Response>');
-  const pending = await pool.query(`
-    SELECT sr.*, g.id AS garantia_id, g.folio, g.numero_economico, g.empresa, g.contacto_nombre, g.telefono
-    FROM schedule_requests sr
-    JOIN garantias g ON g.id = sr.garantia_id
-    WHERE sr.telefono = $1 AND sr.status IN ('waiting_operator','rejected')
-    ORDER BY sr.updated_at DESC LIMIT 1
-  `, [normalizeMxPhone(from)]);
-  if (!pending.rowCount) return res.type('text/xml').send('<Response></Response>');
-  const parsed = parseScheduleText(body);
-  if (!parsed) {
-    try { await sendWhatsAppText({ telefono: from, body: 'CARLAB GARANTIAS\n\nNo pude leer la fecha. Envia por favor DD/MM/AAAA HH:MM, por ejemplo 28/03/2026 09:30.' }); } catch {}
-    return res.type('text/xml').send('<Response></Response>');
-  }
-  const schedule = pending.rows[0];
-  await pool.query(`UPDATE schedule_requests SET status = 'proposed', proposed_at = $2, scheduled_for = $2, notes = $3, updated_at = NOW() WHERE id = $1`, [schedule.id, parsed.iso, `Propuesta recibida por WhatsApp: ${parsed.text}`]);
-  await addAuditLog(schedule.garantia_id, null, 'propuesta_programacion', `Operador propuso ${parsed.text} por WhatsApp`);
-  try { await sendWhatsAppText({ telefono: from, body: `CARLAB GARANTIAS\n\nRecibimos tu propuesta para el reporte ${schedule.folio || 'GAR-—'} de la unidad ${schedule.numero_economico}: ${parsed.text}. En cuanto la confirme operaciones, te avisamos por aqui.` }); } catch {}
-  res.type('text/xml').send('<Response></Response>');
-});
-
-app.post('/webhook/whatsapp', async (req, res) => {
-  req.url = '/api/whatsapp/incoming';
-  return app._router.handle(req, res, () => {});
-});
-
-app.post('/api/whatsapp/status', async (req, res) => {
-  console.log('WhatsApp status callback:', { sid: req.body.MessageSid, status: req.body.MessageStatus, to: req.body.To });
-  res.json({ ok: true });
-});
-
-
-app.get('/api/notifications', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas','operador'), async (req, res) => {
-  const params = [];
-  let whereGarantias = [];
-  let whereSchedules = [];
-  if (SUPERVISOR_ROLES.includes(req.user.role)) {
-    params.push(req.user.empresa || '');
-    whereGarantias.push(`g.empresa = $${params.length}`);
-    whereSchedules.push(`g.empresa = $${params.length}`);
-  }
-  if (req.user.role === 'operador') {
-    params.push(req.user.id);
-    whereGarantias.push(`g.reportado_por_id = $${params.length}`);
-    whereSchedules.push(`g.reportado_por_id = $${params.length}`);
-  }
-  const newReports = await pool.query(`
-    SELECT COUNT(*)::int AS count
-    FROM garantias g
-    ${whereGarantias.length ? `WHERE ${whereGarantias.join(' AND ')} AND g.estatus_validacion = 'nueva'` : `WHERE g.estatus_validacion = 'nueva'`}
-  `, params);
-  const pendingSchedules = await pool.query(`
-    SELECT COUNT(*)::int AS count
-    FROM schedule_requests sr
-    JOIN garantias g ON g.id = sr.garantia_id
-    ${whereSchedules.length ? `WHERE ${whereSchedules.join(' AND ')} AND sr.status IN ('waiting_operator','proposed')` : `WHERE sr.status IN ('waiting_operator','proposed')`}
-  `, params);
-  const todaySchedules = await pool.query(`
-    SELECT COUNT(*)::int AS count
-    FROM schedule_requests sr
-    JOIN garantias g ON g.id = sr.garantia_id
-    ${whereSchedules.length ? `WHERE ${whereSchedules.join(' AND ')} AND DATE(sr.scheduled_for AT TIME ZONE 'UTC') = CURRENT_DATE` : `WHERE DATE(sr.scheduled_for AT TIME ZONE 'UTC') = CURRENT_DATE`}
-  `, params);
-  res.json({
-    newReports: newReports.rows[0]?.count || 0,
-    pendingSchedules: pendingSchedules.rows[0]?.count || 0,
-    todaySchedules: todaySchedules.rows[0]?.count || 0
-  });
-});
-
 
 app.get('/api/fleet/summary', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
   const params = [];
@@ -2040,8 +1855,11 @@ app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','
     SELECT * FROM garantias
     WHERE fleet_unit_id = $1
        OR (
-         LOWER(REGEXP_REPLACE(TRIM(empresa), '\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(TRIM($2), '\s+', ' ', 'g'))
-         AND LOWER(REGEXP_REPLACE(TRIM(numero_economico), '\s+', '', 'g')) = LOWER(REGEXP_REPLACE(TRIM($3), '\s+', '', 'g'))
+         LOWER(REGEXP_REPLACE(TRIM(COALESCE(empresa,'')), '\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(TRIM(COALESCE($2,'')), '\s+', ' ', 'g'))
+         AND (
+           LOWER(REGEXP_REPLACE(TRIM(COALESCE(numero_economico,'')), '\s+', '', 'g')) = LOWER(REGEXP_REPLACE(TRIM(COALESCE($3,'')), '\s+', '', 'g'))
+           OR REGEXP_REPLACE(COALESCE(numero_economico,''), '[^0-9A-Za-z]+', '', 'g') = REGEXP_REPLACE(COALESCE($3,''), '[^0-9A-Za-z]+', '', 'g')
+         )
        )
     ORDER BY created_at DESC
   `, [u.id, u.empresa, u.numero_economico]);

@@ -2077,15 +2077,15 @@ function renderCampaignDetail() {
     return;
   }
   const cards = items.map(item => {
-    const unit = (state.fleetUnits || []).find(u => u.id === item.fleetUnitId) || { numeroEconomico:item.numeroEconomico, empresa:item.empresa, modelo:'', marca:'' };
+    const unit = (state.fleetUnits || []).find(u => u.id === item.fleetUnitId) || { numeroEconomico:item.numeroEconomico, empresa:item.empresa, modelo:'', marca:'', numeroObra:'', costoTotal:0, reportsCount:0, lastReportAt:null };
     const meta = campaignStatusMeta(item.status);
     return `
       <article class="fleet-line-item campaign-tile-item">
         <div class="cardUnidad ${meta.visual}">
           <div class="headerUnidad">
             <div>
-              <div class="numeroUnidad">${escapeHtml(item.numeroEconomico || '—')}</div>
-              <div class="unidadTitulo">${escapeHtml(item.empresa || '—')}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}${unit.marca ? ' · ' + escapeHtml(unit.marca) : ''}</div>
+              <div class="numeroUnidad">${escapeHtml(item.numeroEconomico || unit.numeroEconomico || '—')}</div>
+              <div class="unidadTitulo">${escapeHtml(item.empresa || unit.empresa || '—')}${unit.modelo ? ' · ' + escapeHtml(unit.modelo) : ''}${unit.marca ? ' · ' + escapeHtml(unit.marca) : ''}</div>
             </div>
             <div class="chipsUnidad chipsUnidad--top">
               <span class="fleet-chip campaign">${escapeHtml(group.campaignName)}</span>
@@ -2099,9 +2099,15 @@ function renderCampaignDetail() {
               <div class="busHeroStatus">${escapeHtml(meta.label)}</div>
             </div>
             <div class="busHeroMeta">
-              <div class="infoUnidad infoUnidad--hero"><span>${escapeHtml(group.campaignName)}</span><span>${escapeHtml(item.notes || 'Sin notas')}</span></div>
+              <div class="infoUnidad infoUnidad--hero">
+                <span>${unit.numeroObra ? `Obra ${escapeHtml(unit.numeroObra)}` : 'Sin obra asignada'}</span>
+                <span>${escapeHtml(item.notes || 'Sin notas operativas')}</span>
+              </div>
               <div class="costoUnidad">Campaña: ${escapeHtml(group.campaignName)}</div>
-              <div class="busHeroStats"><div class="busHeroStat"><span>Unidad</span><strong>${escapeHtml(item.numeroEconomico || '—')}</strong></div><div class="busHeroStat"><span>Actualizado</span><strong>${escapeHtml(fmtDate(item.updatedAt || item.createdAt))}</strong></div></div>
+              <div class="busHeroStats">
+                <div class="busHeroStat"><span>Reportes</span><strong>${Number(unit.reportsCount || unit.reportesCount || 0)}</strong></div>
+                <div class="busHeroStat"><span>Último movimiento</span><strong>${unit.lastReportAt ? fmtDate(unit.lastReportAt) : 'Sin movimiento'}</strong></div>
+              </div>
             </div>
           </div>
           <div class="campaign-card-body">
@@ -2122,7 +2128,7 @@ function renderCampaignDetail() {
       <label class="span-2"><span>Evidencia</span><input id="campaignEvidenceInput" type="file" accept="image/*" multiple /><div class="stack-inline evidence-capture-row"><label class="btn btn-secondary evidence-capture-btn" for="campaignEvidenceCamera">Tomar foto con cámara</label><input id="campaignEvidenceCamera" class="camera-capture-input" type="file" accept="image/*" capture="environment" /></div><div id="campaignEvidencePreview" class="preview-grid"></div></label>
       <div class="schedule-manual-actions span-2"><button id="campaignUnitSaveBtn" class="btn btn-primary" type="submit">Agregar unidad</button></div>
     </form>` : '';
-  els.campaignDetail.innerHTML = `<div class="campaign-detail-head"><div><div class="topbar-kicker">CAMPAÑA</div><h3>${escapeHtml(group.campaignName)}</h3><p class="muted">${escapeHtml(group.empresa || '—')}${group.notes ? ' · ' + escapeHtml(group.notes) : ''}</p></div><span class="badge badge-info">${items.length} unidad(es)</span></div>${addUnit}<div class="fleet-units-grid"><div class="fleet-line-list campaign-line-list">${cards}</div></div>`;
+  els.campaignDetail.innerHTML = `<div class="campaign-detail-head"><div><div class="topbar-kicker">CAMPAÑA</div><h3>${escapeHtml(group.campaignName)}</h3><p class="muted">${escapeHtml(group.empresa || '—')}${group.notes ? ' · ' + escapeHtml(group.notes) : ''}</p></div><span class="badge badge-info">${items.length} unidad(es)</span></div>${addUnit}<div class="fleet-units-grid"><div class="fleet-line-list campaign-line-list campaign-card-grid">${cards}</div></div>`;
   drawPreviews(document.getElementById('campaignEvidencePreview'), state.campaignEvidence, 'campaign');
   document.getElementById('campaignEvidenceInput')?.addEventListener('change', async e => { await handleFiles([...e.target.files], 'campaign'); e.target.value=''; });
   document.getElementById('campaignEvidenceCamera')?.addEventListener('change', async e => { await handleFiles([...e.target.files], 'campaign'); e.target.value=''; });
@@ -2334,10 +2340,11 @@ function renderFleetDetail() {
   const unitCampaigns = (Array.isArray(data.campaigns) && data.campaigns.length ? data.campaigns : (state.campaigns || []).filter(item => item.fleetUnitId === u.id || (normalizeText(item.empresa) === normalizeText(u.empresa) && normalizeText(item.numeroEconomico) === normalizeText(u.numeroEconomico))));
   const allImages = reportsArr.flatMap(r => [...(r.evidencias || []), ...(r.evidenciasRefaccion || [])]).filter(Boolean);
   const reports = reportsArr.map(r => `
-    <div class="table-row rich-row">
-      <div><strong>${escapeHtml(r.folio || 'GAR-—')}</strong><div class="small muted">${escapeHtml(r.descripcionFallo || 'Sin descripción')}</div></div>
+    <div class="table-row rich-row fleet-report-row">
+      <div><strong>${escapeHtml(r.folio || 'GAR-—')}</strong><div class="small muted">${escapeHtml(r.descripcionFallo || 'Sin descripción')}</div><div class="small muted">${escapeHtml(fmtDate(r.createdAt))}</div></div>
       <div><span class="badge ${badgeClassValidation(r.estatusValidacion || 'nueva')}">${escapeHtml(r.estatusValidacion || '—')}</span></div>
       <div><span class="badge ${badgeClassOperational(r.estatusOperativo || 'sin iniciar')}">${escapeHtml(r.estatusOperativo || '—')}</span></div>
+      <div class="action-row"><button class="btn btn-ghost" type="button" data-open-unit-report="${escapeHtml(r.id || '')}">Abrir</button></div>
     </div>
   `).join('') || '<div class="muted">Sin reportes ligados.</div>';
   const costs = costsArr.map(c => `
@@ -2417,6 +2424,10 @@ function renderFleetDetail() {
       <article><span>Agenda</span><strong>${unitSchedules.length}</strong></article>
       <article><span>Fotos</span><strong>${allImages.length}</strong></article>
     </div>
+    <section class="owner-card owner-card-report-strip">
+      <div class="owner-card-head"><strong>Reportes ligados a esta unidad</strong><span class="badge badge-info">${reportsArr.length} registro(s)</span></div>
+      <div class="table-list compact-list fleet-scroll-area">${reports}</div>
+    </section>
     <div class="fleet-hero">
       <div class="fleet-hero-main">
         <div class="mini-grid fleet-meta-grid">
@@ -2441,7 +2452,7 @@ function renderFleetDetail() {
     </div>
     <div class="owner-card owner-gallery-card"><div class="owner-card-head"><strong>Galería de evidencia</strong><span class="badge badge-info">Fotos ampliables</span></div>${buildImageGallery(allImages, 'No hay evidencia cargada todavía para esta unidad.')}</div>
     <div class="fleet-columns">
-      <section class="fleet-scroll-card"><div class="topbar-kicker">REPORTES</div><div class="table-list compact-list fleet-scroll-area">${reports}</div></section>
+      <section class="fleet-scroll-card"><div class="topbar-kicker">HISTORIAL DE REPORTES</div><div class="table-list compact-list fleet-scroll-area">${reports}</div></section>
       <section class="fleet-scroll-card"><div class="topbar-kicker">COSTOS</div><div class="table-list compact-list fleet-scroll-area">${costs}</div>${adminCostsEditor}</section>
     </div>
   `;
@@ -2450,6 +2461,10 @@ function renderFleetDetail() {
   document.getElementById('fleetCloseDetailBtn')?.addEventListener('click', () => {
     closeFleetDetailModal();
   });
+  modalContent?.querySelectorAll('[data-open-unit-report]').forEach(btn => btn.addEventListener('click', () => {
+    const found = reportsArr.find(r => r.id === btn.dataset.openUnitReport);
+    if (found) openReportDetailModal(found);
+  }));
   if (isRole('admin')) {
     document.getElementById('fleetManualStatus').value = ({ operando:'operando', 'en_taller':'en_taller', detenida:'detenida', programada:'programada' })[sem.key || 'operando'] || 'operando';
     document.getElementById('fleetApplyStatusBtn')?.addEventListener('click', async () => {
@@ -2594,6 +2609,16 @@ function renderGarantias() {
   const items = filteredGarantias();
   if (els.garantiasList) els.garantiasList.innerHTML = '';
   els.emptyState?.classList.toggle('hidden', items.length > 0);
+  if (els.garantiasList && items.length) {
+    const quick = document.createElement('div');
+    quick.className = 'board-quick-strip';
+    quick.innerHTML = items.slice(0, 12).map(item => `<button type="button" class="board-quick-chip" data-report-open="${escapeHtml(item.id)}">${escapeHtml(item.folio || 'GAR-—')} · ${escapeHtml(item.numeroEconomico || '—')} · ${escapeHtml(item.empresa || '—')}</button>`).join('');
+    els.garantiasList.appendChild(quick);
+    quick.querySelectorAll('[data-report-open]').forEach(btn => btn.addEventListener('click', () => {
+      const found = items.find(x => x.id === btn.dataset.reportOpen);
+      if (found) openReportDetailModal(found);
+    }));
+  }
   items.forEach(item => {
     try {
       const node = els.garantiaCardTemplate.content.cloneNode(true);
