@@ -118,6 +118,7 @@
               <button id="navPartsBtn" class="nav-btn hidden" type="button">Refacciones</button>
               <button id="navStockBtn" class="nav-btn hidden" type="button">Stock</button>
               <button id="navCobranzaBtn" class="nav-btn hidden" type="button">Cobranza</button>
+              <button id="navCampaignsBtn" class="nav-btn hidden" type="button">Campañas</button>
             </div>
             <div class="nav-group">
               <div class="nav-group-label">Administración</div>
@@ -460,7 +461,60 @@
           </div>
         </section>
 
-
+        <section id="campaignsPanel" class="panel hidden">
+          <div class="panel-head compact-panel-head">
+            <div>
+              <div class="topbar-kicker">CAMPAÑAS</div>
+              <h3>Campañas por empresa y unidad</h3>
+            </div>
+            <button id="campaignsRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
+          </div>
+          <div id="campaignSummary" class="parts-summary-row"></div>
+          <div class="campaign-layout">
+            <article class="owner-card campaign-form-card">
+              <div class="owner-card-head"><strong>Registrar campaña</strong><span class="badge badge-info">Admin</span></div>
+              <input id="campaignGroupId" type="hidden" />
+              <div class="stock-form-grid">
+                <label><span>Nombre de la campaña</span><input id="campaignName" placeholder="Ej. Revisión de filtraciones abril" /></label>
+                <label><span>Empresa</span><select id="campaignEmpresa"></select></label>
+                <label class="span-2"><span>Notas</span><textarea id="campaignNotes" rows="3" placeholder="Alcance, prioridad o contexto"></textarea></label>
+              </div>
+              <div class="stock-form-actions">
+                <button id="campaignClearBtn" class="btn btn-ghost" type="button">Limpiar</button>
+                <button id="campaignSaveBtn" class="btn btn-primary" type="button">Guardar campaña</button>
+              </div>
+            </article>
+            <article class="owner-card campaign-list-card">
+              <div class="owner-card-head"><strong>Campañas activas</strong><span class="badge badge-info">Tarjetas</span></div>
+              <div id="campaignGroupsList" class="campaign-groups-list"></div>
+            </article>
+          </div>
+          <div id="campaignDetail" class="owner-card hidden">
+            <div class="owner-card-head"><strong id="campaignDetailTitle">Campaña</strong><span id="campaignDetailBadge" class="badge badge-info">0 unidades</span></div>
+            <div class="campaign-layout">
+              <article class="owner-card campaign-form-card" data-role-admin-only>
+                <div class="owner-card-head"><strong>Agregar unidad a campaña</strong><span class="badge badge-info">Visible solo aquí</span></div>
+                <input id="campaignUnitId" type="hidden" />
+                <div class="stock-form-grid">
+                  <label><span>Empresa</span><select id="campaignUnitEmpresa"></select></label>
+                  <label><span>Unidad</span><select id="campaignUnitNumero"></select></label>
+                  <label><span>Estatus</span><select id="campaignUnitStatus"><option value="sin_programar">Sin programar</option><option value="programada">Programada</option><option value="realizada">Realizada</option></select></label>
+                  <label class="span-2"><span>Notas</span><textarea id="campaignUnitNotes" rows="3" placeholder="Seguimiento operativo"></textarea></label>
+                  <label class="span-2"><span>Evidencias</span><input id="campaignUnitEvidence" type="file" accept="image/*" multiple /></label>
+                </div>
+                <div id="campaignEvidencePreview" class="evidence-grid"></div>
+                <div class="stock-form-actions">
+                  <button id="campaignUnitClearBtn" class="btn btn-ghost" type="button">Limpiar</button>
+                  <button id="campaignUnitSaveBtn" class="btn btn-primary" type="button">Guardar unidad</button>
+                </div>
+              </article>
+              <article class="owner-card campaign-cards-card span-2">
+                <div class="owner-card-head"><strong>Unidades de la campaña</strong><span class="badge badge-info">Vista tipo flota</span></div>
+                <div id="campaignUnitsGrid" class="fleet-line-list"></div>
+              </article>
+            </div>
+          </div>
+        </section>
 
         
         <section id="partsPanel" class="panel hidden">
