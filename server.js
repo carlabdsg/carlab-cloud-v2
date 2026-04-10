@@ -765,8 +765,21 @@ async function initDb() {
     ALTER TABLE fleet_units ADD COLUMN IF NOT EXISTS manual_status TEXT;
     ALTER TABLE fleet_units ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
+CREATE TABLE IF NOT EXISTS campaign_groups (
+  id TEXT PRIMARY KEY,
+  campaign_name TEXT NOT NULL,
+  empresa TEXT NOT NULL,
+  notes TEXT,
+  created_by_id TEXT REFERENCES users(id),
+  created_by_nombre TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (campaign_name, empresa)
+);
+
 CREATE TABLE IF NOT EXISTS campaign_records (
   id TEXT PRIMARY KEY,
+  campaign_group_id TEXT REFERENCES campaign_groups(id) ON DELETE CASCADE,
   campaign_name TEXT NOT NULL,
   empresa TEXT NOT NULL,
   fleet_unit_id TEXT NOT NULL REFERENCES fleet_units(id) ON DELETE CASCADE,
@@ -780,8 +793,12 @@ CREATE TABLE IF NOT EXISTS campaign_records (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE campaign_records ADD COLUMN IF NOT EXISTS campaign_group_id TEXT;
+CREATE INDEX IF NOT EXISTS idx_campaign_groups_empresa ON campaign_groups(empresa, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_campaign_records_name ON campaign_records(campaign_name, empresa, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_campaign_records_group ON campaign_records(campaign_group_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_campaign_records_unit ON campaign_records(fleet_unit_id, updated_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_campaign_records_unique_unit_group ON campaign_records(campaign_group_id, fleet_unit_id) WHERE campaign_group_id IS NOT NULL;
 
 ALTER TABLE work_quotes ADD COLUMN IF NOT EXISTS costs_synced_to_fleet BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE work_quotes ADD COLUMN IF NOT EXISTS costs_synced_at TIMESTAMPTZ;
@@ -1525,8 +1542,8 @@ async function resolveFleetUnitId(empresa, numeroEconomico, client = pool) {
   const found = await client.query(
     `SELECT id
      FROM fleet_units
-     WHERE LOWER(TRIM(empresa)) = LOWER(TRIM($1))
-       AND LOWER(TRIM(numero_economico)) = LOWER(TRIM($2))
+     WHERE LOWER(REGEXP_REPLACE(TRIM(empresa), '\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(TRIM($1), '\s+', ' ', 'g'))
+       AND LOWER(REGEXP_REPLACE(TRIM(numero_economico), '\s+', '', 'g')) = LOWER(REGEXP_REPLACE(TRIM($2), '\s+', '', 'g'))
      LIMIT 1`,
     [empresa, numeroEconomico]
   );
@@ -1579,7 +1596,14 @@ async function syncQuoteCostsToFleet(quoteId, actor = {}, externalClient = null)
       if (!externalClient) await client.query('COMMIT');
       return { synced: false, reason: 'already_synced', fleetUnitId: quote.fleet_unit_id || '' };
     }
-    if (!quote.fleet_unit_id) {
+    let fleetUnitId = quote.fleet_unit_id || null;
+    if (!fleetUnitId) {
+      fleetUnitId = await resolveFleetUnitId(quote.company_name || quote.garantia_empresa, quote.unit_number || quote.garantia_unidad, client);
+      if (fleetUnitId) {
+        await client.query(`UPDATE garantias SET fleet_unit_id = $2 WHERE id = $1 AND $1 IS NOT NULL`, [quote.garantia_id || null, fleetUnitId]).catch(() => {});
+      }
+    }
+    if (!fleetUnitId) {
       if (!externalClient) await client.query('COMMIT');
       return { synced: false, reason: 'unit_not_found' };
     }
@@ -1600,7 +1624,7 @@ async function syncQuoteCostsToFleet(quoteId, actor = {}, externalClient = null)
          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [
           cryptoRandomId(),
-          quote.fleet_unit_id,
+          fleetUnitId,
           quote.garantia_id || null,
           item.type === 'mano_obra' ? 'mano_obra' : 'refaccion',
           item.description || `Cobranza ${quote.folio || ''}`.trim(),
@@ -1619,11 +1643,14 @@ async function syncQuoteCostsToFleet(quoteId, actor = {}, externalClient = null)
        WHERE id = $1`,
       [quoteId]
     );
+    if (quote.garantia_id && fleetUnitId) {
+      await client.query(`UPDATE garantias SET fleet_unit_id = $2 WHERE id = $1`, [quote.garantia_id, fleetUnitId]).catch(() => {});
+    }
     if (quote.garantia_id) {
       await addAuditLog(quote.garantia_id, actor.id || null, 'sincronizar_cobro_flota', `Cobranza ${quote.folio || 'COB'} enviada a costos de flota (${inserted} concepto(s)).`);
     }
     if (!externalClient) await client.query('COMMIT');
-    return { synced: true, fleetUnitId: quote.fleet_unit_id, inserted };
+    return { synced: true, fleetUnitId, inserted };
   } catch (error) {
     if (!externalClient) await client.query('ROLLBACK');
     throw error;
@@ -2013,8 +2040,8 @@ app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','
     SELECT * FROM garantias
     WHERE fleet_unit_id = $1
        OR (
-         LOWER(TRIM(empresa)) = LOWER(TRIM($2))
-         AND LOWER(TRIM(numero_economico)) = LOWER(TRIM($3))
+         LOWER(REGEXP_REPLACE(TRIM(empresa), '\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(TRIM($2), '\s+', ' ', 'g'))
+         AND LOWER(REGEXP_REPLACE(TRIM(numero_economico), '\s+', '', 'g')) = LOWER(REGEXP_REPLACE(TRIM($3), '\s+', '', 'g'))
        )
     ORDER BY created_at DESC
   `, [u.id, u.empresa, u.numero_economico]);
@@ -2023,10 +2050,18 @@ app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','
     WHERE fleet_unit_id = $1
     ORDER BY created_at DESC
   `, [u.id]);
+  const campaigns = await pool.query(`
+    SELECT cr.*, cg.campaign_name, cg.id AS campaign_group_id
+    FROM campaign_records cr
+    LEFT JOIN campaign_groups cg ON cg.id = cr.campaign_group_id
+    WHERE cr.fleet_unit_id = $1
+    ORDER BY cr.updated_at DESC, cr.created_at DESC
+  `, [u.id]);
   res.json({
     unit: mapFleetUnit(u),
     reports: reports.rows.map(mapGarantia),
-    costs: costs.rows.map(mapFleetCost)
+    costs: costs.rows.map(mapFleetCost),
+    campaigns: campaigns.rows.map(mapCampaignRecord)
   });
 });
 
@@ -2903,6 +2938,13 @@ app.put('/api/cobranza/quotes/:id/items', authRequired, requireRoles('admin'), a
       [req.params.id, totals.subtotal, totals.discount, totals.iva, totals.total, totals.anticipo, totals.saldo]
     );
     await client.query('COMMIT');
+    if (found.rows[0]?.payment_status === 'pagada') {
+      try {
+        await syncQuoteCostsToFleet(req.params.id, req.user);
+      } catch (syncError) {
+        console.error('Error sincronizando conceptos pagados a flota:', syncError);
+      }
+    }
     const quotes = await fetchQuotesForAdmin();
     res.json(quotes.find(q => q.id === req.params.id));
   } catch (error) {

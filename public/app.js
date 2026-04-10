@@ -2327,11 +2327,11 @@ function renderFleetDetail() {
   modalRoot?.classList.remove('hidden');
   const u = data.unit;
   const sem = fleetSemaforo(u);
-  const reportsArr = data.reports || [];
-  const costsArr = data.costs || [];
+  const reportsArr = (Array.isArray(data.reports) && data.reports.length ? data.reports : (state.garantias || []).filter(r => normalizeText(r.empresa) === normalizeText(u.empresa) && normalizeText(r.numeroEconomico) === normalizeText(u.numeroEconomico))).slice(0, 200);
+  const costsArr = Array.isArray(data.costs) ? data.costs : [];
   const unitSchedules = (state.schedules || []).filter(item => item.unidad === u.numeroEconomico && item.empresa === u.empresa).filter(item => new Date(item.scheduledFor || item.proposedAt || item.requestedAt || 0).getTime() >= (Date.now() - 3600000)).slice(0,12);
   const unitParts = (state.partsPending || []).filter(item => item.numeroEconomico === u.numeroEconomico && item.empresa === u.empresa);
-  const unitCampaigns = Array.isArray(data.campaigns) ? data.campaigns : [];
+  const unitCampaigns = (Array.isArray(data.campaigns) && data.campaigns.length ? data.campaigns : (state.campaigns || []).filter(item => item.fleetUnitId === u.id || (normalizeText(item.empresa) === normalizeText(u.empresa) && normalizeText(item.numeroEconomico) === normalizeText(u.numeroEconomico))));
   const allImages = reportsArr.flatMap(r => [...(r.evidencias || []), ...(r.evidenciasRefaccion || [])]).filter(Boolean);
   const reports = reportsArr.map(r => `
     <div class="table-row rich-row">
@@ -2595,82 +2595,91 @@ function renderGarantias() {
   if (els.garantiasList) els.garantiasList.innerHTML = '';
   els.emptyState?.classList.toggle('hidden', items.length > 0);
   items.forEach(item => {
-    const node = els.garantiaCardTemplate.content.cloneNode(true);
-    node.querySelector('.title').textContent = `${item.folio || 'GAR-—'} · Unidad ${item.numeroEconomico} · Obra ${item.numeroObra}`;
-    node.querySelector('.meta').textContent = `${item.empresa} · ${item.modelo} · Reportó ${item.reportadoPorNombre || '—'} · ${fmtDate(item.createdAt)}`;
-    node.querySelector('.description').textContent = item.descripcionFallo;
-    const validationBadge = node.querySelector('.validation-badge'); validationBadge.textContent = item.estatusValidacion; validationBadge.classList.add(badgeClassValidation(item.estatusValidacion));
-    const operationalBadge = node.querySelector('.operational-badge'); operationalBadge.textContent = item.estatusOperativo; operationalBadge.classList.add(badgeClassOperational(item.estatusOperativo));
-    const miniGrid = node.querySelector('.mini-grid');
-    [ ['Incidencia', item.tipoIncidente], ['Solicita refacción', item.solicitaRefaccion ? 'Sí' : 'No'], ['KM', item.kilometraje || '—'], ['Contacto', item.contactoNombre || '—'], ['Teléfono', item.telefono || '—'], ['Revisó', item.revisadoPorNombre || 'Pendiente'], ['Último cambio', fmtDate(item.updatedAt)], ['Obs. operativo', item.observacionesOperativo || '—'], ['Motivo decisión', item.motivoDecision || '—'] ].forEach(([label, value]) => {
-      const div = document.createElement('div'); div.innerHTML = `<strong>${escapeHtml(label)}</strong>${escapeHtml(String(value || '—'))}`; miniGrid.appendChild(div);
-    });
-    const strip = node.querySelector('.evidence-strip');
-    [...(item.evidencias || []), ...(item.evidenciasRefaccion || [])].forEach((src, idx) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'evidence-thumb';
-      btn.innerHTML = `<img src="${src}" alt="Evidencia ${idx + 1}" />`;
-      btn.addEventListener('click', () => openImageLightbox(src, `Evidencia ${idx + 1}`));
-      strip.appendChild(btn);
-    });
-    if (item.firma) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'evidence-thumb signature-thumb';
-      btn.innerHTML = `<img src="${item.firma}" alt="Firma" />`;
-      btn.addEventListener('click', () => openImageLightbox(item.firma, 'Firma del operador'));
-      strip.appendChild(btn);
-    }
-    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('Ver ficha', 'btn btn-secondary', () => openReportDetailModal(item))); baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin') && item.estatusOperativo === 'terminada') baseRow.appendChild(button('Preparar cobro', 'btn btn-primary', async () => { await openQuoteFromReport(item.id); })); if (isRole('admin')) baseRow.appendChild(button('Editar', 'btn btn-secondary', async () => { await editarReporteAdmin(item); })); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
-    if (isRole('operativo','admin')) {
-      const reviewBox = document.createElement('div'); reviewBox.innerHTML = `
-        <label>Decisión operativa</label>
-        <div class="action-row">
-          <select class="reviewStatus"><option value="pendiente de revisión">Pendiente de revisión</option><option value="aceptada">Aceptada</option><option value="rechazada">Rechazada</option></select>
-          <input class="reviewReason" placeholder="Motivo o comentario" />
-          <button class="btn btn-primary reviewBtn" type="button">Guardar decisión</button>
-        </div>`;
-      reviewBox.querySelector('.reviewStatus').value = item.estatusValidacion === 'nueva' ? 'pendiente de revisión' : item.estatusValidacion;
-      reviewBox.querySelector('.reviewReason').value = item.estatusValidacion === 'rechazada' ? item.motivoDecision : item.observacionesOperativo;
-      [reviewBox.querySelector('.reviewStatus'), reviewBox.querySelector('.reviewReason')].forEach(el => {
-        el?.addEventListener('input', () => state.boardDirtyIds.add(item.id));
-        el?.addEventListener('change', () => state.boardDirtyIds.add(item.id));
+    try {
+      const node = els.garantiaCardTemplate.content.cloneNode(true);
+      node.querySelector('.title').textContent = `${item.folio || 'GAR-—'} · Unidad ${item.numeroEconomico || '—'} · Obra ${item.numeroObra || '—'}`;
+      node.querySelector('.meta').textContent = `${item.empresa || '—'} · ${item.modelo || '—'} · Reportó ${item.reportadoPorNombre || '—'} · ${fmtDate(item.createdAt)}`;
+      node.querySelector('.description').textContent = item.descripcionFallo || 'Sin descripción';
+      const validationBadge = node.querySelector('.validation-badge'); validationBadge.textContent = item.estatusValidacion || 'nueva'; validationBadge.classList.add(badgeClassValidation(item.estatusValidacion || 'nueva'));
+      const operationalBadge = node.querySelector('.operational-badge'); operationalBadge.textContent = item.estatusOperativo || 'sin iniciar'; operationalBadge.classList.add(badgeClassOperational(item.estatusOperativo || 'sin iniciar'));
+      const miniGrid = node.querySelector('.mini-grid');
+      [ ['Incidencia', item.tipoIncidente], ['Solicita refacción', item.solicitaRefaccion ? 'Sí' : 'No'], ['KM', item.kilometraje || '—'], ['Contacto', item.contactoNombre || '—'], ['Teléfono', item.telefono || '—'], ['Revisó', item.revisadoPorNombre || 'Pendiente'], ['Último cambio', fmtDate(item.updatedAt)], ['Obs. operativo', item.observacionesOperativo || '—'], ['Motivo decisión', item.motivoDecision || '—'] ].forEach(([label, value]) => {
+        const div = document.createElement('div'); div.innerHTML = `<strong>${escapeHtml(label)}</strong>${escapeHtml(String(value || '—'))}`; miniGrid.appendChild(div);
       });
-      reviewBox.querySelector('.reviewBtn').addEventListener('click', async () => {
-        try {
-          const status = reviewBox.querySelector('.reviewStatus').value; const text = reviewBox.querySelector('.reviewReason').value.trim();
-          await api.reviewGarantia(item.id, { estatusValidacion: status, observacionesOperativo: status !== 'rechazada' ? text : '', motivoDecision: status === 'rechazada' ? text : '' });
-          state.boardDirtyIds.delete(item.id);
-          notify('Decisión guardada.'); await loadGarantias();
-        } catch (error) { notify(error.message, true); }
+      const strip = node.querySelector('.evidence-strip');
+      [...(item.evidencias || []), ...(item.evidenciasRefaccion || [])].forEach((src, idx) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'evidence-thumb';
+        btn.innerHTML = `<img src="${src}" alt="Evidencia ${idx + 1}" />`;
+        btn.addEventListener('click', () => openImageLightbox(src, `Evidencia ${idx + 1}`));
+        strip.appendChild(btn);
       });
-      area.appendChild(reviewBox);
-      if (item.estatusValidacion === 'aceptada') {
-        const scheduleRow = document.createElement('div'); scheduleRow.className = 'action-row';
-        if (isRole('admin','operativo','supervisor_flotas')) scheduleRow.appendChild(button('Solicitar servicio', 'btn btn-primary', async () => { try { await api.requestSchedule(item.id); notify('Solicitud enviada por WhatsApp.'); await loadSchedules(); switchPanel('schedule'); } catch (error) { notify(error.message, true); } }));
-        if (isRole('operador')) scheduleRow.appendChild(button('Ver mi agenda', 'btn btn-secondary', async () => { await loadSchedules(); switchPanel('schedule'); }));
-        if (scheduleRow.children.length) area.appendChild(scheduleRow);
-        const operationalBox = document.createElement('div'); operationalBox.innerHTML = `
-          <label>Flujo del trabajo</label>
+      if (item.firma) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'evidence-thumb signature-thumb';
+        btn.innerHTML = `<img src="${item.firma}" alt="Firma" />`;
+        btn.addEventListener('click', () => openImageLightbox(item.firma, 'Firma del operador'));
+        strip.appendChild(btn);
+      }
+      const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('Ver ficha', 'btn btn-secondary', () => openReportDetailModal(item))); baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor','supervisor_flotas')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin') && item.estatusOperativo === 'terminada') baseRow.appendChild(button('Preparar cobro', 'btn btn-primary', async () => { await openQuoteFromReport(item.id); })); if (isRole('admin')) baseRow.appendChild(button('Editar', 'btn btn-secondary', async () => { await editarReporteAdmin(item); })); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
+      if (isRole('operativo','admin')) {
+        const reviewBox = document.createElement('div'); reviewBox.innerHTML = `
+          <label>Decisión operativa</label>
           <div class="action-row">
-            <select class="opStatus"><option value="sin iniciar">Sin iniciar</option><option value="en proceso">En proceso</option><option value="espera refacción">Espera refacción</option><option value="terminada">Terminada</option></select>
-            <input class="opNotes" placeholder="Observación operativa" value="${escapeHtml(item.observacionesOperativo || '')}" />
-            <button class="btn btn-secondary opBtn" type="button">Actualizar trabajo</button>
+            <select class="reviewStatus"><option value="pendiente de revisión">Pendiente de revisión</option><option value="aceptada">Aceptada</option><option value="rechazada">Rechazada</option></select>
+            <input class="reviewReason" placeholder="Motivo o comentario" />
+            <button class="btn btn-primary reviewBtn" type="button">Guardar decisión</button>
           </div>`;
-        operationalBox.querySelector('.opStatus').value = item.estatusOperativo;
-        [operationalBox.querySelector('.opStatus'), operationalBox.querySelector('.opNotes')].forEach(el => {
+        reviewBox.querySelector('.reviewStatus').value = item.estatusValidacion === 'nueva' ? 'pendiente de revisión' : (item.estatusValidacion || 'pendiente de revisión');
+        reviewBox.querySelector('.reviewReason').value = item.estatusValidacion === 'rechazada' ? (item.motivoDecision || '') : (item.observacionesOperativo || '');
+        [reviewBox.querySelector('.reviewStatus'), reviewBox.querySelector('.reviewReason')].forEach(el => {
           el?.addEventListener('input', () => state.boardDirtyIds.add(item.id));
           el?.addEventListener('change', () => state.boardDirtyIds.add(item.id));
         });
-        operationalBox.querySelector('.opBtn').addEventListener('click', async () => {
-          try { await api.updateOperational(item.id, { estatusOperativo: operationalBox.querySelector('.opStatus').value, observacionesOperativo: operationalBox.querySelector('.opNotes').value.trim() }); state.boardDirtyIds.delete(item.id); notify('Flujo actualizado.'); await loadGarantias(); }
-          catch (error) { notify(error.message, true); }
+        reviewBox.querySelector('.reviewBtn').addEventListener('click', async () => {
+          try {
+            const status = reviewBox.querySelector('.reviewStatus').value; const text = reviewBox.querySelector('.reviewReason').value.trim();
+            await api.reviewGarantia(item.id, { estatusValidacion: status, observacionesOperativo: status !== 'rechazada' ? text : '', motivoDecision: status === 'rechazada' ? text : '' });
+            state.boardDirtyIds.delete(item.id);
+            notify('Decisión guardada.'); await loadGarantias();
+          } catch (error) { notify(error.message, true); }
         });
-        area.appendChild(operationalBox);
+        area.appendChild(reviewBox);
+        if (item.estatusValidacion === 'aceptada') {
+          const scheduleRow = document.createElement('div'); scheduleRow.className = 'action-row';
+          if (isRole('admin','operativo','supervisor_flotas')) scheduleRow.appendChild(button('Solicitar servicio', 'btn btn-primary', async () => { try { await api.requestSchedule(item.id); notify('Solicitud enviada por WhatsApp.'); await loadSchedules(); switchPanel('schedule'); } catch (error) { notify(error.message, true); } }));
+          if (isRole('operador')) scheduleRow.appendChild(button('Ver mi agenda', 'btn btn-secondary', async () => { await loadSchedules(); switchPanel('schedule'); }));
+          if (scheduleRow.children.length) area.appendChild(scheduleRow);
+          const operationalBox = document.createElement('div'); operationalBox.innerHTML = `
+            <label>Flujo del trabajo</label>
+            <div class="action-row">
+              <select class="opStatus"><option value="sin iniciar">Sin iniciar</option><option value="en proceso">En proceso</option><option value="espera refacción">Espera refacción</option><option value="terminada">Terminada</option></select>
+              <input class="opNotes" placeholder="Observación operativa" value="${escapeHtml(item.observacionesOperativo || '')}" />
+              <button class="btn btn-secondary opBtn" type="button">Actualizar trabajo</button>
+            </div>`;
+          operationalBox.querySelector('.opStatus').value = item.estatusOperativo || 'sin iniciar';
+          [operationalBox.querySelector('.opStatus'), operationalBox.querySelector('.opNotes')].forEach(el => {
+            el?.addEventListener('input', () => state.boardDirtyIds.add(item.id));
+            el?.addEventListener('change', () => state.boardDirtyIds.add(item.id));
+          });
+          operationalBox.querySelector('.opBtn').addEventListener('click', async () => {
+            try { await api.updateOperational(item.id, { estatusOperativo: operationalBox.querySelector('.opStatus').value, observacionesOperativo: operationalBox.querySelector('.opNotes').value.trim() }); state.boardDirtyIds.delete(item.id); notify('Flujo actualizado.'); await loadGarantias(); }
+            catch (error) { notify(error.message, true); }
+          });
+          area.appendChild(operationalBox);
+        }
       }
+      els.garantiasList?.appendChild(node);
+    } catch (error) {
+      console.error('Error renderizando reporte:', error, item);
+      const fallback = document.createElement('article');
+      fallback.className = 'card';
+      fallback.innerHTML = `<div class="card-top"><div><h4 class="title">${escapeHtml(item.folio || 'GAR-—')} · Unidad ${escapeHtml(item.numeroEconomico || '—')}</h4><p class="meta">${escapeHtml(item.empresa || '—')} · ${escapeHtml(fmtDate(item.createdAt))}</p></div><div class="badge-stack"><span class="badge badge-info">${escapeHtml(item.estatusValidacion || 'nueva')}</span><span class="badge badge-info">${escapeHtml(item.estatusOperativo || 'sin iniciar')}</span></div></div><p class="description">${escapeHtml(item.descripcionFallo || 'Sin descripción')}</p><div class="action-area"></div>`;
+      fallback.querySelector('.action-area')?.appendChild(button('Ver ficha', 'btn btn-secondary', () => openReportDetailModal(item)));
+      els.garantiasList?.appendChild(fallback);
     }
-    els.garantiasList?.appendChild(node);
   });
 }
 
