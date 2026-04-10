@@ -292,12 +292,14 @@ function mapFleetUnit(row) {
     polizaActiva: !!row.poliza_activa,
     campaignActiva: !!row.campaign_activa,
     estatusOperativo: row.estatus_operativo || 'sin actividad',
+    manualStatus: row.manual_status || '',
     costoRefacciones: Number(row.costo_refacciones || 0),
     costoManoObra: Number(row.costo_mano_obra || 0),
     costoTotal: Number(row.costo_total || 0),
     reportesCount: Number(row.reportes_count || 0),
     lastReportAt: row.last_report_at || null,
-    createdAt: row.created_at
+    createdAt: row.created_at,
+    updatedAt: row.updated_at || row.created_at
   };
 }
 
@@ -311,6 +313,24 @@ function mapFleetCost(row) {
     monto: Number(row.monto || 0),
     createdAt: row.created_at,
     createdByNombre: row.created_by_nombre || ''
+  };
+}
+
+
+function mapCampaignRecord(row) {
+  return {
+    id: row.id,
+    campaignName: row.campaign_name || '',
+    empresa: row.empresa || '',
+    fleetUnitId: row.fleet_unit_id || '',
+    numeroEconomico: row.numero_economico || '',
+    unitLabel: row.unit_label || '',
+    status: row.status || 'sin_programar',
+    evidencia: Array.isArray(row.evidencia) ? row.evidencia : [],
+    notes: row.notes || '',
+    createdByNombre: row.created_by_nombre || '',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -731,6 +751,28 @@ async function initDb() {
     ALTER TABLE garantias ADD COLUMN IF NOT EXISTS fleet_unit_id TEXT;
     ALTER TABLE fleet_units ADD COLUMN IF NOT EXISTS manual_status TEXT;
     ALTER TABLE fleet_units ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+CREATE TABLE IF NOT EXISTS campaign_records (
+  id TEXT PRIMARY KEY,
+  campaign_name TEXT NOT NULL,
+  empresa TEXT NOT NULL,
+  fleet_unit_id TEXT NOT NULL REFERENCES fleet_units(id) ON DELETE CASCADE,
+  numero_economico TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'sin_programar' CHECK (status IN ('sin_programar','programada','realizada')),
+  evidencia JSONB NOT NULL DEFAULT '[]'::jsonb,
+  notes TEXT,
+  created_by_id TEXT REFERENCES users(id),
+  created_by_nombre TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_campaign_records_name ON campaign_records(campaign_name, empresa, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_campaign_records_unit ON campaign_records(fleet_unit_id, updated_at DESC);
+
+ALTER TABLE work_quotes ADD COLUMN IF NOT EXISTS costs_synced_to_fleet BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE work_quotes ADD COLUMN IF NOT EXISTS costs_synced_at TIMESTAMPTZ;
+
 
     ALTER TABLE users ADD COLUMN IF NOT EXISTS empresa TEXT;
     ALTER TABLE companies ADD COLUMN IF NOT EXISTS contacto TEXT;
@@ -1444,6 +1486,106 @@ app.get('/api/history/unit/:numeroEconomico', authRequired, requireRoles('admin'
 });
 
 
+
+async function recalculateFleetCampaignFlag(fleetUnitId, client = pool) {
+  if (!fleetUnitId) return;
+  const active = await client.query(
+    `SELECT EXISTS(
+       SELECT 1
+       FROM campaign_records
+       WHERE fleet_unit_id = $1
+         AND status <> 'realizada'
+     ) AS has_active`,
+    [fleetUnitId]
+  );
+  await client.query(
+    `UPDATE fleet_units
+     SET campaign_activa = $2,
+         updated_at = NOW()
+     WHERE id = $1`,
+    [fleetUnitId, !!active.rows[0]?.has_active]
+  );
+}
+
+async function syncQuoteCostsToFleet(quoteId, actor = {}, externalClient = null) {
+  const client = externalClient || await pool.connect();
+  const release = !externalClient;
+  try {
+    if (!externalClient) await client.query('BEGIN');
+    const quoteResult = await client.query(
+      `SELECT q.*, g.folio AS garantia_folio, g.empresa AS garantia_empresa, g.numero_economico AS garantia_unidad, fu.id AS fleet_unit_id
+       FROM work_quotes q
+       LEFT JOIN garantias g ON g.id = q.garantia_id
+       LEFT JOIN fleet_units fu
+         ON fu.empresa = COALESCE(NULLIF(q.company_name,''), g.empresa)
+        AND fu.numero_economico = COALESCE(NULLIF(q.unit_number,''), g.numero_economico)
+       WHERE q.id = $1
+       FOR UPDATE`,
+      [quoteId]
+    );
+    if (!quoteResult.rowCount) throw new Error('Cobranza no encontrada.');
+    const quote = quoteResult.rows[0];
+    if (quote.payment_status !== 'pagada') {
+      if (!externalClient) await client.query('COMMIT');
+      return { synced: false, reason: 'not_paid' };
+    }
+    if (quote.costs_synced_to_fleet) {
+      if (!externalClient) await client.query('COMMIT');
+      return { synced: false, reason: 'already_synced', fleetUnitId: quote.fleet_unit_id || '' };
+    }
+    if (!quote.fleet_unit_id) {
+      if (!externalClient) await client.query('COMMIT');
+      return { synced: false, reason: 'unit_not_found' };
+    }
+    const items = await client.query(
+      `SELECT type, description, total
+       FROM work_quote_items
+       WHERE quote_id = $1
+         AND type IN ('refaccion','mano_obra')`,
+      [quoteId]
+    );
+    let inserted = 0;
+    for (const item of items.rows) {
+      const amount = Number(item.total || 0);
+      if (amount <= 0) continue;
+      await client.query(
+        `INSERT INTO fleet_cost_entries (
+           id, fleet_unit_id, garantia_id, tipo, concepto, monto, created_by_id, created_by_nombre
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [
+          cryptoRandomId(),
+          quote.fleet_unit_id,
+          quote.garantia_id || null,
+          item.type === 'mano_obra' ? 'mano_obra' : 'refaccion',
+          item.description || `Cobranza ${quote.folio || ''}`.trim(),
+          amount,
+          actor.id || null,
+          actor.nombre || 'Sistema cobranza'
+        ]
+      );
+      inserted += 1;
+    }
+    await client.query(
+      `UPDATE work_quotes
+       SET costs_synced_to_fleet = TRUE,
+           costs_synced_at = NOW(),
+           updated_at = NOW()
+       WHERE id = $1`,
+      [quoteId]
+    );
+    if (quote.garantia_id) {
+      await addAuditLog(quote.garantia_id, actor.id || null, 'sincronizar_cobro_flota', `Cobranza ${quote.folio || 'COB'} enviada a costos de flota (${inserted} concepto(s)).`);
+    }
+    if (!externalClient) await client.query('COMMIT');
+    return { synced: true, fleetUnitId: quote.fleet_unit_id, inserted };
+  } catch (error) {
+    if (!externalClient) await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    if (release) client.release();
+  }
+}
+
 app.get('/api/schedules', authRequired, requireRoles('admin', 'operativo', 'supervisor', 'supervisor_flotas', 'operador'), async (req, res) => {
   try {
     const date = String(req.query.date || '').trim();
@@ -1728,7 +1870,8 @@ app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supe
       COALESCE((SELECT COUNT(*) FROM garantias g WHERE g.empresa = fu.empresa AND g.numero_economico = fu.numero_economico),0) AS reportes_count,
       COALESCE((SELECT SUM(CASE WHEN tipo='refaccion' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_refacciones,
       COALESCE((SELECT SUM(CASE WHEN tipo='mano_obra' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_mano_obra,
-      COALESCE((SELECT SUM(monto) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_total
+      COALESCE((SELECT SUM(monto) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_total,
+      COALESCE((SELECT CASE WHEN COUNT(*) > 0 THEN TRUE ELSE FALSE END FROM campaign_records cr WHERE cr.fleet_unit_id = fu.id AND cr.status <> 'realizada'), fu.campaign_activa) AS campaign_activa
     FROM fleet_units fu
     ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
     ORDER BY fu.empresa ASC, fu.numero_economico ASC
@@ -1814,7 +1957,8 @@ app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','
     SELECT fu.*,
       COALESCE((SELECT SUM(CASE WHEN tipo='refaccion' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_refacciones,
       COALESCE((SELECT SUM(CASE WHEN tipo='mano_obra' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_mano_obra,
-      COALESCE((SELECT SUM(monto) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_total
+      COALESCE((SELECT SUM(monto) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_total,
+      COALESCE((SELECT CASE WHEN COUNT(*) > 0 THEN TRUE ELSE FALSE END FROM campaign_records cr WHERE cr.fleet_unit_id = fu.id AND cr.status <> 'realizada'), fu.campaign_activa) AS campaign_activa
     FROM fleet_units fu WHERE fu.id = $1 ${extra}
   `, params);
   if (!unit.rowCount) return res.status(404).json({ error: 'Unidad no encontrada.' });
@@ -2134,6 +2278,114 @@ app.patch('/api/parts/requests/:id', authRequired, requireRoles('admin','supervi
 });
 
 
+
+app.get('/api/campaigns', authRequired, requireRoles('admin','supervisor_flotas','operativo'), async (req, res) => {
+  try {
+    const params = [];
+    const where = [];
+    if (req.user.role === 'supervisor_flotas') {
+      params.push(req.user.empresa || '');
+      where.push(`cr.empresa = $${params.length}`);
+    } else if (req.query.empresa) {
+      params.push(String(req.query.empresa).trim());
+      where.push(`cr.empresa = $${params.length}`);
+    }
+    const result = await pool.query(
+      `SELECT cr.*,
+              CONCAT(COALESCE(fu.numero_economico,''), CASE WHEN COALESCE(fu.modelo,'') <> '' THEN ' · ' || fu.modelo ELSE '' END) AS unit_label
+       FROM campaign_records cr
+       LEFT JOIN fleet_units fu ON fu.id = cr.fleet_unit_id
+       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+       ORDER BY cr.updated_at DESC, cr.created_at DESC`,
+      params
+    );
+    res.json(result.rows.map(mapCampaignRecord));
+  } catch (error) {
+    console.error('Error cargando campañas:', error);
+    res.status(500).json({ error: 'No se pudieron cargar las campañas.' });
+  }
+});
+
+app.post('/api/campaigns', authRequired, requireRoles('admin'), async (req, res) => {
+  try {
+    const campaignName = String(req.body.campaignName || '').trim();
+    const empresa = String(req.body.empresa || '').trim();
+    const fleetUnitId = String(req.body.fleetUnitId || '').trim();
+    const status = String(req.body.status || 'sin_programar').trim();
+    const evidencia = Array.isArray(req.body.evidencia) ? req.body.evidencia.filter(Boolean) : [];
+    const notes = String(req.body.notes || '').trim();
+    if (!campaignName || !empresa || !fleetUnitId) return res.status(400).json({ error: 'Completa campaña, empresa y unidad.' });
+    if (!['sin_programar','programada','realizada'].includes(status)) return res.status(400).json({ error: 'Estado de campaña inválido.' });
+    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 AND empresa = $2`, [fleetUnitId, empresa]);
+    if (!unit.rowCount) return res.status(404).json({ error: 'Unidad no encontrada en esa empresa.' });
+    const result = await pool.query(
+      `INSERT INTO campaign_records (
+         id, campaign_name, empresa, fleet_unit_id, numero_economico, status, evidencia, notes, created_by_id, created_by_nombre
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       RETURNING *`,
+      [cryptoRandomId(), campaignName, empresa, fleetUnitId, unit.rows[0].numero_economico, status, JSON.stringify(evidencia), notes, req.user.id, req.user.nombre]
+    );
+    await recalculateFleetCampaignFlag(fleetUnitId);
+    res.status(201).json(mapCampaignRecord(result.rows[0]));
+  } catch (error) {
+    console.error('Error creando campaña:', error);
+    res.status(500).json({ error: 'No se pudo guardar la campaña.' });
+  }
+});
+
+app.patch('/api/campaigns/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  try {
+    const found = await pool.query(`SELECT * FROM campaign_records WHERE id = $1`, [req.params.id]);
+    if (!found.rowCount) return res.status(404).json({ error: 'Campaña no encontrada.' });
+    const current = found.rows[0];
+    const campaignName = String(req.body.campaignName || current.campaign_name || '').trim();
+    const empresa = String(req.body.empresa || current.empresa || '').trim();
+    const status = String(req.body.status || current.status || 'sin_programar').trim();
+    const evidencia = Array.isArray(req.body.evidencia) ? req.body.evidencia.filter(Boolean) : (Array.isArray(current.evidencia) ? current.evidencia : []);
+    const notes = req.body.notes === undefined ? (current.notes || '') : String(req.body.notes || '').trim();
+    let fleetUnitId = String(req.body.fleetUnitId || current.fleet_unit_id || '').trim();
+    let numeroEconomico = current.numero_economico || '';
+    if (!['sin_programar','programada','realizada'].includes(status)) return res.status(400).json({ error: 'Estado de campaña inválido.' });
+    if (fleetUnitId !== current.fleet_unit_id || empresa !== current.empresa) {
+      const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 AND empresa = $2`, [fleetUnitId, empresa]);
+      if (!unit.rowCount) return res.status(404).json({ error: 'Unidad no encontrada en esa empresa.' });
+      numeroEconomico = unit.rows[0].numero_economico;
+    }
+    const result = await pool.query(
+      `UPDATE campaign_records
+       SET campaign_name = $2,
+           empresa = $3,
+           fleet_unit_id = $4,
+           numero_economico = $5,
+           status = $6,
+           evidencia = $7,
+           notes = $8,
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [req.params.id, campaignName, empresa, fleetUnitId, numeroEconomico, status, JSON.stringify(evidencia), notes]
+    );
+    await recalculateFleetCampaignFlag(current.fleet_unit_id);
+    if (fleetUnitId !== current.fleet_unit_id) await recalculateFleetCampaignFlag(fleetUnitId);
+    res.json(mapCampaignRecord(result.rows[0]));
+  } catch (error) {
+    console.error('Error actualizando campaña:', error);
+    res.status(500).json({ error: 'No se pudo actualizar la campaña.' });
+  }
+});
+
+app.delete('/api/campaigns/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  try {
+    const found = await pool.query(`DELETE FROM campaign_records WHERE id = $1 RETURNING fleet_unit_id`, [req.params.id]);
+    if (!found.rowCount) return res.status(404).json({ error: 'Campaña no encontrada.' });
+    await recalculateFleetCampaignFlag(found.rows[0].fleet_unit_id);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error eliminando campaña:', error);
+    res.status(500).json({ error: 'No se pudo eliminar la campaña.' });
+  }
+});
+
 app.get('/api/stock/parts', authRequired, requireRoles('admin'), async (_req, res) => {
   try {
     const parts = await pool.query(
@@ -2451,7 +2703,15 @@ app.patch('/api/cobranza/quotes/:id', authRequired, requireRoles('admin'), async
     const quotes = await fetchQuotesForAdmin();
     const quote = quotes.find(q => q.id === req.params.id);
     if (quote?.garantiaId) await addAuditLog(quote.garantiaId, req.user.id, 'actualizar_cobro', `Cobranza ${quote.folio} actualizada.`);
-    res.json(quote);
+    if (paymentStatus === 'pagada') {
+      try {
+        await syncQuoteCostsToFleet(req.params.id, req.user);
+      } catch (syncError) {
+        console.error('Error sincronizando cobranza pagada a flota:', syncError);
+      }
+    }
+    const refreshed = (await fetchQuotesForAdmin()).find(q => q.id === req.params.id) || quote;
+    res.json(refreshed);
   } catch (error) {
     console.error('Error actualizando cobranza:', error);
     res.status(500).json({ error:'No se pudo actualizar la cobranza.' });

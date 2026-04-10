@@ -5721,3 +5721,24 @@ body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .busHeroStat strong
     font-size: 14px !important;
   }
 }
+
+
+.fleet-chip.campaign { background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe; }
+body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .cardUnidad.status-blue,
+body:not(.operator-mode)[data-panel="campaigns"] .cardUnidad.status-blue { --bus-color:#2563eb; }
+.fleet-scroll-card { min-height: 0; }
+.fleet-scroll-area { max-height: 340px; overflow:auto; padding-right: 6px; }
+.fleet-timeline-box.fleet-scroll-box { min-height: 0; }
+.fleet-detail-summary article strong { font-size: clamp(1.05rem, 2vw, 1.35rem); line-height: 1.15; display:block; word-break: break-word; }
+.admin-cost-editor-row input[type="number"],
+.fleet-cost-form input[type="number"] { font-variant-numeric: tabular-nums; text-align: right; min-width: 132px; }
+.campaign-group-card { border:1px solid rgba(148,163,184,.18); border-radius:20px; background:rgba(255,255,255,.75); overflow:hidden; }
+.campaign-group-btn { width:100%; border:0; background:transparent; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; text-align:left; cursor:pointer; }
+.campaign-group-btn.active { background:rgba(37,99,235,.08); }
+.campaign-group-stats { display:flex; gap:8px; font-weight:700; color:#475467; }
+.campaign-line-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px; }
+.campaign-card-body { display:grid; gap:12px; }
+.campaign-actions-row { justify-content:flex-end; }
+.campaign-form-card { margin-top:18px; }
+body[data-panel="campaigns"] .campaign-layout .owner-card { min-height: 0; }
+body[data-panel="campaigns"] #campaignDetail { min-height: 200px; }

@@ -118,6 +118,7 @@
               <button id="navPartsBtn" class="nav-btn hidden" type="button">Refacciones</button>
               <button id="navStockBtn" class="nav-btn hidden" type="button">Stock</button>
               <button id="navCobranzaBtn" class="nav-btn hidden" type="button">Cobranza</button>
+              <button id="navCampaignsBtn" class="nav-btn hidden" type="button">Campañas</button>
             </div>
             <div class="nav-group">
               <div class="nav-group-label">Administración</div>
@@ -593,9 +594,43 @@
               <div id="directSalesList" class="table-list compact-list"></div>
             </article>
           </div>
-        </section>
+        
+</section>
 
-        <div id="stockAssignModal" class="modal hidden"><div class="modal-card compact-modal"><div class="owner-card-head"><strong>Salida a camión</strong><button id="stockAssignClose" class="btn btn-ghost" type="button">Cerrar</button></div><div class="small muted" id="stockAssignPartMeta">Selecciona la unidad y guarda la salida.</div><form id="stockAssignForm" class="schedule-manual-grid"><label><span>Refacción</span><input id="stockAssignPartName" disabled /></label><label><span>Cantidad</span><input id="stockAssignQty" type="number" min="1" step="1" value="1" required /></label><label><span>Unidad</span><input id="stockAssignUnit" placeholder="Número económico" required /></label><label><span>Empresa</span><input id="stockAssignCompany" placeholder="Empresa / flota" /></label><label><span>Folio</span><input id="stockAssignFolio" placeholder="Folio garantía opcional" /></label><label class="span-2"><span>Notas</span><textarea id="stockAssignNotes" rows="2" placeholder="Notas del movimiento"></textarea></label><div class="schedule-manual-actions span-2"><button id="stockAssignCancel" class="btn btn-ghost" type="button">Cancelar</button><button class="btn btn-primary" type="submit">Guardar salida</button></div></form></div></div>
+<section id="campaignsPanel" class="panel hidden">
+  <div class="panel-head compact-panel-head">
+    <div>
+      <div class="topbar-kicker">CAMPAÑAS</div>
+      <h3>Campañas por empresa y unidad</h3>
+    </div>
+    <button id="campaignsRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
+  </div>
+  <div id="campaignsSummary" class="parts-summary-row"></div>
+  <div class="cobranza-layout campaign-layout">
+    <article class="owner-card cobranza-col">
+      <div class="owner-card-head"><strong>Campañas registradas</strong><span class="badge badge-info">Agrupadas por nombre</span></div>
+      <div id="campaignsList" class="table-list compact-list"></div>
+    </article>
+    <article class="owner-card cobranza-col wide">
+      <div class="owner-card-head"><strong>Detalle operativo</strong><span class="badge badge-info">Tarjetas por unidad</span></div>
+      <div id="campaignDetail" class="muted">Selecciona una campaña para ver sus unidades.</div>
+    </article>
+  </div>
+  <article class="owner-card campaign-form-card" data-role-admin-only>
+    <div class="owner-card-head"><strong>Registrar campaña</strong><span class="badge badge-info">Admin</span></div>
+    <form id="campaignForm" class="schedule-manual-grid">
+      <input id="campaignId" type="hidden" />
+      <label><span>Nombre de la campaña</span><input id="campaignName" placeholder="Ej. Revisión de filtraciones abril" required /></label>
+      <label><span>Empresa</span><select id="campaignEmpresa"></select></label>
+      <label><span>Unidad</span><select id="campaignFleetUnit"></select></label>
+      <label><span>Estatus</span><select id="campaignStatus"><option value="sin_programar">Sin programar</option><option value="programada">Programada</option><option value="realizada">Realizada</option></select></label>
+      <label class="span-2"><span>Notas</span><textarea id="campaignNotes" rows="2" placeholder="Resumen o alcance"></textarea></label>
+      <label class="span-2"><span>Evidencia</span><input id="campaignEvidenceInput" type="file" accept="image/*" multiple /><div class="stack-inline evidence-capture-row"><label class="btn btn-secondary evidence-capture-btn" for="campaignEvidenceCamera">Tomar foto con cámara</label><input id="campaignEvidenceCamera" class="camera-capture-input" type="file" accept="image/*" capture="environment" /></div><div id="campaignEvidencePreview" class="preview-grid"></div></label>
+      <div class="schedule-manual-actions span-2"><button id="campaignCancelBtn" class="btn btn-ghost" type="button">Limpiar</button><button id="campaignSaveBtn" class="btn btn-primary" type="submit">Registrar campaña</button></div>
+    </form>
+  </article>
+
+<div id="stockAssignModal" class="modal hidden"><div class="modal-card compact-modal"><div class="owner-card-head"><strong>Salida a camión</strong><button id="stockAssignClose" class="btn btn-ghost" type="button">Cerrar</button></div><div class="small muted" id="stockAssignPartMeta">Selecciona la unidad y guarda la salida.</div><form id="stockAssignForm" class="schedule-manual-grid"><label><span>Refacción</span><input id="stockAssignPartName" disabled /></label><label><span>Cantidad</span><input id="stockAssignQty" type="number" min="1" step="1" value="1" required /></label><label><span>Unidad</span><input id="stockAssignUnit" placeholder="Número económico" required /></label><label><span>Empresa</span><input id="stockAssignCompany" placeholder="Empresa / flota" /></label><label><span>Folio</span><input id="stockAssignFolio" placeholder="Folio garantía opcional" /></label><label class="span-2"><span>Notas</span><textarea id="stockAssignNotes" rows="2" placeholder="Notas del movimiento"></textarea></label><div class="schedule-manual-actions span-2"><button id="stockAssignCancel" class="btn btn-ghost" type="button">Cancelar</button><button class="btn btn-primary" type="submit">Guardar salida</button></div></form></div></div>
 
         <section id="boardPanel" class="panel">
           <div class="panel-head"><div><div class="topbar-kicker" id="boardKicker">CENTRAL</div><h3 id="listTitle">Bandeja de garantías</h3></div></div>
