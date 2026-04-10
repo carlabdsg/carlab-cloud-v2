@@ -5729,3 +5729,17 @@ body:not(.operator-mode)[data-panel="fleet"] #fleetUnitsList .busHeroStat strong
 .campaign-detail-supervisor [data-role-admin-only]{display:none !important;}
 .campaign-detail-supervisor .campaign-cards-card{grid-column:1 / -1;}
 .campaign-card-grid-full{grid-template-columns:repeat(auto-fill,minmax(320px,1fr));width:100%;align-items:start;}
+
+
+body[data-role="supervisor_flotas"] [data-role-admin-only]{display:none !important;}
+body[data-role="supervisor_flotas"] #campaignsPanel .campaign-layout{grid-template-columns:1fr !important;}
+body[data-role="supervisor_flotas"] #campaignsPanel .campaign-list-card{grid-column:1 / -1;}
+body[data-role="supervisor_flotas"] #campaignsPanel #campaignDetail .campaign-cards-card{grid-column:1 / -1;}
+body[data-role="supervisor_flotas"] #campaignsPanel #campaignUnitsGrid .campaign-card-grid{grid-template-columns:repeat(auto-fill,minmax(320px,1fr)) !important;}
+body[data-role="supervisor_flotas"] #campaignsPanel #campaignUnitsGrid .campaign-card-grid-scroll{max-height:720px;overflow:auto;padding-right:8px;}
+#campaignUnitsGrid .busHeroStatus{margin-top:10px;font-size:14px;font-weight:800;color:var(--campaign-bus-color,#2563eb);text-align:center;}
+#campaignUnitsGrid .campaignBusHeroVisual.red .busHeroStatus{color:#ef4444;}
+#campaignUnitsGrid .campaignBusHeroVisual.amber .busHeroStatus{color:#f59e0b;}
+#campaignUnitsGrid .campaignBusHeroVisual.green .busHeroStatus{color:#22c55e;}
+#campaignUnitsGrid .campaignBusHeroVisual.blue .busHeroStatus{color:#2563eb;}
+#campaignUnitsGrid .busHeroGlow{width:76%;height:8px;margin-top:14px;border-radius:999px;background:linear-gradient(90deg, rgba(255,255,255,0.08), var(--campaign-bus-color,#2563eb), rgba(255,255,255,0.1));box-shadow:0 0 18px color-mix(in srgb, var(--campaign-bus-color,#2563eb) 55%, white);opacity:.95;}
