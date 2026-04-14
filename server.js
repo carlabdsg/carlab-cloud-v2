@@ -2134,6 +2134,93 @@ app.get('/api/fleet/units/:id/details', authRequired, requireRoles('admin','oper
   }
 });
 
+app.get('/api/fleet/units/:id/reports', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
+  try {
+    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? 'AND empresa = $2' : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
+    if (!unit.rowCount) return res.json([]);
+    const u = unit.rows[0];
+    const reports = await pool.query(`
+      SELECT * FROM garantias g
+      WHERE g.fleet_unit_id = $1
+         OR (g.fleet_unit_id IS NULL
+            AND lower(regexp_replace(g.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))
+            AND lower(regexp_replace(g.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($3, '[^a-zA-Z0-9]+','','g')))
+      ORDER BY g.created_at DESC
+      LIMIT 80
+    `, [u.id, u.empresa, u.numero_economico]);
+    res.json(reports.rows.map(mapGarantia));
+  } catch (error) {
+    console.error('Error leyendo reportes de unidad:', error?.message || error);
+    res.json([]);
+  }
+});
+
+app.get('/api/fleet/units/:id/campaigns', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
+  try {
+    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? 'AND empresa = $2' : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
+    if (!unit.rowCount) return res.json([]);
+    const u = unit.rows[0];
+    const campaigns = await pool.query(`
+      SELECT cu.*, COALESCE(cg.nombre, cg.campaign_nombre, cg.campaign_name, '') AS campaign_nombre
+      FROM campaign_units cu
+      JOIN campaign_groups cg ON cg.id = cu.campaign_group_id
+      WHERE lower(regexp_replace(cu.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g'))
+        AND lower(regexp_replace(cu.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))
+      ORDER BY cu.updated_at DESC
+      LIMIT 50
+    `, [u.empresa, u.numero_economico]);
+    res.json(campaigns.rows.map(r => ({ id:r.id, campaignGroupId:r.campaign_group_id, nombre:r.campaign_nombre || '', empresa:r.empresa || '', numeroEconomico:r.numero_economico || '', status:r.status || 'sin_programar', evidencia:Array.isArray(r.evidencia)?r.evidencia:[], notas:r.notas || '', updatedAt:r.updated_at })));
+  } catch (error) {
+    console.error('Error leyendo campañas de unidad:', error?.message || error);
+    res.json([]);
+  }
+});
+
+app.get('/api/fleet/units/:id/schedules', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
+  try {
+    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? 'AND empresa = $2' : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
+    if (!unit.rowCount) return res.json([]);
+    const u = unit.rows[0];
+    const schedules = await pool.query(`
+      SELECT id, status, notes, requested_at, proposed_at, confirmed_at, scheduled_for, created_at, updated_at
+      FROM schedule_requests
+      WHERE lower(regexp_replace(COALESCE(empresa,''), '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g'))
+        AND lower(regexp_replace(COALESCE(numero_economico,''), '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))
+        AND COALESCE(status,'') <> 'cancelled'
+      ORDER BY COALESCE(scheduled_for, proposed_at, requested_at) ASC
+      LIMIT 40
+    `, [u.empresa, u.numero_economico]);
+    res.json(schedules.rows.map(row => ({ id: row.id, status: row.status || '', notes: row.notes || '', requestedAt: row.requested_at || null, proposedAt: row.proposed_at || null, confirmedAt: row.confirmed_at || null, scheduledFor: row.scheduled_for || null, updatedAt: row.updated_at || null })));
+  } catch (error) {
+    console.error('Error leyendo agenda de unidad:', error?.message || error);
+    res.json([]);
+  }
+});
+
+app.get('/api/fleet/units/:id/parts', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
+  try {
+    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? 'AND empresa = $2' : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
+    if (!unit.rowCount) return res.json([]);
+    const u = unit.rows[0];
+    const parts = await pool.query(`
+      SELECT id, folio, detalle_refaccion, refaccion_status, refaccion_asignada, refaccion_updated_at, updated_at, evidencias_refaccion
+      FROM garantias g
+      WHERE g.solicita_refaccion = TRUE
+        AND COALESCE(g.refaccion_status, 'pendiente') <> 'instalada'
+        AND (g.fleet_unit_id = $1
+          OR (g.fleet_unit_id IS NULL
+            AND lower(regexp_replace(g.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))
+            AND lower(regexp_replace(g.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($3, '[^a-zA-Z0-9]+','','g'))))
+      ORDER BY COALESCE(refaccion_updated_at, updated_at) DESC
+      LIMIT 50
+    `, [u.id, u.empresa, u.numero_economico]);
+    res.json(parts.rows.map(row => ({ id: row.id, folio: row.folio || '', detalleRefaccion: row.detalle_refaccion || '', refaccionStatus: row.refaccion_status || 'pendiente', refaccionAsignada: row.refaccion_asignada || '', refaccionUpdatedAt: row.refaccion_updated_at, updatedAt: row.updated_at, evidenciasRefaccion: Array.isArray(row.evidencias_refaccion) ? row.evidencias_refaccion : [] })));
+  } catch (error) {
+    console.error('Error leyendo refacciones de unidad:', error?.message || error);
+    res.json([]);
+  }
+});
+
 app.post('/api/fleet/units/:id/costs', authRequired, requireRoles('admin'), async (req, res) => {
   const unit = await pool.query('SELECT * FROM fleet_units WHERE id = $1', [req.params.id]);
   if (!unit.rowCount) return res.status(404).json({ error: 'Unidad no encontrada.' });

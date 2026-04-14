@@ -104,6 +104,10 @@ const api = {
   getFleetUnits() { return this.request('/api/fleet/units'); },
   getFleetUnit(id) { return this.request(`/api/fleet/units/${id}`); },
   getFleetUnitDetails(id) { return this.request(`/api/fleet/units/${id}/details`); },
+  getFleetUnitReports(id) { return this.request(`/api/fleet/units/${id}/reports`); },
+  getFleetUnitCampaigns(id) { return this.request(`/api/fleet/units/${id}/campaigns`); },
+  getFleetUnitSchedules(id) { return this.request(`/api/fleet/units/${id}/schedules`); },
+  getFleetUnitParts(id) { return this.request(`/api/fleet/units/${id}/parts`); },
   createFleetUnit(payload) { return this.request('/api/fleet/units', { method: 'POST', body: JSON.stringify(payload) }); },
   updateFleetUnit(id, payload) { return this.request(`/api/fleet/units/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }); },
   updateFleetStatus(id, payload) { return this.request(`/api/fleet/units/${id}/status`, { method: 'PATCH', body: JSON.stringify(payload) }); },
@@ -190,7 +194,7 @@ function detectEditingContext(el) {
   return '';
 }
 
-async function getGarantiaFullForExport(id, seed = null) {
+async function getGarantiaFull(id, seed = null) {
   const garantiaId = String(id || seed?.id || '').trim();
   if (!garantiaId) return seed || null;
   const hasMedia = (g) => Array.isArray(g?.evidencias) || Array.isArray(g?.evidenciasRefaccion) || !!g?.firma;
@@ -722,7 +726,7 @@ async function renderPdfEvidenceGallery(doc, images = [], startY = 18, title = '
   return y + rowHeight + 8;
 }
 async function exportPdf(item) {
-  const fullItem = await getGarantiaFullForExport(item?.id, item).catch(() => item);
+  const fullItem = await getGarantiaFull(item?.id, item).catch(() => item);
   const safeItem = fullItem || item || {};
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
@@ -1911,7 +1915,7 @@ function launchDirectSaleWithPart(partId) {
 async function exportCommercialPdf(quote) {
   try {
     const light = state.garantias.find(item => item.id === quote.garantiaId) || null;
-    const report = quote.garantiaId ? await getGarantiaFullForExport(quote.garantiaId, light).catch(() => light) : light;
+    const report = quote.garantiaId ? await getGarantiaFull(quote.garantiaId, light).catch(() => light) : light;
     const draft = state.quoteDrafts[quote.id] || ensureQuoteDraft(quote) || quote;
     const items = (draft.items || quote.items || []).map(item => ({ ...item, total: Number(((Number(item.qty || 0) * Number(item.unitPrice || 0)) || item.total || 0).toFixed(2)) }));
     const totals = computeQuoteDraftTotals({ items, discount: Number(draft.discount || 0), iva: Number(draft.iva || 0), anticipo: Number(draft.anticipo || 0) });
@@ -2006,8 +2010,8 @@ async function loadFleet() {
       const still = state.fleetUnits.find(u => u.id === state.selectedFleetUnit.unit.id);
       if (still) {
         const base = await api.getFleetUnit(still.id);
-        state.selectedFleetUnit = { ...(base || {}), reports: [], costs: [], campaigns: [], schedules: [], parts: [], loadingDetails: true };
-        hydrateFleetUnitDetails(still.id);
+        state.selectedFleetUnit = { ...(base || {}), reports: [], costs: [], campaigns: [], schedules: [], parts: [], loading: { reports:true, costs:true, campaigns:true, schedules:true, parts:true } };
+        startFleetUnitProgressiveLoad(still.id);
       }
     }
     renderFleet();
@@ -2016,26 +2020,72 @@ async function loadFleet() {
   }
 }
 
-async function hydrateFleetUnitDetails(unitId) {
+async function loadFleetUnitReports(unitId) {
   try {
-    const details = await api.getFleetUnitDetails(unitId);
-    if (!state.selectedFleetUnit?.unit || state.selectedFleetUnit.unit.id !== unitId) return;
-    state.selectedFleetUnit = {
-      ...state.selectedFleetUnit,
-      reports: details.reports || [],
-      costs: details.costs || [],
-      campaigns: details.campaigns || [],
-      schedules: details.schedules || [],
-      parts: details.parts || [],
-      loadingDetails: false
-    };
+    const rows = await api.getFleetUnitReports(unitId);
+    if (state.selectedFleetUnit?.unit?.id !== unitId) return;
+    state.selectedFleetUnit.reports = rows || [];
+  } catch {
+    if (state.selectedFleetUnit?.unit?.id === unitId) state.selectedFleetUnit.reports = [];
+  } finally {
+    if (state.selectedFleetUnit?.unit?.id === unitId) state.selectedFleetUnit.loading.reports = false;
     renderFleetDetail();
-  } catch (error) {
-    if (state.selectedFleetUnit?.unit?.id === unitId) {
-      state.selectedFleetUnit = { ...state.selectedFleetUnit, loadingDetails: false };
-      renderFleetDetail();
-    }
   }
+}
+async function loadFleetUnitCampaigns(unitId) {
+  try {
+    const rows = await api.getFleetUnitCampaigns(unitId);
+    if (state.selectedFleetUnit?.unit?.id !== unitId) return;
+    state.selectedFleetUnit.campaigns = rows || [];
+  } catch {
+    if (state.selectedFleetUnit?.unit?.id === unitId) state.selectedFleetUnit.campaigns = [];
+  } finally {
+    if (state.selectedFleetUnit?.unit?.id === unitId) state.selectedFleetUnit.loading.campaigns = false;
+    renderFleetDetail();
+  }
+}
+async function loadFleetUnitSchedules(unitId) {
+  try {
+    const rows = await api.getFleetUnitSchedules(unitId);
+    if (state.selectedFleetUnit?.unit?.id !== unitId) return;
+    state.selectedFleetUnit.schedules = rows || [];
+  } catch {
+    if (state.selectedFleetUnit?.unit?.id === unitId) state.selectedFleetUnit.schedules = [];
+  } finally {
+    if (state.selectedFleetUnit?.unit?.id === unitId) state.selectedFleetUnit.loading.schedules = false;
+    renderFleetDetail();
+  }
+}
+async function loadFleetUnitParts(unitId) {
+  try {
+    const rows = await api.getFleetUnitParts(unitId);
+    if (state.selectedFleetUnit?.unit?.id !== unitId) return;
+    state.selectedFleetUnit.parts = rows || [];
+  } catch {
+    if (state.selectedFleetUnit?.unit?.id === unitId) state.selectedFleetUnit.parts = [];
+  } finally {
+    if (state.selectedFleetUnit?.unit?.id === unitId) state.selectedFleetUnit.loading.parts = false;
+    renderFleetDetail();
+  }
+}
+async function loadFleetUnitCosts(unitId) {
+  try {
+    const rows = isRole('admin') ? await api.getFleetCosts(unitId) : (state.selectedFleetUnit?.costs || []);
+    if (state.selectedFleetUnit?.unit?.id !== unitId) return;
+    state.selectedFleetUnit.costs = (rows || []).map(c => ({ ...c, fleetUnitId: c.fleetUnitId || c.fleet_unit_id, createdByNombre: c.createdByNombre || c.created_by_nombre || '' }));
+  } catch {
+    if (state.selectedFleetUnit?.unit?.id === unitId) state.selectedFleetUnit.costs = [];
+  } finally {
+    if (state.selectedFleetUnit?.unit?.id === unitId) state.selectedFleetUnit.loading.costs = false;
+    renderFleetDetail();
+  }
+}
+function startFleetUnitProgressiveLoad(unitId) {
+  loadFleetUnitReports(unitId);
+  loadFleetUnitCampaigns(unitId);
+  loadFleetUnitSchedules(unitId);
+  loadFleetUnitParts(unitId);
+  loadFleetUnitCosts(unitId);
 }
 
 function renderFleet() {
@@ -2115,11 +2165,11 @@ function renderFleet() {
           return;
         }
         const base = await api.getFleetUnit(unit.id);
-        state.selectedFleetUnit = { ...(base || {}), reports: [], costs: [], campaigns: [], schedules: [], parts: [], loadingDetails: true };
+        state.selectedFleetUnit = { ...(base || {}), reports: [], costs: [], campaigns: [], schedules: [], parts: [], loading: { reports:true, costs:true, campaigns:true, schedules:true, parts:true } };
         if (isRole('admin')) await loadAdminUnitCosts(unit.id);
         renderFleet();
         renderFleetDetail();
-        hydrateFleetUnitDetails(unit.id);
+        startFleetUnitProgressiveLoad(unit.id);
       } catch (error) { notify(error.message, true); }
     });
     els.fleetUnitsList?.appendChild(row);
@@ -2177,22 +2227,23 @@ function renderFleetDetail() {
   const unitSchedules = (data.schedules || []).slice(0, 8);
   const unitParts = data.parts || [];
   const campaignArr = data.campaigns || [];
+  const loading = data.loading || {};
   const allImages = reportsArr.flatMap(r => [...(r.evidencias || []), ...(r.evidenciasRefaccion || [])]).concat(campaignArr.flatMap(c => c.evidencia || [])).filter(Boolean);
-  const reports = reportsArr.map(r => `
+  const reports = loading.reports ? '<div class="muted">Cargando reportes recientes…</div>' : reportsArr.map(r => `
     <div class="table-row rich-row">
       <div><strong>${escapeHtml(r.folio || 'GAR-—')}</strong><div class="small muted">${escapeHtml(r.descripcionFallo || 'Sin descripción')}</div></div>
       <div><span class="badge ${badgeClassValidation(r.estatusValidacion || 'nueva')}">${escapeHtml(r.estatusValidacion || '—')}</span></div>
       <div><span class="badge ${badgeClassOperational(r.estatusOperativo || 'sin iniciar')}">${escapeHtml(r.estatusOperativo || '—')}</span></div>
     </div>
   `).join('') || '<div class="muted">Sin reportes ligados.</div>';
-  const costs = costsArr.map(c => `
+  const costs = loading.costs ? '<div class="muted">Cargando costos…</div>' : costsArr.map(c => `
     <div class="table-row rich-row">
       <div><strong>${escapeHtml(c.tipo)}</strong><div class="small muted">${escapeHtml(c.concepto || 'Sin concepto')}</div></div>
       <div>${money(c.monto)}</div>
       <div>${escapeHtml(c.createdByNombre || '—')}</div>
     </div>
   `).join('') || '<div class="muted">Sin costos capturados.</div>';
-  const parts = unitParts.map(item => `
+  const parts = loading.parts ? '<div class="muted">Cargando refacciones…</div>' : unitParts.map(item => `
     <div class="owner-list-row static parts-inline-row">
       <span>${escapeHtml(item.detalleRefaccion || 'Refacción pendiente')}</span>
       <small>${escapeHtml(item.refaccionAsignada || 'Sin asignar')}</small>
@@ -2200,8 +2251,8 @@ function renderFleetDetail() {
     </div>
     ${buildImageGallery(item.evidenciasRefaccion || [], 'Sin foto cargada todavía.')}
   `).join('') || '<div class="muted">Esta unidad no tiene refacciones pendientes abiertas.</div>';
-  const agenda = unitSchedules.map(item => `<div class="owner-list-row static"><span>${escapeHtml(item.status || 'programada')}</span><small>${escapeHtml(item.originalText || '')}</small><strong>${escapeHtml(fmtDate(item.scheduledFor || item.proposedAt || item.requestedAt))}</strong></div>`).join('') || '<div class="muted">Sin agenda próxima para esta unidad.</div>';
-  const campaigns = campaignArr.map(c => `<div class="owner-list-row static"><span>${escapeHtml(c.nombre || 'Campaña')}</span><small>${escapeHtml((c.status || 'sin_programar').replaceAll('_',' '))}</small><strong>${escapeHtml(fmtDate(c.updatedAt))}</strong></div>`).join('') || '<div class="muted">Sin campañas ligadas.</div>';
+  const agenda = loading.schedules ? '<div class="muted">Cargando agenda…</div>' : unitSchedules.map(item => `<div class="owner-list-row static"><span>${escapeHtml(item.status || 'programada')}</span><small>${escapeHtml(item.originalText || '')}</small><strong>${escapeHtml(fmtDate(item.scheduledFor || item.proposedAt || item.requestedAt))}</strong></div>`).join('') || '<div class="muted">Sin agenda próxima para esta unidad.</div>';
+  const campaigns = loading.campaigns ? '<div class="muted">Cargando campañas…</div>' : campaignArr.map(c => `<div class="owner-list-row static"><span>${escapeHtml(c.nombre || 'Campaña')}</span><small>${escapeHtml((c.status || 'sin_programar').replaceAll('_',' '))}</small><strong>${escapeHtml(fmtDate(c.updatedAt))}</strong></div>`).join('') || '<div class="muted">Sin campañas ligadas.</div>';
   const adminCostsEditor = isRole('admin') ? `
     <div class="admin-cost-editor-list">
       ${(state.unitCostsAdmin || []).map(c => `
@@ -2249,7 +2300,7 @@ function renderFleetDetail() {
     ...unitParts.map(p => ({ title:'Refacción abierta', text:p.detalleRefaccion || 'Pendiente de pieza', date:p.refaccionUpdatedAt || p.updatedAt || p.createdAt, tag:p.refaccionStatus || 'pendiente' }))
   ].sort((a,b) => new Date(b.date || 0) - new Date(a.date || 0)).slice(0,7);
   const timeline = timelineEvents.map(evt => `<div class="timeline-item"><span class="timeline-dot"></span><div><strong>${escapeHtml(evt.title)}</strong><p>${escapeHtml(evt.text)}</p><small>${fmtDate(evt.date)} · ${escapeHtml(evt.tag || 'movimiento')}</small></div></div>`).join('') || '<div class="muted">Sin movimientos recientes.</div>';
-  const detailLoading = data.loadingDetails ? `<div class="owner-card"><div class="muted">Cargando reportes, costos, agenda, campañas y refacciones…</div></div>` : '';
+  const detailLoading = '';
   const detailHtml = `
     <div class="panel-head fleet-detail-head">
       <div><div class="topbar-kicker">EXPEDIENTE DE UNIDAD</div><h3>${escapeHtml(u.numeroEconomico)} · ${escapeHtml(u.empresa)}</h3><p class="muted">Vista premium para dueño: patrimonio, agenda, refacciones y evidencia visual en una sola ficha.</p></div>
@@ -2303,8 +2354,8 @@ function renderFleetDetail() {
       try {
         await api.updateFleetStatus(u.id, { status: document.getElementById('fleetManualStatus').value });
         const base = await api.getFleetUnit(u.id);
-        state.selectedFleetUnit = { ...(base || {}), reports: [], costs: [], campaigns: [], schedules: [], parts: [], loadingDetails: true };
-        hydrateFleetUnitDetails(u.id);
+        state.selectedFleetUnit = { ...(base || {}), reports: [], costs: [], campaigns: [], schedules: [], parts: [], loading: { reports:true, costs:true, campaigns:true, schedules:true, parts:true } };
+        startFleetUnitProgressiveLoad(u.id);
         await loadFleet();
         notify('Estado de unidad actualizado.');
       } catch (error) { notify(error.message, true); }
@@ -2329,8 +2380,8 @@ function renderFleetDetail() {
         });
         notify('Costo guardado.');
         const base = await api.getFleetUnit(u.id);
-        state.selectedFleetUnit = { ...(base || {}), reports: [], costs: [], campaigns: [], schedules: [], parts: [], loadingDetails: true };
-        hydrateFleetUnitDetails(u.id);
+        state.selectedFleetUnit = { ...(base || {}), reports: [], costs: [], campaigns: [], schedules: [], parts: [], loading: { reports:true, costs:true, campaigns:true, schedules:true, parts:true } };
+        startFleetUnitProgressiveLoad(u.id);
         await loadAdminUnitCosts(u.id);
         renderFleetDetail();
         const summary = await api.getFleetSummary(); state.fleetSummary = summary; renderFleet();
@@ -2434,7 +2485,7 @@ function renderCampaignDetail() {
 }
 async function editarReporteAdmin(item) {
   try {
-    const full = await api.getGarantia(item.id).catch(() => item);
+    const full = await getGarantiaFull(item.id, item).catch(() => item);
     resetReportForm();
     state.editingGarantiaId = full.id;
     state.editingFirmaOriginal = full.firma || '';
@@ -2736,7 +2787,7 @@ function closeImageLightbox() {
 
 async function openReportDetailModal(item) {
   if (!item || !els.reportDetailModal || !els.reportDetailContent) return;
-  const full = await getGarantiaFullForExport(item.id, item).catch(() => item);
+  const full = await getGarantiaFull(item.id, item).catch(() => item);
   const gallery = [
     ...(full.evidencias || []).map((src, idx) => ({ src, caption: `Evidencia general ${idx + 1}` })),
     ...(full.evidenciasRefaccion || []).map((src, idx) => ({ src, caption: `Evidencia refacción ${idx + 1}` })),
@@ -2939,12 +2990,12 @@ async function focusFleetUnit(id) {
   if (!id) return;
   try {
     const base = await api.getFleetUnit(id);
-    state.selectedFleetUnit = { ...(base || {}), reports: [], costs: [], campaigns: [], schedules: [], parts: [], loadingDetails: true };
+    state.selectedFleetUnit = { ...(base || {}), reports: [], costs: [], campaigns: [], schedules: [], parts: [], loading: { reports:true, costs:true, campaigns:true, schedules:true, parts:true } };
     if (isRole('admin')) await loadAdminUnitCosts(id);
     switchPanel('fleet');
     renderFleet();
     renderFleetDetail();
-    hydrateFleetUnitDetails(id);
+    startFleetUnitProgressiveLoad(id);
     document.getElementById('fleetDetail')?.scrollIntoView({ behavior:'smooth', block:'start' });
   } catch (error) {
     notify(error.message, true);
