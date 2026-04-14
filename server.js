@@ -222,6 +222,19 @@ function sanitizeUser(row) {
 }
 
 function mapGarantia(row) {
+  const normalizeJsonArray = (value) => {
+    if (Array.isArray(value)) return value.filter(Boolean);
+    if (!value) return [];
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+      } catch (_error) {
+        return [];
+      }
+    }
+    return [];
+  };
   return {
     id: row.id,
     folio: row.folio || '',
@@ -242,9 +255,9 @@ function mapGarantia(row) {
     estatusOperativo: row.estatus_operativo,
     motivoDecision: row.motivo_decision || '',
     observacionesOperativo: row.observaciones_operativo || '',
-    evidencias: row.evidencias || [],
-    evidenciasRefaccion: row.evidencias_refaccion || [],
-    firma: row.firma || '',
+    evidencias: normalizeJsonArray(row.evidencias),
+    evidenciasRefaccion: normalizeJsonArray(row.evidencias_refaccion),
+    firma: typeof row.firma === 'string' ? row.firma : '',
     reportadoPorNombre: row.reportado_por_nombre || '',
     reportadoPorEmail: row.reportado_por_email || '',
     revisadoPorNombre: row.revisado_por_nombre || '',

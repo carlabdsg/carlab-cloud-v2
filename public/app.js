@@ -194,15 +194,33 @@ function detectEditingContext(el) {
   return '';
 }
 
-async function getGarantiaFull(id, seed = null) {
-  const garantiaId = String(id || seed?.id || '').trim();
-  if (!garantiaId) return seed || null;
-  const hasMedia = (g) => Array.isArray(g?.evidencias) || Array.isArray(g?.evidenciasRefaccion) || !!g?.firma;
-  if (seed && hasMedia(seed)) return seed;
+async function getGarantiaFull(id) {
+  const garantiaId = String(id || '').trim();
+  if (!garantiaId) throw new Error('ID de garantía requerido para cargar el reporte completo.');
   if (state.garantiaFullCache[garantiaId]) return state.garantiaFullCache[garantiaId];
   const full = await api.getGarantia(garantiaId);
-  state.garantiaFullCache[garantiaId] = full;
-  return full;
+  if (!full || !full.id) throw new Error(`No se pudo cargar el reporte completo (${garantiaId}).`);
+  const normalizeEvidence = (value) => {
+    if (Array.isArray(value)) return value.filter(Boolean);
+    if (!value) return [];
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+      } catch (_error) {
+        return [];
+      }
+    }
+    return [];
+  };
+  const normalized = {
+    ...full,
+    evidencias: normalizeEvidence(full.evidencias),
+    evidenciasRefaccion: normalizeEvidence(full.evidenciasRefaccion),
+    firma: typeof full.firma === 'string' ? full.firma : '',
+  };
+  state.garantiaFullCache[garantiaId] = normalized;
+  return normalized;
 }
 function shouldPauseLiveRefresh(panel = state.activePanel) {
   const active = document.activeElement;
@@ -725,9 +743,20 @@ async function renderPdfEvidenceGallery(doc, images = [], startY = 18, title = '
   }
   return y + rowHeight + 8;
 }
-async function exportPdf(item) {
-  const fullItem = await getGarantiaFull(item?.id, item).catch(() => item);
-  const safeItem = fullItem || item || {};
+async function exportPdf(reportOrId) {
+  const inputIsObject = reportOrId && typeof reportOrId === 'object';
+  const garantiaId = String(inputIsObject ? (reportOrId.id || '') : (reportOrId || '')).trim();
+  if (!garantiaId) {
+    notify('No se pudo exportar: falta el ID del reporte.', true);
+    return;
+  }
+  let safeItem = {};
+  try {
+    safeItem = await getGarantiaFull(garantiaId);
+  } catch (error) {
+    notify(error.message || 'No se pudo cargar el reporte completo para exportar.', true);
+    return;
+  }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   const logo = await getImageData('/logo.jpg');
@@ -1914,8 +1943,14 @@ function launchDirectSaleWithPart(partId) {
 
 async function exportCommercialPdf(quote) {
   try {
-    const light = state.garantias.find(item => item.id === quote.garantiaId) || null;
-    const report = quote.garantiaId ? await getGarantiaFull(quote.garantiaId, light).catch(() => light) : light;
+    let report = null;
+    if (quote.garantiaId) {
+      try {
+        report = await getGarantiaFull(quote.garantiaId);
+      } catch (_error) {
+        report = state.garantias.find(item => item.id === quote.garantiaId) || null;
+      }
+    }
     const draft = state.quoteDrafts[quote.id] || ensureQuoteDraft(quote) || quote;
     const items = (draft.items || quote.items || []).map(item => ({ ...item, total: Number(((Number(item.qty || 0) * Number(item.unitPrice || 0)) || item.total || 0).toFixed(2)) }));
     const totals = computeQuoteDraftTotals({ items, discount: Number(draft.discount || 0), iva: Number(draft.iva || 0), anticipo: Number(draft.anticipo || 0) });
@@ -2485,7 +2520,7 @@ function renderCampaignDetail() {
 }
 async function editarReporteAdmin(item) {
   try {
-    const full = await getGarantiaFull(item.id, item).catch(() => item);
+    const full = await getGarantiaFull(item.id);
     resetReportForm();
     state.editingGarantiaId = full.id;
     state.editingFirmaOriginal = full.firma || '';
@@ -2787,7 +2822,13 @@ function closeImageLightbox() {
 
 async function openReportDetailModal(item) {
   if (!item || !els.reportDetailModal || !els.reportDetailContent) return;
-  const full = await getGarantiaFull(item.id, item).catch(() => item);
+  let full = null;
+  try {
+    full = await getGarantiaFull(item.id);
+  } catch (error) {
+    notify(error.message || 'No se pudo abrir la ficha completa.', true);
+    return;
+  }
   const gallery = [
     ...(full.evidencias || []).map((src, idx) => ({ src, caption: `Evidencia general ${idx + 1}` })),
     ...(full.evidenciasRefaccion || []).map((src, idx) => ({ src, caption: `Evidencia refacción ${idx + 1}` })),
