@@ -2900,7 +2900,22 @@ function logoutSession() {
 }
 
 els.logoutBtn?.addEventListener('click', logoutSession);
-els.globalRefreshBtn?.addEventListener('click', async () => { await Promise.allSettled([loadGarantias(), loadSchedules(''), loadNotifications(), loadFleet(), loadPartsPending(true), isRole('admin') ? loadStock(true) : Promise.resolve(), isRole('admin') ? loadCobranza(true) : Promise.resolve()]); renderExecutiveDeck(); notify('Datos actualizados.'); });
+els.globalRefreshBtn?.addEventListener('click', async () => {
+  try {
+    await loadGarantias();
+    await loadSchedules('');
+    await loadNotifications();
+    if (['fleet','campaigns'].includes(state.activePanel) && isRole('admin','operativo','supervisor_flotas')) await loadFleet();
+    if (state.activePanel === 'campaigns' && isRole('admin','operativo','supervisor_flotas')) await loadCampaigns(state.selectedCampaignId || '');
+    if (state.activePanel === 'partsPending' && isRole('admin','supervisor_flotas')) await loadPartsPending(true);
+    if (state.activePanel === 'stock' && isRole('admin')) await loadStock(true);
+    if (state.activePanel === 'cobranza' && isRole('admin')) await loadCobranza(true);
+    renderExecutiveDeck();
+    notify('Datos actualizados.');
+  } catch (error) {
+    notify(error.message || 'No se pudieron actualizar los datos.', true);
+  }
+});
 els.opNavHomeBtn?.addEventListener('click', () => switchPanel('board'));
 els.opNavNewBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); });
 els.opNavScheduleBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
@@ -3098,13 +3113,31 @@ els.companyForm?.addEventListener('submit', async (e) => {
   try { state.companies = await api.getPublicCompanies(); renderCompanies(); } catch {}
   if (!state.token) return showLogin();
   try {
-    const data = await api.me(); state.user = data.user; showDashboard();
-    await Promise.allSettled([loadCompanies(), loadGarantias(), loadNotifications()]);
-    if (isRole('admin')) await Promise.allSettled([loadUsers(), loadRequests()]);
-    if (isRole('admin','operativo','supervisor','supervisor_flotas','operador')) await Promise.allSettled([loadSchedules('')]);
-    if (isRole('admin','operativo','supervisor_flotas')) await Promise.allSettled([loadFleet(), loadCampaigns()]);
-    if (isRole('admin','supervisor_flotas')) await Promise.allSettled([cargarSolicitudesIndependientes(), loadPartsPending(true)]);
-    resetReportForm(); resetCompanyForm(); resetFleetForm();
+    const data = await api.me();
+    state.user = data.user;
+    showDashboard();
+
+    // Carga inicial estabilizada: evitar ráfagas paralelas muy pesadas en Render.
+    await loadCompanies();
+    await loadGarantias();
+    await loadNotifications();
+
+    if (isRole('admin')) {
+      await loadUsers();
+      await loadRequests();
+    }
+    if (isRole('admin','operativo','supervisor','supervisor_flotas','operador')) {
+      await loadSchedules('');
+    }
+
+    // Flotas, campañas y refacciones pendientes se cargan bajo demanda al entrar al módulo.
+    state.fleet = state.fleet || [];
+    state.campaigns = state.campaigns || [];
+    state.pendingParts = state.pendingParts || [];
+
+    resetReportForm();
+    resetCompanyForm();
+    resetFleetForm();
   } catch {
     localStorage.removeItem('carlabToken'); state.token = ''; showLogin();
   }
@@ -3118,7 +3151,7 @@ setInterval(async () => {
     if (state.activePanel === 'schedule' && !shouldPauseLiveRefresh('schedule')) await Promise.allSettled([loadSchedules('')]);
     renderExecutiveDeck();
   } catch {}
-}, 15000);
+}, 30000);
 window.guardarCostoAdmin = guardarCostoAdmin;
 window.eliminarCostoAdmin = eliminarCostoAdmin;
 window.openImageLightbox = openImageLightbox;
