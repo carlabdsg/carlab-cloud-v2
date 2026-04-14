@@ -42,6 +42,7 @@ const state = {
   selectedCampaign: null,
   selectedCampaignId: '',
   campaignUnitEvidence: [],
+  garantiaFullCache: {},
 };
 
 const api = {
@@ -66,6 +67,7 @@ const api = {
   getPublicCompanies() { return this.request('/api/public/companies'); },
   registerOperator(payload) { return this.request('/api/public/register-operator', { method: 'POST', body: JSON.stringify(payload) }); },
   getGarantias() { return this.request('/api/garantias'); },
+  getGarantia(id) { return this.request(`/api/garantias/${id}`); },
   createGarantia(payload) { return this.request('/api/garantias', { method: 'POST', body: JSON.stringify(payload) }); },
   updateGarantia(id, payload) { return this.request(`/api/garantias/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   deleteGarantia(id) { return this.request(`/api/garantias/${id}`, { method: 'DELETE' }); },
@@ -91,6 +93,7 @@ const api = {
   cancelSchedule(id, payload) { return this.request(`/api/schedules/${id}/cancel`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   rescheduleSchedule(id, payload) { return this.request(`/api/schedules/${id}/reschedule`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   getPartsPending() { return this.request('/api/parts/pending'); },
+  getPartPendingDetail(id) { return this.request(`/api/parts/pending/${id}`); },
   updateParts(id, payload) { return this.request(`/api/garantias/${id}/parts`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   getIndependentPartsRequests() { return this.request('/api/parts/requests'); },
   createIndependentPartsRequest(payload) { return this.request('/api/parts/requests', { method: 'POST', body: JSON.stringify(payload || {}) }); },
@@ -100,6 +103,7 @@ const api = {
   getFleetSummary() { return this.request('/api/fleet/summary'); },
   getFleetUnits() { return this.request('/api/fleet/units'); },
   getFleetUnit(id) { return this.request(`/api/fleet/units/${id}`); },
+  getFleetUnitDetails(id) { return this.request(`/api/fleet/units/${id}/details`); },
   createFleetUnit(payload) { return this.request('/api/fleet/units', { method: 'POST', body: JSON.stringify(payload) }); },
   updateFleetUnit(id, payload) { return this.request(`/api/fleet/units/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }); },
   updateFleetStatus(id, payload) { return this.request(`/api/fleet/units/${id}/status`, { method: 'PATCH', body: JSON.stringify(payload) }); },
@@ -184,6 +188,17 @@ function detectEditingContext(el) {
   if (el.closest('#fleetPanel')) return 'fleet';
   if (el.closest('#schedulePanel')) return 'schedule';
   return '';
+}
+
+async function getGarantiaFullForExport(id, seed = null) {
+  const garantiaId = String(id || seed?.id || '').trim();
+  if (!garantiaId) return seed || null;
+  const hasMedia = (g) => Array.isArray(g?.evidencias) || Array.isArray(g?.evidenciasRefaccion) || !!g?.firma;
+  if (seed && hasMedia(seed)) return seed;
+  if (state.garantiaFullCache[garantiaId]) return state.garantiaFullCache[garantiaId];
+  const full = await api.getGarantia(garantiaId);
+  state.garantiaFullCache[garantiaId] = full;
+  return full;
 }
 function shouldPauseLiveRefresh(panel = state.activePanel) {
   const active = document.activeElement;
@@ -707,6 +722,8 @@ async function renderPdfEvidenceGallery(doc, images = [], startY = 18, title = '
   return y + rowHeight + 8;
 }
 async function exportPdf(item) {
+  const fullItem = await getGarantiaFullForExport(item?.id, item).catch(() => item);
+  const safeItem = fullItem || item || {};
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   const logo = await getImageData('/logo.jpg');
@@ -718,55 +735,55 @@ async function exportPdf(item) {
   doc.setTextColor(30, 30, 30);
   doc.setFontSize(18); doc.text('REPORTE DE GARANTÍA', 62, 24);
   doc.setFontSize(10); doc.setTextColor(100, 100, 100); doc.text('CARLAB SERVICIOS INTEGRALES', 62, 31);
-  doc.setFontSize(10); doc.setTextColor(120, 120, 120); doc.text(`Folio: ${item.folio || '—'}`, 196, 20, { align: 'right' });
+  doc.setFontSize(10); doc.setTextColor(120, 120, 120); doc.text(`Folio: ${safeItem.folio || '—'}`, 196, 20, { align: 'right' });
   doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 196, 27, { align: 'right' });
 
   y = 50;
   doc.setFontSize(11); doc.setTextColor(40, 40, 40);
   doc.setFillColor(255,255,255); doc.setDrawColor(255,255,255); doc.roundedRect(14, 44, 182, 38, 4, 4, 'F');
-  doc.text(`Empresa: ${item.empresa || '—'}`, 18, 54);
-  doc.text(`Unidad: ${item.numeroEconomico || '—'}`, 18, 62);
-  doc.text(`Modelo: ${item.modelo || '—'}`, 18, 70);
-  doc.text(`Obra: ${item.numeroObra || '—'}`, 105, 54);
-  doc.text(`KM: ${item.kilometraje || '—'}`, 105, 62);
-  doc.text(`Estatus: ${item.estatusValidacion || '—'} / ${item.estatusOperativo || '—'}`, 105, 70);
+  doc.text(`Empresa: ${safeItem.empresa || '—'}`, 18, 54);
+  doc.text(`Unidad: ${safeItem.numeroEconomico || '—'}`, 18, 62);
+  doc.text(`Modelo: ${safeItem.modelo || '—'}`, 18, 70);
+  doc.text(`Obra: ${safeItem.numeroObra || '—'}`, 105, 54);
+  doc.text(`KM: ${safeItem.kilometraje || '—'}`, 105, 62);
+  doc.text(`Estatus: ${safeItem.estatusValidacion || '—'} / ${safeItem.estatusOperativo || '—'}`, 105, 70);
 
   y = 92;
   doc.setFillColor(255,255,255); doc.setDrawColor(255,255,255); doc.roundedRect(14, 86, 182, 24, 4, 4, 'F');
-  doc.text(`Nombre: ${item.contactoNombre || '—'}`, 18, 96);
-  doc.text(`Teléfono: ${item.telefono || '—'}`, 105, 96);
-  doc.text(`Reportó: ${item.reportadoPorNombre || '—'}`, 18, 104);
-  doc.text(`Revisó: ${item.revisadoPorNombre || '—'}`, 105, 104);
+  doc.text(`Nombre: ${safeItem.contactoNombre || '—'}`, 18, 96);
+  doc.text(`Teléfono: ${safeItem.telefono || '—'}`, 105, 96);
+  doc.text(`Reportó: ${safeItem.reportadoPorNombre || '—'}`, 18, 104);
+  doc.text(`Revisó: ${safeItem.revisadoPorNombre || '—'}`, 105, 104);
 
   y = 122;
   doc.setFontSize(12); doc.setTextColor(20, 20, 20); textLine('Descripción de la falla', 8);
   doc.setFontSize(10); doc.setTextColor(55,55,55);
-  let split = doc.splitTextToSize(item.descripcionFallo || '—', 178);
+  let split = doc.splitTextToSize(safeItem.descripcionFallo || '—', 178);
   doc.text(split, 14, y); y += split.length * 6 + 6;
 
-  if (item.detalleRefaccion) {
+  if (safeItem.detalleRefaccion) {
     y = ensurePdfSpace(doc, y, 24); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Detalle de refacción', 8);
-    doc.setFontSize(10); doc.setTextColor(55,55,55); split = doc.splitTextToSize(item.detalleRefaccion, 178); doc.text(split, 14, y); y += split.length * 6 + 6;
+    doc.setFontSize(10); doc.setTextColor(55,55,55); split = doc.splitTextToSize(safeItem.detalleRefaccion, 178); doc.text(split, 14, y); y += split.length * 6 + 6;
   }
-  if (item.observacionesOperativo) {
+  if (safeItem.observacionesOperativo) {
     y = ensurePdfSpace(doc, y, 24); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Observaciones del operativo', 8);
-    doc.setFontSize(10); doc.setTextColor(55,55,55); split = doc.splitTextToSize(item.observacionesOperativo, 178); doc.text(split, 14, y); y += split.length * 6 + 6;
+    doc.setFontSize(10); doc.setTextColor(55,55,55); split = doc.splitTextToSize(safeItem.observacionesOperativo, 178); doc.text(split, 14, y); y += split.length * 6 + 6;
   }
 
-  const images = [ ...(item.evidencias || []), ...(item.evidenciasRefaccion || []) ];
+  const images = [ ...(safeItem.evidencias || []), ...(safeItem.evidenciasRefaccion || []) ];
   if (images.length) {
     y = await renderPdfEvidenceGallery(doc, images, y, 'Evidencias fotográficas');
   }
-  if (item.firma) {
+  if (safeItem.firma) {
     y = ensurePdfSpace(doc, y, 42); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Firma', 8);
-    doc.setFillColor(255,255,255); doc.setDrawColor(255,255,255); doc.roundedRect(14, y, 90, 28, 3, 3, 'F'); await addPdfImage(doc, item.firma, 16, y + 2, 86, 24); y += 34;
+    doc.setFillColor(255,255,255); doc.setDrawColor(255,255,255); doc.roundedRect(14, y, 90, 28, 3, 3, 'F'); await addPdfImage(doc, safeItem.firma, 16, y + 2, 86, 24); y += 34;
   }
-  if (item.estatusValidacion === 'rechazada' && item.observacionesOperativo) {
+  if (safeItem.estatusValidacion === 'rechazada' && safeItem.observacionesOperativo) {
     y = ensurePdfSpace(doc, y, 24); doc.setFontSize(12); doc.setTextColor(170, 35, 35); textLine('Motivo de rechazo', 8);
-    doc.setFontSize(10); doc.setTextColor(80,80,80); split = doc.splitTextToSize(item.observacionesOperativo, 178); doc.text(split, 14, y); y += split.length * 6 + 6;
+    doc.setFontSize(10); doc.setTextColor(80,80,80); split = doc.splitTextToSize(safeItem.observacionesOperativo, 178); doc.text(split, 14, y); y += split.length * 6 + 6;
   }
 
-  doc.save(`${item.folio || 'garantia'}_${item.numeroEconomico}_${item.numeroObra}.pdf`);
+  doc.save(`${safeItem.folio || 'garantia'}_${safeItem.numeroEconomico || 'unidad'}_${safeItem.numeroObra || 'obra'}.pdf`);
 }
 
 async function showAudit(item) {
@@ -1107,7 +1124,7 @@ function renderPartsPending() {
   const extras = (state.independentPartsRequests || []).filter(req => !['instalada','cerrada','cancelada'].includes(String(req.status || '').toLowerCase()));
   const unidades = [...new Set([...items.map(item => item.numeroEconomico), ...extras.map(item => item.numero_economico)].filter(Boolean))].length;
   const empresas = [...new Set([...items.map(item => item.empresa), ...extras.map(item => item.empresa)].filter(Boolean))].length;
-  const fotos = items.reduce((sum, item) => sum + (Array.isArray(item.evidenciasRefaccion) ? item.evidenciasRefaccion.length : 0), 0) + extras.reduce((sum, item) => sum + (Array.isArray(item.evidence_photos) ? item.evidence_photos.length : 0), 0);
+  const fotos = items.reduce((sum, item) => sum + Number(item.evidenciasCount || 0), 0) + extras.reduce((sum, item) => sum + (Array.isArray(item.evidence_photos) ? item.evidence_photos.length : 0), 0);
 
   if (els.partsSummary) {
     els.partsSummary.innerHTML = `
@@ -1246,7 +1263,8 @@ function renderPartsPending() {
         </div>
         <div class="parts-stack-card">
           <div class="parts-media-label">Evidencia visible para dueño / supervisor</div>
-          ${buildImageGallery(photos, 'Sin fotos de compra o llegada todavía.')}
+          ${(item.evidenciasPreview || []).length ? `<div class="media-gallery media-gallery-compact">${(item.evidenciasPreview || []).map((src, idx) => `<button class="media-thumb" type="button" onclick='openImageLightbox(${JSON.stringify(src)}, ${JSON.stringify(`Refacción ${idx + 1}`)})'><img src="${src}" alt="Refacción ${idx + 1}" /></button>`).join('')}</div>` : '<div class="muted">Sin fotos cargadas aún.</div>'}
+          <div class="small muted">${Number(item.evidenciasCount || 0)} foto(s) registradas en total.</div>
         </div>
       </div>
       ${adminEditor}
@@ -1263,11 +1281,13 @@ function renderPartsPending() {
       card.querySelector(`[data-parts-save="${item.id}"]`)?.addEventListener('click', async () => {
         try {
           const incoming = await uploadPartsImages(document.getElementById(`partsPhotos_${item.id}`));
+          const existing = await api.getPartPendingDetail(item.id).catch(() => ({ evidenciasRefaccion: photos }));
+          const currentPhotos = Array.isArray(existing.evidenciasRefaccion) ? existing.evidenciasRefaccion : photos;
           await api.updateParts(item.id, {
             detalleRefaccion: document.getElementById(`partsDetail_${item.id}`)?.value || '',
             refaccionAsignada: document.getElementById(`partsAssigned_${item.id}`)?.value || '',
             refaccionStatus: document.getElementById(`partsStatus_${item.id}`)?.value || 'pendiente',
-            evidenciasRefaccion: [...photos, ...incoming]
+            evidenciasRefaccion: [...currentPhotos, ...incoming]
           });
           state.partsDirtyIds.delete(item.id);
           notify('Refacción actualizada.');
@@ -1890,7 +1910,8 @@ function launchDirectSaleWithPart(partId) {
 
 async function exportCommercialPdf(quote) {
   try {
-    const report = state.garantias.find(item => item.id === quote.garantiaId) || null;
+    const light = state.garantias.find(item => item.id === quote.garantiaId) || null;
+    const report = quote.garantiaId ? await getGarantiaFullForExport(quote.garantiaId, light).catch(() => light) : light;
     const draft = state.quoteDrafts[quote.id] || ensureQuoteDraft(quote) || quote;
     const items = (draft.items || quote.items || []).map(item => ({ ...item, total: Number(((Number(item.qty || 0) * Number(item.unitPrice || 0)) || item.total || 0).toFixed(2)) }));
     const totals = computeQuoteDraftTotals({ items, discount: Number(draft.discount || 0), iva: Number(draft.iva || 0), anticipo: Number(draft.anticipo || 0) });
@@ -1978,17 +1999,42 @@ async function loadFleet() {
     } else if (els.fleetEmpresa) {
       els.fleetEmpresa.disabled = false;
     }
-    const [summary, units, schedules] = await Promise.all([api.getFleetSummary(), api.getFleetUnits(), api.request(`/api/schedules${state.user?.role === 'supervisor_flotas' ? '?futureOnly=1' : ''}`)]);
+    const [summary, units] = await Promise.all([api.getFleetSummary(), api.getFleetUnits()]);
     state.fleetSummary = summary || state.fleetSummary;
     state.fleetUnits = units || [];
-    state.schedules = schedules || state.schedules;
     if (state.selectedFleetUnit?.unit?.id) {
       const still = state.fleetUnits.find(u => u.id === state.selectedFleetUnit.unit.id);
-      if (still) state.selectedFleetUnit = await api.getFleetUnit(still.id);
+      if (still) {
+        const base = await api.getFleetUnit(still.id);
+        state.selectedFleetUnit = { ...(base || {}), reports: [], costs: [], campaigns: [], schedules: [], parts: [], loadingDetails: true };
+        hydrateFleetUnitDetails(still.id);
+      }
     }
     renderFleet();
   } catch (error) {
     notify(error.message, true);
+  }
+}
+
+async function hydrateFleetUnitDetails(unitId) {
+  try {
+    const details = await api.getFleetUnitDetails(unitId);
+    if (!state.selectedFleetUnit?.unit || state.selectedFleetUnit.unit.id !== unitId) return;
+    state.selectedFleetUnit = {
+      ...state.selectedFleetUnit,
+      reports: details.reports || [],
+      costs: details.costs || [],
+      campaigns: details.campaigns || [],
+      schedules: details.schedules || [],
+      parts: details.parts || [],
+      loadingDetails: false
+    };
+    renderFleetDetail();
+  } catch (error) {
+    if (state.selectedFleetUnit?.unit?.id === unitId) {
+      state.selectedFleetUnit = { ...state.selectedFleetUnit, loadingDetails: false };
+      renderFleetDetail();
+    }
   }
 }
 
@@ -2068,10 +2114,12 @@ function renderFleet() {
           renderFleetDetail();
           return;
         }
-        state.selectedFleetUnit = await api.getFleetUnit(unit.id);
+        const base = await api.getFleetUnit(unit.id);
+        state.selectedFleetUnit = { ...(base || {}), reports: [], costs: [], campaigns: [], schedules: [], parts: [], loadingDetails: true };
         if (isRole('admin')) await loadAdminUnitCosts(unit.id);
         renderFleet();
         renderFleetDetail();
+        hydrateFleetUnitDetails(unit.id);
       } catch (error) { notify(error.message, true); }
     });
     els.fleetUnitsList?.appendChild(row);
@@ -2126,8 +2174,8 @@ function renderFleetDetail() {
   const sem = fleetSemaforo(u);
   const reportsArr = data.reports || [];
   const costsArr = data.costs || [];
-  const unitSchedules = (state.schedules || []).filter(item => normalizeText(item.unidad) === normalizeText(u.numeroEconomico) && normalizeText(item.empresa) === normalizeText(u.empresa) && new Date(item.scheduledFor || item.proposedAt || item.requestedAt) >= new Date(Date.now() - 86400000)).slice(0,8);
-  const unitParts = (state.partsPending || []).filter(item => item.numeroEconomico === u.numeroEconomico && item.empresa === u.empresa);
+  const unitSchedules = (data.schedules || []).slice(0, 8);
+  const unitParts = data.parts || [];
   const campaignArr = data.campaigns || [];
   const allImages = reportsArr.flatMap(r => [...(r.evidencias || []), ...(r.evidenciasRefaccion || [])]).concat(campaignArr.flatMap(c => c.evidencia || [])).filter(Boolean);
   const reports = reportsArr.map(r => `
@@ -2201,6 +2249,7 @@ function renderFleetDetail() {
     ...unitParts.map(p => ({ title:'Refacción abierta', text:p.detalleRefaccion || 'Pendiente de pieza', date:p.refaccionUpdatedAt || p.updatedAt || p.createdAt, tag:p.refaccionStatus || 'pendiente' }))
   ].sort((a,b) => new Date(b.date || 0) - new Date(a.date || 0)).slice(0,7);
   const timeline = timelineEvents.map(evt => `<div class="timeline-item"><span class="timeline-dot"></span><div><strong>${escapeHtml(evt.title)}</strong><p>${escapeHtml(evt.text)}</p><small>${fmtDate(evt.date)} · ${escapeHtml(evt.tag || 'movimiento')}</small></div></div>`).join('') || '<div class="muted">Sin movimientos recientes.</div>';
+  const detailLoading = data.loadingDetails ? `<div class="owner-card"><div class="muted">Cargando reportes, costos, agenda, campañas y refacciones…</div></div>` : '';
   const detailHtml = `
     <div class="panel-head fleet-detail-head">
       <div><div class="topbar-kicker">EXPEDIENTE DE UNIDAD</div><h3>${escapeHtml(u.numeroEconomico)} · ${escapeHtml(u.empresa)}</h3><p class="muted">Vista premium para dueño: patrimonio, agenda, refacciones y evidencia visual en una sola ficha.</p></div>
@@ -2231,6 +2280,7 @@ function renderFleetDetail() {
       </div>
       <aside class="fleet-timeline-box"><div class="topbar-kicker">MOVIMIENTO RECIENTE</div><div class="detail-scroll-box">${timeline}</div></aside>
     </div>
+    ${detailLoading}
     <div class="fleet-owner-insights detail-grid">
       <article class="owner-card"><div class="owner-card-head"><strong>Refacciones abiertas</strong><span class="badge badge-info">Con evidencia</span></div><div class="owner-list detail-scroll-box">${parts}</div></article>
       <article class="owner-card"><div class="owner-card-head"><strong>Agenda de la unidad</strong><span class="badge badge-info">Próximas entradas</span></div><div class="owner-list detail-scroll-box">${agenda}</div></article>
@@ -2252,7 +2302,9 @@ function renderFleetDetail() {
     document.getElementById('fleetApplyStatusBtn')?.addEventListener('click', async () => {
       try {
         await api.updateFleetStatus(u.id, { status: document.getElementById('fleetManualStatus').value });
-        state.selectedFleetUnit = await api.getFleetUnit(u.id);
+        const base = await api.getFleetUnit(u.id);
+        state.selectedFleetUnit = { ...(base || {}), reports: [], costs: [], campaigns: [], schedules: [], parts: [], loadingDetails: true };
+        hydrateFleetUnitDetails(u.id);
         await loadFleet();
         notify('Estado de unidad actualizado.');
       } catch (error) { notify(error.message, true); }
@@ -2276,7 +2328,9 @@ function renderFleetDetail() {
           monto: document.getElementById('fleetCostMonto').value
         });
         notify('Costo guardado.');
-        state.selectedFleetUnit = await api.getFleetUnit(u.id);
+        const base = await api.getFleetUnit(u.id);
+        state.selectedFleetUnit = { ...(base || {}), reports: [], costs: [], campaigns: [], schedules: [], parts: [], loadingDetails: true };
+        hydrateFleetUnitDetails(u.id);
         await loadAdminUnitCosts(u.id);
         renderFleetDetail();
         const summary = await api.getFleetSummary(); state.fleetSummary = summary; renderFleet();
@@ -2322,7 +2376,14 @@ async function loadCampaigns(openId='') {
     renderCampaigns();
     const target = openId || state.selectedCampaignId || state.campaigns[0]?.id;
     if (target) await openCampaign(target);
-  } catch (error) { notify(error.message, true); }
+  } catch (error) {
+    state.campaigns = [];
+    state.selectedCampaign = null;
+    state.selectedCampaignId = '';
+    renderCampaigns();
+    if (els.campaignDetail) els.campaignDetail.classList.add('hidden');
+    notify('Campañas temporalmente no disponibles.', true);
+  }
 }
 function renderCampaigns() {
   if (els.campaignSummary) {
@@ -2373,27 +2434,28 @@ function renderCampaignDetail() {
 }
 async function editarReporteAdmin(item) {
   try {
+    const full = await api.getGarantia(item.id).catch(() => item);
     resetReportForm();
-    state.editingGarantiaId = item.id;
-    state.editingFirmaOriginal = item.firma || '';
-    if (els.numeroObra) els.numeroObra.value = item.numeroObra || '';
-    if (els.modelo) els.modelo.value = item.modelo || '';
-    if (els.numeroEconomico) els.numeroEconomico.value = item.numeroEconomico || '';
-    if (els.empresa) els.empresa.value = item.empresa || '';
-    if (els.kilometraje) els.kilometraje.value = item.kilometraje || '';
-    if (els.contactoNombre) els.contactoNombre.value = item.contactoNombre || '';
-    if (els.telefono) els.telefono.value = item.telefono || '';
-    const radio = document.querySelector(`input[name="tipoIncidente"][value="${item.tipoIncidente || 'daño'}"]`);
+    state.editingGarantiaId = full.id;
+    state.editingFirmaOriginal = full.firma || '';
+    if (els.numeroObra) els.numeroObra.value = full.numeroObra || '';
+    if (els.modelo) els.modelo.value = full.modelo || '';
+    if (els.numeroEconomico) els.numeroEconomico.value = full.numeroEconomico || '';
+    if (els.empresa) els.empresa.value = full.empresa || '';
+    if (els.kilometraje) els.kilometraje.value = full.kilometraje || '';
+    if (els.contactoNombre) els.contactoNombre.value = full.contactoNombre || '';
+    if (els.telefono) els.telefono.value = full.telefono || '';
+    const radio = document.querySelector(`input[name="tipoIncidente"][value="${full.tipoIncidente || 'daño'}"]`);
     if (radio) radio.checked = true;
-    if (els.descripcionFallo) els.descripcionFallo.value = item.descripcionFallo || '';
-    if (els.solicitaRefaccion) els.solicitaRefaccion.checked = !!item.solicitaRefaccion;
+    if (els.descripcionFallo) els.descripcionFallo.value = full.descripcionFallo || '';
+    if (els.solicitaRefaccion) els.solicitaRefaccion.checked = !!full.solicitaRefaccion;
     els.refaccionFields?.classList.toggle('hidden', !els.solicitaRefaccion?.checked);
-    if (els.detalleRefaccion) els.detalleRefaccion.value = item.detalleRefaccion || '';
-    state.currentEvidence = Array.isArray(item.evidencias) ? [...item.evidencias] : [];
-    state.currentRefEvidence = Array.isArray(item.evidenciasRefaccion) ? [...item.evidenciasRefaccion] : [];
+    if (els.detalleRefaccion) els.detalleRefaccion.value = full.detalleRefaccion || '';
+    state.currentEvidence = Array.isArray(full.evidencias) ? [...full.evidencias] : [];
+    state.currentRefEvidence = Array.isArray(full.evidenciasRefaccion) ? [...full.evidenciasRefaccion] : [];
     drawPreviews(els.previewEvidencias, state.currentEvidence, 'evidence');
     drawPreviews(els.previewRefaccion, state.currentRefEvidence, 'ref');
-    if (item.firma) loadSignatureFromDataUrl(item.firma);
+    if (full.firma) loadSignatureFromDataUrl(full.firma);
     const submitBtn = els.reportForm?.querySelector('button[type="submit"]');
     if (submitBtn) submitBtn.textContent = 'Guardar cambios';
     const title = els.reportFormPanel?.querySelector('.panel-head h3');
@@ -2635,7 +2697,14 @@ els.loginForm?.addEventListener('submit', async (e) => {
   try {
     const data = await api.login(els.loginEmail.value.trim(), els.loginPassword.value);
     state.token = data.token; localStorage.setItem('carlabToken', state.token); state.user = data.user; showDashboard();
-    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); await loadSchedules(''); await loadNotifications(); await loadFleet(); resetReportForm(); resetCompanyForm(); resetFleetForm(); notify(`Bienvenido, ${state.user.nombre}.`);
+    await loadCompanies();
+    await loadGarantias();
+    await loadNotifications();
+    if (isRole('admin')) {
+      await loadUsers();
+      await loadRequests();
+    }
+    resetReportForm(); resetCompanyForm(); resetFleetForm(); notify(`Bienvenido, ${state.user.nombre}.`);
   } catch (error) { if (els.loginError) { els.loginError.textContent = error.message; els.loginError.classList.remove('hidden'); } else notify(error.message,true); }
 });
 
@@ -2665,54 +2734,57 @@ function closeImageLightbox() {
   document.body.classList.remove('lightbox-open');
 }
 
-function openReportDetailModal(item) {
+async function openReportDetailModal(item) {
   if (!item || !els.reportDetailModal || !els.reportDetailContent) return;
+  const full = await getGarantiaFullForExport(item.id, item).catch(() => item);
   const gallery = [
-    ...(item.evidencias || []).map((src, idx) => ({ src, caption: `Evidencia general ${idx + 1}` })),
-    ...(item.evidenciasRefaccion || []).map((src, idx) => ({ src, caption: `Evidencia refacción ${idx + 1}` })),
-    ...(item.firma ? [{ src: item.firma, caption: 'Firma del operador' }] : [])
+    ...(full.evidencias || []).map((src, idx) => ({ src, caption: `Evidencia general ${idx + 1}` })),
+    ...(full.evidenciasRefaccion || []).map((src, idx) => ({ src, caption: `Evidencia refacción ${idx + 1}` })),
+    ...(full.firma ? [{ src: full.firma, caption: 'Firma del operador' }] : [])
   ];
   els.reportDetailContent.innerHTML = `
-    <div class="parts-request-head">
+    <div class="parts-request-head report-detail-head-sticky">
       <div class="topbar-kicker">FICHA COMPLETA</div>
-      <h3>${escapeHtml(item.folio || 'GAR-—')} · Unidad ${escapeHtml(item.numeroEconomico || '—')}</h3>
+      <h3>${escapeHtml(full.folio || 'GAR-—')} · Unidad ${escapeHtml(full.numeroEconomico || '—')}</h3>
       <p>Reporte integral con estatus, trazabilidad, evidencia y datos operativos/comerciales.</p>
     </div>
+    <div class="report-detail-scroll">
     <div class="fleet-detail-summary report-detail-summary">
-      <article><span>Empresa</span><strong>${escapeHtml(item.empresa || '—')}</strong></article>
-      <article><span>Obra</span><strong>${escapeHtml(item.numeroObra || '—')}</strong></article>
-      <article><span>Modelo</span><strong>${escapeHtml(item.modelo || '—')}</strong></article>
-      <article><span>Incidencia</span><strong>${escapeHtml(item.tipoIncidente || '—')}</strong></article>
-      <article><span>Validación</span><strong>${escapeHtml(item.estatusValidacion || '—')}</strong></article>
-      <article><span>Operativo</span><strong>${escapeHtml(item.estatusOperativo || '—')}</strong></article>
+      <article><span>Empresa</span><strong>${escapeHtml(full.empresa || '—')}</strong></article>
+      <article><span>Obra</span><strong>${escapeHtml(full.numeroObra || '—')}</strong></article>
+      <article><span>Modelo</span><strong>${escapeHtml(full.modelo || '—')}</strong></article>
+      <article><span>Incidencia</span><strong>${escapeHtml(full.tipoIncidente || '—')}</strong></article>
+      <article><span>Validación</span><strong>${escapeHtml(full.estatusValidacion || '—')}</strong></article>
+      <article><span>Operativo</span><strong>${escapeHtml(full.estatusOperativo || '—')}</strong></article>
     </div>
     <div class="mini-grid report-detail-grid">
-      <div><strong>Reportó</strong>${escapeHtml(item.reportadoPorNombre || '—')}</div>
-      <div><strong>Revisó</strong>${escapeHtml(item.revisadoPorNombre || 'Pendiente')}</div>
-      <div><strong>Contacto</strong>${escapeHtml(item.contactoNombre || '—')}</div>
-      <div><strong>Teléfono</strong>${escapeHtml(item.telefono || '—')}</div>
-      <div><strong>Kilometraje</strong>${escapeHtml(item.kilometraje || '—')}</div>
-      <div><strong>Fecha alta</strong>${escapeHtml(fmtDate(item.createdAt))}</div>
-      <div><strong>Último cambio</strong>${escapeHtml(fmtDate(item.updatedAt))}</div>
-      <div><strong>Solicita refacción</strong>${item.solicitaRefaccion ? 'Sí' : 'No'}</div>
+      <div><strong>Reportó</strong>${escapeHtml(full.reportadoPorNombre || '—')}</div>
+      <div><strong>Revisó</strong>${escapeHtml(full.revisadoPorNombre || 'Pendiente')}</div>
+      <div><strong>Contacto</strong>${escapeHtml(full.contactoNombre || '—')}</div>
+      <div><strong>Teléfono</strong>${escapeHtml(full.telefono || '—')}</div>
+      <div><strong>Kilometraje</strong>${escapeHtml(full.kilometraje || '—')}</div>
+      <div><strong>Fecha alta</strong>${escapeHtml(fmtDate(full.createdAt))}</div>
+      <div><strong>Último cambio</strong>${escapeHtml(fmtDate(full.updatedAt))}</div>
+      <div><strong>Solicita refacción</strong>${full.solicitaRefaccion ? 'Sí' : 'No'}</div>
     </div>
     <div class="owner-card">
       <div class="owner-card-head"><strong>Falla reportada</strong><span class="badge badge-info">Descripción</span></div>
-      <p class="description">${escapeHtml(item.descripcionFallo || 'Sin descripción')}</p>
-      ${item.detalleRefaccion ? `<p class="small muted"><strong>Detalle refacción:</strong> ${escapeHtml(item.detalleRefaccion)}</p>` : ''}
-      ${item.observacionesOperativo ? `<p class="small muted"><strong>Observación operativa:</strong> ${escapeHtml(item.observacionesOperativo)}</p>` : ''}
-      ${item.motivoDecision ? `<p class="small muted"><strong>Motivo decisión:</strong> ${escapeHtml(item.motivoDecision)}</p>` : ''}
+      <p class="description">${escapeHtml(full.descripcionFallo || 'Sin descripción')}</p>
+      ${full.detalleRefaccion ? `<p class="small muted"><strong>Detalle refacción:</strong> ${escapeHtml(full.detalleRefaccion)}</p>` : ''}
+      ${full.observacionesOperativo ? `<p class="small muted"><strong>Observación operativa:</strong> ${escapeHtml(full.observacionesOperativo)}</p>` : ''}
+      ${full.motivoDecision ? `<p class="small muted"><strong>Motivo decisión:</strong> ${escapeHtml(full.motivoDecision)}</p>` : ''}
     </div>
     <div class="owner-card owner-gallery-card">
       <div class="owner-card-head"><strong>Evidencia visual</strong><span class="badge badge-info">${gallery.length} archivo${gallery.length === 1 ? '' : 's'}</span></div>
       ${gallery.length ? `<div class="media-gallery">${gallery.map((entry, idx) => `<button type="button" class="media-thumb" onclick='openImageLightbox(${JSON.stringify(entry.src)}, ${JSON.stringify(entry.caption || `Evidencia ${idx + 1}`)})'><img src="${entry.src}" alt="Evidencia ${idx + 1}" /></button>`).join('')}</div>` : '<div class="muted">Sin evidencia cargada.</div>'}
     </div>
-    <div class="parts-request-actions">
+    </div>
+    <div class="parts-request-actions report-detail-actions-sticky">
       <button id="reportDetailPdfBtn" class="btn btn-secondary" type="button">Exportar PDF</button>
       <button id="reportDetailCloseBtn" class="btn btn-ghost" type="button">Cerrar</button>
     </div>
   `;
-  document.getElementById('reportDetailPdfBtn')?.addEventListener('click', () => exportPdf(item));
+  document.getElementById('reportDetailPdfBtn')?.addEventListener('click', () => exportPdf(full));
   document.getElementById('reportDetailCloseBtn')?.addEventListener('click', closeReportDetailModal);
   els.reportDetailModal.classList.remove('hidden');
   document.body.classList.add('modal-open');
@@ -2866,11 +2938,13 @@ function renderFleetOwnerDeck() {
 async function focusFleetUnit(id) {
   if (!id) return;
   try {
-    state.selectedFleetUnit = await api.getFleetUnit(id);
+    const base = await api.getFleetUnit(id);
+    state.selectedFleetUnit = { ...(base || {}), reports: [], costs: [], campaigns: [], schedules: [], parts: [], loadingDetails: true };
     if (isRole('admin')) await loadAdminUnitCosts(id);
     switchPanel('fleet');
     renderFleet();
     renderFleetDetail();
+    hydrateFleetUnitDetails(id);
     document.getElementById('fleetDetail')?.scrollIntoView({ behavior:'smooth', block:'start' });
   } catch (error) {
     notify(error.message, true);
@@ -2900,10 +2974,21 @@ function logoutSession() {
 }
 
 els.logoutBtn?.addEventListener('click', logoutSession);
-els.globalRefreshBtn?.addEventListener('click', async () => { await Promise.allSettled([loadGarantias(), loadSchedules(''), loadNotifications(), loadFleet(), loadPartsPending(true), isRole('admin') ? loadStock(true) : Promise.resolve(), isRole('admin') ? loadCobranza(true) : Promise.resolve()]); renderExecutiveDeck(); notify('Datos actualizados.'); });
+els.globalRefreshBtn?.addEventListener('click', async () => {
+  await loadGarantias();
+  await loadNotifications();
+  if (state.activePanel === 'schedule') await loadSchedules('');
+  if (state.activePanel === 'fleet') await loadFleet();
+  if (state.activePanel === 'parts') await loadPartsPending(true);
+  if (state.activePanel === 'stock' && isRole('admin')) await loadStock(true);
+  if (state.activePanel === 'cobranza' && isRole('admin')) await loadCobranza(true);
+  if (state.activePanel === 'campaigns') await loadCampaigns(state.selectedCampaignId);
+  renderExecutiveDeck();
+  notify('Datos actualizados.');
+});
 els.opNavHomeBtn?.addEventListener('click', () => switchPanel('board'));
 els.opNavNewBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); });
-els.opNavScheduleBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
+els.opNavScheduleBtn?.addEventListener('click', async () => { switchPanel('schedule'); });
 els.opNavLogoutBtn?.addEventListener('click', logoutSession);
 els.imageLightboxClose?.addEventListener('click', closeImageLightbox);
 els.imageLightbox?.addEventListener('click', (e) => { if (e.target === els.imageLightbox) closeImageLightbox(); });
@@ -2911,11 +2996,11 @@ els.navBoardBtn?.addEventListener('click', () => switchPanel('board'));
 els.navNewReportBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); });
 els.navAnalyticsBtn?.addEventListener('click', () => switchPanel('analytics'));
 els.navHistoryBtn?.addEventListener('click', () => switchPanel('history'));
-els.navScheduleBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
-els.navFleetBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
+els.navScheduleBtn?.addEventListener('click', async () => { switchPanel('schedule'); });
+els.navFleetBtn?.addEventListener('click', async () => { switchPanel('fleet'); });
 els.navPartsBtn?.addEventListener('click', async () => { await cargarSolicitudesIndependientes(); await loadPartsPending(true); switchPanel('parts'); });
-els.navStockBtn?.addEventListener('click', async () => { await loadStock(true); switchPanel('stock'); });
-els.navCobranzaBtn?.addEventListener('click', async () => { await loadCobranza(true); switchPanel('cobranza'); });
+els.navStockBtn?.addEventListener('click', async () => { switchPanel('stock'); });
+els.navCobranzaBtn?.addEventListener('click', async () => { switchPanel('cobranza'); });
 els.stockRefreshBtn?.addEventListener('click', async () => { await loadStock(true); switchPanel('stock'); });
 els.cobranzaRefreshBtn?.addEventListener('click', async () => { await loadCobranza(true); switchPanel('cobranza'); });
 els.stockCancelBtn?.addEventListener('click', resetStockForm);
@@ -3101,9 +3186,6 @@ els.companyForm?.addEventListener('submit', async (e) => {
     const data = await api.me(); state.user = data.user; showDashboard();
     await Promise.allSettled([loadCompanies(), loadGarantias(), loadNotifications()]);
     if (isRole('admin')) await Promise.allSettled([loadUsers(), loadRequests()]);
-    if (isRole('admin','operativo','supervisor','supervisor_flotas','operador')) await Promise.allSettled([loadSchedules('')]);
-    if (isRole('admin','operativo','supervisor_flotas')) await Promise.allSettled([loadFleet(), loadCampaigns()]);
-    if (isRole('admin','supervisor_flotas')) await Promise.allSettled([cargarSolicitudesIndependientes(), loadPartsPending(true)]);
     resetReportForm(); resetCompanyForm(); resetFleetForm();
   } catch {
     localStorage.removeItem('carlabToken'); state.token = ''; showLogin();
@@ -3124,7 +3206,7 @@ window.eliminarCostoAdmin = eliminarCostoAdmin;
 window.openImageLightbox = openImageLightbox;
 window.focusFleetUnit = focusFleetUnit;
 
-els.navCampaignsBtn?.addEventListener('click', async () => { await loadCampaigns(); switchPanel('campaigns'); });
+els.navCampaignsBtn?.addEventListener('click', async () => { switchPanel('campaigns'); });
 els.campaignsRefreshBtn?.addEventListener('click', async () => { await loadCampaigns(state.selectedCampaignId); });
 els.campaignEmpresa?.addEventListener('change', () => { if (els.campaignUnitEmpresa && !els.campaignUnitEmpresa.value) els.campaignUnitEmpresa.value = els.campaignEmpresa.value; refreshCampaignUnitOptions(); });
 els.campaignUnitEmpresa?.addEventListener('change', refreshCampaignUnitOptions);
