@@ -2321,7 +2321,14 @@ async function loadCampaigns(openId='') {
     renderCampaigns();
     const target = openId || state.selectedCampaignId || state.campaigns[0]?.id;
     if (target) await openCampaign(target);
-  } catch (error) { notify(error.message, true); }
+  } catch (error) {
+    state.campaigns = [];
+    state.selectedCampaign = null;
+    state.selectedCampaignId = '';
+    renderCampaigns();
+    if (els.campaignDetail) els.campaignDetail.classList.add('hidden');
+    notify('Campañas temporalmente no disponibles.', true);
+  }
 }
 function renderCampaigns() {
   if (els.campaignSummary) {
