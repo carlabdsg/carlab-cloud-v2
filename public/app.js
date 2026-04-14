@@ -42,6 +42,7 @@ const state = {
   selectedCampaign: null,
   selectedCampaignId: '',
   campaignUnitEvidence: [],
+  garantiaFullCache: {},
 };
 
 const api = {
@@ -187,6 +188,17 @@ function detectEditingContext(el) {
   if (el.closest('#fleetPanel')) return 'fleet';
   if (el.closest('#schedulePanel')) return 'schedule';
   return '';
+}
+
+async function getGarantiaFullForExport(id, seed = null) {
+  const garantiaId = String(id || seed?.id || '').trim();
+  if (!garantiaId) return seed || null;
+  const hasMedia = (g) => Array.isArray(g?.evidencias) || Array.isArray(g?.evidenciasRefaccion) || !!g?.firma;
+  if (seed && hasMedia(seed)) return seed;
+  if (state.garantiaFullCache[garantiaId]) return state.garantiaFullCache[garantiaId];
+  const full = await api.getGarantia(garantiaId);
+  state.garantiaFullCache[garantiaId] = full;
+  return full;
 }
 function shouldPauseLiveRefresh(panel = state.activePanel) {
   const active = document.activeElement;
@@ -710,6 +722,8 @@ async function renderPdfEvidenceGallery(doc, images = [], startY = 18, title = '
   return y + rowHeight + 8;
 }
 async function exportPdf(item) {
+  const fullItem = await getGarantiaFullForExport(item?.id, item).catch(() => item);
+  const safeItem = fullItem || item || {};
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   const logo = await getImageData('/logo.jpg');
@@ -721,55 +735,55 @@ async function exportPdf(item) {
   doc.setTextColor(30, 30, 30);
   doc.setFontSize(18); doc.text('REPORTE DE GARANTÍA', 62, 24);
   doc.setFontSize(10); doc.setTextColor(100, 100, 100); doc.text('CARLAB SERVICIOS INTEGRALES', 62, 31);
-  doc.setFontSize(10); doc.setTextColor(120, 120, 120); doc.text(`Folio: ${item.folio || '—'}`, 196, 20, { align: 'right' });
+  doc.setFontSize(10); doc.setTextColor(120, 120, 120); doc.text(`Folio: ${safeItem.folio || '—'}`, 196, 20, { align: 'right' });
   doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 196, 27, { align: 'right' });
 
   y = 50;
   doc.setFontSize(11); doc.setTextColor(40, 40, 40);
   doc.setFillColor(255,255,255); doc.setDrawColor(255,255,255); doc.roundedRect(14, 44, 182, 38, 4, 4, 'F');
-  doc.text(`Empresa: ${item.empresa || '—'}`, 18, 54);
-  doc.text(`Unidad: ${item.numeroEconomico || '—'}`, 18, 62);
-  doc.text(`Modelo: ${item.modelo || '—'}`, 18, 70);
-  doc.text(`Obra: ${item.numeroObra || '—'}`, 105, 54);
-  doc.text(`KM: ${item.kilometraje || '—'}`, 105, 62);
-  doc.text(`Estatus: ${item.estatusValidacion || '—'} / ${item.estatusOperativo || '—'}`, 105, 70);
+  doc.text(`Empresa: ${safeItem.empresa || '—'}`, 18, 54);
+  doc.text(`Unidad: ${safeItem.numeroEconomico || '—'}`, 18, 62);
+  doc.text(`Modelo: ${safeItem.modelo || '—'}`, 18, 70);
+  doc.text(`Obra: ${safeItem.numeroObra || '—'}`, 105, 54);
+  doc.text(`KM: ${safeItem.kilometraje || '—'}`, 105, 62);
+  doc.text(`Estatus: ${safeItem.estatusValidacion || '—'} / ${safeItem.estatusOperativo || '—'}`, 105, 70);
 
   y = 92;
   doc.setFillColor(255,255,255); doc.setDrawColor(255,255,255); doc.roundedRect(14, 86, 182, 24, 4, 4, 'F');
-  doc.text(`Nombre: ${item.contactoNombre || '—'}`, 18, 96);
-  doc.text(`Teléfono: ${item.telefono || '—'}`, 105, 96);
-  doc.text(`Reportó: ${item.reportadoPorNombre || '—'}`, 18, 104);
-  doc.text(`Revisó: ${item.revisadoPorNombre || '—'}`, 105, 104);
+  doc.text(`Nombre: ${safeItem.contactoNombre || '—'}`, 18, 96);
+  doc.text(`Teléfono: ${safeItem.telefono || '—'}`, 105, 96);
+  doc.text(`Reportó: ${safeItem.reportadoPorNombre || '—'}`, 18, 104);
+  doc.text(`Revisó: ${safeItem.revisadoPorNombre || '—'}`, 105, 104);
 
   y = 122;
   doc.setFontSize(12); doc.setTextColor(20, 20, 20); textLine('Descripción de la falla', 8);
   doc.setFontSize(10); doc.setTextColor(55,55,55);
-  let split = doc.splitTextToSize(item.descripcionFallo || '—', 178);
+  let split = doc.splitTextToSize(safeItem.descripcionFallo || '—', 178);
   doc.text(split, 14, y); y += split.length * 6 + 6;
 
-  if (item.detalleRefaccion) {
+  if (safeItem.detalleRefaccion) {
     y = ensurePdfSpace(doc, y, 24); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Detalle de refacción', 8);
-    doc.setFontSize(10); doc.setTextColor(55,55,55); split = doc.splitTextToSize(item.detalleRefaccion, 178); doc.text(split, 14, y); y += split.length * 6 + 6;
+    doc.setFontSize(10); doc.setTextColor(55,55,55); split = doc.splitTextToSize(safeItem.detalleRefaccion, 178); doc.text(split, 14, y); y += split.length * 6 + 6;
   }
-  if (item.observacionesOperativo) {
+  if (safeItem.observacionesOperativo) {
     y = ensurePdfSpace(doc, y, 24); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Observaciones del operativo', 8);
-    doc.setFontSize(10); doc.setTextColor(55,55,55); split = doc.splitTextToSize(item.observacionesOperativo, 178); doc.text(split, 14, y); y += split.length * 6 + 6;
+    doc.setFontSize(10); doc.setTextColor(55,55,55); split = doc.splitTextToSize(safeItem.observacionesOperativo, 178); doc.text(split, 14, y); y += split.length * 6 + 6;
   }
 
-  const images = [ ...(item.evidencias || []), ...(item.evidenciasRefaccion || []) ];
+  const images = [ ...(safeItem.evidencias || []), ...(safeItem.evidenciasRefaccion || []) ];
   if (images.length) {
     y = await renderPdfEvidenceGallery(doc, images, y, 'Evidencias fotográficas');
   }
-  if (item.firma) {
+  if (safeItem.firma) {
     y = ensurePdfSpace(doc, y, 42); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Firma', 8);
-    doc.setFillColor(255,255,255); doc.setDrawColor(255,255,255); doc.roundedRect(14, y, 90, 28, 3, 3, 'F'); await addPdfImage(doc, item.firma, 16, y + 2, 86, 24); y += 34;
+    doc.setFillColor(255,255,255); doc.setDrawColor(255,255,255); doc.roundedRect(14, y, 90, 28, 3, 3, 'F'); await addPdfImage(doc, safeItem.firma, 16, y + 2, 86, 24); y += 34;
   }
-  if (item.estatusValidacion === 'rechazada' && item.observacionesOperativo) {
+  if (safeItem.estatusValidacion === 'rechazada' && safeItem.observacionesOperativo) {
     y = ensurePdfSpace(doc, y, 24); doc.setFontSize(12); doc.setTextColor(170, 35, 35); textLine('Motivo de rechazo', 8);
-    doc.setFontSize(10); doc.setTextColor(80,80,80); split = doc.splitTextToSize(item.observacionesOperativo, 178); doc.text(split, 14, y); y += split.length * 6 + 6;
+    doc.setFontSize(10); doc.setTextColor(80,80,80); split = doc.splitTextToSize(safeItem.observacionesOperativo, 178); doc.text(split, 14, y); y += split.length * 6 + 6;
   }
 
-  doc.save(`${item.folio || 'garantia'}_${item.numeroEconomico}_${item.numeroObra}.pdf`);
+  doc.save(`${safeItem.folio || 'garantia'}_${safeItem.numeroEconomico || 'unidad'}_${safeItem.numeroObra || 'obra'}.pdf`);
 }
 
 async function showAudit(item) {
@@ -1249,7 +1263,8 @@ function renderPartsPending() {
         </div>
         <div class="parts-stack-card">
           <div class="parts-media-label">Evidencia visible para dueño / supervisor</div>
-          <div class="muted">${Number(item.evidenciasCount || 0)} foto(s) registradas. Abre el reporte para ver galería completa.</div>
+          ${(item.evidenciasPreview || []).length ? `<div class="media-gallery media-gallery-compact">${(item.evidenciasPreview || []).map((src, idx) => `<button class="media-thumb" type="button" onclick='openImageLightbox(${JSON.stringify(src)}, ${JSON.stringify(`Refacción ${idx + 1}`)})'><img src="${src}" alt="Refacción ${idx + 1}" /></button>`).join('')}</div>` : '<div class="muted">Sin fotos cargadas aún.</div>'}
+          <div class="small muted">${Number(item.evidenciasCount || 0)} foto(s) registradas en total.</div>
         </div>
       </div>
       ${adminEditor}
@@ -1895,7 +1910,8 @@ function launchDirectSaleWithPart(partId) {
 
 async function exportCommercialPdf(quote) {
   try {
-    const report = state.garantias.find(item => item.id === quote.garantiaId) || null;
+    const light = state.garantias.find(item => item.id === quote.garantiaId) || null;
+    const report = quote.garantiaId ? await getGarantiaFullForExport(quote.garantiaId, light).catch(() => light) : light;
     const draft = state.quoteDrafts[quote.id] || ensureQuoteDraft(quote) || quote;
     const items = (draft.items || quote.items || []).map(item => ({ ...item, total: Number(((Number(item.qty || 0) * Number(item.unitPrice || 0)) || item.total || 0).toFixed(2)) }));
     const totals = computeQuoteDraftTotals({ items, discount: Number(draft.discount || 0), iva: Number(draft.iva || 0), anticipo: Number(draft.anticipo || 0) });
@@ -2720,53 +2736,55 @@ function closeImageLightbox() {
 
 async function openReportDetailModal(item) {
   if (!item || !els.reportDetailModal || !els.reportDetailContent) return;
-  const full = await api.getGarantia(item.id).catch(() => item);
+  const full = await getGarantiaFullForExport(item.id, item).catch(() => item);
   const gallery = [
     ...(full.evidencias || []).map((src, idx) => ({ src, caption: `Evidencia general ${idx + 1}` })),
     ...(full.evidenciasRefaccion || []).map((src, idx) => ({ src, caption: `Evidencia refacción ${idx + 1}` })),
     ...(full.firma ? [{ src: full.firma, caption: 'Firma del operador' }] : [])
   ];
   els.reportDetailContent.innerHTML = `
-    <div class="parts-request-head">
+    <div class="parts-request-head report-detail-head-sticky">
       <div class="topbar-kicker">FICHA COMPLETA</div>
       <h3>${escapeHtml(full.folio || 'GAR-—')} · Unidad ${escapeHtml(full.numeroEconomico || '—')}</h3>
       <p>Reporte integral con estatus, trazabilidad, evidencia y datos operativos/comerciales.</p>
     </div>
+    <div class="report-detail-scroll">
     <div class="fleet-detail-summary report-detail-summary">
-      <article><span>Empresa</span><strong>${escapeHtml(item.empresa || '—')}</strong></article>
-      <article><span>Obra</span><strong>${escapeHtml(item.numeroObra || '—')}</strong></article>
-      <article><span>Modelo</span><strong>${escapeHtml(item.modelo || '—')}</strong></article>
-      <article><span>Incidencia</span><strong>${escapeHtml(item.tipoIncidente || '—')}</strong></article>
-      <article><span>Validación</span><strong>${escapeHtml(item.estatusValidacion || '—')}</strong></article>
-      <article><span>Operativo</span><strong>${escapeHtml(item.estatusOperativo || '—')}</strong></article>
+      <article><span>Empresa</span><strong>${escapeHtml(full.empresa || '—')}</strong></article>
+      <article><span>Obra</span><strong>${escapeHtml(full.numeroObra || '—')}</strong></article>
+      <article><span>Modelo</span><strong>${escapeHtml(full.modelo || '—')}</strong></article>
+      <article><span>Incidencia</span><strong>${escapeHtml(full.tipoIncidente || '—')}</strong></article>
+      <article><span>Validación</span><strong>${escapeHtml(full.estatusValidacion || '—')}</strong></article>
+      <article><span>Operativo</span><strong>${escapeHtml(full.estatusOperativo || '—')}</strong></article>
     </div>
     <div class="mini-grid report-detail-grid">
-      <div><strong>Reportó</strong>${escapeHtml(item.reportadoPorNombre || '—')}</div>
-      <div><strong>Revisó</strong>${escapeHtml(item.revisadoPorNombre || 'Pendiente')}</div>
-      <div><strong>Contacto</strong>${escapeHtml(item.contactoNombre || '—')}</div>
-      <div><strong>Teléfono</strong>${escapeHtml(item.telefono || '—')}</div>
-      <div><strong>Kilometraje</strong>${escapeHtml(item.kilometraje || '—')}</div>
-      <div><strong>Fecha alta</strong>${escapeHtml(fmtDate(item.createdAt))}</div>
-      <div><strong>Último cambio</strong>${escapeHtml(fmtDate(item.updatedAt))}</div>
-      <div><strong>Solicita refacción</strong>${item.solicitaRefaccion ? 'Sí' : 'No'}</div>
+      <div><strong>Reportó</strong>${escapeHtml(full.reportadoPorNombre || '—')}</div>
+      <div><strong>Revisó</strong>${escapeHtml(full.revisadoPorNombre || 'Pendiente')}</div>
+      <div><strong>Contacto</strong>${escapeHtml(full.contactoNombre || '—')}</div>
+      <div><strong>Teléfono</strong>${escapeHtml(full.telefono || '—')}</div>
+      <div><strong>Kilometraje</strong>${escapeHtml(full.kilometraje || '—')}</div>
+      <div><strong>Fecha alta</strong>${escapeHtml(fmtDate(full.createdAt))}</div>
+      <div><strong>Último cambio</strong>${escapeHtml(fmtDate(full.updatedAt))}</div>
+      <div><strong>Solicita refacción</strong>${full.solicitaRefaccion ? 'Sí' : 'No'}</div>
     </div>
     <div class="owner-card">
       <div class="owner-card-head"><strong>Falla reportada</strong><span class="badge badge-info">Descripción</span></div>
-      <p class="description">${escapeHtml(item.descripcionFallo || 'Sin descripción')}</p>
-      ${item.detalleRefaccion ? `<p class="small muted"><strong>Detalle refacción:</strong> ${escapeHtml(item.detalleRefaccion)}</p>` : ''}
-      ${item.observacionesOperativo ? `<p class="small muted"><strong>Observación operativa:</strong> ${escapeHtml(item.observacionesOperativo)}</p>` : ''}
-      ${item.motivoDecision ? `<p class="small muted"><strong>Motivo decisión:</strong> ${escapeHtml(item.motivoDecision)}</p>` : ''}
+      <p class="description">${escapeHtml(full.descripcionFallo || 'Sin descripción')}</p>
+      ${full.detalleRefaccion ? `<p class="small muted"><strong>Detalle refacción:</strong> ${escapeHtml(full.detalleRefaccion)}</p>` : ''}
+      ${full.observacionesOperativo ? `<p class="small muted"><strong>Observación operativa:</strong> ${escapeHtml(full.observacionesOperativo)}</p>` : ''}
+      ${full.motivoDecision ? `<p class="small muted"><strong>Motivo decisión:</strong> ${escapeHtml(full.motivoDecision)}</p>` : ''}
     </div>
     <div class="owner-card owner-gallery-card">
       <div class="owner-card-head"><strong>Evidencia visual</strong><span class="badge badge-info">${gallery.length} archivo${gallery.length === 1 ? '' : 's'}</span></div>
       ${gallery.length ? `<div class="media-gallery">${gallery.map((entry, idx) => `<button type="button" class="media-thumb" onclick='openImageLightbox(${JSON.stringify(entry.src)}, ${JSON.stringify(entry.caption || `Evidencia ${idx + 1}`)})'><img src="${entry.src}" alt="Evidencia ${idx + 1}" /></button>`).join('')}</div>` : '<div class="muted">Sin evidencia cargada.</div>'}
     </div>
-    <div class="parts-request-actions">
+    </div>
+    <div class="parts-request-actions report-detail-actions-sticky">
       <button id="reportDetailPdfBtn" class="btn btn-secondary" type="button">Exportar PDF</button>
       <button id="reportDetailCloseBtn" class="btn btn-ghost" type="button">Cerrar</button>
     </div>
   `;
-  document.getElementById('reportDetailPdfBtn')?.addEventListener('click', () => exportPdf(item));
+  document.getElementById('reportDetailPdfBtn')?.addEventListener('click', () => exportPdf(full));
   document.getElementById('reportDetailCloseBtn')?.addEventListener('click', closeReportDetailModal);
   els.reportDetailModal.classList.remove('hidden');
   document.body.classList.add('modal-open');

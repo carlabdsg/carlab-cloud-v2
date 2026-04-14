@@ -2323,7 +2323,16 @@ app.get('/api/parts/pending', authRequired, requireRoles('admin','supervisor_flo
     const result = await pool.query(
       `SELECT
          id, folio, numero_obra, modelo, numero_economico, empresa,
-         detalle_refaccion, refaccion_status, refaccion_asignada, COALESCE(jsonb_array_length(evidencias_refaccion),0)::int AS evidencias_count,
+         detalle_refaccion, refaccion_status, refaccion_asignada,
+         COALESCE(jsonb_array_length(evidencias_refaccion),0)::int AS evidencias_count,
+         COALESCE((
+           SELECT jsonb_agg(v)
+           FROM (
+             SELECT value AS v
+             FROM jsonb_array_elements_text(COALESCE(evidencias_refaccion, '[]'::jsonb))
+             LIMIT 3
+           ) p
+         ), '[]'::jsonb) AS evidencias_preview,
          estatus_operativo, created_at, updated_at, refaccion_updated_at
        FROM garantias
        WHERE ${where.join(' AND ')}
@@ -2342,6 +2351,7 @@ app.get('/api/parts/pending', authRequired, requireRoles('admin','supervisor_flo
       refaccionAsignada: row.refaccion_asignada || '',
       estatusOperativo: row.estatus_operativo || 'sin iniciar',
       evidenciasRefaccion: [],
+      evidenciasPreview: Array.isArray(row.evidencias_preview) ? row.evidencias_preview : [],
       evidenciasCount: Number(row.evidencias_count || 0),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
