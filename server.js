@@ -2140,17 +2140,122 @@ app.get('/api/fleet/units/:id/reports', authRequired, requireRoles('admin','oper
     if (!unit.rowCount) return res.json([]);
     const u = unit.rows[0];
     const reports = await pool.query(`
-      SELECT * FROM garantias g
+      SELECT g.id, g.folio, g.descripcion_fallo, g.estatus_validacion, g.estatus_operativo, g.created_at, g.updated_at
+      FROM garantias g
       WHERE g.fleet_unit_id = $1
          OR (g.fleet_unit_id IS NULL
             AND lower(regexp_replace(g.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))
             AND lower(regexp_replace(g.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($3, '[^a-zA-Z0-9]+','','g')))
       ORDER BY g.created_at DESC
-      LIMIT 80
+      LIMIT 30
     `, [u.id, u.empresa, u.numero_economico]);
-    res.json(reports.rows.map(mapGarantia));
+    res.json(reports.rows.map(row => ({
+      id: row.id,
+      folio: row.folio || '',
+      descripcionFallo: row.descripcion_fallo || '',
+      estatusValidacion: row.estatus_validacion || '',
+      estatusOperativo: row.estatus_operativo || '',
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    })));
   } catch (error) {
     console.error('Error leyendo reportes de unidad:', error?.message || error);
+    res.json([]);
+  }
+});
+
+app.get('/api/fleet/units/:id/activity', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
+  try {
+    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? 'AND empresa = $2' : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
+    if (!unit.rowCount) return res.json([]);
+    const u = unit.rows[0];
+    const activity = await pool.query(`
+      WITH feed AS (
+        SELECT 'reporte'::text AS tipo, COALESCE(g.folio,'GAR-—') AS titulo, COALESCE(g.descripcion_fallo,'Reporte levantado') AS detalle, g.created_at AS fecha
+        FROM garantias g
+        WHERE g.fleet_unit_id = $1
+           OR (g.fleet_unit_id IS NULL
+             AND lower(regexp_replace(g.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))
+             AND lower(regexp_replace(g.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($3, '[^a-zA-Z0-9]+','','g')))
+        ORDER BY g.created_at DESC
+        LIMIT 3
+      )
+      SELECT * FROM feed
+      UNION ALL
+      SELECT 'refaccion', COALESCE(g.folio,'GAR-—'), COALESCE(g.detalle_refaccion,'Refacción actualizada'), COALESCE(g.refaccion_updated_at,g.updated_at)
+      FROM garantias g
+      WHERE g.solicita_refaccion = TRUE
+        AND (g.fleet_unit_id = $1
+          OR (g.fleet_unit_id IS NULL
+            AND lower(regexp_replace(g.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))
+            AND lower(regexp_replace(g.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($3, '[^a-zA-Z0-9]+','','g'))))
+      ORDER BY 4 DESC
+      LIMIT 3
+    `, [u.id, u.empresa, u.numero_economico]);
+    const schedules = await pool.query(`
+      SELECT 'agenda'::text AS tipo, COALESCE(status,'programada') AS titulo, COALESCE(notes,'Movimiento de agenda') AS detalle, COALESCE(updated_at,requested_at) AS fecha
+      FROM schedule_requests
+      WHERE lower(regexp_replace(COALESCE(empresa,''), '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g'))
+        AND lower(regexp_replace(COALESCE(numero_economico,''), '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))
+      ORDER BY COALESCE(updated_at,requested_at) DESC
+      LIMIT 2
+    `, [u.empresa, u.numero_economico]);
+    const campaigns = await pool.query(`
+      SELECT 'campaña'::text AS tipo, COALESCE(cg.nombre, cg.campaign_nombre, cg.campaign_name,'Campaña') AS titulo, COALESCE(cu.status,'sin_programar') AS detalle, cu.updated_at AS fecha
+      FROM campaign_units cu
+      JOIN campaign_groups cg ON cg.id = cu.campaign_group_id
+      WHERE lower(regexp_replace(cu.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g'))
+        AND lower(regexp_replace(cu.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))
+      ORDER BY cu.updated_at DESC
+      LIMIT 2
+    `, [u.empresa, u.numero_economico]);
+    const costs = await pool.query(`SELECT 'costo'::text AS tipo, COALESCE(tipo,'costo') AS titulo, COALESCE(concepto,'Costo registrado') AS detalle, created_at AS fecha FROM fleet_cost_entries WHERE fleet_unit_id = $1 ORDER BY created_at DESC LIMIT 2`, [u.id]);
+    const merged = [...activity.rows, ...schedules.rows, ...campaigns.rows, ...costs.rows]
+      .filter(r => r.fecha)
+      .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+      .slice(0, 8);
+    res.json(merged.map(r => ({ tipo: r.tipo, titulo: r.titulo, detalle: r.detalle, fecha: r.fecha })));
+  } catch (error) {
+    console.error('Error leyendo actividad de unidad:', error?.message || error);
+    res.json([]);
+  }
+});
+
+app.get('/api/fleet/units/:id/evidence', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
+  try {
+    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? 'AND empresa = $2' : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
+    if (!unit.rowCount) return res.json([]);
+    const u = unit.rows[0];
+    const rows = await pool.query(`
+      WITH report_imgs AS (
+        SELECT jsonb_array_elements_text(COALESCE(g.evidencias, '[]'::jsonb)) AS img
+        FROM garantias g
+        WHERE g.fleet_unit_id = $1
+           OR (g.fleet_unit_id IS NULL
+             AND lower(regexp_replace(g.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))
+             AND lower(regexp_replace(g.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($3, '[^a-zA-Z0-9]+','','g')))
+        LIMIT 18
+      ),
+      ref_imgs AS (
+        SELECT jsonb_array_elements_text(COALESCE(g.evidencias_refaccion, '[]'::jsonb)) AS img
+        FROM garantias g
+        WHERE g.fleet_unit_id = $1
+           OR (g.fleet_unit_id IS NULL
+             AND lower(regexp_replace(g.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))
+             AND lower(regexp_replace(g.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($3, '[^a-zA-Z0-9]+','','g')))
+        LIMIT 18
+      )
+      SELECT DISTINCT img FROM (
+        SELECT img FROM report_imgs
+        UNION ALL
+        SELECT img FROM ref_imgs
+      ) z
+      WHERE COALESCE(img,'') <> ''
+      LIMIT 24
+    `, [u.id, u.empresa, u.numero_economico]);
+    res.json(rows.rows.map(r => r.img).filter(Boolean));
+  } catch (error) {
+    console.error('Error leyendo evidencias de unidad:', error?.message || error);
     res.json([]);
   }
 });
