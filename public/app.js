@@ -1978,10 +1978,9 @@ async function loadFleet() {
     } else if (els.fleetEmpresa) {
       els.fleetEmpresa.disabled = false;
     }
-    const [summary, units, schedules] = await Promise.all([api.getFleetSummary(), api.getFleetUnits(), api.request(`/api/schedules${state.user?.role === 'supervisor_flotas' ? '?futureOnly=1' : ''}`)]);
+    const [summary, units] = await Promise.all([api.getFleetSummary(), api.getFleetUnits()]);
     state.fleetSummary = summary || state.fleetSummary;
     state.fleetUnits = units || [];
-    state.schedules = schedules || state.schedules;
     if (state.selectedFleetUnit?.unit?.id) {
       const still = state.fleetUnits.find(u => u.id === state.selectedFleetUnit.unit.id);
       if (still) state.selectedFleetUnit = await api.getFleetUnit(still.id);
@@ -2635,7 +2634,14 @@ els.loginForm?.addEventListener('submit', async (e) => {
   try {
     const data = await api.login(els.loginEmail.value.trim(), els.loginPassword.value);
     state.token = data.token; localStorage.setItem('carlabToken', state.token); state.user = data.user; showDashboard();
-    await loadCompanies(); await loadGarantias(); await loadUsers(); await loadRequests(); await loadSchedules(''); await loadNotifications(); await loadFleet(); resetReportForm(); resetCompanyForm(); resetFleetForm(); notify(`Bienvenido, ${state.user.nombre}.`);
+    await loadCompanies();
+    await loadGarantias();
+    await loadNotifications();
+    if (isRole('admin')) {
+      await loadUsers();
+      await loadRequests();
+    }
+    resetReportForm(); resetCompanyForm(); resetFleetForm(); notify(`Bienvenido, ${state.user.nombre}.`);
   } catch (error) { if (els.loginError) { els.loginError.textContent = error.message; els.loginError.classList.remove('hidden'); } else notify(error.message,true); }
 });
 
@@ -2900,10 +2906,21 @@ function logoutSession() {
 }
 
 els.logoutBtn?.addEventListener('click', logoutSession);
-els.globalRefreshBtn?.addEventListener('click', async () => { await Promise.allSettled([loadGarantias(), loadSchedules(''), loadNotifications(), loadFleet(), loadPartsPending(true), isRole('admin') ? loadStock(true) : Promise.resolve(), isRole('admin') ? loadCobranza(true) : Promise.resolve()]); renderExecutiveDeck(); notify('Datos actualizados.'); });
+els.globalRefreshBtn?.addEventListener('click', async () => {
+  await loadGarantias();
+  await loadNotifications();
+  if (state.activePanel === 'schedule') await loadSchedules('');
+  if (state.activePanel === 'fleet') await loadFleet();
+  if (state.activePanel === 'parts') await loadPartsPending(true);
+  if (state.activePanel === 'stock' && isRole('admin')) await loadStock(true);
+  if (state.activePanel === 'cobranza' && isRole('admin')) await loadCobranza(true);
+  if (state.activePanel === 'campaigns') await loadCampaigns(state.selectedCampaignId);
+  renderExecutiveDeck();
+  notify('Datos actualizados.');
+});
 els.opNavHomeBtn?.addEventListener('click', () => switchPanel('board'));
 els.opNavNewBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); });
-els.opNavScheduleBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
+els.opNavScheduleBtn?.addEventListener('click', async () => { switchPanel('schedule'); });
 els.opNavLogoutBtn?.addEventListener('click', logoutSession);
 els.imageLightboxClose?.addEventListener('click', closeImageLightbox);
 els.imageLightbox?.addEventListener('click', (e) => { if (e.target === els.imageLightbox) closeImageLightbox(); });
@@ -2911,11 +2928,11 @@ els.navBoardBtn?.addEventListener('click', () => switchPanel('board'));
 els.navNewReportBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); });
 els.navAnalyticsBtn?.addEventListener('click', () => switchPanel('analytics'));
 els.navHistoryBtn?.addEventListener('click', () => switchPanel('history'));
-els.navScheduleBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
-els.navFleetBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
+els.navScheduleBtn?.addEventListener('click', async () => { switchPanel('schedule'); });
+els.navFleetBtn?.addEventListener('click', async () => { switchPanel('fleet'); });
 els.navPartsBtn?.addEventListener('click', async () => { await cargarSolicitudesIndependientes(); await loadPartsPending(true); switchPanel('parts'); });
-els.navStockBtn?.addEventListener('click', async () => { await loadStock(true); switchPanel('stock'); });
-els.navCobranzaBtn?.addEventListener('click', async () => { await loadCobranza(true); switchPanel('cobranza'); });
+els.navStockBtn?.addEventListener('click', async () => { switchPanel('stock'); });
+els.navCobranzaBtn?.addEventListener('click', async () => { switchPanel('cobranza'); });
 els.stockRefreshBtn?.addEventListener('click', async () => { await loadStock(true); switchPanel('stock'); });
 els.cobranzaRefreshBtn?.addEventListener('click', async () => { await loadCobranza(true); switchPanel('cobranza'); });
 els.stockCancelBtn?.addEventListener('click', resetStockForm);
@@ -3101,9 +3118,6 @@ els.companyForm?.addEventListener('submit', async (e) => {
     const data = await api.me(); state.user = data.user; showDashboard();
     await Promise.allSettled([loadCompanies(), loadGarantias(), loadNotifications()]);
     if (isRole('admin')) await Promise.allSettled([loadUsers(), loadRequests()]);
-    if (isRole('admin','operativo','supervisor','supervisor_flotas','operador')) await Promise.allSettled([loadSchedules('')]);
-    if (isRole('admin','operativo','supervisor_flotas')) await Promise.allSettled([loadFleet(), loadCampaigns()]);
-    if (isRole('admin','supervisor_flotas')) await Promise.allSettled([cargarSolicitudesIndependientes(), loadPartsPending(true)]);
     resetReportForm(); resetCompanyForm(); resetFleetForm();
   } catch {
     localStorage.removeItem('carlabToken'); state.token = ''; showLogin();
@@ -3124,7 +3138,7 @@ window.eliminarCostoAdmin = eliminarCostoAdmin;
 window.openImageLightbox = openImageLightbox;
 window.focusFleetUnit = focusFleetUnit;
 
-els.navCampaignsBtn?.addEventListener('click', async () => { await loadCampaigns(); switchPanel('campaigns'); });
+els.navCampaignsBtn?.addEventListener('click', async () => { switchPanel('campaigns'); });
 els.campaignsRefreshBtn?.addEventListener('click', async () => { await loadCampaigns(state.selectedCampaignId); });
 els.campaignEmpresa?.addEventListener('change', () => { if (els.campaignUnitEmpresa && !els.campaignUnitEmpresa.value) els.campaignUnitEmpresa.value = els.campaignEmpresa.value; refreshCampaignUnitOptions(); });
 els.campaignUnitEmpresa?.addEventListener('change', refreshCampaignUnitOptions);
