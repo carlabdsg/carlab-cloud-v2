@@ -2241,6 +2241,19 @@ function closeFleetDetailModal() {
   renderFleetDetail();
 }
 
+function collectFleetUnitEvidence(data = {}) {
+  const reports = Array.isArray(data.reports) ? data.reports : [];
+  const parts = Array.isArray(data.parts) ? data.parts : [];
+  const campaigns = Array.isArray(data.campaigns) ? data.campaigns : [];
+  const asArray = (value) => Array.isArray(value) ? value : [];
+  const merged = [
+    ...reports.flatMap((r) => [...asArray(r.evidencias), ...asArray(r.evidenciasRefaccion)]),
+    ...parts.flatMap((p) => asArray(p.evidenciasRefaccion)),
+    ...campaigns.flatMap((c) => asArray(c.evidencia)),
+  ].map((src) => String(src || '').trim()).filter(Boolean);
+  return [...new Set(merged)];
+}
+
 function renderFleetDetail() {
   if (!els.fleetDetail) return;
   const modalRoot = ensureFleetDetailModalRoot();
@@ -2263,7 +2276,7 @@ function renderFleetDetail() {
   const unitParts = data.parts || [];
   const campaignArr = data.campaigns || [];
   const loading = data.loading || {};
-  const allImages = reportsArr.flatMap(r => [...(r.evidencias || []), ...(r.evidenciasRefaccion || [])]).concat(campaignArr.flatMap(c => c.evidencia || [])).filter(Boolean);
+  const allImages = collectFleetUnitEvidence({ reports: reportsArr, parts: unitParts, campaigns: campaignArr });
   const reports = loading.reports ? '<div class="muted">Cargando reportes recientes…</div>' : reportsArr.map(r => `
     <div class="table-row rich-row">
       <div><strong>${escapeHtml(r.folio || 'GAR-—')}</strong><div class="small muted">${escapeHtml(r.descripcionFallo || 'Sin descripción')}</div></div>

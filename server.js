@@ -2153,7 +2153,7 @@ app.get('/api/fleet/units/:id/reports', authRequired, requireRoles('admin','oper
     if (!unit.rowCount) return res.json([]);
     const u = unit.rows[0];
     const reports = await pool.query(`
-      SELECT g.id, g.folio, g.descripcion_fallo, g.estatus_validacion, g.estatus_operativo, g.created_at, g.updated_at
+      SELECT g.id, g.folio, g.descripcion_fallo, g.estatus_validacion, g.estatus_operativo, g.created_at, g.updated_at, g.evidencias, g.evidencias_refaccion
       FROM garantias g
       WHERE g.fleet_unit_id = $1
          OR (g.fleet_unit_id IS NULL
@@ -2168,6 +2168,8 @@ app.get('/api/fleet/units/:id/reports', authRequired, requireRoles('admin','oper
       descripcionFallo: row.descripcion_fallo || '',
       estatusValidacion: row.estatus_validacion || '',
       estatusOperativo: row.estatus_operativo || '',
+      evidencias: Array.isArray(row.evidencias) ? row.evidencias.filter(Boolean) : [],
+      evidenciasRefaccion: Array.isArray(row.evidencias_refaccion) ? row.evidencias_refaccion.filter(Boolean) : [],
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     })));
