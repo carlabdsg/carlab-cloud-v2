@@ -344,6 +344,12 @@ function normalizeIdentityValue(value) {
     .replace(/[^a-z0-9]/g, '');
 }
 
+const SQL_IDENTITY_TRANSLATE_FROM = 'ÁÀÄÂÃÅáàäâãåÉÈËÊéèëêÍÌÏÎíìïîÓÒÖÔÕóòöôõÚÙÜÛúùüûÑñÇç';
+const SQL_IDENTITY_TRANSLATE_TO = 'AAAAAAaaaaaaEEEEeeeeIIIIiiiiOOOOOoooooUUUUuuuuNnCc';
+function normalizedIdentitySql(valueSqlExpression) {
+  return `lower(regexp_replace(translate(COALESCE(${valueSqlExpression}, ''), '${SQL_IDENTITY_TRANSLATE_FROM}', '${SQL_IDENTITY_TRANSLATE_TO}'), '[^a-zA-Z0-9]+','','g'))`;
+}
+
 let campaignGroupColumnsCache = null;
 
 async function getCampaignGroupColumns() {
@@ -1382,7 +1388,7 @@ app.get('/api/garantias', authRequired, async (req, res) => {
     }
     if (SUPERVISOR_ROLES.includes(req.user.role)) {
       params.push(req.user.empresa || '');
-      where.push(`empresa = $${params.length}`);
+      where.push(`${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql(`$${params.length}`)}`);
     }
     const requestedLimit = Number(req.query.limit || 300);
     const safeLimit = Number.isFinite(requestedLimit) ? Math.min(Math.max(Math.trunc(requestedLimit), 50), 1000) : 300;
@@ -1407,7 +1413,7 @@ app.get('/api/garantias/:id', authRequired, async (req, res) => {
     }
     if (SUPERVISOR_ROLES.includes(req.user.role)) {
       params.push(req.user.empresa || '');
-      where.push(`empresa = $${params.length}`);
+      where.push(`${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql(`$${params.length}`)}`);
     }
     const result = await pool.query(`SELECT * FROM garantias WHERE ${where.join(' AND ')} LIMIT 1`, params);
     if (!result.rowCount) return res.status(404).json({ error: 'Reporte no encontrado.' });
@@ -1646,10 +1652,13 @@ app.get('/api/audit/:garantiaId', authRequired, requireRoles('admin', 'operativo
 });
 
 app.get('/api/history/unit/:numeroEconomico', authRequired, requireRoles('admin', 'operativo', 'supervisor', 'supervisor_flotas'), async (req, res) => {
-  const result = await pool.query(
-    `SELECT * FROM garantias WHERE numero_economico = $1 ORDER BY created_at DESC`,
-    [req.params.numeroEconomico]
-  );
+  const params = [req.params.numeroEconomico];
+  const where = [`${normalizedIdentitySql('numero_economico')} = ${normalizedIdentitySql('$1')}`];
+  if (SUPERVISOR_ROLES.includes(req.user.role)) {
+    params.push(req.user.empresa || '');
+    where.push(`${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql(`$${params.length}`)}`);
+  }
+  const result = await pool.query(`SELECT * FROM garantias WHERE ${where.join(' AND ')} ORDER BY created_at DESC`, params);
   res.json(result.rows.map(mapGarantia));
 });
 
@@ -1671,7 +1680,7 @@ app.get('/api/schedules', authRequired, requireRoles('admin', 'operativo', 'supe
     }
     if (SUPERVISOR_ROLES.includes(req.user.role)) {
       params.push(req.user.empresa || '');
-      where.push(`COALESCE(g.empresa, sr.empresa) = $${params.length}`);
+      where.push(`${normalizedIdentitySql('COALESCE(g.empresa, sr.empresa)')} = ${normalizedIdentitySql(`$${params.length}`)}`);
     }
     if (req.user.role === 'operador') {
       params.push(req.user.id);
@@ -1850,8 +1859,8 @@ app.get('/api/notifications', authRequired, requireRoles('admin','operativo','su
   let whereSchedules = [];
   if (SUPERVISOR_ROLES.includes(req.user.role)) {
     params.push(req.user.empresa || '');
-    whereGarantias.push(`g.empresa = $${params.length}`);
-    whereSchedules.push(`g.empresa = $${params.length}`);
+    whereGarantias.push(`${normalizedIdentitySql('g.empresa')} = ${normalizedIdentitySql(`$${params.length}`)}`);
+    whereSchedules.push(`${normalizedIdentitySql('g.empresa')} = ${normalizedIdentitySql(`$${params.length}`)}`);
   }
   if (req.user.role === 'operador') {
     params.push(req.user.id);
@@ -1888,7 +1897,7 @@ app.get('/api/fleet/summary', authRequired, requireRoles('admin','operativo','su
   const where = [];
   if (SUPERVISOR_ROLES.includes(req.user.role)) {
     params.push(req.user.empresa || '');
-    where.push(`fu.empresa = $${params.length}`);
+    where.push(`${normalizedIdentitySql('fu.empresa')} = ${normalizedIdentitySql(`$${params.length}`)}`);
   }
   const totalQ = await pool.query(`SELECT COUNT(*)::int AS total FROM fleet_units fu ${where.length ? 'WHERE ' + where.join(' AND ') : ''}`, params);
   const sem = await pool.query(`
@@ -1928,7 +1937,7 @@ app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supe
     const where = [];
     if (SUPERVISOR_ROLES.includes(req.user.role)) {
       params.push(req.user.empresa || '');
-      where.push(`fu.empresa = $${params.length}`);
+      where.push(`${normalizedIdentitySql('fu.empresa')} = ${normalizedIdentitySql(`$${params.length}`)}`);
     }
     const result = await pool.query(`
     WITH unit_scope AS (
@@ -2058,7 +2067,7 @@ app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','
     let extra = '';
     if (SUPERVISOR_ROLES.includes(req.user.role)) {
       params.push(req.user.empresa || '');
-      extra = ` AND fu.empresa = $${params.length}`;
+      extra = ` AND ${normalizedIdentitySql('fu.empresa')} = ${normalizedIdentitySql(`$${params.length}`)}`;
     }
     let unit = await pool.query(`
     SELECT fu.*,
@@ -2077,7 +2086,7 @@ app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','
           COALESCE((SELECT SUM(monto) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_total
         FROM fleet_units fu
         WHERE lower(regexp_replace(fu.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g'))
-        ${SUPERVISOR_ROLES.includes(req.user.role) ? "AND fu.empresa = $2" : ""}
+        ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('fu.empresa')} = ${normalizedIdentitySql('$2')}` : ""}
         ORDER BY fu.updated_at DESC
         LIMIT 1
       `, altParams);
@@ -2112,7 +2121,7 @@ app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','
 
 app.get('/api/fleet/units/:id/details', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
   try {
-    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? 'AND empresa = $2' : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
+    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
     if (!unit.rowCount) return res.json({ reports: [], costs: [], campaigns: [], schedules: [], parts: [] });
     const u = unit.rows[0];
     const [reports, costs, schedules, parts] = await Promise.all([
@@ -2149,7 +2158,7 @@ app.get('/api/fleet/units/:id/details', authRequired, requireRoles('admin','oper
 
 app.get('/api/fleet/units/:id/reports', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
   try {
-    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? 'AND empresa = $2' : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
+    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
     if (!unit.rowCount) return res.json([]);
     const u = unit.rows[0];
     const reports = await pool.query(`
@@ -2181,7 +2190,7 @@ app.get('/api/fleet/units/:id/reports', authRequired, requireRoles('admin','oper
 
 app.get('/api/fleet/units/:id/activity', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
   try {
-    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? 'AND empresa = $2' : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
+    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
     if (!unit.rowCount) return res.json([]);
     const u = unit.rows[0];
     const activity = await pool.query(`
@@ -2238,7 +2247,7 @@ app.get('/api/fleet/units/:id/activity', authRequired, requireRoles('admin','ope
 
 app.get('/api/fleet/units/:id/evidence', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
   try {
-    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? 'AND empresa = $2' : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
+    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
     if (!unit.rowCount) return res.json([]);
     const u = unit.rows[0];
     const rows = await pool.query(`
@@ -2277,7 +2286,7 @@ app.get('/api/fleet/units/:id/evidence', authRequired, requireRoles('admin','ope
 
 app.get('/api/fleet/units/:id/campaigns', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
   try {
-    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? 'AND empresa = $2' : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
+    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
     if (!unit.rowCount) return res.json([]);
     const u = unit.rows[0];
     const campaigns = await pool.query(`
@@ -2298,7 +2307,7 @@ app.get('/api/fleet/units/:id/campaigns', authRequired, requireRoles('admin','op
 
 app.get('/api/fleet/units/:id/schedules', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
   try {
-    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? 'AND empresa = $2' : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
+    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
     if (!unit.rowCount) return res.json([]);
     const u = unit.rows[0];
     const schedules = await pool.query(`
@@ -2319,7 +2328,7 @@ app.get('/api/fleet/units/:id/schedules', authRequired, requireRoles('admin','op
 
 app.get('/api/fleet/units/:id/parts', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
   try {
-    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? 'AND empresa = $2' : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
+    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
     if (!unit.rowCount) return res.json([]);
     const u = unit.rows[0];
     const parts = await pool.query(`
@@ -2525,7 +2534,7 @@ app.get('/api/parts/pending', authRequired, requireRoles('admin','supervisor_flo
     ];
     if (req.user.role === 'supervisor_flotas') {
       params.push(req.user.empresa || '');
-      where.push(`empresa = $${params.length}`);
+      where.push(`${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql(`$${params.length}`)}`);
     }
     const result = await pool.query(
       `SELECT
@@ -2576,7 +2585,7 @@ app.get('/api/parts/pending/:id', authRequired, requireRoles('admin','supervisor
     let whereEmpresa = '';
     if (req.user.role === 'supervisor_flotas') {
       params.push(req.user.empresa || '');
-      whereEmpresa = ` AND empresa = $${params.length}`;
+      whereEmpresa = ` AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql(`$${params.length}`)}`;
     }
     const result = await pool.query(`SELECT id, evidencias_refaccion FROM garantias WHERE id = $1 ${whereEmpresa} LIMIT 1`, params);
     if (!result.rowCount) return res.status(404).json({ error: 'Registro no encontrado.' });
