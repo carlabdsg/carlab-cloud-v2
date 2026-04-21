@@ -2161,24 +2161,25 @@ app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supe
         us.id AS fleet_unit_id,
         COUNT(g.*)::int AS reportes_count,
         COUNT(*) FILTER (
-          WHERE COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
+          WHERE g.id IS NOT NULL
+            AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
             AND (
               COALESCE(LOWER(TRIM(g.estatus_operativo)), '') IN ('sin iniciar','programada','en proceso','espera refacción')
               OR COALESCE(LOWER(TRIM(g.estatus_validacion)), '') IN ('nueva','pendiente de revisión','aceptada')
-              OR (COALESCE(LOWER(TRIM(g.estatus_operativo)), '') = '' AND COALESCE(LOWER(TRIM(g.estatus_validacion)), '') = '')
             )
         )::int AS open_reports_count,
         COUNT(*) FILTER (
-          WHERE COALESCE(LOWER(TRIM(g.estatus_operativo)), '') IN ('en proceso','espera refacción')
+          WHERE g.id IS NOT NULL
+            AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') IN ('en proceso','espera refacción')
             AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
         )::int AS critical_reports_count,
         COUNT(*) FILTER (
-          WHERE COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
+          WHERE g.id IS NOT NULL
+            AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
             AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('en proceso','espera refacción')
             AND (
               COALESCE(LOWER(TRIM(g.estatus_operativo)), '') IN ('sin iniciar','programada')
               OR COALESCE(LOWER(TRIM(g.estatus_validacion)), '') IN ('nueva','pendiente de revisión','aceptada')
-              OR (COALESCE(LOWER(TRIM(g.estatus_operativo)), '') = '' AND COALESCE(LOWER(TRIM(g.estatus_validacion)), '') = '')
             )
         )::int AS warning_reports_count,
         MAX(g.created_at) AS last_report_at,
@@ -2298,24 +2299,25 @@ app.get('/api/fleet/analytics', authRequired, requireRoles('admin','operativo','
           us.id AS fleet_unit_id,
           COUNT(g.*)::int AS reportes_count,
           COUNT(*) FILTER (
-            WHERE COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
+            WHERE g.id IS NOT NULL
+              AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
               AND (
                 COALESCE(LOWER(TRIM(g.estatus_operativo)), '') IN ('sin iniciar','programada','en proceso','espera refacción')
                 OR COALESCE(LOWER(TRIM(g.estatus_validacion)), '') IN ('nueva','pendiente de revisión','aceptada')
-                OR (COALESCE(LOWER(TRIM(g.estatus_operativo)), '') = '' AND COALESCE(LOWER(TRIM(g.estatus_validacion)), '') = '')
               )
           )::int AS open_reports_count,
           COUNT(*) FILTER (
-            WHERE COALESCE(LOWER(TRIM(g.estatus_operativo)), '') IN ('en proceso','espera refacción')
+            WHERE g.id IS NOT NULL
+              AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') IN ('en proceso','espera refacción')
               AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
           )::int AS critical_reports_count,
           COUNT(*) FILTER (
-            WHERE COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
+            WHERE g.id IS NOT NULL
+              AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
               AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('en proceso','espera refacción')
               AND (
                 COALESCE(LOWER(TRIM(g.estatus_operativo)), '') IN ('sin iniciar','programada')
                 OR COALESCE(LOWER(TRIM(g.estatus_validacion)), '') IN ('nueva','pendiente de revisión','aceptada')
-                OR (COALESCE(LOWER(TRIM(g.estatus_operativo)), '') = '' AND COALESCE(LOWER(TRIM(g.estatus_validacion)), '') = '')
               )
           )::int AS warning_reports_count,
           COUNT(*) FILTER (

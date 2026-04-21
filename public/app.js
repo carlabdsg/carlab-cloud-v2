@@ -296,10 +296,9 @@ function normalizeIdentityKey(value='') {
 
 function fleetSemaforo(unit) {
   const auto = normalizeText(unit.statusAuto || '');
-  const effective = normalizeText(unit.effectiveStatus || unit.manualStatus || unit.estatusOperativo || unit.status || '');
-  if (unit.campaignActiva || effective.includes('campana activa') || effective.includes('campaña activa')) return { key:'campania', label:'Campaña activa', cls:'fleet-campaign-active' };
-  if (auto === 'critical' || effective === 'critical' || effective.includes('taller') || effective.includes('detenida')) return { key:'critical', label:'Crítico', cls:'fleet-bad' };
-  if (auto === 'warning' || effective === 'warning' || effective.includes('program')) return { key:'warning', label:'Con atención', cls:'fleet-warn' };
+  if (unit.campaignActiva) return { key:'campania', label:'Campaña activa', cls:'fleet-campaign-active' };
+  if (auto === 'critical') return { key:'critical', label:'Crítico', cls:'fleet-bad' };
+  if (auto === 'warning') return { key:'warning', label:'Con atención', cls:'fleet-warn' };
   return { key:'ok', label:'Operativa', cls:'fleet-ok' };
 }
 function fleetBusAsset(unit) {
