@@ -321,6 +321,7 @@ function mapFleetUnit(row) {
     effectiveStatus: row.effective_status || row.status_auto || 'ok',
     manualStatus: row.manual_status || null,
     openReportsCount: Number(row.open_reports_count || 0),
+    pendingPartsCount: Number(row.pending_parts_count || 0),
     criticalReportsCount: Number(row.critical_reports_count || 0),
     warningReportsCount: Number(row.warning_reports_count || 0),
     reportsLast30d,
@@ -2186,6 +2187,11 @@ app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supe
         ) AS last_open_report_at,
         MAX(g.updated_at) FILTER (WHERE COALESCE(g.estatus_operativo, '') <> '') AS last_operational_change_at,
         MAX(COALESCE(g.refaccion_updated_at, g.updated_at)) FILTER (WHERE g.solicita_refaccion = TRUE) AS last_refaccion_at,
+        COUNT(*) FILTER (
+          WHERE g.solicita_refaccion = TRUE
+            AND COALESCE(LOWER(TRIM(g.refaccion_status)), 'pendiente') <> 'instalada'
+            AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
+        )::int AS pending_parts_count,
         COUNT(*) FILTER (WHERE g.created_at >= NOW() - INTERVAL '30 days')::int AS reports_last_30d,
         (ARRAY_AGG(g.estatus_operativo ORDER BY g.created_at DESC))[1] AS ultimo_estatus_operativo
       FROM unit_scope us
@@ -2222,14 +2228,14 @@ app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supe
     SELECT us.*,
       COALESCE(us.manual_status, CASE WHEN COALESCE(cs.campaign_activa, false) THEN 'campaña activa' ELSE gs.ultimo_estatus_operativo END, 'sin actividad') AS estatus_operativo,
       CASE
-        WHEN COALESCE(gs.critical_reports_count, 0) > 0 THEN 'critical'
+        WHEN COALESCE(gs.pending_parts_count, 0) > 0 THEN 'critical'
         WHEN COALESCE(gs.open_reports_count, 0) > 0 THEN 'warning'
         ELSE 'ok'
       END AS status_auto,
       CASE
         WHEN COALESCE(NULLIF(TRIM(us.manual_status), ''), '') <> '' THEN us.manual_status
         ELSE CASE
-          WHEN COALESCE(gs.critical_reports_count, 0) > 0 THEN 'critical'
+          WHEN COALESCE(gs.pending_parts_count, 0) > 0 THEN 'critical'
           WHEN COALESCE(gs.open_reports_count, 0) > 0 THEN 'warning'
           ELSE 'ok'
         END
@@ -2249,6 +2255,7 @@ app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supe
       ) AS last_movement_at,
       COALESCE(gs.reportes_count, 0) AS reportes_count,
       COALESCE(gs.open_reports_count, 0) AS open_reports_count,
+      COALESCE(gs.pending_parts_count, 0) AS pending_parts_count,
       COALESCE(gs.critical_reports_count, 0) AS critical_reports_count,
       COALESCE(gs.warning_reports_count, 0) AS warning_reports_count,
       COALESCE(gs.reports_last_30d, 0) AS reports_last_30d,
@@ -2311,7 +2318,16 @@ app.get('/api/fleet/analytics', authRequired, requireRoles('admin','operativo','
                 OR (COALESCE(LOWER(TRIM(g.estatus_operativo)), '') = '' AND COALESCE(LOWER(TRIM(g.estatus_validacion)), '') = '')
               )
           )::int AS warning_reports_count,
+          COUNT(*) FILTER (
+            WHERE g.solicita_refaccion = TRUE
+              AND COALESCE(LOWER(TRIM(g.refaccion_status)), 'pendiente') <> 'instalada'
+              AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
+          )::int AS pending_parts_count,
           MAX(g.created_at) AS last_report_at,
+          MAX(g.created_at) FILTER (
+            WHERE COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
+          ) AS last_open_report_at,
+          MAX(COALESCE(g.refaccion_updated_at, g.updated_at)) FILTER (WHERE g.solicita_refaccion = TRUE) AS last_refaccion_at,
           COUNT(*) FILTER (WHERE g.created_at >= NOW() - INTERVAL '30 days')::int AS reports_last_30d
         FROM unit_scope us
         LEFT JOIN garantias g ON ${unitIdentityMatchSql('g.empresa', 'g.numero_economico', 'us.empresa', 'us.numero_economico')}
@@ -2330,14 +2346,17 @@ app.get('/api/fleet/analytics', authRequired, requireRoles('admin','operativo','
           us.modelo,
           us.manual_status,
           COALESCE(gs.open_reports_count, 0) AS open_reports_count,
+          COALESCE(gs.pending_parts_count, 0) AS pending_parts_count,
           COALESCE(gs.critical_reports_count, 0) AS critical_reports_count,
           COALESCE(gs.warning_reports_count, 0) AS warning_reports_count,
           COALESCE(gs.reportes_count, 0) AS reportes_count,
           COALESCE(gs.reports_last_30d, 0) AS reports_last_30d,
           gs.last_report_at,
+          gs.last_open_report_at,
+          gs.last_refaccion_at,
           COALESCE(ct.costo_total, 0) AS costo_total,
           CASE
-            WHEN COALESCE(gs.critical_reports_count, 0) > 0 THEN 'critical'
+            WHEN COALESCE(gs.pending_parts_count, 0) > 0 THEN 'critical'
             WHEN COALESCE(gs.open_reports_count, 0) > 0 THEN 'warning'
             ELSE 'ok'
           END AS status_auto
@@ -2356,7 +2375,7 @@ app.get('/api/fleet/analytics', authRequired, requireRoles('admin','operativo','
           COUNT(*) FILTER (WHERE status_auto = 'warning')::int AS warning_units,
           COUNT(*) FILTER (WHERE status_auto = 'ok')::int AS ok_units,
           COALESCE(SUM(open_reports_count),0)::int AS open_reports,
-          COALESCE(SUM(critical_reports_count),0)::int AS critical_open_reports,
+          COALESCE(SUM(pending_parts_count),0)::int AS critical_open_reports,
           COUNT(*) FILTER (WHERE reports_last_30d >= 2)::int AS units_with_recurrence,
           ROUND(COALESCE(AVG(open_reports_count), 0)::numeric, 2) AS avg_open_reports_per_unit
         FROM unit_kpis
@@ -2371,17 +2390,19 @@ app.get('/api/fleet/analytics', authRequired, requireRoles('admin','operativo','
           uk.status_auto,
           COALESCE(NULLIF(TRIM(uk.manual_status), ''), uk.status_auto) AS effective_status,
           uk.open_reports_count,
+          uk.pending_parts_count,
           uk.critical_reports_count,
           uk.reports_last_30d AS total_reports_last_30d,
           uk.last_report_at,
+          uk.last_open_report_at,
+          uk.last_refaccion_at,
           uk.costo_total
         FROM unit_kpis uk
         ORDER BY
-          uk.critical_reports_count DESC,
+          CASE WHEN uk.status_auto = 'critical' THEN 0 WHEN uk.status_auto = 'warning' THEN 1 ELSE 2 END ASC,
+          COALESCE(uk.last_open_report_at, uk.last_refaccion_at, uk.last_report_at) ASC NULLS LAST,
           uk.open_reports_count DESC,
-          uk.reports_last_30d DESC,
-          uk.costo_total DESC,
-          uk.last_report_at DESC NULLS LAST
+          uk.costo_total DESC
         LIMIT 10
       `, params),
       pool.query(`
@@ -2411,10 +2432,13 @@ app.get('/api/fleet/analytics', authRequired, requireRoles('admin','operativo','
       statusAuto: row.status_auto || 'ok',
       effectiveStatus: row.effective_status || row.status_auto || 'ok',
       openReportsCount: Number(row.open_reports_count || 0),
+      pendingPartsCount: Number(row.pending_parts_count || 0),
       criticalReportsCount: Number(row.critical_reports_count || 0),
       totalReportsLast30d: Number(row.total_reports_last_30d || 0),
       recurrenceLevel: Number(row.total_reports_last_30d || 0) >= 4 ? 'high' : Number(row.total_reports_last_30d || 0) >= 2 ? 'medium' : 'normal',
       lastReportAt: row.last_report_at || null,
+      lastOpenReportAt: row.last_open_report_at || null,
+      lastRefaccionAt: row.last_refaccion_at || null,
       costoTotal: Number(row.costo_total || 0),
     }));
 

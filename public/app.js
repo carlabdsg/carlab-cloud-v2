@@ -308,15 +308,31 @@ function fleetBusAsset(unit) {
 function fleetStatusLuxury(unit) {
   const sem = fleetSemaforo(unit);
   if (sem.key === 'campania') return { text:'Campaña activa', chip:'warn', visual:'status-blue' };
-  if (sem.key === 'ok') return { text:'Operativa', chip:'good', visual:'status-green' };
-  if (sem.key === 'warning') return { text:'Con atención', chip:'warn', visual:'status-amber' };
-  return { text:'Crítica', chip:'bad', visual:'status-red' };
+  if (sem.key === 'ok') return { text:'🟢 Operando', chip:'good', visual:'status-green' };
+  if (sem.key === 'warning') return { text:'🟠 En proceso', chip:'warn', visual:'status-amber' };
+  return { text:'🔴 Refacción pendiente', chip:'bad', visual:'status-red' };
 }
 function fleetTagPoliza(unit) {
   return unit.polizaActiva ? { text:'Póliza activa', cls:'good' } : { text:'Sin póliza', cls:'neutral' };
 }
 function fleetTagCampania(unit) {
   return unit.campaignActiva ? { text:'Campaña activa', cls:'warn' } : { text:'Sin campaña', cls:'neutral' };
+}
+function fleetHumanStatusByAuto(statusAuto = 'ok') {
+  if (statusAuto === 'critical') return '🔴 Refacción pendiente';
+  if (statusAuto === 'warning') return '🟠 En proceso';
+  return '🟢 Operando';
+}
+function fleetInactiveTimeMeta(unit = {}) {
+  const reference = unit.lastOpenReportAt || unit.lastReportAt || unit.lastRefaccionAt || null;
+  if (!reference) return { ms: Number.MAX_SAFE_INTEGER, text: 'Sin atención reciente' };
+  const diffMs = Math.max(0, Date.now() - new Date(reference).getTime());
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  const days = Math.floor(hours / 24);
+  if (days >= 1) return { ms: diffMs, text: `${days} día${days === 1 ? '' : 's'} ${unit.statusAuto === 'critical' ? 'detenida' : 'sin atención'}` };
+  if (hours >= 1) return { ms: diffMs, text: `${hours} hora${hours === 1 ? '' : 's'} sin atención` };
+  const minutes = Math.max(1, Math.floor(diffMs / (1000 * 60)));
+  return { ms: diffMs, text: `${minutes} min sin atención` };
 }
 function countBy(items, getter) {
   const map = new Map();
@@ -3026,13 +3042,16 @@ function animateFleetOwnerNumbers(root) {
 function renderFleetOwnerDeck() {
   if (!els.fleetOwnerDeck) return;
   const m = fleetOwnerMetrics();
-  const risky = m.topProblemUnits.slice(0, 5);
-  const trendMax = Math.max(1, ...(m.recentTrend || []).map(i => Number(i.reports || 0)));
-  const trendBars = (m.recentTrend || []).map(item => {
-    const value = Number(item.reports || 0);
-    const width = Math.max(8, Math.round((value / trendMax) * 100));
-    return `<div class="fleet-trend-row"><span>${escapeHtml(String(item.day || '').slice(5))}</span><div class="fleet-trend-bar"><i style="width:${width}%"></i></div><strong>${value}</strong></div>`;
-  }).join('');
+  const attentionUnits = (m.topProblemUnits || [])
+    .filter(unit => ['critical', 'warning'].includes(String(unit.statusAuto || '').toLowerCase()))
+    .map(unit => ({ ...unit, stale: fleetInactiveTimeMeta(unit) }))
+    .sort((a, b) => {
+      const pa = a.statusAuto === 'critical' ? 0 : 1;
+      const pb = b.statusAuto === 'critical' ? 0 : 1;
+      if (pa !== pb) return pa - pb;
+      return Number(b.stale?.ms || 0) - Number(a.stale?.ms || 0);
+    })
+    .slice(0, 8);
   els.fleetOwnerDeck.innerHTML = `
     <section class="fleet-owner-hero">
       <div class="fleet-owner-copy">
@@ -3046,17 +3065,17 @@ function renderFleetOwnerDeck() {
         <article><span>Unidades con atención</span><strong data-count="${m.warning}">${m.warning}</strong><small>Riesgo naranja</small></article>
         <article><span>Unidades operativas</span><strong data-count="${m.ok}">${m.ok}</strong><small>Semáforo verde</small></article>
         <article><span>Reportes abiertos</span><strong data-count="${m.openReports}">${m.openReports}</strong><small>Backlog activo</small></article>
-        <article><span>Con reincidencia</span><strong data-count="${m.reincidentes}">${m.reincidentes}</strong><small>Últimos 30 días</small></article>
+        <article><span>Promedio abiertos/unidad</span><strong>${Number(m.avgOpenReportsPerUnit || 0).toFixed(1)}</strong><small>Carga operativa</small></article>
       </div>
     </section>
     <section class="fleet-owner-insights">
       <article class="owner-card">
-        <div class="owner-card-head"><strong>Top unidades problemáticas</strong><span class="badge badge-info">Prioridad operativa</span></div>
-        <div class="owner-list">${risky.length ? risky.map(unit => `<button type="button" class="owner-list-row" onclick="focusFleetUnit(${JSON.stringify(unit.unitId)})"><span>${escapeHtml(unit.numeroEconomico || '—')} · ${escapeHtml(unit.empresa || '—')}</span><small>${escapeHtml(unit.effectiveStatus || unit.statusAuto || 'ok')} · abiertos ${Number(unit.openReportsCount || 0)} · ${escapeHtml(unit.recurrenceLevel || 'normal')}</small><strong>${unit.lastReportAt ? escapeHtml(fmtDate(unit.lastReportAt)) : 'Sin movimiento'}</strong></button>`).join('') : '<div class="muted">Sin unidades problemáticas en este momento.</div>'}</div>
+        <div class="owner-card-head"><strong>Unidades que requieren atención</strong></div>
+        <div class="owner-list">${attentionUnits.length ? attentionUnits.map(unit => `<button type="button" class="owner-list-row owner-list-row--attention" onclick="focusFleetUnit(${JSON.stringify(unit.unitId)})"><span>Unidad ${escapeHtml(unit.numeroEconomico || '—')} — ${escapeHtml(fleetHumanStatusByAuto(unit.statusAuto))} — ${escapeHtml(unit.stale.text)}</span><small>${escapeHtml(unit.empresa || '—')}</small><strong>${Number(unit.openReportsCount || 0)} abiertos</strong></button>`).join('') : '<div class="muted">Sin unidades con alertas activas.</div>'}</div>
       </article>
       <article class="owner-card">
-        <div class="owner-card-head"><strong>Tendencia reciente (14 días)</strong><span class="badge badge-info">Aperturas de reportes</span></div>
-        <div class="fleet-trend-list">${trendBars || '<div class="muted">Sin actividad reciente para graficar.</div>'}</div>
+        <div class="owner-card-head"><strong>Unidades detenidas / sin atención</strong></div>
+        <div class="owner-list">${attentionUnits.length ? attentionUnits.map(unit => `<button type="button" class="owner-list-row owner-list-row--attention" onclick="focusFleetUnit(${JSON.stringify(unit.unitId)})"><span>${escapeHtml(unit.numeroEconomico || '—')}</span><small>${escapeHtml(fleetHumanStatusByAuto(unit.statusAuto))}</small><strong>${escapeHtml(unit.stale.text)}</strong></button>`).join('') : '<div class="muted">No hay unidades rojas o naranjas.</div>'}</div>
       </article>
     </section>`;
   animateFleetOwnerNumbers(els.fleetOwnerDeck);
