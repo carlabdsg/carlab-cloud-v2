@@ -2124,8 +2124,26 @@ app.get('/api/fleet/units/:id/details', authRequired, requireRoles('admin','oper
     const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
     if (!unit.rowCount) return res.json({ reports: [], costs: [], campaigns: [], schedules: [], parts: [] });
     const u = unit.rows[0];
+    const reportsCompanyGuard = SUPERVISOR_ROLES.includes(req.user.role)
+      ? `AND ${normalizedIdentitySql('g.empresa')} = ${normalizedIdentitySql('$2')}`
+      : '';
     const [reports, costs, schedules, parts] = await Promise.all([
-      pool.query(`SELECT * FROM garantias WHERE lower(regexp_replace(empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g')) AND lower(regexp_replace(numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g')) ORDER BY created_at DESC LIMIT 100`, [u.empresa, u.numero_economico]),
+      pool.query(`
+        SELECT *
+        FROM garantias g
+        WHERE (
+          g.fleet_unit_id = $1
+          OR (
+            ${normalizedIdentitySql('g.empresa')} = ${normalizedIdentitySql('$2')}
+            AND ${normalizedIdentitySql('g.numero_economico')} = ${normalizedIdentitySql('$3')}
+          )
+        )
+        ${reportsCompanyGuard}
+        ORDER BY
+          CASE WHEN g.fleet_unit_id = $1 THEN 0 ELSE 1 END,
+          g.created_at DESC
+        LIMIT 100
+      `, [u.id, u.empresa, u.numero_economico]),
       pool.query(`SELECT * FROM fleet_cost_entries WHERE fleet_unit_id = $1 ORDER BY created_at DESC LIMIT 200`, [u.id]),
       pool.query(`SELECT id, status, notes, requested_at, proposed_at, confirmed_at, scheduled_for, created_at, updated_at, empresa, numero_economico FROM schedule_requests WHERE lower(regexp_replace(COALESCE(empresa,''), '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g')) AND lower(regexp_replace(COALESCE(numero_economico,''), '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g')) AND COALESCE(status,'') <> 'cancelled' ORDER BY COALESCE(scheduled_for, proposed_at, requested_at) ASC LIMIT 50`, [u.empresa, u.numero_economico]),
       pool.query(`SELECT id, folio, detalle_refaccion, refaccion_status, refaccion_asignada, refaccion_updated_at, updated_at, evidencias_refaccion FROM garantias WHERE solicita_refaccion = TRUE AND COALESCE(refaccion_status, 'pendiente') <> 'instalada' AND lower(regexp_replace(empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g')) AND lower(regexp_replace(numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g')) ORDER BY COALESCE(refaccion_updated_at, updated_at) DESC LIMIT 50`, [u.empresa, u.numero_economico]),
@@ -2161,15 +2179,24 @@ app.get('/api/fleet/units/:id/reports', authRequired, requireRoles('admin','oper
     const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
     if (!unit.rowCount) return res.json([]);
     const u = unit.rows[0];
+    const reportsCompanyGuard = SUPERVISOR_ROLES.includes(req.user.role)
+      ? `AND ${normalizedIdentitySql('g.empresa')} = ${normalizedIdentitySql('$2')}`
+      : '';
     const reports = await pool.query(`
       SELECT g.id, g.folio, g.descripcion_fallo, g.estatus_validacion, g.estatus_operativo, g.created_at, g.updated_at, g.evidencias, g.evidencias_refaccion
       FROM garantias g
-      WHERE g.fleet_unit_id = $1
-         OR (g.fleet_unit_id IS NULL
-            AND lower(regexp_replace(g.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))
-            AND lower(regexp_replace(g.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($3, '[^a-zA-Z0-9]+','','g')))
-      ORDER BY g.created_at DESC
-      LIMIT 30
+      WHERE (
+        g.fleet_unit_id = $1
+        OR (
+          ${normalizedIdentitySql('g.empresa')} = ${normalizedIdentitySql('$2')}
+          AND ${normalizedIdentitySql('g.numero_economico')} = ${normalizedIdentitySql('$3')}
+        )
+      )
+      ${reportsCompanyGuard}
+      ORDER BY
+        CASE WHEN g.fleet_unit_id = $1 THEN 0 ELSE 1 END,
+        g.created_at DESC
+      LIMIT 100
     `, [u.id, u.empresa, u.numero_economico]);
     res.json(reports.rows.map(row => ({
       id: row.id,

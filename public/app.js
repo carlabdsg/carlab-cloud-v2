@@ -2279,7 +2279,11 @@ function renderFleetDetail() {
   const allImages = collectFleetUnitEvidence({ reports: reportsArr, parts: unitParts, campaigns: campaignArr });
   const reports = loading.reports ? '<div class="muted">Cargando reportes recientes…</div>' : reportsArr.map(r => `
     <div class="table-row rich-row">
-      <div><strong>${escapeHtml(r.folio || 'GAR-—')}</strong><div class="small muted">${escapeHtml(r.descripcionFallo || 'Sin descripción')}</div></div>
+      <div>
+        <strong>${escapeHtml(r.folio || 'GAR-—')}</strong>
+        <div class="small muted">${escapeHtml(r.descripcionFallo || 'Sin descripción')}</div>
+        <div class="small muted">${escapeHtml(fmtDate(r.createdAt || r.updatedAt))}</div>
+      </div>
       <div><span class="badge ${badgeClassValidation(r.estatusValidacion || 'nueva')}">${escapeHtml(r.estatusValidacion || '—')}</span></div>
       <div><span class="badge ${badgeClassOperational(r.estatusOperativo || 'sin iniciar')}">${escapeHtml(r.estatusOperativo || '—')}</span></div>
     </div>
