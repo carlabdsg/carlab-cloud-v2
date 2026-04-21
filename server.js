@@ -23,6 +23,7 @@ const TWILIO_TEMPLATE_REPORTE_EN_PROCESO = process.env.TWILIO_TEMPLATE_REPORTE_E
 const TWILIO_TEMPLATE_REPORTE_ESPERA_REFACCION = process.env.TWILIO_TEMPLATE_REPORTE_ESPERA_REFACCION || 'HXa41b065576aaf1140087bb2b5e34775d';
 const TWILIO_TEMPLATE_REPORTE_TERMINADO = process.env.TWILIO_TEMPLATE_REPORTE_TERMINADO || 'HX3dc80afa6862fd5f0479410f92742278';
 const TWILIO_TEMPLATE_SCHEDULE_REQUEST = process.env.TWILIO_TEMPLATE_SCHEDULE_REQUEST || process.env.TWILIO_TEMPLATE_PROGRAMAR || '';
+const TWILIO_TEMPLATE_SUPERVISOR_REPORTE = process.env.TWILIO_TEMPLATE_SUPERVISOR_REPORTE || '';
 
 const ROLE_SUPERVISOR_FLOTAS = 'supervisor_flotas';
 const SUPERVISOR_ROLES = ['supervisor', ROLE_SUPERVISOR_FLOTAS];
@@ -342,6 +343,73 @@ function normalizeIdentityValue(value) {
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9]/g, '');
+}
+
+async function findSupervisorFlotasByEmpresa(empresa, db = pool) {
+  const company = String(empresa || '').trim();
+  if (!company) return null;
+  const result = await db.query(
+    `SELECT id, nombre, email, telefono, empresa
+     FROM users
+     WHERE role = $1
+       AND deleted_at IS NULL
+       AND activo = TRUE
+       AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}
+     ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
+     LIMIT 1`,
+    [ROLE_SUPERVISOR_FLOTAS, company]
+  );
+  if (!result.rowCount) return null;
+  return {
+    id: result.rows[0].id,
+    nombre: result.rows[0].nombre || '',
+    email: result.rows[0].email || '',
+    telefono: result.rows[0].telefono || '',
+    empresa: result.rows[0].empresa || '',
+  };
+}
+
+async function notifySupervisorFlotasReport(garantia, options = {}) {
+  if (!garantia || !String(garantia.empresa || '').trim()) return { ok: false, reason: 'no_supervisor' };
+  const supervisor = await findSupervisorFlotasByEmpresa(garantia.empresa);
+  if (!supervisor) return { ok: false, reason: 'no_supervisor' };
+  if (!String(supervisor.telefono || '').trim()) return { ok: false, reason: 'no_phone' };
+  if (!TWILIO_TEMPLATE_SUPERVISOR_REPORTE) return { ok: false, reason: 'no_template' };
+
+  const folio = String(garantia.folio || '').trim() || String(garantia.id || '').trim() || 'SIN-FOLIO';
+  const unidad = String(garantia.numeroEconomico || garantia.numero_economico || '').trim() || String(garantia.numeroObra || garantia.numero_obra || '').trim() || 'SIN-UNIDAD';
+  const empresa = String(garantia.empresa || '').trim() || String(supervisor.empresa || '').trim() || 'SIN-EMPRESA';
+  const incidencia = String(garantia.tipoIncidente || garantia.tipo_incidente || garantia.descripcionFallo || garantia.descripcion_fallo || '').trim()
+    || String(garantia.detalleRefaccion || garantia.detalle_refaccion || '').trim()
+    || 'Sin detalle';
+  const estatus = String(garantia.estatusValidacion || garantia.estatus_validacion || garantia.estatusOperativo || garantia.estatus_operativo || '').trim() || 'nueva';
+
+  try {
+    await sendWhatsAppTemplate({
+      telefono: supervisor.telefono,
+      contentSid: TWILIO_TEMPLATE_SUPERVISOR_REPORTE,
+      variables: {
+        1: folio,
+        2: unidad,
+        3: empresa,
+        4: incidencia,
+        5: estatus,
+      },
+    });
+    if (options.manual) {
+      console.log(`[whatsapp][manual][supervisor] enviado reporte=${folio} empresa="${empresa}" supervisor="${supervisor.email || supervisor.id}"`);
+    } else {
+      console.log(`[whatsapp][auto][supervisor] enviado reporte=${folio} empresa="${empresa}" supervisor="${supervisor.email || supervisor.id}"`);
+    }
+    return { ok: true, supervisor, telefono: supervisor.telefono };
+  } catch (error) {
+    if (options.manual) {
+      console.error(`[whatsapp][manual][supervisor] fallo reporte=${folio} empresa="${empresa}":`, error?.message || error);
+    } else {
+      console.error(`[whatsapp][auto][supervisor] fallo reporte=${folio} empresa="${empresa}":`, error?.message || error);
+    }
+    return { ok: false, reason: 'twilio_error', error: error?.message || String(error || 'Error enviando WhatsApp') };
+  }
 }
 
 const SQL_IDENTITY_TRANSLATE_FROM = 'ÁÀÄÂÃÅáàäâãåÉÈËÊéèëêÍÌÏÎíìïîÓÒÖÔÕóòöôõÚÙÜÛúùüûÑñÇç';
@@ -1507,6 +1575,15 @@ app.post('/api/garantias', authRequired, requireRoles('operador', 'admin'), asyn
     await client.query('COMMIT');
     await addAuditLog(id, req.user.id, 'crear_reporte', `Reporte creado por ${req.user.nombre}`);
     notifyGarantiaWhatsApp('created', result.rows[0]).catch(() => {});
+    notifySupervisorFlotasReport(result.rows[0], { manual: false, requestedBy: req.user })
+      .then((outcome) => {
+        if (!outcome?.ok) {
+          console.warn(`[whatsapp][auto][supervisor] sin envio reporte=${result.rows[0].folio || result.rows[0].id} reason=${outcome?.reason || 'unknown'}`);
+        }
+      })
+      .catch((error) => {
+        console.error(`[whatsapp][auto][supervisor] error no controlado reporte=${result.rows[0].folio || result.rows[0].id}:`, error?.message || error);
+      });
     res.status(201).json(mapGarantia(result.rows[0]));
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
@@ -1663,6 +1740,47 @@ app.patch('/api/garantias/:id/operational', authRequired, requireRoles('operativ
   if (estatusOperativo === 'espera refacción') notifyGarantiaWhatsApp('waiting_parts', result.rows[0]).catch(() => {});
   if (estatusOperativo === 'terminada') notifyGarantiaWhatsApp('finished', result.rows[0]).catch(() => {});
   res.json(mapGarantia(result.rows[0]));
+});
+
+app.post('/api/garantias/:id/remind-supervisor', authRequired, requireRoles('admin'), async (req, res) => {
+  try {
+    const found = await pool.query('SELECT * FROM garantias WHERE id = $1 LIMIT 1', [req.params.id]);
+    if (!found.rowCount) return res.status(404).json({ ok: false, error: 'Reporte no encontrado.' });
+    const garantia = found.rows[0];
+    const outcome = await notifySupervisorFlotasReport(garantia, { manual: true, requestedBy: req.user });
+
+    if (outcome.ok) {
+      const adminName = req.user?.nombre || req.user?.email || req.user?.id || 'Admin';
+      const empresaName = garantia.empresa || outcome.supervisor?.empresa || '';
+      const folio = garantia.folio || garantia.id || '';
+      await addAuditLog(
+        garantia.id,
+        req.user.id,
+        'recordatorio_supervisor_whatsapp',
+        `Admin ${adminName} envió recordatorio al supervisor de la empresa ${empresaName} para reporte ${folio}`
+      );
+      return res.json({ ok: true, message: 'Recordatorio enviado al supervisor de flota.' });
+    }
+
+    if (outcome.reason === 'no_supervisor') {
+      console.warn(`[whatsapp][manual][supervisor] reporte=${garantia.folio || garantia.id} sin supervisor para empresa="${garantia.empresa || ''}"`);
+      return res.status(400).json({ ok: false, reason: outcome.reason, error: 'No hay supervisor de flota ligado a esta empresa.' });
+    }
+    if (outcome.reason === 'no_phone') {
+      console.warn(`[whatsapp][manual][supervisor] reporte=${garantia.folio || garantia.id} supervisor sin telefono empresa="${garantia.empresa || ''}"`);
+      return res.status(400).json({ ok: false, reason: outcome.reason, error: 'El supervisor de flota no tiene teléfono registrado.' });
+    }
+    if (outcome.reason === 'no_template') {
+      console.warn(`[whatsapp][manual][supervisor] reporte=${garantia.folio || garantia.id} sin template configurada`);
+      return res.status(400).json({ ok: false, reason: outcome.reason, error: 'No está configurada la plantilla de WhatsApp para supervisor.' });
+    }
+
+    console.error(`[whatsapp][manual][supervisor] reporte=${garantia.folio || garantia.id} fallo twilio`);
+    return res.status(502).json({ ok: false, reason: 'twilio_error', error: 'No se pudo enviar el WhatsApp al supervisor.' });
+  } catch (error) {
+    console.error('Error enviando recordatorio al supervisor:', error?.message || error);
+    return res.status(500).json({ ok: false, error: 'No se pudo enviar el WhatsApp al supervisor.' });
+  }
 });
 
 app.delete('/api/garantias/:id', authRequired, requireRoles('admin'), async (req, res) => {

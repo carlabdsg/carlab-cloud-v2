@@ -89,6 +89,7 @@ const api = {
   getSchedules(date='') { return this.request(`/api/schedules${date ? `?date=${encodeURIComponent(date)}` : ''}`); },
   createManualSchedule(payload) { return this.request('/api/schedules/manual', { method: 'POST', body: JSON.stringify(payload || {}) }); },
   requestSchedule(id) { return this.request(`/api/garantias/${id}/request-schedule`, { method: 'POST' }); },
+  remindSupervisorWhatsApp(id) { return this.request(`/api/garantias/${id}/remind-supervisor`, { method: 'POST' }); },
   confirmSchedule(id, payload) { return this.request(`/api/schedules/${id}/confirm`, { method: 'PATCH', body: JSON.stringify(payload) }); },
   cancelSchedule(id, payload) { return this.request(`/api/schedules/${id}/cancel`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   rescheduleSchedule(id, payload) { return this.request(`/api/schedules/${id}/reschedule`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
@@ -2894,10 +2895,35 @@ async function openReportDetailModal(item) {
     </div>
     <div class="parts-request-actions report-detail-actions-sticky">
       <button id="reportDetailPdfBtn" class="btn btn-secondary" type="button">Exportar PDF</button>
+      ${isRole('admin') ? '<button id="reportDetailRemindBtn" class="btn btn-secondary" type="button">Recordatorio por WhatsApp</button>' : ''}
       <button id="reportDetailCloseBtn" class="btn btn-ghost" type="button">Cerrar</button>
     </div>
   `;
   document.getElementById('reportDetailPdfBtn')?.addEventListener('click', () => exportPdf(full));
+  document.getElementById('reportDetailRemindBtn')?.addEventListener('click', async (event) => {
+    const btn = event.currentTarget;
+    if (!btn) return;
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Enviando…';
+    try {
+      await api.remindSupervisorWhatsApp(full.id);
+      notify('Recordatorio enviado al supervisor de flota.');
+    } catch (error) {
+      const raw = String(error?.message || '');
+      const msg = raw.includes('No hay supervisor de flota ligado a esta empresa')
+        ? 'No hay supervisor de flota ligado a esta empresa.'
+        : raw.includes('El supervisor de flota no tiene teléfono registrado')
+          ? 'El supervisor de flota no tiene número registrado.'
+          : raw.includes('No está configurada la plantilla de WhatsApp para supervisor')
+            ? 'No está configurada la plantilla de WhatsApp para supervisor.'
+            : 'No se pudo enviar el WhatsApp. Intenta nuevamente.';
+      notify(msg, true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  });
   document.getElementById('reportDetailCloseBtn')?.addEventListener('click', closeReportDetailModal);
   els.reportDetailModal.classList.remove('hidden');
   document.body.classList.add('modal-open');
