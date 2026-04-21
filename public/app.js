@@ -287,6 +287,9 @@ function buildPartsTrace(item, isIndependent = false) {
 function normalizeText(value='') {
   return String(value || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
+function normalizeIdentityKey(value='') {
+  return normalizeText(value).replace(/[^a-z0-9]/g, '');
+}
 
 function fleetSemaforo(unit) {
   const st = normalizeText(unit.manualStatus || unit.estatusOperativo || unit.status || '');
@@ -384,7 +387,8 @@ function resetScheduleManualForm(prefill = {}) {
     els.scheduleManualEmpresa.innerHTML = '<option value="">Selecciona empresa</option>' + empresas.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
     els.scheduleManualEmpresa.value = prefill.empresa || '';
   }
-  const units = (state.fleetUnits || []).filter(u => !els.scheduleManualEmpresa?.value || u.empresa === els.scheduleManualEmpresa.value);
+  const selectedEmpresaKey = normalizeIdentityKey(els.scheduleManualEmpresa?.value || '');
+  const units = (state.fleetUnits || []).filter(u => !selectedEmpresaKey || normalizeIdentityKey(u.empresa) === selectedEmpresaKey);
   if (els.scheduleManualUnidad) {
     els.scheduleManualUnidad.innerHTML = '<option value="">Selecciona unidad</option>' + units.map(u => `<option value="${escapeHtml(u.numeroEconomico || '')}">${escapeHtml(u.numeroEconomico || '')} · ${escapeHtml(u.modelo || '')}</option>`).join('');
     els.scheduleManualUnidad.value = prefill.unidad || '';
@@ -2950,17 +2954,18 @@ els.partsRequestForm?.addEventListener('submit', async (e) => {
 
 function fleetOwnerMetrics() {
   const units = state.fleetUnits || [];
-  const pendingParts = (state.partsPending || []).filter(item => !state.user?.empresa || item.empresa === state.user.empresa);
+  const userEmpresaKey = normalizeIdentityKey(state.user?.empresa || '');
+  const pendingParts = (state.partsPending || []).filter(item => !userEmpresaKey || normalizeIdentityKey(item.empresa) === userEmpresaKey);
   const unitCounts = {};
   units.forEach(unit => {
     const key = unit.numeroEconomico || '—';
     unitCounts[key] = (unitCounts[key] || 0) + 1;
   });
-  const reincidentes = units.filter(unit => Number(unit.reportesCount || 0) > 1 || Number(unit.reportsCount || 0) > 1).length || [...new Set((state.garantias || []).filter(g => !state.user?.empresa || g.empresa === state.user.empresa).map(g => g.numeroEconomico).filter(Boolean))].length;
+  const reincidentes = units.filter(unit => Number(unit.reportesCount || 0) > 1 || Number(unit.reportsCount || 0) > 1).length || [...new Set((state.garantias || []).filter(g => !userEmpresaKey || normalizeIdentityKey(g.empresa) === userEmpresaKey).map(g => g.numeroEconomico).filter(Boolean))].length;
   const totalCost = units.reduce((sum, unit) => sum + Number(unit.costoTotal || 0), 0);
   const topUnitCost = Math.max(0, ...units.map(unit => Number(unit.costoTotal || 0)));
   const top3Share = totalCost ? (([...units].sort((a,b) => Number(b.costoTotal||0) - Number(a.costoTotal||0)).slice(0,3).reduce((sum, unit) => sum + Number(unit.costoTotal || 0), 0) / totalCost) * 100) : 0;
-  const upcoming = (state.schedules || []).filter(s => (!state.user?.empresa || s.empresa === state.user.empresa) && ['confirmed','waiting_operator','proposed'].includes(String(s.status || '').toLowerCase())).length;
+  const upcoming = (state.schedules || []).filter(s => (!userEmpresaKey || normalizeIdentityKey(s.empresa) === userEmpresaKey) && ['confirmed','waiting_operator','proposed'].includes(String(s.status || '').toLowerCase())).length;
   return {
     total: units.length,
     operando: Number(state.fleetSummary?.operando || 0),
@@ -2999,11 +3004,12 @@ function animateFleetOwnerNumbers(root) {
 function renderFleetOwnerDeck() {
   if (!els.fleetOwnerDeck) return;
   const m = fleetOwnerMetrics();
+  const userEmpresaKey = normalizeIdentityKey(state.user?.empresa || '');
   const risky = [...(state.fleetUnits || [])]
     .sort((a,b) => (Number(b.costoTotal||0) + (b.lastReportAt ? 1 : 0)) - (Number(a.costoTotal||0) + (a.lastReportAt ? 1 : 0)))
     .slice(0,4);
   const nextUnits = (state.schedules || [])
-    .filter(s => (!state.user?.empresa || s.empresa === state.user.empresa) && s.scheduledFor)
+    .filter(s => (!userEmpresaKey || normalizeIdentityKey(s.empresa) === userEmpresaKey) && s.scheduledFor)
     .sort((a,b) => new Date(a.scheduledFor) - new Date(b.scheduledFor))
     .slice(0,3);
   const topCostUnit = risky[0];
@@ -3183,7 +3189,8 @@ els.scheduleRefreshBtn?.addEventListener('click', async () => { await loadSchedu
 els.scheduleManualCancelBtn?.addEventListener('click', () => resetScheduleManualForm());
 els.scheduleManualEmpresa?.addEventListener('change', () => {
   const company = els.scheduleManualEmpresa?.value || '';
-  const units = (state.fleetUnits || []).filter(u => !company || u.empresa === company);
+  const companyKey = normalizeIdentityKey(company);
+  const units = (state.fleetUnits || []).filter(u => !companyKey || normalizeIdentityKey(u.empresa) === companyKey);
   if (els.scheduleManualUnidad) {
     els.scheduleManualUnidad.innerHTML = '<option value="">Selecciona unidad</option>' + units.map(u => `<option value="${escapeHtml(u.numeroEconomico || '')}">${escapeHtml(u.numeroEconomico || '')} · ${escapeHtml(u.modelo || '')}</option>`).join('');
     els.scheduleManualUnidad.value = '';
