@@ -350,6 +350,38 @@ function normalizedIdentitySql(valueSqlExpression) {
   return `lower(regexp_replace(translate(COALESCE(${valueSqlExpression}, ''), '${SQL_IDENTITY_TRANSLATE_FROM}', '${SQL_IDENTITY_TRANSLATE_TO}'), '[^a-zA-Z0-9]+','','g'))`;
 }
 
+function identityEqualsSql(leftExpression, rightExpression) {
+  return `${normalizedIdentitySql(leftExpression)} = ${normalizedIdentitySql(rightExpression)}`;
+}
+
+function unitIdentityMatchSql(companyExpression, unitExpression, companyParamExpression, unitParamExpression) {
+  return `${identityEqualsSql(companyExpression, companyParamExpression)} AND ${identityEqualsSql(unitExpression, unitParamExpression)}`;
+}
+
+async function findFleetUnitIdByIdentity(empresa, numeroEconomico, db = pool) {
+  const result = await db.query(
+    `SELECT id
+     FROM fleet_units
+     WHERE ${unitIdentityMatchSql('empresa', 'numero_economico', '$1', '$2')}
+     ORDER BY updated_at DESC
+     LIMIT 1`,
+    [empresa || '', numeroEconomico || '']
+  );
+  return result.rowCount ? result.rows[0].id : null;
+}
+
+async function backfillFleetUnitIdForGarantiasByIdentity(empresa, numeroEconomico, fleetUnitId, db = pool) {
+  if (!fleetUnitId) return 0;
+  const result = await db.query(
+    `UPDATE garantias
+     SET fleet_unit_id = $3, updated_at = NOW()
+     WHERE fleet_unit_id IS NULL
+       AND ${unitIdentityMatchSql('empresa', 'numero_economico', '$1', '$2')}`,
+    [empresa || '', numeroEconomico || '', fleetUnitId]
+  );
+  return result.rowCount || 0;
+}
+
 let campaignGroupColumnsCache = null;
 
 async function getCampaignGroupColumns() {
@@ -396,17 +428,15 @@ async function syncQuoteToFleetCosts(quoteId, actor = {}) {
     if (gq.rowCount) {
       fleetUnitId = gq.rows[0].fleet_unit_id || null;
       if (!fleetUnitId) {
-        const match = await pool.query(`SELECT id FROM fleet_units WHERE lower(regexp_replace(empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g')) AND lower(regexp_replace(numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g')) LIMIT 1`, [gq.rows[0].empresa || quote.company_name || '', gq.rows[0].numero_economico || quote.unit_number || '']);
-        if (match.rowCount) {
-          fleetUnitId = match.rows[0].id;
+        fleetUnitId = await findFleetUnitIdByIdentity(gq.rows[0].empresa || quote.company_name || '', gq.rows[0].numero_economico || quote.unit_number || '');
+        if (fleetUnitId) {
           await pool.query(`UPDATE garantias SET fleet_unit_id = $2 WHERE id = $1`, [garantiaId, fleetUnitId]);
         }
       }
     }
   }
   if (!fleetUnitId) {
-    const match = await pool.query(`SELECT id FROM fleet_units WHERE lower(regexp_replace(empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g')) AND lower(regexp_replace(numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g')) LIMIT 1`, [quote.company_name || '', quote.unit_number || '']);
-    if (match.rowCount) fleetUnitId = match.rows[0].id;
+    fleetUnitId = await findFleetUnitIdByIdentity(quote.company_name || '', quote.unit_number || '');
   }
   if (!fleetUnitId) return { synced: false, reason: 'fleet_unit_not_found' };
 
@@ -433,11 +463,10 @@ async function markFleetCampaignFlagsForCompany(companyName) {
     SET campaign_activa = EXISTS (
       SELECT 1 FROM campaign_units cu
       JOIN campaign_groups cg ON cg.id = cu.campaign_group_id
-      WHERE lower(regexp_replace(cu.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace(fu.empresa, '[^a-zA-Z0-9]+','','g'))
-        AND lower(regexp_replace(cu.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace(fu.numero_economico, '[^a-zA-Z0-9]+','','g'))
+      WHERE ${unitIdentityMatchSql('cu.empresa', 'cu.numero_economico', 'fu.empresa', 'fu.numero_economico')}
         AND cu.status <> 'realizada'
     ), updated_at = NOW()
-    WHERE lower(regexp_replace(fu.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g'))`, [company]);
+    WHERE ${identityEqualsSql('fu.empresa', '$1')}`, [company]);
 }
 
 
@@ -1440,16 +1469,17 @@ app.post('/api/garantias', authRequired, requireRoles('operador', 'admin'), asyn
       await client.query('ROLLBACK');
       return res.status(409).json({ error: 'No se pudo reservar un folio único. Intenta nuevamente.' });
     }
+    const fleetUnitId = await findFleetUnitIdByIdentity(body.empresa, body.numeroEconomico, client);
     const result = await client.query(
       `INSERT INTO garantias (
         id, folio, numero_obra, modelo, numero_economico, empresa, kilometraje, contacto_nombre, telefono, tipo_incidente,
         descripcion_fallo, solicita_refaccion, detalle_refaccion,
         estatus_validacion, estatus_operativo,
         evidencias, evidencias_refaccion, firma,
-        reportado_por_id, reportado_por_nombre, reportado_por_email,
+        reportado_por_id, reportado_por_nombre, reportado_por_email, fleet_unit_id,
         updated_at
       ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'nueva','sin iniciar',$14::jsonb,$15::jsonb,$16,$17,$18,$19,NOW()
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'nueva','sin iniciar',$14::jsonb,$15::jsonb,$16,$17,$18,$19,$20,NOW()
       ) RETURNING *`,
       [
         id,
@@ -1471,6 +1501,7 @@ app.post('/api/garantias', authRequired, requireRoles('operador', 'admin'), asyn
         req.user.id,
         req.user.nombre,
         req.user.email,
+        fleetUnitId,
       ]
     );
     await client.query('COMMIT');
@@ -1514,6 +1545,7 @@ app.patch('/api/garantias/:id', authRequired, requireRoles('admin'), async (req,
     const current = await pool.query('SELECT * FROM garantias WHERE id = $1', [req.params.id]);
     if (!current.rowCount) return res.status(404).json({ error: 'Reporte no encontrado.' });
 
+    const fleetUnitId = await findFleetUnitIdByIdentity(payload.empresa, payload.numeroEconomico);
     const result = await pool.query(
       `UPDATE garantias SET
         numero_obra = $2,
@@ -1530,6 +1562,7 @@ app.patch('/api/garantias/:id', authRequired, requireRoles('admin'), async (req,
         evidencias = $13::jsonb,
         evidencias_refaccion = $14::jsonb,
         firma = $15,
+        fleet_unit_id = COALESCE($16, fleet_unit_id),
         updated_at = NOW()
        WHERE id = $1
        RETURNING *`,
@@ -1548,7 +1581,8 @@ app.patch('/api/garantias/:id', authRequired, requireRoles('admin'), async (req,
         payload.detalleRefaccion,
         JSON.stringify(payload.evidencias || []),
         JSON.stringify(payload.evidenciasRefaccion || []),
-        payload.firma
+        payload.firma,
+        fleetUnitId
       ]
     );
 
@@ -1733,6 +1767,9 @@ app.post('/api/garantias/:id/request-schedule', authRequired, requireRoles('admi
   const current = await pool.query('SELECT * FROM garantias WHERE id = $1', [req.params.id]);
   if (!current.rowCount) return res.status(404).json({ error: 'Garantía no encontrada.' });
   const garantia = current.rows[0];
+  if (req.user.role === 'supervisor_flotas' && normalizeIdentityValue(garantia.empresa || '') !== normalizeIdentityValue(req.user.empresa || '')) {
+    return res.status(403).json({ error: 'No puedes programar reportes de otra empresa.' });
+  }
   if (garantia.estatus_validacion !== 'aceptada') return res.status(400).json({ error: 'Solo las garantías aceptadas pueden programarse.' });
   const scheduleExisting = await pool.query(`SELECT * FROM schedule_requests WHERE garantia_id = $1 AND status IN ('waiting_operator','proposed','confirmed') ORDER BY created_at DESC LIMIT 1`, [req.params.id]);
   let schedule;
@@ -1912,7 +1949,7 @@ app.get('/api/fleet/summary', authRequired, requireRoles('admin','operativo','su
                  ELSE 'operando'
                END
                FROM garantias g
-               WHERE lower(regexp_replace(g.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace(fu.empresa, '[^a-zA-Z0-9]+','','g')) AND lower(regexp_replace(g.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace(fu.numero_economico, '[^a-zA-Z0-9]+','','g'))
+               WHERE ${unitIdentityMatchSql('g.empresa', 'g.numero_economico', 'fu.empresa', 'fu.numero_economico')}
                ORDER BY g.created_at DESC
                LIMIT 1
              ), 'operando') AS status
@@ -1942,15 +1979,15 @@ app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supe
     const result = await pool.query(`
     WITH unit_scope AS (
       SELECT fu.*,
-        lower(regexp_replace(fu.empresa, '[^a-zA-Z0-9]+','','g')) AS empresa_key,
-        lower(regexp_replace(fu.numero_economico, '[^a-zA-Z0-9]+','','g')) AS unidad_key
+        ${normalizedIdentitySql('fu.empresa')} AS empresa_key,
+        ${normalizedIdentitySql('fu.numero_economico')} AS unidad_key
       FROM fleet_units fu
       ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
     ),
     garantia_stats AS (
       SELECT
-        lower(regexp_replace(g.empresa, '[^a-zA-Z0-9]+','','g')) AS empresa_key,
-        lower(regexp_replace(g.numero_economico, '[^a-zA-Z0-9]+','','g')) AS unidad_key,
+        ${normalizedIdentitySql('g.empresa')} AS empresa_key,
+        ${normalizedIdentitySql('g.numero_economico')} AS unidad_key,
         COUNT(*)::int AS reportes_count,
         MAX(g.created_at) AS last_report_at,
         (ARRAY_AGG(g.estatus_operativo ORDER BY g.created_at DESC))[1] AS ultimo_estatus_operativo
@@ -1959,8 +1996,8 @@ app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supe
     ),
     campaign_stats AS (
       SELECT
-        lower(regexp_replace(cu.empresa, '[^a-zA-Z0-9]+','','g')) AS empresa_key,
-        lower(regexp_replace(cu.numero_economico, '[^a-zA-Z0-9]+','','g')) AS unidad_key,
+        ${normalizedIdentitySql('cu.empresa')} AS empresa_key,
+        ${normalizedIdentitySql('cu.numero_economico')} AS unidad_key,
         BOOL_OR(cu.status <> 'realizada') AS campaign_activa
       FROM campaign_units cu
       GROUP BY 1,2
@@ -2027,6 +2064,7 @@ app.post('/api/fleet/units', authRequired, requireRoles('admin','operativo'), as
     !!body.polizaActiva,
     !!body.campaignActiva
   ]);
+  await backfillFleetUnitIdForGarantiasByIdentity(empresa, numeroEconomico, result.rows[0].id);
   res.status(201).json(mapFleetUnit(result.rows[0]));
 });
 
@@ -2044,6 +2082,7 @@ app.patch('/api/fleet/units/:id', authRequired, requireRoles('admin'), async (re
     WHERE id=$1
     RETURNING *
   `,[req.params.id, empresa, String(body.nombreFlota||'').trim(), numeroEconomico, String(body.numeroObra||'').trim(), String(body.marca||'').trim(), String(body.modelo||'').trim(), String(body.anio||'').trim(), String(body.kilometraje||'').trim(), !!body.polizaActiva, !!body.campaignActiva, body.manualStatus ? String(body.manualStatus).trim() : null]);
+  await backfillFleetUnitIdForGarantiasByIdentity(empresa, numeroEconomico, result.rows[0].id);
   res.json(mapFleetUnit(result.rows[0]));
 });
 
@@ -2085,7 +2124,7 @@ app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','
           COALESCE((SELECT SUM(CASE WHEN tipo='mano_obra' THEN monto ELSE 0 END) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_mano_obra,
           COALESCE((SELECT SUM(monto) FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = fu.id),0) AS costo_total
         FROM fleet_units fu
-        WHERE lower(regexp_replace(fu.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g'))
+        WHERE ${identityEqualsSql('fu.numero_economico', '$1')}
         ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('fu.empresa')} = ${normalizedIdentitySql('$2')}` : ""}
         ORDER BY fu.updated_at DESC
         LIMIT 1
@@ -2095,11 +2134,11 @@ app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','
     const u = unit.rows[0];
     const statsQ = await pool.query(`
       SELECT
-        (SELECT COUNT(*)::int FROM garantias g WHERE lower(regexp_replace(g.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g')) AND lower(regexp_replace(g.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))) AS reports,
+        (SELECT COUNT(*)::int FROM garantias g WHERE ${unitIdentityMatchSql('g.empresa', 'g.numero_economico', '$1', '$2')}) AS reports,
         (SELECT COUNT(*)::int FROM fleet_cost_entries fce WHERE fce.fleet_unit_id = $3) AS costs,
-        (SELECT COUNT(*)::int FROM campaign_units cu WHERE lower(regexp_replace(cu.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g')) AND lower(regexp_replace(cu.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))) AS campaigns,
-        (SELECT COUNT(*)::int FROM garantias g WHERE g.solicita_refaccion = TRUE AND COALESCE(g.refaccion_status,'pendiente') <> 'instalada' AND lower(regexp_replace(g.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g')) AND lower(regexp_replace(g.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))) AS parts,
-        (SELECT COUNT(*)::int FROM schedule_requests sr WHERE lower(regexp_replace(COALESCE(sr.empresa,''), '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g')) AND lower(regexp_replace(COALESCE(sr.numero_economico,''), '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g')) AND COALESCE(sr.status,'') <> 'cancelled') AS schedules
+        (SELECT COUNT(*)::int FROM campaign_units cu WHERE ${unitIdentityMatchSql('cu.empresa', 'cu.numero_economico', '$1', '$2')}) AS campaigns,
+        (SELECT COUNT(*)::int FROM garantias g WHERE g.solicita_refaccion = TRUE AND COALESCE(g.refaccion_status,'pendiente') <> 'instalada' AND ${unitIdentityMatchSql('g.empresa', 'g.numero_economico', '$1', '$2')}) AS parts,
+        (SELECT COUNT(*)::int FROM schedule_requests sr WHERE ${unitIdentityMatchSql('COALESCE(sr.empresa, \'\')', 'COALESCE(sr.numero_economico, \'\')', '$1', '$2')} AND COALESCE(sr.status,'') <> 'cancelled') AS schedules
     `, [u.empresa, u.numero_economico, u.id]);
     const stats = statsQ.rows[0] || {};
     res.json({
@@ -2124,6 +2163,7 @@ app.get('/api/fleet/units/:id/details', authRequired, requireRoles('admin','oper
     const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
     if (!unit.rowCount) return res.json({ reports: [], costs: [], campaigns: [], schedules: [], parts: [] });
     const u = unit.rows[0];
+    await backfillFleetUnitIdForGarantiasByIdentity(u.empresa, u.numero_economico, u.id);
     const reportsCompanyGuard = SUPERVISOR_ROLES.includes(req.user.role)
       ? `AND ${normalizedIdentitySql('g.empresa')} = ${normalizedIdentitySql('$2')}`
       : '';
@@ -2134,8 +2174,7 @@ app.get('/api/fleet/units/:id/details', authRequired, requireRoles('admin','oper
         WHERE (
           g.fleet_unit_id = $1
           OR (
-            ${normalizedIdentitySql('g.empresa')} = ${normalizedIdentitySql('$2')}
-            AND ${normalizedIdentitySql('g.numero_economico')} = ${normalizedIdentitySql('$3')}
+            ${unitIdentityMatchSql('g.empresa', 'g.numero_economico', '$2', '$3')}
           )
         )
         ${reportsCompanyGuard}
@@ -2145,12 +2184,12 @@ app.get('/api/fleet/units/:id/details', authRequired, requireRoles('admin','oper
         LIMIT 100
       `, [u.id, u.empresa, u.numero_economico]),
       pool.query(`SELECT * FROM fleet_cost_entries WHERE fleet_unit_id = $1 ORDER BY created_at DESC LIMIT 200`, [u.id]),
-      pool.query(`SELECT id, status, notes, requested_at, proposed_at, confirmed_at, scheduled_for, created_at, updated_at, empresa, numero_economico FROM schedule_requests WHERE lower(regexp_replace(COALESCE(empresa,''), '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g')) AND lower(regexp_replace(COALESCE(numero_economico,''), '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g')) AND COALESCE(status,'') <> 'cancelled' ORDER BY COALESCE(scheduled_for, proposed_at, requested_at) ASC LIMIT 50`, [u.empresa, u.numero_economico]),
-      pool.query(`SELECT id, folio, detalle_refaccion, refaccion_status, refaccion_asignada, refaccion_updated_at, updated_at, evidencias_refaccion FROM garantias WHERE solicita_refaccion = TRUE AND COALESCE(refaccion_status, 'pendiente') <> 'instalada' AND lower(regexp_replace(empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g')) AND lower(regexp_replace(numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g')) ORDER BY COALESCE(refaccion_updated_at, updated_at) DESC LIMIT 50`, [u.empresa, u.numero_economico]),
+      pool.query(`SELECT id, status, notes, requested_at, proposed_at, confirmed_at, scheduled_for, created_at, updated_at, empresa, numero_economico FROM schedule_requests WHERE ${unitIdentityMatchSql('COALESCE(empresa, \'\')', 'COALESCE(numero_economico, \'\')', '$1', '$2')} AND COALESCE(status,'') <> 'cancelled' ORDER BY COALESCE(scheduled_for, proposed_at, requested_at) ASC LIMIT 50`, [u.empresa, u.numero_economico]),
+      pool.query(`SELECT id, folio, detalle_refaccion, refaccion_status, refaccion_asignada, refaccion_updated_at, updated_at, evidencias_refaccion FROM garantias WHERE solicita_refaccion = TRUE AND COALESCE(refaccion_status, 'pendiente') <> 'instalada' AND ${unitIdentityMatchSql('empresa', 'numero_economico', '$1', '$2')} ORDER BY COALESCE(refaccion_updated_at, updated_at) DESC LIMIT 50`, [u.empresa, u.numero_economico]),
     ]);
     let campaigns = { rows: [] };
     try {
-      campaigns = await pool.query(`SELECT cu.*, COALESCE(cg.nombre, cg.campaign_nombre, cg.campaign_name, '') AS campaign_nombre FROM campaign_units cu JOIN campaign_groups cg ON cg.id = cu.campaign_group_id WHERE lower(regexp_replace(cu.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g')) AND lower(regexp_replace(cu.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g')) ORDER BY cu.updated_at DESC LIMIT 50`, [u.empresa, u.numero_economico]);
+      campaigns = await pool.query(`SELECT cu.*, COALESCE(cg.nombre, cg.campaign_nombre, cg.campaign_name, '') AS campaign_nombre FROM campaign_units cu JOIN campaign_groups cg ON cg.id = cu.campaign_group_id WHERE ${unitIdentityMatchSql('cu.empresa', 'cu.numero_economico', '$1', '$2')} ORDER BY cu.updated_at DESC LIMIT 50`, [u.empresa, u.numero_economico]);
     } catch {}
     res.json({
       reports: reports.rows.map(mapGarantia),
@@ -2179,6 +2218,7 @@ app.get('/api/fleet/units/:id/reports', authRequired, requireRoles('admin','oper
     const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
     if (!unit.rowCount) return res.json([]);
     const u = unit.rows[0];
+    await backfillFleetUnitIdForGarantiasByIdentity(u.empresa, u.numero_economico, u.id);
     const reportsCompanyGuard = SUPERVISOR_ROLES.includes(req.user.role)
       ? `AND ${normalizedIdentitySql('g.empresa')} = ${normalizedIdentitySql('$2')}`
       : '';
@@ -2188,8 +2228,7 @@ app.get('/api/fleet/units/:id/reports', authRequired, requireRoles('admin','oper
       WHERE (
         g.fleet_unit_id = $1
         OR (
-          ${normalizedIdentitySql('g.empresa')} = ${normalizedIdentitySql('$2')}
-          AND ${normalizedIdentitySql('g.numero_economico')} = ${normalizedIdentitySql('$3')}
+          ${unitIdentityMatchSql('g.empresa', 'g.numero_economico', '$2', '$3')}
         )
       )
       ${reportsCompanyGuard}
@@ -2226,8 +2265,7 @@ app.get('/api/fleet/units/:id/activity', authRequired, requireRoles('admin','ope
         FROM garantias g
         WHERE g.fleet_unit_id = $1
            OR (g.fleet_unit_id IS NULL
-             AND lower(regexp_replace(g.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))
-             AND lower(regexp_replace(g.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($3, '[^a-zA-Z0-9]+','','g')))
+             AND ${unitIdentityMatchSql('g.empresa', 'g.numero_economico', '$2', '$3')})
         ORDER BY g.created_at DESC
         LIMIT 3
       )
@@ -2238,16 +2276,14 @@ app.get('/api/fleet/units/:id/activity', authRequired, requireRoles('admin','ope
       WHERE g.solicita_refaccion = TRUE
         AND (g.fleet_unit_id = $1
           OR (g.fleet_unit_id IS NULL
-            AND lower(regexp_replace(g.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))
-            AND lower(regexp_replace(g.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($3, '[^a-zA-Z0-9]+','','g'))))
+            AND ${unitIdentityMatchSql('g.empresa', 'g.numero_economico', '$2', '$3')}))
       ORDER BY 4 DESC
       LIMIT 3
     `, [u.id, u.empresa, u.numero_economico]);
     const schedules = await pool.query(`
       SELECT 'agenda'::text AS tipo, COALESCE(status,'programada') AS titulo, COALESCE(notes,'Movimiento de agenda') AS detalle, COALESCE(updated_at,requested_at) AS fecha
       FROM schedule_requests
-      WHERE lower(regexp_replace(COALESCE(empresa,''), '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g'))
-        AND lower(regexp_replace(COALESCE(numero_economico,''), '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))
+      WHERE ${unitIdentityMatchSql('COALESCE(empresa, \'\')', 'COALESCE(numero_economico, \'\')', '$1', '$2')}
       ORDER BY COALESCE(updated_at,requested_at) DESC
       LIMIT 2
     `, [u.empresa, u.numero_economico]);
@@ -2255,8 +2291,7 @@ app.get('/api/fleet/units/:id/activity', authRequired, requireRoles('admin','ope
       SELECT 'campaña'::text AS tipo, COALESCE(cg.nombre, cg.campaign_nombre, cg.campaign_name,'Campaña') AS titulo, COALESCE(cu.status,'sin_programar') AS detalle, cu.updated_at AS fecha
       FROM campaign_units cu
       JOIN campaign_groups cg ON cg.id = cu.campaign_group_id
-      WHERE lower(regexp_replace(cu.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g'))
-        AND lower(regexp_replace(cu.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))
+      WHERE ${unitIdentityMatchSql('cu.empresa', 'cu.numero_economico', '$1', '$2')}
       ORDER BY cu.updated_at DESC
       LIMIT 2
     `, [u.empresa, u.numero_economico]);
@@ -2283,8 +2318,7 @@ app.get('/api/fleet/units/:id/evidence', authRequired, requireRoles('admin','ope
         FROM garantias g
         WHERE g.fleet_unit_id = $1
            OR (g.fleet_unit_id IS NULL
-             AND lower(regexp_replace(g.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))
-             AND lower(regexp_replace(g.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($3, '[^a-zA-Z0-9]+','','g')))
+             AND ${unitIdentityMatchSql('g.empresa', 'g.numero_economico', '$2', '$3')})
         LIMIT 18
       ),
       ref_imgs AS (
@@ -2292,8 +2326,7 @@ app.get('/api/fleet/units/:id/evidence', authRequired, requireRoles('admin','ope
         FROM garantias g
         WHERE g.fleet_unit_id = $1
            OR (g.fleet_unit_id IS NULL
-             AND lower(regexp_replace(g.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))
-             AND lower(regexp_replace(g.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($3, '[^a-zA-Z0-9]+','','g')))
+             AND ${unitIdentityMatchSql('g.empresa', 'g.numero_economico', '$2', '$3')})
         LIMIT 18
       )
       SELECT DISTINCT img FROM (
@@ -2320,8 +2353,7 @@ app.get('/api/fleet/units/:id/campaigns', authRequired, requireRoles('admin','op
       SELECT cu.*, COALESCE(cg.nombre, cg.campaign_nombre, cg.campaign_name, '') AS campaign_nombre
       FROM campaign_units cu
       JOIN campaign_groups cg ON cg.id = cu.campaign_group_id
-      WHERE lower(regexp_replace(cu.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g'))
-        AND lower(regexp_replace(cu.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))
+      WHERE ${unitIdentityMatchSql('cu.empresa', 'cu.numero_economico', '$1', '$2')}
       ORDER BY cu.updated_at DESC
       LIMIT 50
     `, [u.empresa, u.numero_economico]);
@@ -2340,8 +2372,7 @@ app.get('/api/fleet/units/:id/schedules', authRequired, requireRoles('admin','op
     const schedules = await pool.query(`
       SELECT id, status, notes, requested_at, proposed_at, confirmed_at, scheduled_for, created_at, updated_at
       FROM schedule_requests
-      WHERE lower(regexp_replace(COALESCE(empresa,''), '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($1, '[^a-zA-Z0-9]+','','g'))
-        AND lower(regexp_replace(COALESCE(numero_economico,''), '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))
+      WHERE ${unitIdentityMatchSql('COALESCE(empresa, \'\')', 'COALESCE(numero_economico, \'\')', '$1', '$2')}
         AND COALESCE(status,'') <> 'cancelled'
       ORDER BY COALESCE(scheduled_for, proposed_at, requested_at) ASC
       LIMIT 40
@@ -2365,8 +2396,7 @@ app.get('/api/fleet/units/:id/parts', authRequired, requireRoles('admin','operat
         AND COALESCE(g.refaccion_status, 'pendiente') <> 'instalada'
         AND (g.fleet_unit_id = $1
           OR (g.fleet_unit_id IS NULL
-            AND lower(regexp_replace(g.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($2, '[^a-zA-Z0-9]+','','g'))
-            AND lower(regexp_replace(g.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($3, '[^a-zA-Z0-9]+','','g'))))
+            AND ${unitIdentityMatchSql('g.empresa', 'g.numero_economico', '$2', '$3')}))
       ORDER BY COALESCE(refaccion_updated_at, updated_at) DESC
       LIMIT 50
     `, [u.id, u.empresa, u.numero_economico]);
@@ -2403,7 +2433,7 @@ app.get('/api/campaigns', authRequired, requireRoles('admin','operativo','superv
     const where = [];
     if (req.user.role === 'supervisor_flotas') {
       params.push(req.user.empresa || '');
-      where.push(`lower(regexp_replace(cg.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace($${params.length}, '[^a-zA-Z0-9]+','','g'))`);
+      where.push(identityEqualsSql('cg.empresa', `$${params.length}`));
     }
     const groups = await pool.query(`
       SELECT cg.*, COALESCE(cg.nombre, cg.campaign_nombre, cg.campaign_name, '') AS nombre_resuelto, COUNT(cu.id)::int AS unidades,
@@ -2492,8 +2522,8 @@ app.get('/api/campaigns/:id/units', authRequired, requireRoles('admin','operativ
     const units = await pool.query(`
       WITH garantia_stats AS (
         SELECT
-          lower(regexp_replace(g.empresa, '[^a-zA-Z0-9]+','','g')) AS empresa_key,
-          lower(regexp_replace(g.numero_economico, '[^a-zA-Z0-9]+','','g')) AS unidad_key,
+          ${normalizedIdentitySql('g.empresa')} AS empresa_key,
+          ${normalizedIdentitySql('g.numero_economico')} AS unidad_key,
           COUNT(*)::int AS reportes_count,
           MAX(g.created_at) AS last_report_at
         FROM garantias g
@@ -2503,8 +2533,8 @@ app.get('/api/campaigns/:id/units', authRequired, requireRoles('admin','operativ
              COALESCE(gs.reportes_count,0) AS reportes_count,
              gs.last_report_at AS last_report_at
       FROM campaign_units cu
-      LEFT JOIN fleet_units fu ON lower(regexp_replace(fu.empresa, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace(cu.empresa, '[^a-zA-Z0-9]+','','g')) AND lower(regexp_replace(fu.numero_economico, '[^a-zA-Z0-9]+','','g')) = lower(regexp_replace(cu.numero_economico, '[^a-zA-Z0-9]+','','g'))
-      LEFT JOIN garantia_stats gs ON gs.empresa_key = lower(regexp_replace(cu.empresa, '[^a-zA-Z0-9]+','','g')) AND gs.unidad_key = lower(regexp_replace(cu.numero_economico, '[^a-zA-Z0-9]+','','g'))
+      LEFT JOIN fleet_units fu ON ${unitIdentityMatchSql('fu.empresa', 'fu.numero_economico', 'cu.empresa', 'cu.numero_economico')}
+      LEFT JOIN garantia_stats gs ON gs.empresa_key = ${normalizedIdentitySql('cu.empresa')} AND gs.unidad_key = ${normalizedIdentitySql('cu.numero_economico')}
       WHERE cu.campaign_group_id = $1
       ORDER BY cu.updated_at DESC, cu.numero_economico ASC`, [req.params.id]);
     res.json({ group: { id:group.rows[0].id, nombre:(group.rows[0].nombre || group.rows[0].campaign_nombre || group.rows[0].campaign_name || ''), empresa:group.rows[0].empresa, notas:group.rows[0].notas || '' }, units: units.rows.map(r => ({ id:r.id, campaignGroupId:r.campaign_group_id, empresa:r.empresa || '', numeroEconomico:r.numero_economico || '', status:r.status || 'sin_programar', evidencia:Array.isArray(r.evidencia)?r.evidencia:[], notas:r.notas || '', fleetUnitId:r.fleet_unit_id || '', numeroObra:r.numero_obra || '', marca:r.marca || '', modelo:r.modelo || '', anio:r.anio || '', kilometraje:r.kilometraje || '', polizaActiva:!!r.poliza_activa, reportesCount:Number(r.reportes_count||0), lastReportAt:r.last_report_at || null, updatedAt:r.updated_at })) });
@@ -2671,7 +2701,7 @@ app.patch('/api/schedules/:id/reschedule', authRequired, requireRoles('admin','o
     if (!found.rowCount) return res.status(404).json({ error: 'Programación no encontrada.' });
 
     const current = found.rows[0];
-    if (req.user.role === 'supervisor_flotas' && current.empresa !== (req.user.empresa || '')) {
+    if (req.user.role === 'supervisor_flotas' && normalizeIdentityValue(current.empresa || '') !== normalizeIdentityValue(req.user.empresa || '')) {
       return res.status(403).json({ error: 'No puedes reprogramar citas de otra empresa.' });
     }
 
@@ -2706,7 +2736,7 @@ app.patch('/api/schedules/:id/cancel', authRequired, requireRoles('admin','opera
     if (!found.rowCount) return res.status(404).json({ error: 'Programación no encontrada.' });
 
     const current = found.rows[0];
-    if (req.user.role === 'supervisor_flotas' && current.empresa !== (req.user.empresa || '')) {
+    if (req.user.role === 'supervisor_flotas' && normalizeIdentityValue(current.empresa || '') !== normalizeIdentityValue(req.user.empresa || '')) {
       return res.status(403).json({ error: 'No puedes cancelar citas de otra empresa.' });
     }
 
