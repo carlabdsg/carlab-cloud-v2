@@ -302,6 +302,8 @@ function mapRegistrationRequest(row) {
 
 
 function mapFleetUnit(row) {
+  const reportsLast30d = Number(row.reports_last_30d || 0);
+  const recurrenceLevel = reportsLast30d >= 4 ? 'high' : reportsLast30d >= 2 ? 'medium' : 'normal';
   return {
     id: row.id,
     empresa: row.empresa,
@@ -315,13 +317,65 @@ function mapFleetUnit(row) {
     polizaActiva: !!row.poliza_activa,
     campaignActiva: !!row.campaign_activa,
     estatusOperativo: row.estatus_operativo || 'sin actividad',
+    statusAuto: row.status_auto || 'ok',
+    effectiveStatus: row.effective_status || row.status_auto || 'ok',
+    manualStatus: row.manual_status || null,
+    openReportsCount: Number(row.open_reports_count || 0),
+    pendingPartsCount: Number(row.pending_parts_count || 0),
+    criticalReportsCount: Number(row.critical_reports_count || 0),
+    warningReportsCount: Number(row.warning_reports_count || 0),
+    reportsLast30d,
+    recurrenceLevel,
     costoRefacciones: Number(row.costo_refacciones || 0),
     costoManoObra: Number(row.costo_mano_obra || 0),
     costoTotal: Number(row.costo_total || 0),
     reportesCount: Number(row.reportes_count || 0),
     lastReportAt: row.last_report_at || null,
+    lastOpenReportAt: row.last_open_report_at || null,
+    lastOperationalChangeAt: row.last_operational_change_at || null,
+    lastRefaccionAt: row.last_refaccion_at || null,
+    lastScheduleAt: row.last_schedule_at || null,
+    lastCampaignAt: row.last_campaign_at || null,
+    lastMovementAt: row.last_movement_at || null,
     createdAt: row.created_at
   };
+}
+
+const OPEN_VALIDACION_STATUSES = ['nueva', 'pendiente de revisión', 'aceptada'];
+const OPEN_OPERATIVO_STATUSES = ['sin iniciar', 'programada', 'en proceso', 'espera refacción'];
+const CRITICAL_OPERATIVO_STATUSES = ['en proceso', 'espera refacción'];
+const CLOSED_OPERATIVO_STATUSES = ['terminada', 'rechazada'];
+
+function computeFleetAutoStatusFromReports(reports = []) {
+  let hasCritical = false;
+  let hasWarning = false;
+  let openReportsCount = 0;
+  let criticalReportsCount = 0;
+  let warningReportsCount = 0;
+  let lastOpenReportAt = null;
+
+  reports.forEach((report) => {
+    const estatusOperativo = String(report.estatus_operativo || '').trim().toLowerCase();
+    const estatusValidacion = String(report.estatus_validacion || '').trim().toLowerCase();
+    const isClosed = CLOSED_OPERATIVO_STATUSES.includes(estatusOperativo);
+    const isOpen =
+      !isClosed &&
+      (OPEN_OPERATIVO_STATUSES.includes(estatusOperativo) || OPEN_VALIDACION_STATUSES.includes(estatusValidacion) || (!estatusOperativo && !estatusValidacion));
+    if (!isOpen) return;
+    openReportsCount += 1;
+    const createdAt = report.created_at ? new Date(report.created_at).getTime() : 0;
+    if (!lastOpenReportAt || createdAt > new Date(lastOpenReportAt).getTime()) lastOpenReportAt = report.created_at;
+    if (CRITICAL_OPERATIVO_STATUSES.includes(estatusOperativo)) {
+      hasCritical = true;
+      criticalReportsCount += 1;
+    } else {
+      hasWarning = true;
+      warningReportsCount += 1;
+    }
+  });
+
+  const statusAuto = hasCritical ? 'critical' : hasWarning ? 'warning' : 'ok';
+  return { statusAuto, openReportsCount, criticalReportsCount, warningReportsCount, lastOpenReportAt };
 }
 
 function mapFleetCost(row) {
@@ -2104,21 +2158,64 @@ app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supe
     ),
     garantia_stats AS (
       SELECT
-        ${normalizedIdentitySql('g.empresa')} AS empresa_key,
-        ${normalizedIdentitySql('g.numero_economico')} AS unidad_key,
-        COUNT(*)::int AS reportes_count,
+        us.id AS fleet_unit_id,
+        COUNT(g.*)::int AS reportes_count,
+        COUNT(*) FILTER (
+          WHERE g.id IS NOT NULL
+            AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
+            AND (
+              COALESCE(LOWER(TRIM(g.estatus_operativo)), '') IN ('sin iniciar','programada','en proceso','espera refacción')
+              OR COALESCE(LOWER(TRIM(g.estatus_validacion)), '') IN ('nueva','pendiente de revisión','aceptada')
+            )
+        )::int AS open_reports_count,
+        COUNT(*) FILTER (
+          WHERE g.id IS NOT NULL
+            AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') IN ('en proceso','espera refacción')
+            AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
+        )::int AS critical_reports_count,
+        COUNT(*) FILTER (
+          WHERE g.id IS NOT NULL
+            AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
+            AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('en proceso','espera refacción')
+            AND (
+              COALESCE(LOWER(TRIM(g.estatus_operativo)), '') IN ('sin iniciar','programada')
+              OR COALESCE(LOWER(TRIM(g.estatus_validacion)), '') IN ('nueva','pendiente de revisión','aceptada')
+            )
+        )::int AS warning_reports_count,
         MAX(g.created_at) AS last_report_at,
+        MAX(g.created_at) FILTER (
+          WHERE COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
+        ) AS last_open_report_at,
+        MAX(g.updated_at) FILTER (WHERE COALESCE(g.estatus_operativo, '') <> '') AS last_operational_change_at,
+        MAX(COALESCE(g.refaccion_updated_at, g.updated_at)) FILTER (WHERE g.solicita_refaccion = TRUE) AS last_refaccion_at,
+        COUNT(*) FILTER (
+          WHERE g.solicita_refaccion = TRUE
+            AND COALESCE(LOWER(TRIM(g.refaccion_status)), 'pendiente') <> 'instalada'
+            AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
+        )::int AS pending_parts_count,
+        COUNT(*) FILTER (WHERE g.created_at >= NOW() - INTERVAL '30 days')::int AS reports_last_30d,
         (ARRAY_AGG(g.estatus_operativo ORDER BY g.created_at DESC))[1] AS ultimo_estatus_operativo
-      FROM garantias g
-      GROUP BY 1,2
+      FROM unit_scope us
+      LEFT JOIN garantias g
+        ON ${unitIdentityMatchSql('g.empresa', 'g.numero_economico', 'us.empresa', 'us.numero_economico')}
+      GROUP BY us.id
     ),
     campaign_stats AS (
       SELECT
-        ${normalizedIdentitySql('cu.empresa')} AS empresa_key,
-        ${normalizedIdentitySql('cu.numero_economico')} AS unidad_key,
-        BOOL_OR(cu.status <> 'realizada') AS campaign_activa
-      FROM campaign_units cu
-      GROUP BY 1,2
+        us.id AS fleet_unit_id,
+        BOOL_OR(cu.status <> 'realizada') AS campaign_activa,
+        MAX(cu.updated_at) AS last_campaign_at
+      FROM unit_scope us
+      LEFT JOIN campaign_units cu ON ${unitIdentityMatchSql('cu.empresa', 'cu.numero_economico', 'us.empresa', 'us.numero_economico')}
+      GROUP BY us.id
+    ),
+    schedule_stats AS (
+      SELECT
+        us.id AS fleet_unit_id,
+        MAX(COALESCE(sr.updated_at, sr.requested_at, sr.scheduled_for)) AS last_schedule_at
+      FROM unit_scope us
+      LEFT JOIN schedule_requests sr ON ${unitIdentityMatchSql("COALESCE(sr.empresa, '')", "COALESCE(sr.numero_economico, '')", 'us.empresa', 'us.numero_economico')}
+      GROUP BY us.id
     ),
     cost_stats AS (
       SELECT
@@ -2131,14 +2228,45 @@ app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supe
     )
     SELECT us.*,
       COALESCE(us.manual_status, CASE WHEN COALESCE(cs.campaign_activa, false) THEN 'campaña activa' ELSE gs.ultimo_estatus_operativo END, 'sin actividad') AS estatus_operativo,
+      CASE
+        WHEN COALESCE(gs.pending_parts_count, 0) > 0 THEN 'critical'
+        WHEN COALESCE(gs.open_reports_count, 0) > 0 THEN 'warning'
+        ELSE 'ok'
+      END AS status_auto,
+      CASE
+        WHEN COALESCE(NULLIF(TRIM(us.manual_status), ''), '') <> '' THEN us.manual_status
+        ELSE CASE
+          WHEN COALESCE(gs.pending_parts_count, 0) > 0 THEN 'critical'
+          WHEN COALESCE(gs.open_reports_count, 0) > 0 THEN 'warning'
+          ELSE 'ok'
+        END
+      END AS effective_status,
       COALESCE(gs.last_report_at, NULL) AS last_report_at,
+      COALESCE(gs.last_open_report_at, NULL) AS last_open_report_at,
+      COALESCE(gs.last_operational_change_at, NULL) AS last_operational_change_at,
+      COALESCE(gs.last_refaccion_at, NULL) AS last_refaccion_at,
+      COALESCE(ss.last_schedule_at, NULL) AS last_schedule_at,
+      COALESCE(cs.last_campaign_at, NULL) AS last_campaign_at,
+      GREATEST(
+        COALESCE(gs.last_report_at, 'epoch'::timestamptz),
+        COALESCE(gs.last_operational_change_at, 'epoch'::timestamptz),
+        COALESCE(gs.last_refaccion_at, 'epoch'::timestamptz),
+        COALESCE(ss.last_schedule_at, 'epoch'::timestamptz),
+        COALESCE(cs.last_campaign_at, 'epoch'::timestamptz)
+      ) AS last_movement_at,
       COALESCE(gs.reportes_count, 0) AS reportes_count,
+      COALESCE(gs.open_reports_count, 0) AS open_reports_count,
+      COALESCE(gs.pending_parts_count, 0) AS pending_parts_count,
+      COALESCE(gs.critical_reports_count, 0) AS critical_reports_count,
+      COALESCE(gs.warning_reports_count, 0) AS warning_reports_count,
+      COALESCE(gs.reports_last_30d, 0) AS reports_last_30d,
       COALESCE(ct.costo_refacciones, 0) AS costo_refacciones,
       COALESCE(ct.costo_mano_obra, 0) AS costo_mano_obra,
       COALESCE(ct.costo_total, 0) AS costo_total
     FROM unit_scope us
-    LEFT JOIN garantia_stats gs ON gs.empresa_key = us.empresa_key AND gs.unidad_key = us.unidad_key
-    LEFT JOIN campaign_stats cs ON cs.empresa_key = us.empresa_key AND cs.unidad_key = us.unidad_key
+    LEFT JOIN garantia_stats gs ON gs.fleet_unit_id = us.id
+    LEFT JOIN campaign_stats cs ON cs.fleet_unit_id = us.id
+    LEFT JOIN schedule_stats ss ON ss.fleet_unit_id = us.id
     LEFT JOIN cost_stats ct ON ct.fleet_unit_id = us.id
     ORDER BY us.empresa ASC, us.numero_economico ASC
     `, params);
@@ -2146,6 +2274,195 @@ app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supe
   } catch (error) {
     console.error('Error leyendo unidades de flota:', error?.message || error);
     res.json([]);
+  }
+});
+
+app.get('/api/fleet/analytics', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
+  try {
+    const params = [];
+    const where = [];
+    if (SUPERVISOR_ROLES.includes(req.user.role)) {
+      params.push(req.user.empresa || '');
+      where.push(`${normalizedIdentitySql('fu.empresa')} = ${normalizedIdentitySql(`$${params.length}`)}`);
+    }
+
+    const baseAnalyticsQuery = `
+      WITH unit_scope AS (
+        SELECT fu.*,
+          ${normalizedIdentitySql('fu.empresa')} AS empresa_key,
+          ${normalizedIdentitySql('fu.numero_economico')} AS unidad_key
+        FROM fleet_units fu
+        ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+      ),
+      garantia_stats AS (
+        SELECT
+          us.id AS fleet_unit_id,
+          COUNT(g.*)::int AS reportes_count,
+          COUNT(*) FILTER (
+            WHERE g.id IS NOT NULL
+              AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
+              AND (
+                COALESCE(LOWER(TRIM(g.estatus_operativo)), '') IN ('sin iniciar','programada','en proceso','espera refacción')
+                OR COALESCE(LOWER(TRIM(g.estatus_validacion)), '') IN ('nueva','pendiente de revisión','aceptada')
+              )
+          )::int AS open_reports_count,
+          COUNT(*) FILTER (
+            WHERE g.id IS NOT NULL
+              AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') IN ('en proceso','espera refacción')
+              AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
+          )::int AS critical_reports_count,
+          COUNT(*) FILTER (
+            WHERE g.id IS NOT NULL
+              AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
+              AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('en proceso','espera refacción')
+              AND (
+                COALESCE(LOWER(TRIM(g.estatus_operativo)), '') IN ('sin iniciar','programada')
+                OR COALESCE(LOWER(TRIM(g.estatus_validacion)), '') IN ('nueva','pendiente de revisión','aceptada')
+              )
+          )::int AS warning_reports_count,
+          COUNT(*) FILTER (
+            WHERE g.solicita_refaccion = TRUE
+              AND COALESCE(LOWER(TRIM(g.refaccion_status)), 'pendiente') <> 'instalada'
+              AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
+          )::int AS pending_parts_count,
+          MAX(g.created_at) AS last_report_at,
+          MAX(g.created_at) FILTER (
+            WHERE COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
+          ) AS last_open_report_at,
+          MAX(COALESCE(g.refaccion_updated_at, g.updated_at)) FILTER (WHERE g.solicita_refaccion = TRUE) AS last_refaccion_at,
+          COUNT(*) FILTER (WHERE g.created_at >= NOW() - INTERVAL '30 days')::int AS reports_last_30d
+        FROM unit_scope us
+        LEFT JOIN garantias g ON ${unitIdentityMatchSql('g.empresa', 'g.numero_economico', 'us.empresa', 'us.numero_economico')}
+        GROUP BY us.id
+      ),
+      cost_stats AS (
+        SELECT fce.fleet_unit_id, COALESCE(SUM(fce.monto),0) AS costo_total
+        FROM fleet_cost_entries fce
+        GROUP BY fce.fleet_unit_id
+      ),
+      unit_kpis AS (
+        SELECT
+          us.id,
+          us.empresa,
+          us.numero_economico,
+          us.modelo,
+          us.manual_status,
+          COALESCE(gs.open_reports_count, 0) AS open_reports_count,
+          COALESCE(gs.pending_parts_count, 0) AS pending_parts_count,
+          COALESCE(gs.critical_reports_count, 0) AS critical_reports_count,
+          COALESCE(gs.warning_reports_count, 0) AS warning_reports_count,
+          COALESCE(gs.reportes_count, 0) AS reportes_count,
+          COALESCE(gs.reports_last_30d, 0) AS reports_last_30d,
+          gs.last_report_at,
+          gs.last_open_report_at,
+          gs.last_refaccion_at,
+          COALESCE(ct.costo_total, 0) AS costo_total,
+          CASE
+            WHEN COALESCE(gs.pending_parts_count, 0) > 0 THEN 'critical'
+            WHEN COALESCE(gs.open_reports_count, 0) > 0 THEN 'warning'
+            ELSE 'ok'
+          END AS status_auto
+        FROM unit_scope us
+        LEFT JOIN garantia_stats gs ON gs.fleet_unit_id = us.id
+        LEFT JOIN cost_stats ct ON ct.fleet_unit_id = us.id
+      )
+    `;
+
+    const [summaryQ, topQ, trendQ] = await Promise.all([
+      pool.query(`
+        ${baseAnalyticsQuery}
+        SELECT
+          COUNT(*)::int AS total_units,
+          COUNT(*) FILTER (WHERE status_auto = 'critical')::int AS critical_units,
+          COUNT(*) FILTER (WHERE status_auto = 'warning')::int AS warning_units,
+          COUNT(*) FILTER (WHERE status_auto = 'ok')::int AS ok_units,
+          COALESCE(SUM(open_reports_count),0)::int AS open_reports,
+          COALESCE(SUM(pending_parts_count),0)::int AS critical_open_reports,
+          COUNT(*) FILTER (WHERE reports_last_30d >= 2)::int AS units_with_recurrence,
+          ROUND(COALESCE(AVG(open_reports_count), 0)::numeric, 2) AS avg_open_reports_per_unit
+        FROM unit_kpis
+      `, params),
+      pool.query(`
+        ${baseAnalyticsQuery}
+        SELECT
+          uk.id AS unit_id,
+          uk.numero_economico,
+          uk.empresa,
+          uk.modelo,
+          uk.status_auto,
+          COALESCE(NULLIF(TRIM(uk.manual_status), ''), uk.status_auto) AS effective_status,
+          uk.open_reports_count,
+          uk.pending_parts_count,
+          uk.critical_reports_count,
+          uk.reports_last_30d AS total_reports_last_30d,
+          uk.last_report_at,
+          uk.last_open_report_at,
+          uk.last_refaccion_at,
+          uk.costo_total
+        FROM unit_kpis uk
+        ORDER BY
+          CASE WHEN uk.status_auto = 'critical' THEN 0 WHEN uk.status_auto = 'warning' THEN 1 ELSE 2 END ASC,
+          COALESCE(uk.last_open_report_at, uk.last_refaccion_at, uk.last_report_at) ASC NULLS LAST,
+          uk.open_reports_count DESC,
+          uk.costo_total DESC
+        LIMIT 10
+      `, params),
+      pool.query(`
+        WITH days AS (
+          SELECT generate_series((CURRENT_DATE - INTERVAL '13 days')::date, CURRENT_DATE::date, INTERVAL '1 day')::date AS day
+        ),
+        scoped_reports AS (
+          SELECT DISTINCT g.id, g.created_at::date AS day
+          FROM garantias g
+          JOIN fleet_units fu ON ${unitIdentityMatchSql('g.empresa', 'g.numero_economico', 'fu.empresa', 'fu.numero_economico')}
+          ${SUPERVISOR_ROLES.includes(req.user.role) ? `WHERE ${normalizedIdentitySql('fu.empresa')} = ${normalizedIdentitySql('$1')}` : ''}
+        )
+        SELECT d.day::text AS day, COALESCE(COUNT(sr.day),0)::int AS reports
+        FROM days d
+        LEFT JOIN scoped_reports sr ON sr.day = d.day
+        GROUP BY d.day
+        ORDER BY d.day ASC
+      `, SUPERVISOR_ROLES.includes(req.user.role) ? [req.user.empresa || ''] : []),
+    ]);
+
+    const summary = summaryQ.rows[0] || {};
+    const topProblemUnits = (topQ.rows || []).map((row) => ({
+      unitId: row.unit_id,
+      numeroEconomico: row.numero_economico || '',
+      empresa: row.empresa || '',
+      modelo: row.modelo || '',
+      statusAuto: row.status_auto || 'ok',
+      effectiveStatus: row.effective_status || row.status_auto || 'ok',
+      openReportsCount: Number(row.open_reports_count || 0),
+      pendingPartsCount: Number(row.pending_parts_count || 0),
+      criticalReportsCount: Number(row.critical_reports_count || 0),
+      totalReportsLast30d: Number(row.total_reports_last_30d || 0),
+      recurrenceLevel: Number(row.total_reports_last_30d || 0) >= 4 ? 'high' : Number(row.total_reports_last_30d || 0) >= 2 ? 'medium' : 'normal',
+      lastReportAt: row.last_report_at || null,
+      lastOpenReportAt: row.last_open_report_at || null,
+      lastRefaccionAt: row.last_refaccion_at || null,
+      costoTotal: Number(row.costo_total || 0),
+    }));
+
+    res.json({
+      totalUnits: Number(summary.total_units || 0),
+      criticalUnits: Number(summary.critical_units || 0),
+      warningUnits: Number(summary.warning_units || 0),
+      okUnits: Number(summary.ok_units || 0),
+      openReports: Number(summary.open_reports || 0),
+      criticalOpenReports: Number(summary.critical_open_reports || 0),
+      unitsWithRecurrence: Number(summary.units_with_recurrence || 0),
+      avgOpenReportsPerUnit: Number(summary.avg_open_reports_per_unit || 0),
+      topProblemUnits,
+      recentTrend: (trendQ.rows || []).map(row => ({ day: row.day, reports: Number(row.reports || 0) })),
+    });
+  } catch (error) {
+    console.error('Error leyendo analytics de flota:', error?.message || error);
+    res.status(500).json({
+      totalUnits: 0, criticalUnits: 0, warningUnits: 0, okUnits: 0,
+      openReports: 0, criticalOpenReports: 0, unitsWithRecurrence: 0, avgOpenReportsPerUnit: 0,
+      topProblemUnits: [], recentTrend: []
+    });
   }
 });
 

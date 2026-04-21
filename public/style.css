@@ -5780,3 +5780,6 @@ body[data-role="supervisor_flotas"] #campaignsPanel #campaignUnitsGrid .campaign
 #campaignUnitsGrid .campaignBusHeroVisual.green .busHeroStatus{color:#22c55e;}
 #campaignUnitsGrid .campaignBusHeroVisual.blue .busHeroStatus{color:#2563eb;}
 #campaignUnitsGrid .busHeroGlow{width:76%;height:8px;margin-top:14px;border-radius:999px;background:linear-gradient(90deg, rgba(255,255,255,0.08), var(--campaign-bus-color,#2563eb), rgba(255,255,255,0.1));box-shadow:0 0 18px color-mix(in srgb, var(--campaign-bus-color,#2563eb) 55%, white);opacity:.95;}
+
+.owner-list-row--attention span{font-size:15px;font-weight:700;line-height:1.4;color:#0f172a}
+.owner-list-row--attention small{font-size:12px}
