@@ -409,7 +409,7 @@ async function findSupervisorFlotasByEmpresa(empresa, db = pool) {
        AND deleted_at IS NULL
        AND activo = TRUE
        AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}
-     ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
+     ORDER BY created_at DESC NULLS LAST
      LIMIT 1`,
     [ROLE_SUPERVISOR_FLOTAS, company]
   );
