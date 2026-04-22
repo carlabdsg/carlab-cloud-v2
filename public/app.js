@@ -16,6 +16,7 @@ const state = {
   fleetUnits: [],
   fleetSummary: { total:0, operando:0, enTaller:0, detenidas:0, programadas:0 },
   fleetAnalytics: null,
+  fleetOwnerLiveTimer: null,
   selectedFleetUnit: null,
   editingFleetUnitId: '',
   unitHistoryRows: [],
@@ -333,6 +334,34 @@ function fleetInactiveTimeMeta(unit = {}) {
   const minutes = Math.max(1, Math.floor(diffMs / (1000 * 60)));
   return { ms: diffMs, text: `${minutes} min sin atención` };
 }
+function formatElapsedClock(ms = 0) {
+  const safe = Math.max(0, Number(ms || 0));
+  const totalSeconds = Math.floor(safe / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (days > 0) return `${days} día${days === 1 ? '' : 's'} ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  if (hours > 0) return `${hours} hora${hours === 1 ? '' : 's'} ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  return `${minutes} min ${String(seconds).padStart(2, '0')}s`;
+}
+function liveAttentionText(sinceIso, statusAuto = 'warning') {
+  if (!sinceIso) return statusAuto === 'critical' ? 'detenida' : 'sin atención';
+  const elapsed = formatElapsedClock(Date.now() - new Date(sinceIso).getTime());
+  return statusAuto === 'critical' ? `${elapsed} detenida` : `${elapsed} sin atención`;
+}
+function mountFleetOwnerLiveTimer() {
+  if (state.fleetOwnerLiveTimer) clearInterval(state.fleetOwnerLiveTimer);
+  const tick = () => {
+    document.querySelectorAll('#fleetPanel [data-live-since]').forEach((el) => {
+      const since = el.getAttribute('data-live-since');
+      const status = el.getAttribute('data-live-status') || 'warning';
+      el.textContent = liveAttentionText(since, status);
+    });
+  };
+  tick();
+  state.fleetOwnerLiveTimer = setInterval(tick, 1000);
+}
 function countBy(items, getter) {
   const map = new Map();
   items.forEach(item => {
@@ -598,6 +627,10 @@ function switchPanel(panel) {
   if (panel !== 'fleet') {
     document.body.classList.remove('fleet-detail-modal-open');
     document.getElementById('fleetDetailModalRoot')?.classList.add('hidden');
+    if (state.fleetOwnerLiveTimer) {
+      clearInterval(state.fleetOwnerLiveTimer);
+      state.fleetOwnerLiveTimer = null;
+    }
   }
   state.activePanel = panel;
   document.getElementById('boardPanel')?.classList.toggle('hidden', panel !== 'board');
@@ -2178,11 +2211,13 @@ function renderFleet() {
 
   visibleUnits.forEach(unit => {
     const status = fleetStatusLuxury(unit);
+    const sem = fleetSemaforo(unit);
+    const attentionBase = unit.lastOpenReportAt || unit.lastReportAt || unit.lastRefaccionAt || null;
     const poliza = fleetTagPoliza(unit);
     const camp = fleetTagCampania(unit);
     const selected = state.selectedFleetUnit?.unit?.id === unit.id;
     const row = document.createElement('article');
-    row.className = `fleet-line-item ${selected ? 'selected' : ''}`;
+    row.className = `fleet-line-item ${selected ? 'selected' : ''} ${sem.key === 'critical' ? 'fleet-red-pulse' : ''}`;
     row.innerHTML = `
       <div class="cardUnidad ${status.visual}">
         <div class="headerUnidad">
@@ -2209,7 +2244,7 @@ function renderFleet() {
             <div class="costoUnidad">Costo acumulado: ${money(unit.costoTotal || 0)}</div>
             <div class="busHeroStats">
               <div class="busHeroStat"><span>Abiertos</span><strong>${Number(unit.openReportsCount || 0)}</strong></div>
-              <div class="busHeroStat"><span>Último movimiento</span><strong>${unit.lastMovementAt ? fmtDate(unit.lastMovementAt) : (unit.lastReportAt ? fmtDate(unit.lastReportAt) : 'Sin movimiento')}</strong></div>
+              <div class="busHeroStat"><span>${sem.key === 'critical' ? 'Detenida' : sem.key === 'warning' ? 'Sin atención' : 'Último movimiento'}</span><strong ${attentionBase && sem.key !== 'ok' ? `data-live-since="${escapeHtml(attentionBase)}" data-live-status="${escapeHtml(sem.key)}"` : ''}>${attentionBase && sem.key !== 'ok' ? escapeHtml(liveAttentionText(attentionBase, sem.key)) : (unit.lastMovementAt ? fmtDate(unit.lastMovementAt) : (unit.lastReportAt ? fmtDate(unit.lastReportAt) : 'Sin movimiento'))}</strong></div>
             </div>
           </div>
         </div>
@@ -2234,6 +2269,7 @@ function renderFleet() {
     });
     els.fleetUnitsList?.appendChild(row);
   });
+  mountFleetOwnerLiveTimer();
   renderFleetDetail();
 }
 
@@ -3040,8 +3076,13 @@ function animateFleetOwnerNumbers(root) {
 
 function renderFleetOwnerDeck() {
   if (!els.fleetOwnerDeck) return;
+  const ownerModeEnabled = isRole('admin', 'supervisor_flotas');
+  if (!ownerModeEnabled) {
+    els.fleetOwnerDeck.innerHTML = '';
+    return;
+  }
   const m = fleetOwnerMetrics();
-  const attentionUnits = (m.topProblemUnits || [])
+  const attentionUnits = [...(state.fleetUnits || [])]
     .filter(unit => ['critical', 'warning'].includes(String(unit.statusAuto || '').toLowerCase()))
     .map(unit => ({ ...unit, stale: fleetInactiveTimeMeta(unit) }))
     .sort((a, b) => {
@@ -3049,35 +3090,48 @@ function renderFleetOwnerDeck() {
       const pb = b.statusAuto === 'critical' ? 0 : 1;
       if (pa !== pb) return pa - pb;
       return Number(b.stale?.ms || 0) - Number(a.stale?.ms || 0);
-    })
-    .slice(0, 8);
+    });
+  const dailyActions = attentionUnits.slice(0, 8);
+  const redCount = attentionUnits.filter(u => u.statusAuto === 'critical').length;
   els.fleetOwnerDeck.innerHTML = `
+    <section class="fleet-owner-alert ${redCount > 0 ? 'critical' : 'healthy'}">
+      <strong>${redCount > 0 ? `🔴 ${redCount} unidades detenidas requieren atención` : '✅ Flota estable: no hay unidades detenidas en este momento'}</strong>
+      <span>${redCount > 0 ? 'Prioriza refacciones pendientes para recuperar operación.' : 'Mantén seguimiento de unidades en proceso para sostener el nivel de servicio.'}</span>
+    </section>
     <section class="fleet-owner-hero">
       <div class="fleet-owner-copy">
-        <div class="topbar-kicker">ANALYTICS EJECUTIVO</div>
-        <h3>Estado automático y salud operativa de flota</h3>
-        <p>Semáforo en tiempo real con foco en criticidad, reincidencia y tendencia reciente.</p>
+        <div class="topbar-kicker">MODO DUEÑO</div>
+        <h3>Cabina ejecutiva de flota</h3>
+        <p>Lectura inmediata del estado operativo y prioridades del día.</p>
       </div>
       <div class="fleet-owner-kpis">
         <article><span>Total unidades</span><strong data-count="${m.total}">${m.total}</strong><small>Parque activo</small></article>
-        <article><span>Unidades críticas</span><strong data-count="${m.critical}">${m.critical}</strong><small>Riesgo rojo</small></article>
-        <article><span>Unidades con atención</span><strong data-count="${m.warning}">${m.warning}</strong><small>Riesgo naranja</small></article>
-        <article><span>Unidades operativas</span><strong data-count="${m.ok}">${m.ok}</strong><small>Semáforo verde</small></article>
+        <article><span>Unidades detenidas</span><strong data-count="${m.critical}">${m.critical}</strong><small>Refacción pendiente</small></article>
+        <article><span>Unidades en proceso</span><strong data-count="${m.warning}">${m.warning}</strong><small>Sin refacción pendiente</small></article>
+        <article><span>Unidades operando</span><strong data-count="${m.ok}">${m.ok}</strong><small>Semáforo verde</small></article>
         <article><span>Reportes abiertos</span><strong data-count="${m.openReports}">${m.openReports}</strong><small>Backlog activo</small></article>
-        <article><span>Promedio abiertos/unidad</span><strong>${Number(m.avgOpenReportsPerUnit || 0).toFixed(1)}</strong><small>Carga operativa</small></article>
+        <article><span>Refacciones pendientes</span><strong data-count="${m.criticalOpenReports}">${m.criticalOpenReports}</strong><small>Prioridad máxima</small></article>
       </div>
     </section>
     <section class="fleet-owner-insights">
       <article class="owner-card">
-        <div class="owner-card-head"><strong>Unidades que requieren atención</strong></div>
-        <div class="owner-list">${attentionUnits.length ? attentionUnits.map(unit => `<button type="button" class="owner-list-row owner-list-row--attention" onclick="focusFleetUnit(${JSON.stringify(unit.unitId)})"><span>Unidad ${escapeHtml(unit.numeroEconomico || '—')} — ${escapeHtml(fleetHumanStatusByAuto(unit.statusAuto))} — ${escapeHtml(unit.stale.text)}</span><small>${escapeHtml(unit.empresa || '—')}</small><strong>${Number(unit.openReportsCount || 0)} abiertos</strong></button>`).join('') : '<div class="muted">Sin unidades con alertas activas.</div>'}</div>
+        <div class="owner-card-head"><strong>Acciones del día</strong></div>
+        <div class="owner-list">${dailyActions.length ? dailyActions.map(unit => {
+          const since = unit.lastOpenReportAt || unit.lastReportAt || unit.lastRefaccionAt || null;
+          const motivo = unit.statusAuto === 'critical' ? 'Refacción pendiente' : (Number(unit.openReportsCount || 0) > 0 ? 'En proceso sin atención' : 'Reporte abierto pendiente de seguimiento');
+          return `<button type="button" class="owner-list-row owner-list-row--attention ${unit.statusAuto === 'critical' ? 'is-critical' : ''}" onclick="focusFleetUnit(${JSON.stringify(unit.id)})"><span>${unit.statusAuto === 'critical' ? 'Revisar' : 'Atender'} unidad ${escapeHtml(unit.numeroEconomico || '—')} → ${escapeHtml(motivo)}</span><small>${isRole('admin') ? escapeHtml(unit.empresa || '—') : 'Empresa asignada'}</small><strong data-live-since="${since ? escapeHtml(since) : ''}" data-live-status="${escapeHtml(unit.statusAuto || 'warning')}">${escapeHtml(liveAttentionText(since, unit.statusAuto || 'warning'))}</strong></button>`;
+        }).join('') : '<div class="muted">Sin acciones críticas para hoy.</div>'}</div>
       </article>
       <article class="owner-card">
         <div class="owner-card-head"><strong>Unidades detenidas / sin atención</strong></div>
-        <div class="owner-list">${attentionUnits.length ? attentionUnits.map(unit => `<button type="button" class="owner-list-row owner-list-row--attention" onclick="focusFleetUnit(${JSON.stringify(unit.unitId)})"><span>${escapeHtml(unit.numeroEconomico || '—')}</span><small>${escapeHtml(fleetHumanStatusByAuto(unit.statusAuto))}</small><strong>${escapeHtml(unit.stale.text)}</strong></button>`).join('') : '<div class="muted">No hay unidades rojas o naranjas.</div>'}</div>
+        <div class="owner-list">${attentionUnits.length ? attentionUnits.map(unit => {
+          const since = unit.lastOpenReportAt || unit.lastReportAt || unit.lastRefaccionAt || null;
+          return `<button type="button" class="owner-list-row owner-list-row--attention ${unit.statusAuto === 'critical' ? 'is-critical' : ''}" onclick="focusFleetUnit(${JSON.stringify(unit.id)})"><span>Unidad ${escapeHtml(unit.numeroEconomico || '—')} — ${escapeHtml(fleetHumanStatusByAuto(unit.statusAuto))}</span><small>${escapeHtml(unit.empresa || '—')}</small><strong data-live-since="${since ? escapeHtml(since) : ''}" data-live-status="${escapeHtml(unit.statusAuto || 'warning')}">${escapeHtml(liveAttentionText(since, unit.statusAuto || 'warning'))}</strong></button>`;
+        }).join('') : '<div class="muted">No hay unidades rojas o naranjas.</div>'}</div>
       </article>
     </section>`;
   animateFleetOwnerNumbers(els.fleetOwnerDeck);
+  mountFleetOwnerLiveTimer();
 }
 
 async function focusFleetUnit(id) {
@@ -3109,6 +3163,10 @@ function logoutSession() {
   state.token = '';
   state.user = null;
   state.selectedFleetUnit = null;
+  if (state.fleetOwnerLiveTimer) {
+    clearInterval(state.fleetOwnerLiveTimer);
+    state.fleetOwnerLiveTimer = null;
+  }
   if (els.operatorAppNav) {
     els.operatorAppNav.classList.add('hidden');
     els.operatorAppNav.style.display = 'none';
