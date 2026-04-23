@@ -766,10 +766,12 @@ async function nextGarantiaFolio(client = pool) {
 }
 
 async function nextManagedFolio(kind, client = pool) {
-  const key = kind === 'quote' ? 'quote' : 'sale';
+  const key = ['quote','quote_admin','sale'].includes(kind) ? kind : 'sale';
   const config = key === 'quote'
     ? { table: 'work_quotes', prefix: 'COB', lockKey: 71001 }
-    : { table: 'direct_sales', prefix: 'VTA', lockKey: 71002 };
+    : key === 'quote_admin'
+      ? { table: 'quotes', prefix: 'COT', lockKey: 71003 }
+      : { table: 'direct_sales', prefix: 'VTA', lockKey: 71002 };
   await client.query(`SELECT pg_advisory_xact_lock($1)`, [config.lockKey]);
   const result = await client.query(
     `SELECT COALESCE(MAX(NULLIF(regexp_replace(folio, '\\D', '', 'g'), '')::int), 0) AS max_num
@@ -1167,6 +1169,42 @@ async function initDb() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+
+    CREATE TABLE IF NOT EXISTS quotes (
+      id TEXT PRIMARY KEY,
+      folio TEXT NOT NULL UNIQUE,
+      client_name TEXT,
+      client_phone TEXT,
+      client_email TEXT,
+      company_name TEXT,
+      unit_number TEXT,
+      quote_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      project_title TEXT,
+      payment_terms TEXT,
+      header_message TEXT,
+      special_note TEXT,
+      closing_text TEXT,
+      subtotal NUMERIC(12,2) NOT NULL DEFAULT 0,
+      tax_percent NUMERIC(6,2) NOT NULL DEFAULT 16,
+      tax_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+      total NUMERIC(12,2) NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'borrador' CHECK (status IN ('borrador','enviada','autorizada','rechazada','cancelada')),
+      report_id TEXT,
+      created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS quote_items (
+      id TEXT PRIMARY KEY,
+      quote_id TEXT NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+      description TEXT NOT NULL,
+      quantity NUMERIC(12,2) NOT NULL DEFAULT 1,
+      unit_price NUMERIC(12,2) NOT NULL DEFAULT 0,
+      amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
     CREATE TABLE IF NOT EXISTS direct_sales (
       id TEXT PRIMARY KEY,
       folio TEXT NOT NULL UNIQUE,
@@ -1212,6 +1250,9 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_work_quotes_garantia ON work_quotes(garantia_id);
     CREATE INDEX IF NOT EXISTS idx_work_quotes_status ON work_quotes(status, payment_status, updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_work_quote_items_quote ON work_quote_items(quote_id);
+    CREATE INDEX IF NOT EXISTS idx_quotes_status ON quotes(status, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_quotes_report_id ON quotes(report_id);
+    CREATE INDEX IF NOT EXISTS idx_quote_items_quote ON quote_items(quote_id);
     CREATE INDEX IF NOT EXISTS idx_direct_sales_status ON direct_sales(status, payment_status, updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_direct_sale_items_sale ON direct_sale_items(sale_id);
   `);
@@ -3483,6 +3524,78 @@ async function fetchQuotesForAdmin() {
   return result.rows.map(mapWorkQuote);
 }
 
+
+function mapAdminQuote(row) {
+  const items = Array.isArray(row.items) ? row.items : [];
+  return {
+    id: row.id,
+    folio: row.folio || '',
+    clientName: row.client_name || '',
+    clientPhone: row.client_phone || '',
+    clientEmail: row.client_email || '',
+    companyName: row.company_name || '',
+    unitNumber: row.unit_number || '',
+    date: row.quote_date || row.created_at || null,
+    projectTitle: row.project_title || '',
+    paymentTerms: row.payment_terms || '',
+    headerMessage: row.header_message || '',
+    specialNote: row.special_note || '',
+    closingText: row.closing_text || '',
+    subtotal: Number(row.subtotal || 0),
+    taxPercent: Number(row.tax_percent || 0),
+    taxAmount: Number(row.tax_amount || 0),
+    total: Number(row.total || 0),
+    status: row.status || 'borrador',
+    reportId: row.report_id || '',
+    reportFolio: row.report_folio || '',
+    reportDescription: row.report_description || '',
+    createdAt: row.created_at || null,
+    updatedAt: row.updated_at || null,
+    items: items.map((item) => ({
+      id: item.id,
+      quoteId: item.quote_id || row.id,
+      description: item.description || '',
+      quantity: Number(item.quantity || 0),
+      unitPrice: Number(item.unit_price || 0),
+      amount: Number(item.amount || 0),
+      createdAt: item.created_at || null,
+    })),
+  };
+}
+
+function computeAdminQuoteTotals(items = [], taxPercent = 16) {
+  const subtotal = Number(items.reduce((sum, item) => sum + (Number(item.quantity || 0) * Number(item.unitPrice || 0)), 0).toFixed(2));
+  const safeTax = Math.max(0, Number(taxPercent || 0));
+  const taxAmount = Number((subtotal * (safeTax / 100)).toFixed(2));
+  const total = Number((subtotal + taxAmount).toFixed(2));
+  return { subtotal, taxPercent: safeTax, taxAmount, total };
+}
+
+async function fetchAdminQuotes() {
+  const result = await pool.query(`
+    SELECT q.*, g.folio AS report_folio, g.descripcion_fallo AS report_description,
+      COALESCE(
+        json_agg(
+          json_build_object(
+            'id', qi.id,
+            'quote_id', qi.quote_id,
+            'description', qi.description,
+            'quantity', qi.quantity,
+            'unit_price', qi.unit_price,
+            'amount', qi.amount,
+            'created_at', qi.created_at
+          ) ORDER BY qi.created_at ASC
+        ) FILTER (WHERE qi.id IS NOT NULL), '[]'::json
+      ) AS items
+    FROM quotes q
+    LEFT JOIN garantias g ON g.id = q.report_id
+    LEFT JOIN quote_items qi ON qi.quote_id = q.id
+    GROUP BY q.id, g.folio, g.descripcion_fallo
+    ORDER BY q.updated_at DESC
+  `);
+  return result.rows.map(mapAdminQuote);
+}
+
 async function fetchDirectSalesForAdmin() {
   const result = await pool.query(`
     SELECT s.*,
@@ -3509,6 +3622,124 @@ async function fetchDirectSalesForAdmin() {
   `);
   return result.rows.map(mapDirectSale);
 }
+
+
+app.get('/api/quotes', authRequired, requireRoles('admin'), async (_req, res) => {
+  try { res.json(await fetchAdminQuotes()); }
+  catch (error) { console.error('Error cargando módulo de cotizaciones:', error); res.status(500).json({ error:'No se pudieron cargar las cotizaciones.' }); }
+});
+
+app.get('/api/quotes/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  try {
+    const quotes = await fetchAdminQuotes();
+    const quote = quotes.find((item) => item.id === req.params.id);
+    if (!quote) return res.status(404).json({ error:'Cotización no encontrada.' });
+    res.json(quote);
+  } catch (error) {
+    console.error('Error cargando cotización:', error);
+    res.status(500).json({ error:'No se pudo cargar la cotización.' });
+  }
+});
+
+app.post('/api/quotes', authRequired, requireRoles('admin'), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const quoteId = cryptoRandomId();
+    const folio = await nextManagedFolio('quote_admin', client);
+    const items = Array.isArray(req.body.items) ? req.body.items : [];
+    const totals = computeAdminQuoteTotals(items, req.body.taxPercent);
+    await client.query(`INSERT INTO quotes (id, folio, client_name, client_phone, client_email, company_name, unit_number, quote_date, project_title, payment_terms, header_message, special_note, closing_text, subtotal, tax_percent, tax_amount, total, status, report_id, created_by)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+      [quoteId, folio, String(req.body.clientName || '').trim(), normalizeMxPhone(req.body.clientPhone || ''), String(req.body.clientEmail || '').trim(), String(req.body.companyName || '').trim(), String(req.body.unitNumber || '').trim(), req.body.date || new Date().toISOString().slice(0,10), String(req.body.projectTitle || '').trim(), String(req.body.paymentTerms || '').trim(), String(req.body.headerMessage || '').trim(), String(req.body.specialNote || '').trim(), String(req.body.closingText || '').trim(), totals.subtotal, totals.taxPercent, totals.taxAmount, totals.total, ['borrador','enviada','autorizada','rechazada','cancelada'].includes(req.body.status) ? req.body.status : 'borrador', req.body.reportId || null, req.user.id]);
+
+    for (const item of items) {
+      const description = String(item.description || '').trim();
+      const quantity = Number(item.quantity || 0);
+      const unitPrice = Number(item.unitPrice || 0);
+      if (!description || quantity <= 0) continue;
+      await client.query(`INSERT INTO quote_items (id, quote_id, description, quantity, unit_price, amount) VALUES ($1,$2,$3,$4,$5,$6)`,
+        [cryptoRandomId(), quoteId, description, quantity, unitPrice, Number((quantity * unitPrice).toFixed(2))]);
+    }
+    await client.query('COMMIT');
+    const quotes = await fetchAdminQuotes();
+    res.status(201).json(quotes.find((item) => item.id === quoteId));
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error creando cotización:', error);
+    res.status(500).json({ error:'No se pudo crear la cotización.' });
+  } finally { client.release(); }
+});
+
+app.patch('/api/quotes/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const found = await client.query(`SELECT id FROM quotes WHERE id = $1 FOR UPDATE`, [req.params.id]);
+    if (!found.rowCount) { await client.query('ROLLBACK'); return res.status(404).json({ error:'Cotización no encontrada.' }); }
+    const items = Array.isArray(req.body.items) ? req.body.items : [];
+    await client.query(`DELETE FROM quote_items WHERE quote_id = $1`, [req.params.id]);
+    for (const item of items) {
+      const description = String(item.description || '').trim();
+      const quantity = Number(item.quantity || 0);
+      const unitPrice = Number(item.unitPrice || 0);
+      if (!description || quantity <= 0) continue;
+      await client.query(`INSERT INTO quote_items (id, quote_id, description, quantity, unit_price, amount) VALUES ($1,$2,$3,$4,$5,$6)`,
+        [cryptoRandomId(), req.params.id, description, quantity, unitPrice, Number((quantity * unitPrice).toFixed(2))]);
+    }
+    const totals = computeAdminQuoteTotals(items, req.body.taxPercent);
+    await client.query(`UPDATE quotes SET client_name=$2, client_phone=$3, client_email=$4, company_name=$5, unit_number=$6, quote_date=$7, project_title=$8, payment_terms=$9, header_message=$10, special_note=$11, closing_text=$12, subtotal=$13, tax_percent=$14, tax_amount=$15, total=$16, status=$17, report_id=$18, updated_at=NOW() WHERE id=$1`,
+      [req.params.id, String(req.body.clientName || '').trim(), normalizeMxPhone(req.body.clientPhone || ''), String(req.body.clientEmail || '').trim(), String(req.body.companyName || '').trim(), String(req.body.unitNumber || '').trim(), req.body.date || new Date().toISOString().slice(0,10), String(req.body.projectTitle || '').trim(), String(req.body.paymentTerms || '').trim(), String(req.body.headerMessage || '').trim(), String(req.body.specialNote || '').trim(), String(req.body.closingText || '').trim(), totals.subtotal, totals.taxPercent, totals.taxAmount, totals.total, ['borrador','enviada','autorizada','rechazada','cancelada'].includes(req.body.status) ? req.body.status : 'borrador', req.body.reportId || null]);
+    await client.query('COMMIT');
+    const quotes = await fetchAdminQuotes();
+    res.json(quotes.find((item) => item.id === req.params.id));
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error editando cotización:', error);
+    res.status(500).json({ error:'No se pudo editar la cotización.' });
+  } finally { client.release(); }
+});
+
+app.delete('/api/quotes/:id', authRequired, requireRoles('admin'), async (req, res) => {
+  try {
+    await pool.query(`DELETE FROM quotes WHERE id = $1`, [req.params.id]);
+    res.json({ ok:true });
+  } catch (error) {
+    console.error('Error eliminando cotización:', error);
+    res.status(500).json({ error:'No se pudo eliminar la cotización.' });
+  }
+});
+
+app.post('/api/quotes/from-report/:reportId', authRequired, requireRoles('admin'), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const report = await client.query(`SELECT * FROM garantias WHERE id = $1`, [req.params.reportId]);
+    if (!report.rowCount) { await client.query('ROLLBACK'); return res.status(404).json({ error:'Reporte no encontrado.' }); }
+    const g = report.rows[0];
+    const quoteId = cryptoRandomId();
+    const folio = await nextManagedFolio('quote_admin', client);
+    const items = [
+      { description: `Servicio técnico ${g.folio || ''} ${g.descripcion_fallo || ''}`.trim(), quantity: 1, unitPrice: 0 },
+      (g.detalle_refaccion || g.refaccion_asignada) ? { description: `Refacciones: ${g.refaccion_asignada || g.detalle_refaccion}`, quantity: 1, unitPrice: 0 } : null,
+    ].filter(Boolean);
+    const totals = computeAdminQuoteTotals(items, 16);
+    await client.query(`INSERT INTO quotes (id, folio, client_name, client_phone, company_name, unit_number, quote_date, project_title, payment_terms, header_message, special_note, closing_text, subtotal, tax_percent, tax_amount, total, status, report_id, created_by)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,16,$14,$15,'borrador',$16,$17)`,
+      [quoteId, folio, g.contacto_nombre || '', normalizeMxPhone(g.telefono || ''), g.empresa || '', g.numero_economico || '', new Date().toISOString().slice(0,10), `Cotización de servicio para unidad ${g.numero_economico || ''}`.trim(), '50% anticipo y 50% contra entrega.', 'Agradecemos la oportunidad de atender su unidad. Esta cotización incluye mano de obra y/o refacciones ligadas al diagnóstico.', 'Precios en MXN. Vigencia 15 días naturales.', 'Atentamente, CARLAB · Área Comercial', totals.subtotal, totals.taxAmount, totals.total, g.id, req.user.id]);
+    for (const item of items) {
+      await client.query(`INSERT INTO quote_items (id, quote_id, description, quantity, unit_price, amount) VALUES ($1,$2,$3,$4,$5,$6)`,
+      [cryptoRandomId(), quoteId, item.description, item.quantity, item.unitPrice, Number((item.quantity*item.unitPrice).toFixed(2))]);
+    }
+    await client.query('COMMIT');
+    const quotes = await fetchAdminQuotes();
+    res.status(201).json(quotes.find((item) => item.id === quoteId));
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error creando cotización desde reporte:', error);
+    res.status(500).json({ error:'No se pudo generar la cotización desde reporte.' });
+  } finally { client.release(); }
+});
 
 app.get('/api/cobranza/overview', authRequired, requireRoles('admin'), async (_req, res) => {
   try {

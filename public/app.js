@@ -37,6 +37,9 @@ const state = {
   cobranzaQuotes: [],
   directSales: [],
   selectedQuoteId: '',
+  adminQuotes: [],
+  selectedAdminQuoteId: '',
+  adminQuoteDrafts: {},
   directSaleDraftPartId: '',
   quoteDrafts: {},
   directSaleItems: [],
@@ -142,6 +145,12 @@ const api = {
   getDirectSales() { return this.request('/api/cobranza/direct-sales'); },
   createDirectSale(payload) { return this.request('/api/cobranza/direct-sales', { method: 'POST', body: JSON.stringify(payload || {}) }); },
   updateDirectSale(id, payload) { return this.request(`/api/cobranza/direct-sales/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
+  getQuotes() { return this.request('/api/quotes'); },
+  getQuote(id) { return this.request(`/api/quotes/${id}`); },
+  createQuote(payload) { return this.request('/api/quotes', { method:'POST', body: JSON.stringify(payload || {}) }); },
+  updateAdminQuote(id, payload) { return this.request(`/api/quotes/${id}`, { method:'PATCH', body: JSON.stringify(payload || {}) }); },
+  deleteAdminQuote(id) { return this.request(`/api/quotes/${id}`, { method:'DELETE' }); },
+  createAdminQuoteFromReport(reportId) { return this.request(`/api/quotes/from-report/${reportId}`, { method:'POST' }); },
 
 };
 
@@ -150,14 +159,14 @@ function bind() {
   [
     'loginView','dashboardView','loginForm','loginEmail','loginPassword','loginError','registerForm','registerMessage','regNombre','regEmail','regTelefono','regEmpresa','regNumeroEconomico','regPassword',
     'tabLoginBtn','tabRegisterBtn','welcomeText','currentUserName','currentUserEmail','currentRoleBadge','avatarCircle','pageTitle','roleSummaryText','roleBrief','logoutBtn',
-    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navFleetBtn','navPartsBtn','navStockBtn','navCobranzaBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel','stockPanel','cobranzaPanel',
+    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navFleetBtn','navPartsBtn','navStockBtn','navCobranzaBtn','navQuotesBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel','stockPanel','cobranzaPanel','quotesPanel',
     'reportForm','numeroObra','modelo','numeroEconomico','empresa','kilometraje','contactoNombre','telefono','descripcionFallo','solicitaRefaccion','refaccionFields','detalleRefaccion',
     'evidencias','evidenciasCamara','evidenciasRefaccion','evidenciasRefaccionCamara','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn','searchInput','validationFilter','operationalFilter',
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
     'executiveDeck','executiveDeckGrid','liveRefreshBadge','topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistorySearchInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','partsPanel','partsRefreshBtn','partsSummary','partsList','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn','fleetOwnerDeck','imageLightbox','imageLightboxImg','imageLightboxClose',
     'navFleetBtn','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsGrid','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas','fleetNewBtn','fleetCancelBtn','fleetFormBox','fleetSearchInput','fleetStatusFilter','navCampaignsBtn','campaignsPanel','campaignsRefreshBtn','campaignSummary','campaignGroupId','campaignName','campaignEmpresa','campaignNotes','campaignSaveBtn','campaignClearBtn','campaignGroupsList','campaignDetail','campaignDetailTitle','campaignDetailBadge','campaignUnitId','campaignUnitEmpresa','campaignUnitNumero','campaignUnitStatus','campaignUnitNotes','campaignUnitEvidence','campaignEvidencePreview','campaignUnitSaveBtn','campaignUnitClearBtn','campaignUnitsGrid',
-    'partsRequestModal','partsRequestClose','partsRequestCancel','partsRequestForm','partsRequestEmpresa','partsRequestUnidad','partsRequestSolicitud','partsRequestPriority','partsRequestNotes','partsRequestOwnerHint','imageLightboxCaption','reportDetailModal','reportDetailClose','reportDetailContent','stockRefreshBtn','stockSummary','stockList','stockMovements','stockPartForm','stockPartId','stockNombre','stockSku','stockProveedor','stockActual','stockMinimo','stockCosto','stockPrecio','stockUbicacion','stockNotas','stockSaveBtn','stockCancelBtn','scheduleManualForm','scheduleManualEmpresa','scheduleManualUnidad','scheduleManualTelefono','scheduleManualFolio','scheduleManualDatetime','scheduleManualContacto','scheduleManualNotes','scheduleManualCancelBtn','cobranzaRefreshBtn','cobranzaSummary','cobranzaQuotesList','cobranzaQuoteDetail','directSaleForm','directSaleCustomer','directSalePhone','directSaleCompany','directSaleUnit','directSaleType','directSaleConcept','directSaleStockPart','directSaleQty','directSalePrice','directSaleMethod','directSalePaymentStatus','directSaleNotes','directSaleAddConceptBtn','directSaleItemsList','directSaleResetBtn','directSalePdfBtn','directSaleTotal','directSalesList','stockAssignModal','stockAssignClose','stockAssignCancel','stockAssignForm','stockAssignPartName','stockAssignPartMeta','stockAssignQty','stockAssignUnit','stockAssignCompany','stockAssignFolio','stockAssignNotes'
+    'partsRequestModal','partsRequestClose','partsRequestCancel','partsRequestForm','partsRequestEmpresa','partsRequestUnidad','partsRequestSolicitud','partsRequestPriority','partsRequestNotes','partsRequestOwnerHint','imageLightboxCaption','reportDetailModal','reportDetailClose','reportDetailContent','stockRefreshBtn','stockSummary','stockList','stockMovements','stockPartForm','stockPartId','stockNombre','stockSku','stockProveedor','stockActual','stockMinimo','stockCosto','stockPrecio','stockUbicacion','stockNotas','stockSaveBtn','stockCancelBtn','scheduleManualForm','scheduleManualEmpresa','scheduleManualUnidad','scheduleManualTelefono','scheduleManualFolio','scheduleManualDatetime','scheduleManualContacto','scheduleManualNotes','scheduleManualCancelBtn','cobranzaRefreshBtn','cobranzaSummary','cobranzaQuotesList','cobranzaQuoteDetail','quotesRefreshBtn','quoteNewBtn','quotesList','quoteEditor','directSaleForm','directSaleCustomer','directSalePhone','directSaleCompany','directSaleUnit','directSaleType','directSaleConcept','directSaleStockPart','directSaleQty','directSalePrice','directSaleMethod','directSalePaymentStatus','directSaleNotes','directSaleAddConceptBtn','directSaleItemsList','directSaleResetBtn','directSalePdfBtn','directSaleTotal','directSalesList','stockAssignModal','stockAssignClose','stockAssignCancel','stockAssignForm','stockAssignPartName','stockAssignPartMeta','stockAssignQty','stockAssignUnit','stockAssignCompany','stockAssignFolio','stockAssignNotes'
   ].forEach(id => els[id] = document.getElementById(id));
 }
 bind();
@@ -603,7 +612,7 @@ function updateHeaderForRole() {
   if (els.roleBrief) els.roleBrief.innerHTML = copy.panels.map(([title, desc]) => `<article><strong>${escapeHtml(title)}</strong><span>${escapeHtml(desc)}</span></article>`).join('');
 }
 function setActiveNav(activeBtn) {
-  [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navScheduleBtn,els.navFleetBtn,els.navPartsBtn,els.navStockBtn,els.navCobranzaBtn,els.navCampaignsBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
+  [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navScheduleBtn,els.navFleetBtn,els.navPartsBtn,els.navStockBtn,els.navCobranzaBtn,els.navQuotesBtn,els.navCampaignsBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
   if (activeBtn && !activeBtn.classList.contains('hidden')) activeBtn.classList.add('active');
 }
 
@@ -621,9 +630,9 @@ function updateOperatorAppNav(panel) {
   if (panel === 'schedule') els.opNavScheduleBtn?.classList.add('active');
 }
 function switchPanel(panel) {
-  if (state.user?.role === 'supervisor_flotas' && ['users','requests','companies','report','stock','cobranza'].includes(panel)) panel = 'fleet';
-  if (!isRole('admin') && ['stock','cobranza'].includes(panel)) panel = state.user?.role === 'supervisor_flotas' ? 'fleet' : 'board';
-  if (state.user?.role === 'supervisor' && ['users','requests','companies','fleet','parts','report','stock','cobranza'].includes(panel)) panel = 'board';
+  if (state.user?.role === 'supervisor_flotas' && ['users','requests','companies','report','stock','cobranza','quotes'].includes(panel)) panel = 'fleet';
+  if (!isRole('admin') && ['stock','cobranza','quotes'].includes(panel)) panel = state.user?.role === 'supervisor_flotas' ? 'fleet' : 'board';
+  if (state.user?.role === 'supervisor' && ['users','requests','companies','fleet','parts','report','stock','cobranza','quotes'].includes(panel)) panel = 'board';
   if (panel !== 'fleet') {
     document.body.classList.remove('fleet-detail-modal-open');
     document.getElementById('fleetDetailModalRoot')?.classList.add('hidden');
@@ -645,6 +654,7 @@ function switchPanel(panel) {
   els.partsPanel?.classList.toggle('hidden', panel !== 'parts');
   els.stockPanel?.classList.toggle('hidden', panel !== 'stock');
   els.cobranzaPanel?.classList.toggle('hidden', panel !== 'cobranza');
+  els.quotesPanel?.classList.toggle('hidden', panel !== 'quotes');
   els.campaignsPanel?.classList.toggle('hidden', panel !== 'campaigns');
   document.body.dataset.panel = panel;
   const board = panel === 'board';
@@ -655,6 +665,7 @@ function switchPanel(panel) {
   if (panel === 'parts') loadPartsPending();
   if (panel === 'stock') loadStock();
   if (panel === 'cobranza') loadCobranza();
+  if (panel === 'quotes') loadAdminQuotes();
   if (panel === 'campaigns') loadCampaigns();
   updateOperatorAppNav(panel);
   setActiveNav(
@@ -669,6 +680,7 @@ function switchPanel(panel) {
     panel === 'parts' ? els.navPartsBtn :
     panel === 'stock' ? els.navStockBtn :
     panel === 'cobranza' ? els.navCobranzaBtn :
+    panel === 'quotes' ? els.navQuotesBtn :
     panel === 'campaigns' ? els.navCampaignsBtn :
     els.navBoardBtn
   );
@@ -691,12 +703,14 @@ function showDashboard() {
   els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas'));
   els.navStockBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navCobranzaBtn?.classList.toggle('hidden', !isRole('admin'));
+  els.navQuotesBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navCampaignsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas','operativo'));
   document.querySelectorAll('[data-role-admin-only]').forEach(el => el.classList.toggle('hidden', !isRole('admin')));
   if (state.user?.role === 'supervisor') {
     els.navFleetBtn?.classList.add('hidden');
     els.navPartsBtn?.classList.add('hidden');
     els.navCobranzaBtn?.classList.add('hidden');
+    els.navQuotesBtn?.classList.add('hidden');
     els.navUsersBtn?.classList.add('hidden');
     els.navRequestsBtn?.classList.add('hidden');
     els.navCompaniesBtn?.classList.add('hidden');
@@ -709,6 +723,7 @@ function showDashboard() {
     els.navNewReportBtn?.classList.add('hidden');
     if (els.navStockBtn) { els.navStockBtn.classList.add('hidden'); els.navStockBtn.style.display = 'none'; }
     if (els.navCobranzaBtn) { els.navCobranzaBtn.classList.add('hidden'); els.navCobranzaBtn.style.display = 'none'; }
+    if (els.navQuotesBtn) { els.navQuotesBtn.classList.add('hidden'); els.navQuotesBtn.style.display = 'none'; }
   }
   els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas'));
   updateHeaderForRole(); switchPanel(state.user?.role === 'operador' ? 'report' : (state.user?.role === 'supervisor_flotas' ? 'fleet' : 'board'));
@@ -2725,7 +2740,7 @@ function renderGarantias() {
       btn.addEventListener('click', () => openImageLightbox(item.firma, 'Firma del operador'));
       strip.appendChild(btn);
     }
-    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('Ver ficha', 'btn btn-secondary', () => openReportDetailModal(item))); baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin') && item.estatusOperativo === 'terminada') baseRow.appendChild(button('Preparar cobro', 'btn btn-primary', async () => { await openQuoteFromReport(item.id); })); if (isRole('admin')) baseRow.appendChild(button('Editar', 'btn btn-secondary', async () => { await editarReporteAdmin(item); })); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
+    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('Ver ficha', 'btn btn-secondary', () => openReportDetailModal(item))); baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin') && item.estatusOperativo === 'terminada') baseRow.appendChild(button('Generar cotización', 'btn btn-primary', async () => { await openAdminQuoteFromReport(item.id); })); if (isRole('admin')) baseRow.appendChild(button('Editar', 'btn btn-secondary', async () => { await editarReporteAdmin(item); })); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
     if (isRole('operativo','admin')) {
       const reviewBox = document.createElement('div'); reviewBox.innerHTML = `
         <label>Decisión operativa</label>
@@ -3185,10 +3200,107 @@ els.globalRefreshBtn?.addEventListener('click', async () => {
   if (state.activePanel === 'parts') await loadPartsPending(true);
   if (state.activePanel === 'stock' && isRole('admin')) await loadStock(true);
   if (state.activePanel === 'cobranza' && isRole('admin')) await loadCobranza(true);
+  if (state.activePanel === 'quotes' && isRole('admin')) await loadAdminQuotes(true);
   if (state.activePanel === 'campaigns') await loadCampaigns(state.selectedCampaignId);
   renderExecutiveDeck();
   notify('Datos actualizados.');
 });
+
+function computeQuoteAdminTotals(items = [], taxPercent = 16) {
+  const subtotal = Number(items.reduce((sum, item) => sum + (Number(item.quantity || 0) * Number(item.unitPrice || 0)), 0).toFixed(2));
+  const iva = Number((subtotal * (Number(taxPercent || 0) / 100)).toFixed(2));
+  return { subtotal, iva, total: Number((subtotal + iva).toFixed(2)) };
+}
+function selectedAdminQuote(){ return state.adminQuotes.find(q => q.id === state.selectedAdminQuoteId) || null; }
+function ensureAdminQuoteDraft(quote){
+  if (!quote) return null;
+  if (!state.adminQuoteDrafts[quote.id]) state.adminQuoteDrafts[quote.id] = { ...quote, items:(quote.items||[]).map(i => ({...i})) };
+  return state.adminQuoteDrafts[quote.id];
+}
+async function loadAdminQuotes(force=false){
+  if (!isRole('admin')) return;
+  if (!force && state.adminQuotes.length && state.activePanel !== 'quotes') return;
+  try {
+    state.adminQuotes = await api.getQuotes();
+    if (!state.selectedAdminQuoteId && state.adminQuotes[0]) state.selectedAdminQuoteId = state.adminQuotes[0].id;
+    if (state.selectedAdminQuoteId && !state.adminQuotes.find(q => q.id === state.selectedAdminQuoteId)) state.selectedAdminQuoteId = state.adminQuotes[0]?.id || '';
+    renderAdminQuotes();
+  } catch (error) { notify(error.message, true); }
+}
+function renderAdminQuotes(){
+  if (els.quotesList) {
+    els.quotesList.innerHTML = state.adminQuotes.map(q => `<button type="button" class="quote-list-row ${q.id === state.selectedAdminQuoteId ? 'active' : ''}" data-admin-quote-open="${q.id}"><div><strong>${escapeHtml(q.folio || '—')}</strong><div class="small muted">${escapeHtml(q.clientName || 'Sin cliente')} · ${escapeHtml(q.companyName || 'Sin empresa')}</div><div class="small muted">Unidad ${escapeHtml(q.unitNumber || '—')} · ${fmtDate(q.date)}</div></div><div><span class="badge ${quoteStatusBadge(q.status)}">${escapeHtml(q.status)}</span><strong>${money(q.total || 0)}</strong></div></button>`).join('') || '<div class="muted">Sin cotizaciones.</div>';
+    els.quotesList.querySelectorAll('[data-admin-quote-open]').forEach(btn => btn.addEventListener('click', ()=>{ state.selectedAdminQuoteId = btn.dataset.adminQuoteOpen; renderAdminQuotes(); }));
+  }
+  renderQuoteEditor();
+}
+function quoteEditorDraftFromDom(id){
+  const quote = state.adminQuotes.find(q => q.id === id); const draft = ensureAdminQuoteDraft(quote); if (!draft) return null;
+  const val=(i)=>document.getElementById(i)?.value || '';
+  Object.assign(draft, { clientName:val('admQuoteClient'), clientPhone:val('admQuotePhone'), clientEmail:val('admQuoteEmail'), companyName:val('admQuoteCompany'), unitNumber:val('admQuoteUnit'), date:val('admQuoteDate'), projectTitle:val('admQuoteProject'), paymentTerms:val('admQuoteTerms'), headerMessage:val('admQuoteHeader'), specialNote:val('admQuoteNote'), closingText:val('admQuoteClosing'), status:val('admQuoteStatus'), taxPercent:Number(val('admQuoteTax') || 16)});
+  draft.items = [...document.querySelectorAll('#admQuoteItems tr')].map((row, idx)=>({ id:row.dataset.id||'', description: row.querySelector(`[data-adm-desc="${idx}"]`)?.value || '', quantity:Number(row.querySelector(`[data-adm-qty="${idx}"]`)?.value || 0), unitPrice:Number(row.querySelector(`[data-adm-price="${idx}"]`)?.value || 0) }));
+  return draft;
+}
+function renderQuoteEditor(){
+  const quote = selectedAdminQuote();
+  if (!quote || !els.quoteEditor) { if (els.quoteEditor) els.quoteEditor.innerHTML = '<div class="muted">Selecciona una cotización o crea una nueva.</div>'; return; }
+  const draft = ensureAdminQuoteDraft(quote);
+  const totals = computeQuoteAdminTotals(draft.items || [], draft.taxPercent || 16);
+  const rows = (draft.items || []).map((item, idx)=>`<tr data-id="${escapeHtml(item.id || '')}"><td><input data-adm-desc="${idx}" value="${escapeHtml(item.description || '')}"/></td><td><input data-adm-qty="${idx}" type="number" step="0.01" min="0" value="${Number(item.quantity || 0)}"/></td><td><input data-adm-price="${idx}" type="number" step="0.01" min="0" value="${Number(item.unitPrice || 0)}"/></td><td><strong>${money((Number(item.quantity||0)*Number(item.unitPrice||0)))}</strong></td><td><button type="button" class="btn btn-ghost" data-adm-del="${idx}">✕</button><button type="button" class="btn btn-ghost" data-adm-dup="${idx}">⎘</button></td></tr>`).join('');
+  els.quoteEditor.innerHTML = `<div class="quote-admin-shell"><div class="quote-headline"><div><div class="topbar-kicker">${escapeHtml(quote.folio || '')}</div><h3>Cotización formal Carlab</h3></div><div class="badge-stack"><span class="badge ${quoteStatusBadge(draft.status || quote.status || 'borrador')}">${escapeHtml(draft.status || 'borrador')}</span></div></div><div class="quote-admin-grid"><label><span>Cliente</span><input id="admQuoteClient" value="${escapeHtml(draft.clientName || '')}"/></label><label><span>Teléfono</span><input id="admQuotePhone" value="${escapeHtml(draft.clientPhone || '')}"/></label><label><span>Correo</span><input id="admQuoteEmail" value="${escapeHtml(draft.clientEmail || '')}"/></label><label><span>Empresa</span><input id="admQuoteCompany" value="${escapeHtml(draft.companyName || '')}"/></label><label><span>Unidad</span><input id="admQuoteUnit" value="${escapeHtml(draft.unitNumber || '')}"/></label><label><span>Fecha</span><input id="admQuoteDate" type="date" value="${String(draft.date || '').slice(0,10)}"/></label><label><span>Título del proyecto</span><input id="admQuoteProject" value="${escapeHtml(draft.projectTitle || '')}"/></label><label><span>Condiciones de pago</span><input id="admQuoteTerms" value="${escapeHtml(draft.paymentTerms || '')}"/></label><label><span>Estatus</span><select id="admQuoteStatus"><option>borrador</option><option>enviada</option><option>autorizada</option><option>rechazada</option><option>cancelada</option></select></label><label><span>Mensaje encabezado</span><input id="admQuoteHeader" value="${escapeHtml(draft.headerMessage || '')}"/></label><label><span>Nota especial</span><input id="admQuoteNote" value="${escapeHtml(draft.specialNote || '')}"/></label><label><span>Cierre / firma</span><input id="admQuoteClosing" value="${escapeHtml(draft.closingText || '')}"/></label></div><div class="quote-items-head"><strong>Conceptos</strong><button id="admQuoteAddItem" class="btn btn-secondary" type="button">Agregar concepto</button></div><div class="quote-table-wrap"><table class="quote-admin-table"><thead><tr><th>Descripción</th><th>Cantidad</th><th>Precio</th><th>Importe</th><th></th></tr></thead><tbody id="admQuoteItems">${rows}</tbody></table></div><div class="quote-admin-summary"><article><span>Subtotal</span><strong>${money(totals.subtotal)}</strong></article><article><span>IVA %</span><strong><input id="admQuoteTax" type="number" min="0" step="0.01" value="${Number(draft.taxPercent || 16)}"/></strong></article><article><span>Monto IVA</span><strong>${money(totals.iva)}</strong></article><article><span>Total</span><strong>${money(totals.total)}</strong></article></div><div class="quote-pdf-preview"><strong>Vista previa rápida</strong><p>${escapeHtml(draft.headerMessage || 'Agradecemos la oportunidad de cotizar para su unidad.')}</p><p><strong>Proyecto:</strong> ${escapeHtml(draft.projectTitle || 'Sin título')}</p><p><strong>Condiciones:</strong> ${escapeHtml(draft.paymentTerms || 'Sin condiciones')}</p><p>${escapeHtml(draft.specialNote || '')}</p><p><em>${escapeHtml(draft.closingText || 'Atentamente CARLAB')}</em></p></div><div class="stock-form-actions"><button id="admQuoteDelete" class="btn btn-ghost" type="button">Eliminar</button><button id="admQuotePdf" class="btn btn-secondary" type="button">Generar PDF</button><button id="admQuoteSave" class="btn btn-primary" type="button">Guardar</button></div></div>`;
+  document.getElementById('admQuoteStatus').value = draft.status || 'borrador';
+  document.querySelectorAll('#quoteEditor input,#quoteEditor select').forEach(el => { el.addEventListener('input', ()=>{ quoteEditorDraftFromDom(quote.id); renderQuoteEditor(); }); el.addEventListener('change', ()=>{ quoteEditorDraftFromDom(quote.id); renderQuoteEditor(); }); });
+  document.querySelectorAll('[data-adm-del]').forEach(btn => btn.addEventListener('click', ()=>{ draft.items.splice(Number(btn.dataset.admDel),1); renderQuoteEditor(); }));
+  document.querySelectorAll('[data-adm-dup]').forEach(btn => btn.addEventListener('click', ()=>{ const x=draft.items[Number(btn.dataset.admDup)]; if (x) draft.items.splice(Number(btn.dataset.admDup)+1,0,{...x,id:''}); renderQuoteEditor(); }));
+  document.getElementById('admQuoteAddItem')?.addEventListener('click', ()=>{ draft.items.push({ description:'', quantity:1, unitPrice:0 }); renderQuoteEditor(); });
+  document.getElementById('admQuoteSave')?.addEventListener('click', async ()=>{ try { const payload=quoteEditorDraftFromDom(quote.id); await api.updateAdminQuote(quote.id, payload); delete state.adminQuoteDrafts[quote.id]; notify('Cotización guardada.'); await loadAdminQuotes(true);} catch(error){ notify(error.message,true); }});
+  document.getElementById('admQuoteDelete')?.addEventListener('click', async ()=>{ if(!confirm('¿Eliminar cotización?')) return; try { await api.deleteAdminQuote(quote.id); delete state.adminQuoteDrafts[quote.id]; state.selectedAdminQuoteId=''; await loadAdminQuotes(true); notify('Cotización eliminada.'); } catch(error){ notify(error.message,true); }});
+  document.getElementById('admQuotePdf')?.addEventListener('click', ()=> exportAdminQuotePdf(quote.id));
+}
+async function createNewAdminQuote(){
+  try {
+    const created = await api.createQuote({ status:'borrador', date:new Date().toISOString().slice(0,10), items:[{ description:'Servicio técnico', quantity:1, unitPrice:0 }], taxPercent:16, headerMessage:'Agradecemos la oportunidad de atender su solicitud.', closingText:'Atentamente, CARLAB' });
+    state.selectedAdminQuoteId = created?.id || '';
+    await loadAdminQuotes(true);
+  } catch (error) { notify(error.message, true); }
+}
+async function openAdminQuoteFromReport(reportId){
+  try {
+    const quote = await api.createAdminQuoteFromReport(reportId);
+    state.selectedAdminQuoteId = quote?.id || '';
+    switchPanel('quotes');
+    await loadAdminQuotes(true);
+    notify('Cotización generada desde reporte.');
+  } catch (error) { notify(error.message, true); }
+}
+function exportAdminQuotePdf(quoteId){
+  const quote = state.adminQuotes.find(q => q.id === quoteId); const draft = state.adminQuoteDrafts[quoteId] || quote;
+  if (!quote || !draft) return;
+  const { jsPDF } = window.jspdf; const doc = new jsPDF();
+  const totals = computeQuoteAdminTotals(draft.items || [], draft.taxPercent || 16);
+  let y=16;
+  doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.text('CARLAB', 14, y); doc.setFontSize(11); doc.setFont('helvetica','normal'); y+=7;
+  doc.text('Cotización formal',14,y); doc.text(`Folio: ${quote.folio || '—'}`,150,y); y+=6;
+  doc.text(`Fecha: ${String(draft.date || '').slice(0,10)}`,14,y); y+=6;
+  doc.setFont('helvetica','bold'); doc.text('Cliente',14,y); doc.setFont('helvetica','normal'); y+=5;
+  doc.text(`${draft.clientName || ''} · ${draft.clientPhone || ''} · ${draft.clientEmail || ''}`,14,y); y+=5;
+  doc.text(`Empresa: ${draft.companyName || ''} · Unidad: ${draft.unitNumber || ''}`,14,y); y+=7;
+  doc.setFont('helvetica','bold'); doc.text(`Proyecto: ${draft.projectTitle || ''}`,14,y); y+=6;
+  doc.setFont('helvetica','normal'); doc.text(`Condiciones: ${draft.paymentTerms || ''}`,14,y); y+=7;
+  doc.text(draft.headerMessage || '',14,y,{maxWidth:180}); y+=10;
+  doc.setDrawColor(220); doc.line(14,y,196,y); y+=6;
+  doc.setFont('helvetica','bold'); doc.text('Descripción',14,y); doc.text('Cant.',132,y,{align:'right'}); doc.text('Precio',160,y,{align:'right'}); doc.text('Importe',196,y,{align:'right'}); y+=5;
+  doc.setFont('helvetica','normal');
+  (draft.items||[]).forEach(it=>{ const amt=Number(it.quantity||0)*Number(it.unitPrice||0); doc.text(String(it.description||''),14,y,{maxWidth:108}); doc.text(String(Number(it.quantity||0).toFixed(2)),132,y,{align:'right'}); doc.text(money(it.unitPrice||0),160,y,{align:'right'}); doc.text(money(amt),196,y,{align:'right'}); y+=6; if (y>255){ doc.addPage(); y=20; }});
+  y+=4; doc.line(120,y,196,y); y+=6;
+  doc.text(`Subtotal: ${money(totals.subtotal)}`,196,y,{align:'right'}); y+=6;
+  doc.text(`IVA ${Number(draft.taxPercent||16)}%: ${money(totals.iva)}`,196,y,{align:'right'}); y+=6;
+  doc.setFont('helvetica','bold'); doc.text(`Total: ${money(totals.total)}`,196,y,{align:'right'}); y+=8;
+  doc.setFont('helvetica','normal'); doc.text(`Nota: ${draft.specialNote || ''}`,14,y,{maxWidth:180}); y+=10;
+  doc.text(draft.closingText || 'Atentamente, CARLAB',14,y);
+  doc.save(`${quote.folio || 'cotizacion'}.pdf`);
+}
+
 els.opNavHomeBtn?.addEventListener('click', () => switchPanel('board'));
 els.opNavNewBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); });
 els.opNavScheduleBtn?.addEventListener('click', async () => { switchPanel('schedule'); });
@@ -3204,8 +3316,11 @@ els.navFleetBtn?.addEventListener('click', async () => { switchPanel('fleet'); }
 els.navPartsBtn?.addEventListener('click', async () => { await cargarSolicitudesIndependientes(); await loadPartsPending(true); switchPanel('parts'); });
 els.navStockBtn?.addEventListener('click', async () => { switchPanel('stock'); });
 els.navCobranzaBtn?.addEventListener('click', async () => { switchPanel('cobranza'); });
+els.navQuotesBtn?.addEventListener('click', async () => { switchPanel('quotes'); });
 els.stockRefreshBtn?.addEventListener('click', async () => { await loadStock(true); switchPanel('stock'); });
 els.cobranzaRefreshBtn?.addEventListener('click', async () => { await loadCobranza(true); switchPanel('cobranza'); });
+els.quotesRefreshBtn?.addEventListener('click', async () => { await loadAdminQuotes(true); switchPanel('quotes'); });
+els.quoteNewBtn?.addEventListener('click', createNewAdminQuote);
 els.stockCancelBtn?.addEventListener('click', resetStockForm);
 
 els.stockPartForm?.addEventListener('submit', async (e) => {
