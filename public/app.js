@@ -45,6 +45,8 @@ const state = {
   selectedCampaignId: '',
   campaignUnitEvidence: [],
   garantiaFullCache: {},
+  servicesReport: { summary: {}, reports: [] },
+  authorizedActivitiesEditingId: '',
 };
 
 const api = {
@@ -70,6 +72,11 @@ const api = {
   registerOperator(payload) { return this.request('/api/public/register-operator', { method: 'POST', body: JSON.stringify(payload) }); },
   getGarantias() { return this.request('/api/garantias'); },
   getGarantia(id) { return this.request(`/api/garantias/${id}`); },
+  getServicesReport(params = {}) { const qs = new URLSearchParams(Object.entries(params).filter(([,v]) => v !== undefined && v !== null && String(v) !== '')); return this.request(`/api/services-report${qs.toString() ? `?${qs}` : ''}`); },
+  getAuthorizedActivities(id) { return this.request(`/api/garantias/${id}/authorized-activities`); },
+  createAuthorizedActivity(id, payload) { return this.request(`/api/garantias/${id}/authorized-activities`, { method: 'POST', body: JSON.stringify(payload || {}) }); },
+  updateAuthorizedActivity(id, payload) { return this.request(`/api/authorized-activities/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
+  deleteAuthorizedActivity(id) { return this.request(`/api/authorized-activities/${id}`, { method: 'DELETE' }); },
   createGarantia(payload) { return this.request('/api/garantias', { method: 'POST', body: JSON.stringify(payload) }); },
   updateGarantia(id, payload) { return this.request(`/api/garantias/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   deleteGarantia(id) { return this.request(`/api/garantias/${id}`, { method: 'DELETE' }); },
@@ -150,7 +157,7 @@ function bind() {
   [
     'loginView','dashboardView','loginForm','loginEmail','loginPassword','loginError','registerForm','registerMessage','regNombre','regEmail','regTelefono','regEmpresa','regNumeroEconomico','regPassword',
     'tabLoginBtn','tabRegisterBtn','welcomeText','currentUserName','currentUserEmail','currentRoleBadge','avatarCircle','pageTitle','roleSummaryText','roleBrief','logoutBtn',
-    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navFleetBtn','navPartsBtn','navStockBtn','navCobranzaBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel','stockPanel','cobranzaPanel',
+    'navBoardBtn','navNewReportBtn','navServicesBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navFleetBtn','navPartsBtn','navStockBtn','navCobranzaBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel','stockPanel','cobranzaPanel','servicesPanel','servicesPeriod','servicesStartDate','servicesEndDate','servicesEmpresa','servicesUnidad','servicesEstatus','servicesConsultBtn','servicesPdfBtn','servicesCsvBtn','servicesSummary','servicesTable','authorizedActivitiesModal','authorizedActivitiesClose','authorizedActivitiesList','authorizedActivitiesAddBtn','authorizedActivitiesCancelBtn','authorizedActivitiesSaveBtn',
     'reportForm','numeroObra','modelo','numeroEconomico','empresa','kilometraje','contactoNombre','telefono','descripcionFallo','solicitaRefaccion','refaccionFields','detalleRefaccion',
     'evidencias','evidenciasCamara','evidenciasRefaccion','evidenciasRefaccionCamara','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn','searchInput','validationFilter','operationalFilter',
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
@@ -217,6 +224,7 @@ async function getGarantiaFull(id) {
     }
     return [];
   };
+  const activities = await api.getAuthorizedActivities(garantiaId).catch(() => []);
   const normalized = {
     ...full,
     evidencias: normalizeEvidence(full.evidencias),
@@ -646,6 +654,7 @@ function switchPanel(panel) {
   els.stockPanel?.classList.toggle('hidden', panel !== 'stock');
   els.cobranzaPanel?.classList.toggle('hidden', panel !== 'cobranza');
   els.campaignsPanel?.classList.toggle('hidden', panel !== 'campaigns');
+  els.servicesPanel?.classList.toggle('hidden', panel !== 'services');
   document.body.dataset.panel = panel;
   const board = panel === 'board';
   els.filtersPanel?.classList.toggle('hidden', !board);
@@ -656,6 +665,7 @@ function switchPanel(panel) {
   if (panel === 'stock') loadStock();
   if (panel === 'cobranza') loadCobranza();
   if (panel === 'campaigns') loadCampaigns();
+  if (panel === 'services') loadServicesReport();
   updateOperatorAppNav(panel);
   setActiveNav(
     panel === 'report' ? els.navNewReportBtn :
@@ -666,6 +676,7 @@ function switchPanel(panel) {
     panel === 'history' ? els.navHistoryBtn :
     panel === 'schedule' ? els.navScheduleBtn :
     panel === 'fleet' ? els.navFleetBtn :
+    panel === 'services' ? els.navServicesBtn :
     panel === 'parts' ? els.navPartsBtn :
     panel === 'stock' ? els.navStockBtn :
     panel === 'cobranza' ? els.navCobranzaBtn :
@@ -688,6 +699,7 @@ function showDashboard() {
   els.navHistoryBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo'));
   els.navScheduleBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo','operador'));
   els.navFleetBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas','operativo'));
+  els.navServicesBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas','operativo'));
   els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas'));
   els.navStockBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navCobranzaBtn?.classList.toggle('hidden', !isRole('admin'));
@@ -870,6 +882,12 @@ async function exportPdf(reportOrId) {
   if (safeItem.estatusValidacion === 'rechazada' && safeItem.observacionesOperativo) {
     y = ensurePdfSpace(doc, y, 24); doc.setFontSize(12); doc.setTextColor(170, 35, 35); textLine('Motivo de rechazo', 8);
     doc.setFontSize(10); doc.setTextColor(80,80,80); split = doc.splitTextToSize(safeItem.observacionesOperativo, 178); doc.text(split, 14, y); y += split.length * 6 + 6;
+  }
+
+  if ((safeItem.authorizedActivities || []).length) {
+    y = ensurePdfSpace(doc, y, 30); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Actividades autorizadas', 8);
+    doc.setFontSize(9); doc.setTextColor(55,55,55);
+    (safeItem.authorizedActivities || []).forEach((a, idx) => { y = ensurePdfSpace(doc, y, 14); const line = `${idx + 1}. ${a.description || '—'} | ${a.type || 'otro'} | ${a.responsible || '—'} | ${a.status || 'pendiente'}${a.notes ? ' | ' + a.notes : ''}`; const lines = doc.splitTextToSize(line, 178); doc.text(lines, 14, y); y += lines.length * 5 + 2; });
   }
 
   doc.save(`${safeItem.folio || 'garantia'}_${safeItem.numeroEconomico || 'unidad'}_${safeItem.numeroObra || 'obra'}.pdf`);
@@ -2725,7 +2743,7 @@ function renderGarantias() {
       btn.addEventListener('click', () => openImageLightbox(item.firma, 'Firma del operador'));
       strip.appendChild(btn);
     }
-    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('Ver ficha', 'btn btn-secondary', () => openReportDetailModal(item))); baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin') && item.estatusOperativo === 'terminada') baseRow.appendChild(button('Preparar cobro', 'btn btn-primary', async () => { await openQuoteFromReport(item.id); })); if (isRole('admin')) baseRow.appendChild(button('Editar', 'btn btn-secondary', async () => { await editarReporteAdmin(item); })); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
+    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('Ver ficha', 'btn btn-secondary', () => openReportDetailModal(item))); baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo')) baseRow.appendChild(button('Asignar actividades autorizadas', 'btn btn-secondary', () => openAuthorizedActivitiesModal(item.id))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin') && item.estatusOperativo === 'terminada') baseRow.appendChild(button('Preparar cobro', 'btn btn-primary', async () => { await openQuoteFromReport(item.id); })); if (isRole('admin')) baseRow.appendChild(button('Editar', 'btn btn-secondary', async () => { await editarReporteAdmin(item); })); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
     if (isRole('operativo','admin')) {
       const reviewBox = document.createElement('div'); reviewBox.innerHTML = `
         <label>Decisión operativa</label>
@@ -2817,6 +2835,7 @@ function renderCompanies() {
   fillSelect(els.empresa, activeCompanies, 'Selecciona empresa');
   fillSelect(els.regEmpresa, activeCompanies, 'Selecciona empresa');
   fillSelect(els.userEmpresa, activeCompanies, 'Sin empresa');
+  fillSelect(els.servicesEmpresa, activeCompanies, 'Todas');
 
   // conservar selección del operador si ya tiene empresa
   if (isRole('operador') && state.user?.empresa && els.empresa && !els.empresa.value) {
@@ -2824,6 +2843,37 @@ function renderCompanies() {
   }
 }
 
+
+function todayIso() { return new Date().toISOString().slice(0,10); }
+function setServicesDefaultDates() {
+  const now = new Date(); const end = new Date(now); const start = new Date(now);
+  const p = els.servicesPeriod?.value || 'week';
+  if (p === 'day') {} else if (p === 'month') start.setDate(start.getDate() - 30); else start.setDate(start.getDate() - 7);
+  if (els.servicesStartDate && !els.servicesStartDate.value) els.servicesStartDate.value = start.toISOString().slice(0,10);
+  if (els.servicesEndDate && !els.servicesEndDate.value) els.servicesEndDate.value = end.toISOString().slice(0,10);
+}
+function renderAuthorizedActivitiesSection(items = []) {
+  return `<div class="owner-card"><div class="owner-card-head"><strong>Actividades autorizadas</strong><span class="badge badge-info">${items.length}</span></div>${items.length ? `<div class="table-list compact-list">${items.map(a => `<div class="table-row"><div><strong>${escapeHtml(a.description)}</strong><div class="small muted">${escapeHtml(a.type)} · ${escapeHtml(a.responsible || 'Sin responsable')}</div>${a.notes ? `<div class="small muted">${escapeHtml(a.notes)}</div>` : ''}</div><div>${escapeHtml(a.status)}</div></div>`).join('')}</div>` : '<div class="muted">Sin actividades autorizadas registradas.</div>'}</div>`;
+}
+function renderServicesReport() {
+  const s = state.servicesReport.summary || {}, rows = state.servicesReport.reports || [];
+  const cards = [['Total de reportes',s.totalReportes],['Unidades atendidas',s.unidadesAtendidas],['Terminados',s.terminados],['En proceso',s.enProceso],['Espera refacción',s.esperaRefaccion],['Pendientes / sin iniciar',s.pendientesSinIniciar],['Rechazados',s.rechazados],['Con refacción solicitada',s.reportesConRefaccionSolicitada],['Unidades reincidentes',s.unidadesReincidentes],['Actividades autorizadas',s.actividadesAutorizadas]];
+  if (els.servicesSummary) els.servicesSummary.innerHTML = cards.map(([k,v]) => `<article class="analytic-card"><strong>${escapeHtml(k)}</strong><div class="stat"><strong>${Number(v||0)}</strong></div></article>`).join('');
+  if (els.servicesTable) els.servicesTable.innerHTML = rows.length ? rows.map(r => `<div class="table-row"><div><strong>${escapeHtml(r.folio || '—')}</strong><div class="small muted">${escapeHtml(fmtDate(r.createdAt))}</div></div><div>${escapeHtml(r.empresa || '—')}</div><div>${escapeHtml(r.numeroEconomico || '—')}<div class="small muted">${escapeHtml(r.modelo || '—')}</div></div><div>${escapeHtml(r.tipoIncidente || '—')}</div><div>${escapeHtml(r.descripcionFallo || '—')}</div><div>${escapeHtml(r.estatusValidacion || '—')} / ${escapeHtml(r.estatusOperativo || '—')}</div><div>${r.solicitaRefaccion ? 'Sí' : 'No'}</div><div>${Number(r.authorizedActivitiesCount || 0)}</div><div>${escapeHtml(fmtDate(r.closedAt))}</div></div>`).join('') : '<div class="empty-state"><strong>Sin reportes.</strong><span>Ajusta filtros y consulta nuevamente.</span></div>';
+}
+async function loadServicesReport() {
+  if (!isRole('admin','operativo','supervisor_flotas')) return;
+  setServicesDefaultDates();
+  const params = { startDate: els.servicesStartDate?.value, endDate: els.servicesEndDate?.value, empresa: els.servicesEmpresa?.value, numeroEconomico: els.servicesUnidad?.value, estatusOperativo: els.servicesEstatus?.value };
+  state.servicesReport = await api.getServicesReport(params); renderServicesReport();
+}
+function downloadBlob(content, name, type) { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([content],{type})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); }
+function exportServicesCsv() { const rows = state.servicesReport.reports || []; const headers=['Folio','Fecha','Empresa','Unidad','Modelo','Tipo de incidencia','Descripción','Estatus validación','Estatus operativo','Refacción solicitada','Actividades autorizadas','Fecha de cierre']; const esc=v=>`"${String(v??'').replace(/"/g,'""')}"`; const csv=[headers.map(esc).join(','),...rows.map(r=>[r.folio,fmtDate(r.createdAt),r.empresa,r.numeroEconomico,r.modelo,r.tipoIncidente,r.descripcionFallo,r.estatusValidacion,r.estatusOperativo,r.solicitaRefaccion?'Sí':'No',r.authorizedActivitiesCount||0,fmtDate(r.closedAt)].map(esc).join(','))].join('\n'); downloadBlob(csv, `servicios-carlab-${todayIso()}.csv`, 'text/csv;charset=utf-8'); }
+function exportServicesPdf() { const { jsPDF } = window.jspdf; const doc = new jsPDF(); let y=18; doc.setFontSize(16); doc.text('CARLAB',14,y); y+=8; doc.setFontSize(14); doc.text('Reporte de servicios',14,y); y+=8; doc.setFontSize(9); doc.text(`Periodo: ${els.servicesStartDate?.value || '—'} a ${els.servicesEndDate?.value || '—'} · Empresa: ${els.servicesEmpresa?.value || (state.user?.role==='supervisor_flotas'?state.user?.empresa:'Todas') || 'Todas'}`,14,y); y+=8; doc.text(`Fecha de generación: ${new Date().toLocaleString('es-MX')}`,14,y); y+=8; Object.entries(state.servicesReport.summary||{}).forEach(([k,v])=>{ if(y>280){doc.addPage();y=18;} doc.text(`${k}: ${v}`,14,y); y+=5; }); y+=4; (state.servicesReport.reports||[]).forEach(r=>{ if(y>280){doc.addPage();y=18;} doc.text(doc.splitTextToSize(`${r.folio||'—'} | ${fmtDate(r.createdAt)} | ${r.empresa||'—'} | ${r.numeroEconomico||'—'} | ${r.estatusOperativo||'—'} | Act: ${r.authorizedActivitiesCount||0}`,180),14,y); y+=8; }); doc.save(`servicios-carlab-${todayIso()}.pdf`); }
+function activityEditorRow(a = {}) { const wrap=document.createElement('div'); wrap.className='owner-card authorized-activity-row'; wrap.dataset.id=a.id||''; wrap.innerHTML=`<div class="schedule-manual-grid"><label class="span-2"><span>Descripción</span><input class="aa-description" value="${escapeHtml(a.description||'')}" /></label><label><span>Tipo</span><select class="aa-type"><option value="mano de obra">Mano de obra</option><option value="refacción">Refacción</option><option value="pintura">Pintura</option><option value="ajuste">Ajuste</option><option value="diagnóstico">Diagnóstico</option><option value="otro">Otro</option></select></label><label><span>Responsable</span><input class="aa-responsible" value="${escapeHtml(a.responsible||'')}" /></label><label><span>Estatus</span><select class="aa-status"><option value="pendiente">Pendiente</option><option value="en proceso">En proceso</option><option value="realizada">Realizada</option></select></label><label class="span-2"><span>Observaciones</span><textarea class="aa-notes" rows="2">${escapeHtml(a.notes||'')}</textarea></label><button class="btn btn-ghost aa-delete" type="button">Eliminar</button></div>`; wrap.querySelector('.aa-type').value=a.type||'otro'; wrap.querySelector('.aa-status').value=a.status||'pendiente'; wrap.querySelector('.aa-delete').onclick=()=>wrap.remove(); return wrap; }
+async function openAuthorizedActivitiesModal(garantiaId) { state.authorizedActivitiesEditingId=garantiaId; const items=await api.getAuthorizedActivities(garantiaId); els.authorizedActivitiesList.innerHTML=''; items.forEach(a=>els.authorizedActivitiesList.appendChild(activityEditorRow(a))); if(!items.length) els.authorizedActivitiesList.appendChild(activityEditorRow()); els.authorizedActivitiesModal?.classList.remove('hidden'); document.body.classList.add('modal-open'); }
+function closeAuthorizedActivitiesModal(){ els.authorizedActivitiesModal?.classList.add('hidden'); if(els.authorizedActivitiesList) els.authorizedActivitiesList.innerHTML=''; document.body.classList.remove('modal-open'); }
+async function saveAuthorizedActivities(){ const gid=state.authorizedActivitiesEditingId; const existing=await api.getAuthorizedActivities(gid); const kept=new Set(); for (const row of els.authorizedActivitiesList.querySelectorAll('.authorized-activity-row')) { const payload={ description: row.querySelector('.aa-description').value.trim(), type: row.querySelector('.aa-type').value, responsible: row.querySelector('.aa-responsible').value.trim(), status: row.querySelector('.aa-status').value, notes: row.querySelector('.aa-notes').value.trim() }; if(!payload.description) continue; const id=row.dataset.id; if(id){ kept.add(id); await api.updateAuthorizedActivity(id,payload); } else { const created=await api.createAuthorizedActivity(gid,payload); kept.add(created.id); } } for (const a of existing) if(!kept.has(a.id)) await api.deleteAuthorizedActivity(a.id); state.garantiaFullCache[gid]=null; notify('Actividades autorizadas guardadas.'); closeAuthorizedActivitiesModal(); await loadGarantias(); }
 
 async function loadGarantias() { state.garantias = await api.getGarantias(); renderGarantias(); await loadNotifications(); }
 async function loadUsers() { if (!isRole('admin')) return; state.users = await api.getUsers(); renderUsers(); }
@@ -2833,7 +2883,7 @@ async function loadRequests() { if (!isRole('admin')) return; state.registration
 function paintUnitHistory(history) {
   const q = normalizeText(els.unitHistorySearchInput?.value || '');
   const filtered = !q ? history : history.filter(item => normalizeText([item.numeroObra, item.modelo, item.empresa, item.tipoIncidente, item.descripcionFallo].join(' ')).includes(q));
-  els.unitHistoryResult.innerHTML = filtered.length ? filtered.map(item => `<div class="table-row"><div><strong>Obra ${escapeHtml(item.numeroObra)}</strong><div class="small muted">${escapeHtml(item.modelo)} · ${escapeHtml(item.empresa)}</div><div class="small muted">${escapeHtml(item.descripcionFallo || '')}</div></div><div>${escapeHtml(item.tipoIncidente)}</div><div><span class="badge ${badgeClassValidation(item.estatusValidacion)}">${escapeHtml(item.estatusValidacion)}</span></div><div>${fmtDate(item.createdAt)}</div></div>`).join('') : '<div class="empty-state"><strong>Sin historial.</strong><span>No hay coincidencias para esa unidad.</span></div>';
+  els.unitHistoryResult.innerHTML = filtered.length ? filtered.map(item => `<div class="table-row"><div><strong>Obra ${escapeHtml(item.numeroObra)}</strong><div class="small muted">${escapeHtml(item.modelo)} · ${escapeHtml(item.empresa)}</div><div class="small muted">${escapeHtml(item.descripcionFallo || '')}</div>${(item.authorizedActivities || []).length ? `<div class="small muted"><strong>Actividades autorizadas:</strong> ${(item.authorizedActivities || []).map(a => escapeHtml(a.description)).join(', ')}</div>` : ''}</div><div>${escapeHtml(item.tipoIncidente)}</div><div><span class="badge ${badgeClassValidation(item.estatusValidacion)}">${escapeHtml(item.estatusValidacion)}</span></div><div>${fmtDate(item.createdAt)}</div></div>`).join('') : '<div class="empty-state"><strong>Sin historial.</strong><span>No hay coincidencias para esa unidad.</span></div>';
 }
 
 async function renderUnitHistory() {
@@ -2944,6 +2994,7 @@ async function openReportDetailModal(item) {
       ${full.observacionesOperativo ? `<p class="small muted"><strong>Observación operativa:</strong> ${escapeHtml(full.observacionesOperativo)}</p>` : ''}
       ${full.motivoDecision ? `<p class="small muted"><strong>Motivo decisión:</strong> ${escapeHtml(full.motivoDecision)}</p>` : ''}
     </div>
+    ${renderAuthorizedActivitiesSection(full.authorizedActivities || [])}
     <div class="owner-card owner-gallery-card">
       <div class="owner-card-head"><strong>Evidencia visual</strong><span class="badge badge-info">${gallery.length} archivo${gallery.length === 1 ? '' : 's'}</span></div>
       ${gallery.length ? `<div class="media-gallery">${gallery.map((entry, idx) => `<button type="button" class="media-thumb" onclick='openImageLightbox(${JSON.stringify(entry.src)}, ${JSON.stringify(entry.caption || `Evidencia ${idx + 1}`)})'><img src="${entry.src}" alt="Evidencia ${idx + 1}" /></button>`).join('')}</div>` : '<div class="muted">Sin evidencia cargada.</div>'}
@@ -2951,11 +3002,13 @@ async function openReportDetailModal(item) {
     </div>
     <div class="parts-request-actions report-detail-actions-sticky">
       <button id="reportDetailPdfBtn" class="btn btn-secondary" type="button">Exportar PDF</button>
+      ${isRole('admin','operativo') ? '<button id="reportDetailActivitiesBtn" class="btn btn-secondary" type="button">Asignar actividades autorizadas</button>' : ''}
       ${isRole('admin') ? '<button id="reportDetailRemindBtn" class="btn btn-secondary" type="button">Recordatorio por WhatsApp</button>' : ''}
       <button id="reportDetailCloseBtn" class="btn btn-ghost" type="button">Cerrar</button>
     </div>
   `;
   document.getElementById('reportDetailPdfBtn')?.addEventListener('click', () => exportPdf(full));
+  document.getElementById('reportDetailActivitiesBtn')?.addEventListener('click', () => openAuthorizedActivitiesModal(full.id));
   document.getElementById('reportDetailRemindBtn')?.addEventListener('click', async (event) => {
     const btn = event.currentTarget;
     if (!btn) return;
@@ -3201,6 +3254,7 @@ els.navAnalyticsBtn?.addEventListener('click', () => switchPanel('analytics'));
 els.navHistoryBtn?.addEventListener('click', () => switchPanel('history'));
 els.navScheduleBtn?.addEventListener('click', async () => { switchPanel('schedule'); });
 els.navFleetBtn?.addEventListener('click', async () => { switchPanel('fleet'); });
+els.navServicesBtn?.addEventListener('click', async () => { switchPanel('services'); });
 els.navPartsBtn?.addEventListener('click', async () => { await cargarSolicitudesIndependientes(); await loadPartsPending(true); switchPanel('parts'); });
 els.navStockBtn?.addEventListener('click', async () => { switchPanel('stock'); });
 els.navCobranzaBtn?.addEventListener('click', async () => { switchPanel('cobranza'); });
@@ -3419,3 +3473,12 @@ els.campaignUnitClearBtn?.addEventListener('click', resetCampaignUnitForm);
 els.campaignSaveBtn?.addEventListener('click', async () => { try { const payload = { nombre: els.campaignName?.value.trim(), empresa: els.campaignEmpresa?.value || '', notas: els.campaignNotes?.value.trim() || '' }; if (els.campaignGroupId?.value) await api.updateCampaign(els.campaignGroupId.value, payload); else await api.createCampaign(payload); notify('Campaña guardada.'); resetCampaignForm(); await loadCampaigns(); } catch (error) { notify(error.message, true); } });
 els.campaignUnitEvidence?.addEventListener('change', async (e) => { const files=[...(e.target.files||[])]; for (const file of files) { const data=await new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(file); }); state.campaignUnitEvidence.push(data); } renderCampaignEvidencePreview(); });
 els.campaignUnitSaveBtn?.addEventListener('click', async () => { try { if (!state.selectedCampaignId) throw new Error('Selecciona una campaña.'); const payload = { empresa: els.campaignUnitEmpresa?.value || '', numeroEconomico: els.campaignUnitNumero?.value || '', status: els.campaignUnitStatus?.value || 'sin_programar', notas: els.campaignUnitNotes?.value.trim() || '', evidencia: state.campaignUnitEvidence || [] }; if (els.campaignUnitId?.value) await api.updateCampaignUnit(els.campaignUnitId.value, payload); else await api.createCampaignUnit(state.selectedCampaignId, payload); notify('Unidad guardada en campaña.'); resetCampaignUnitForm(); await openCampaign(state.selectedCampaignId); await loadFleet(); } catch (error) { notify(error.message, true); } });
+
+els.servicesConsultBtn?.addEventListener('click', loadServicesReport);
+els.servicesCsvBtn?.addEventListener('click', exportServicesCsv);
+els.servicesPdfBtn?.addEventListener('click', exportServicesPdf);
+els.servicesPeriod?.addEventListener('change', () => { if(els.servicesStartDate) els.servicesStartDate.value=''; if(els.servicesEndDate) els.servicesEndDate.value=''; setServicesDefaultDates(); });
+els.authorizedActivitiesAddBtn?.addEventListener('click', () => els.authorizedActivitiesList?.appendChild(activityEditorRow()));
+els.authorizedActivitiesClose?.addEventListener('click', closeAuthorizedActivitiesModal);
+els.authorizedActivitiesCancelBtn?.addEventListener('click', closeAuthorizedActivitiesModal);
+els.authorizedActivitiesSaveBtn?.addEventListener('click', saveAuthorizedActivities);
