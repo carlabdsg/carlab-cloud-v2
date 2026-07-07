@@ -45,6 +45,9 @@ const state = {
   selectedCampaignId: '',
   campaignUnitEvidence: [],
   garantiaFullCache: {},
+  servicesReport: { summary: {}, reports: [] },
+  authorizedActivitiesEditingId: '',
+  authorizedActivitiesByReport: {},
 };
 
 const api = {
@@ -70,6 +73,12 @@ const api = {
   registerOperator(payload) { return this.request('/api/public/register-operator', { method: 'POST', body: JSON.stringify(payload) }); },
   getGarantias() { return this.request('/api/garantias'); },
   getGarantia(id) { return this.request(`/api/garantias/${id}`); },
+  getServicesReport(params = {}) { const qs = new URLSearchParams(Object.entries(params).filter(([,v]) => v !== undefined && v !== null && String(v) !== '')); return this.request(`/api/services-report${qs.toString() ? `?${qs}` : ''}`); },
+  getAuthorizedActivities(id) { return this.request(`/api/garantias/${id}/authorized-activities`); },
+  createAuthorizedActivity(id, payload) { return this.request(`/api/garantias/${id}/authorized-activities`, { method: 'POST', body: JSON.stringify(payload || {}) }); },
+  updateAuthorizedActivity(id, payload) { return this.request(`/api/authorized-activities/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
+  deleteAuthorizedActivity(id) { return this.request(`/api/authorized-activities/${id}`, { method: 'DELETE' }); },
+  saveAuthorizedActivitiesBulk(id, activities) { return this.request(`/api/garantias/${id}/authorized-activities`, { method: 'PUT', body: JSON.stringify({ activities: Array.isArray(activities) ? activities : [] }) }); },
   createGarantia(payload) { return this.request('/api/garantias', { method: 'POST', body: JSON.stringify(payload) }); },
   updateGarantia(id, payload) { return this.request(`/api/garantias/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   deleteGarantia(id) { return this.request(`/api/garantias/${id}`, { method: 'DELETE' }); },
@@ -150,7 +159,7 @@ function bind() {
   [
     'loginView','dashboardView','loginForm','loginEmail','loginPassword','loginError','registerForm','registerMessage','regNombre','regEmail','regTelefono','regEmpresa','regNumeroEconomico','regPassword',
     'tabLoginBtn','tabRegisterBtn','welcomeText','currentUserName','currentUserEmail','currentRoleBadge','avatarCircle','pageTitle','roleSummaryText','roleBrief','logoutBtn',
-    'navBoardBtn','navNewReportBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navFleetBtn','navPartsBtn','navStockBtn','navCobranzaBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel','stockPanel','cobranzaPanel',
+    'navBoardBtn','navNewReportBtn','navServicesBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navFleetBtn','navPartsBtn','navStockBtn','navCobranzaBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel','stockPanel','cobranzaPanel','servicesPanel','servicesPeriod','servicesStartDate','servicesEndDate','servicesEmpresa','servicesUnidad','servicesEstatus','servicesConsultBtn','servicesPdfBtn','servicesDetailPdfBtn','servicesCsvBtn','servicesJsonBtn','servicesPackageBtn','servicesSummary','servicesTable','authorizedActivitiesModal','authorizedActivitiesClose','authorizedActivitiesSummary','authorizedActivitiesList','authorizedActivitiesAddBtn','authorizedActivitiesCancelBtn','authorizedActivitiesSaveBtn',
     'reportForm','numeroObra','modelo','numeroEconomico','empresa','kilometraje','contactoNombre','telefono','descripcionFallo','solicitaRefaccion','refaccionFields','detalleRefaccion',
     'evidencias','evidenciasCamara','evidenciasRefaccion','evidenciasRefaccionCamara','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn','searchInput','validationFilter','operationalFilter',
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
@@ -217,11 +226,14 @@ async function getGarantiaFull(id) {
     }
     return [];
   };
+  const activities = await api.getAuthorizedActivities(garantiaId).catch(() => []);
   const normalized = {
     ...full,
     evidencias: normalizeEvidence(full.evidencias),
     evidenciasRefaccion: normalizeEvidence(full.evidenciasRefaccion),
     firma: typeof full.firma === 'string' ? full.firma : '',
+    authorizedActivities: activities,
+    authorizedActivitiesCount: activities.length,
   };
   state.garantiaFullCache[garantiaId] = normalized;
   return normalized;
@@ -646,6 +658,7 @@ function switchPanel(panel) {
   els.stockPanel?.classList.toggle('hidden', panel !== 'stock');
   els.cobranzaPanel?.classList.toggle('hidden', panel !== 'cobranza');
   els.campaignsPanel?.classList.toggle('hidden', panel !== 'campaigns');
+  els.servicesPanel?.classList.toggle('hidden', panel !== 'services');
   document.body.dataset.panel = panel;
   const board = panel === 'board';
   els.filtersPanel?.classList.toggle('hidden', !board);
@@ -656,6 +669,7 @@ function switchPanel(panel) {
   if (panel === 'stock') loadStock();
   if (panel === 'cobranza') loadCobranza();
   if (panel === 'campaigns') loadCampaigns();
+  if (panel === 'services') loadServicesReport();
   updateOperatorAppNav(panel);
   setActiveNav(
     panel === 'report' ? els.navNewReportBtn :
@@ -666,6 +680,7 @@ function switchPanel(panel) {
     panel === 'history' ? els.navHistoryBtn :
     panel === 'schedule' ? els.navScheduleBtn :
     panel === 'fleet' ? els.navFleetBtn :
+    panel === 'services' ? els.navServicesBtn :
     panel === 'parts' ? els.navPartsBtn :
     panel === 'stock' ? els.navStockBtn :
     panel === 'cobranza' ? els.navCobranzaBtn :
@@ -688,6 +703,7 @@ function showDashboard() {
   els.navHistoryBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo'));
   els.navScheduleBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo','operador'));
   els.navFleetBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas','operativo'));
+  els.navServicesBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas','operativo'));
   els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas'));
   els.navStockBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navCobranzaBtn?.classList.toggle('hidden', !isRole('admin'));
@@ -870,6 +886,14 @@ async function exportPdf(reportOrId) {
   if (safeItem.estatusValidacion === 'rechazada' && safeItem.observacionesOperativo) {
     y = ensurePdfSpace(doc, y, 24); doc.setFontSize(12); doc.setTextColor(170, 35, 35); textLine('Motivo de rechazo', 8);
     doc.setFontSize(10); doc.setTextColor(80,80,80); split = doc.splitTextToSize(safeItem.observacionesOperativo, 178); doc.text(split, 14, y); y += split.length * 6 + 6;
+  }
+
+  y = ensurePdfSpace(doc, y, 30); doc.setFontSize(12); doc.setTextColor(20,20,20); textLine('Actividades autorizadas', 8);
+  doc.setFontSize(9); doc.setTextColor(55,55,55);
+  if ((safeItem.authorizedActivities || []).length) {
+    (safeItem.authorizedActivities || []).forEach((a, idx) => { y = ensurePdfSpace(doc, y, 18); const line = `${idx + 1}. ${a.description || '—'} | ${activityTypeLabel(a.type)} | ${a.responsible || 'Sin responsable'} | ${activityPriorityLabel(a.priority)} | ${activityStatusLabel(a.status)} | ${Number(a.estimatedHours || 0)} h${a.notes ? ' | ' + a.notes : ''}`; const lines = doc.splitTextToSize(line, 178); doc.text(lines, 14, y); y += lines.length * 5 + 2; });
+  } else {
+    doc.text('Sin actividades autorizadas registradas.', 14, y); y += 7;
   }
 
   doc.save(`${safeItem.folio || 'garantia'}_${safeItem.numeroEconomico || 'unidad'}_${safeItem.numeroObra || 'obra'}.pdf`);
@@ -2725,7 +2749,7 @@ function renderGarantias() {
       btn.addEventListener('click', () => openImageLightbox(item.firma, 'Firma del operador'));
       strip.appendChild(btn);
     }
-    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('Ver ficha', 'btn btn-secondary', () => openReportDetailModal(item))); baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin') && item.estatusOperativo === 'terminada') baseRow.appendChild(button('Preparar cobro', 'btn btn-primary', async () => { await openQuoteFromReport(item.id); })); if (isRole('admin')) baseRow.appendChild(button('Editar', 'btn btn-secondary', async () => { await editarReporteAdmin(item); })); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
+    const area = node.querySelector('.action-area'); const baseRow = document.createElement('div'); baseRow.className = 'action-row'; baseRow.appendChild(button('Ver ficha', 'btn btn-secondary', () => openReportDetailModal(item))); baseRow.appendChild(button('PDF', 'btn btn-ghost', () => exportPdf(item))); if (isRole('admin','operativo')) baseRow.appendChild(button('Asignar actividades autorizadas', 'btn btn-secondary', () => openAuthorizedActivitiesModal(item.id))); if (isRole('admin','operativo','supervisor')) baseRow.appendChild(button('Historial', 'btn btn-ghost', () => showAudit(item))); if (isRole('admin') && item.estatusOperativo === 'terminada') baseRow.appendChild(button('Preparar cobro', 'btn btn-primary', async () => { await openQuoteFromReport(item.id); })); if (isRole('admin')) baseRow.appendChild(button('Editar', 'btn btn-secondary', async () => { await editarReporteAdmin(item); })); if (isRole('admin')) baseRow.appendChild(button('Eliminar', 'btn btn-ghost', async () => { if (!confirm(`¿Eliminar la orden ${item.numeroObra} de la unidad ${item.numeroEconomico}?`)) return; try { await api.deleteGarantia(item.id); notify('Orden eliminada.'); await loadGarantias(); } catch (error) { notify(error.message, true); } })); area.appendChild(baseRow);
     if (isRole('operativo','admin')) {
       const reviewBox = document.createElement('div'); reviewBox.innerHTML = `
         <label>Decisión operativa</label>
@@ -2817,10 +2841,282 @@ function renderCompanies() {
   fillSelect(els.empresa, activeCompanies, 'Selecciona empresa');
   fillSelect(els.regEmpresa, activeCompanies, 'Selecciona empresa');
   fillSelect(els.userEmpresa, activeCompanies, 'Sin empresa');
+  fillSelect(els.servicesEmpresa, activeCompanies, 'Todas');
 
   // conservar selección del operador si ya tiene empresa
   if (isRole('operador') && state.user?.empresa && els.empresa && !els.empresa.value) {
     els.empresa.value = state.user.empresa;
+  }
+}
+
+
+function todayIso() { return new Date().toISOString().slice(0,10); }
+function setServicesDefaultDates() {
+  const now = new Date(); const end = new Date(now); const start = new Date(now);
+  const p = els.servicesPeriod?.value || 'week';
+  if (p === 'day') {} else if (p === 'month') start.setDate(start.getDate() - 30); else start.setDate(start.getDate() - 7);
+  if (els.servicesStartDate && !els.servicesStartDate.value) els.servicesStartDate.value = start.toISOString().slice(0,10);
+  if (els.servicesEndDate && !els.servicesEndDate.value) els.servicesEndDate.value = end.toISOString().slice(0,10);
+}
+function activityTypeLabel(value = '') { return ({ mano_obra:'Mano de obra', refaccion:'Refacción', pintura:'Pintura', ajuste:'Ajuste', diagnostico:'Diagnóstico', otro:'Otro' })[String(value || '').replace(/\s+/g,'_')] || 'Otro'; }
+function activityStatusLabel(value = '') { return ({ pendiente:'Pendiente', en_proceso:'En proceso', realizada:'Realizada', cancelada:'Cancelada' })[String(value || '').replace(/\s+/g,'_')] || 'Pendiente'; }
+function activityPriorityLabel(value = '') { return ({ normal:'Normal', alta:'Alta', urgente:'Urgente' })[String(value || '').toLowerCase()] || 'Normal'; }
+function activityBadgeClass(value = '') { return ({ pendiente:'badge-role', en_proceso:'badge-info', realizada:'badge-success', cancelada:'badge-rejected' })[String(value || '').replace(/\s+/g,'_')] || 'badge-info'; }
+function renderAuthorizedActivitiesSection(items = [], garantiaId = '') {
+  const safeId = escapeHtml(garantiaId || '');
+  const cards = items.map(a => `<article class="owner-card"><div class="owner-card-head"><strong>${escapeHtml(a.description)}</strong><span class="badge ${activityBadgeClass(a.status)}">${activityStatusLabel(a.status)}</span></div><div class="small muted">${activityTypeLabel(a.type)} · ${escapeHtml(a.responsible || 'Sin responsable')} · Prioridad ${activityPriorityLabel(a.priority)} · ${Number(a.estimatedHours || 0)} h</div>${a.notes ? `<div class="small muted">${escapeHtml(a.notes)}</div>` : ''}</article>`).join('');
+  return `<div class="owner-card" data-authorized-activities-container="${safeId}"><div class="owner-card-head"><strong>Actividades autorizadas</strong><span class="badge badge-info" data-authorized-activities-count="${safeId}">${items.length}</span></div>${items.length ? `<div class="cards">${cards}</div>` : '<div class="muted">Sin actividades autorizadas registradas.</div>'}</div>`;
+}
+function getServicesFilters() { return { startDate: els.servicesStartDate?.value || '', endDate: els.servicesEndDate?.value || '', empresa: els.servicesEmpresa?.value || '', numeroEconomico: els.servicesUnidad?.value || '', estatusOperativo: els.servicesEstatus?.value || '' }; }
+function renderServicesReport() {
+  const s = state.servicesReport.summary || {}, rows = state.servicesReport.reports || [];
+  const cards = [['Total de reportes',s.totalReportes],['Unidades atendidas',s.unidadesAtendidas],['Terminados',s.terminados],['En proceso',s.enProceso],['Espera refacción',s.esperaRefaccion],['Refacciones solicitadas',s.reportesConRefaccionSolicitada],['Actividades autorizadas',s.actividadesAutorizadas],['Actividades urgentes',s.actividadesUrgentes],['Horas estimadas',s.estimatedHoursTotal],['Reincidencias',s.unidadesReincidentes]];
+  if (els.servicesSummary) els.servicesSummary.innerHTML = cards.map(([k,v]) => `<article class="analytic-card"><strong>${escapeHtml(k)}</strong><div class="stat"><strong>${Number(v||0)}</strong></div></article>`).join('');
+  if (els.servicesTable) els.servicesTable.innerHTML = rows.length ? rows.map(r => `<div class="table-row"><div><strong>${escapeHtml(r.folio || '—')}</strong><div class="small muted">${escapeHtml(fmtDate(r.createdAt))}</div><div class="small muted">${escapeHtml((r.descripcionFallo || '').slice(0, 110))}</div></div><div>${escapeHtml(r.empresa || '—')}</div><div>${escapeHtml(r.numeroEconomico || '—')}<div class="small muted">${escapeHtml(r.modelo || '—')}</div></div><div>${escapeHtml(r.tipoIncidente || '—')}</div><div>${escapeHtml(r.estatusValidacion || '—')} / ${escapeHtml(r.estatusOperativo || '—')}</div><div>${r.solicitaRefaccion ? 'Sí' : 'No'}</div><div>${Number(r.authorizedActivitiesCount || 0)}</div><div>${escapeHtml(fmtDate(r.closedAt))}</div></div>`).join('') : '<div class="empty-state"><strong>Sin reportes.</strong><span>Ajusta filtros y consulta nuevamente.</span></div>';
+}
+async function loadServicesReport() {
+  if (!isRole('admin','operativo','supervisor_flotas')) return;
+  setServicesDefaultDates();
+  state.servicesReport = await api.getServicesReport(getServicesFilters()); renderServicesReport();
+}
+function downloadBlob(content, name, type) { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([content],{type})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); }
+function exportServicesCsv() { const rows = state.servicesReport.reports || []; const headers=['Folio','Fecha','Empresa','Unidad','Modelo','Tipo incidencia','Descripción','Estatus validación','Estatus operativo','Refacción solicitada','Detalle refacción','Actividades autorizadas','Fecha cierre','Observaciones operativas']; const esc=v=>`"${String(v??'').replace(/"/g,'""')}"`; const csv='\ufeff'+[headers.map(esc).join(','),...rows.map(r=>[r.folio,fmtDate(r.createdAt),r.empresa,r.numeroEconomico,r.modelo,r.tipoIncidente,r.descripcionFallo,r.estatusValidacion,r.estatusOperativo,r.solicitaRefaccion?'Sí':'No',r.detalleRefaccion,r.authorizedActivitiesCount||0,fmtDate(r.closedAt),r.observacionesOperativo].map(esc).join(','))].join('\n'); downloadBlob(csv, `servicios-carlab-${todayIso()}.csv`, 'text/csv;charset=utf-8'); }
+function exportServicesJson() { const payload = { filters: getServicesFilters(), summary: state.servicesReport.summary || {}, reports: state.servicesReport.reports || [], generatedAt: new Date().toISOString(), generatedBy: state.user ? { id: state.user.id, nombre: state.user.nombre, email: state.user.email, role: state.user.role } : null }; downloadBlob(JSON.stringify(payload, null, 2), `servicios-carlab-${todayIso()}.json`, 'application/json;charset=utf-8'); }
+function topServiceUnits(rows = []) { const map = new Map(); rows.forEach(r => { const key = `${r.empresa || '—'} · ${r.numeroEconomico || '—'}`; map.set(key, (map.get(key) || 0) + 1); }); return [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5); }
+async function addCarlabPdfHeader(doc, title, subtitle, meta = {}) { doc.setFillColor(22,22,26); doc.rect(0,0,210,34,'F'); doc.setFillColor(226,42,116); doc.rect(0,32,210,2,'F'); const logo = await getImageData('/logo.jpg'); if (logo) await addPdfImage(doc, logo, 12, 7, 22, 22); doc.setTextColor(255,255,255); doc.setFontSize(16); doc.text(title, 40, 15); doc.setFontSize(9); doc.text(subtitle, 40, 22); doc.setFontSize(8); doc.text(`Generado: ${meta.generatedAt || new Date().toLocaleString('es-MX')}`, 198, 12, { align:'right' }); doc.text(`Periodo: ${meta.period || '—'}`, 198, 18, { align:'right' }); doc.text(`Empresa: ${meta.empresa || 'Todas'}`, 198, 24, { align:'right' }); doc.text(`Usuario: ${meta.user || '—'}`, 198, 30, { align:'right' }); doc.setTextColor(35,35,35); return 44; }
+function addCarlabPdfFooter(doc) { const pages = doc.internal.getNumberOfPages(); for (let i=1; i<=pages; i++) { doc.setPage(i); doc.setDrawColor(226,42,116); doc.line(14,286,196,286); doc.setFontSize(8); doc.setTextColor(110,110,110); doc.text('CARLAB Cloud · Reporte generado automáticamente',14,291); doc.text(`${i} / ${pages} · ${new Date().toLocaleString('es-MX')}`,196,291,{align:'right'}); } }
+function addWrappedText(doc, text, x, y, width, lineHeight = 5) { const lines = doc.splitTextToSize(String(text || '—'), width); doc.text(lines, x, y); return y + (lines.length * lineHeight); }
+function addPdfKpiCards(doc, summary = {}, y = 44) { const cards=[['Reportes',summary.totalReportes],['Unidades',summary.unidadesAtendidas],['Terminados',summary.terminados],['En proceso',summary.enProceso],['Espera ref.',summary.esperaRefaccion],['Refacciones',summary.reportesConRefaccionSolicitada],['Actividades',summary.actividadesAutorizadas],['Reincidencias',summary.unidadesReincidentes]]; cards.forEach((c,i)=>{ const x=14+(i%4)*46; const yy=y+Math.floor(i/4)*22; doc.setFillColor(248,248,250); doc.roundedRect(x,yy,42,17,3,3,'F'); doc.setTextColor(226,42,116); doc.setFontSize(13); doc.text(String(Number(c[1]||0)),x+4,yy+8); doc.setTextColor(70,70,70); doc.setFontSize(7); doc.text(c[0],x+4,yy+14); }); return y+48; }
+function addPdfStatusBadge(doc, text, x, y, color = [120,120,120]) { doc.setFillColor(...color); doc.roundedRect(x,y-4,34,7,2,2,'F'); doc.setTextColor(255,255,255); doc.setFontSize(7); doc.text(String(text), x+17, y+1, { align:'center' }); doc.setTextColor(35,35,35); }
+function truncatePdfLines(doc, text, width, maxLines = 2) {
+  const lines = doc.splitTextToSize(String(text || '—'), width);
+  if (lines.length <= maxLines) return lines;
+  const out = lines.slice(0, maxLines);
+  out[out.length - 1] = String(out[out.length - 1]).replace(/\s+$/, '').replace(/[.…]+$/, '') + '…';
+  return out;
+}
+
+async function addServicesPdfPage(doc, meta, subtitle = 'Resumen operativo de flota') {
+  return addCarlabPdfHeader(doc, 'Reporte de servicios', subtitle, meta);
+}
+
+async function drawServicesTable(doc, rows = [], options = {}) {
+  const meta = options.meta || {};
+  const pageBottom = 276;
+  const descWidth = 176;
+  const baseRowHeight = 10;
+  const lineHeight = 4;
+  const padding = 4;
+  const cols = [16, 38, 62, 88, 112, 150, 163, 176];
+  const widths = [20, 21, 24, 22, 36, 12, 10, 18];
+  let y = options.y || 44;
+
+  const drawHeader = () => {
+    doc.setFillColor(32, 32, 36);
+    doc.rect(14, y, 182, 8, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(7.5);
+    ['Folio','Fecha','Empresa','Unidad','Estatus','Ref.','Act.','Cierre'].forEach((h, i) => doc.text(h, cols[i], y + 5));
+    y += 8;
+    doc.setTextColor(45,45,45);
+  };
+
+  drawHeader();
+  rows.forEach((r, idx) => {
+    doc.setFontSize(7.5);
+    const descLines = r.descripcionFallo ? truncatePdfLines(doc, `Descripción: ${r.descripcionFallo}`, descWidth, 2) : [];
+    const rowHeight = baseRowHeight + (descLines.length ? (descLines.length * lineHeight + padding) : padding);
+    if (y + rowHeight > pageBottom) {
+      doc.addPage();
+      y = 44;
+      drawHeader();
+    }
+    doc.setFillColor(idx % 2 ? 255 : 248, idx % 2 ? 255 : 248, idx % 2 ? 255 : 250);
+    doc.rect(14, y, 182, rowHeight, 'F');
+    const top = y + 5;
+    const values = [
+      r.folio || '—',
+      String(fmtDate(r.createdAt)).slice(0, 10),
+      r.empresa || '—',
+      r.numeroEconomico || '—',
+      r.estatusOperativo || '—',
+      r.solicitaRefaccion ? 'Sí' : 'No',
+      String(r.authorizedActivitiesCount || 0),
+      String(fmtDate(r.closedAt)).slice(0, 10),
+    ];
+    values.forEach((value, i) => {
+      const txt = truncatePdfLines(doc, value, widths[i], 1)[0] || '—';
+      doc.text(txt, cols[i], top);
+    });
+    if (descLines.length) {
+      doc.setTextColor(95,95,95);
+      doc.text(descLines, 16, y + baseRowHeight + 3);
+      doc.setTextColor(45,45,45);
+    }
+    y += rowHeight;
+  });
+  return y;
+}
+
+async function drawServicesDetailedBlocks(doc, rows = [], options = {}) {
+  const meta = options.meta || {};
+  let y = options.y || await addServicesPdfPage(doc, meta, 'Detalle de reportes');
+  const pageBottom = 276;
+  for (const r of rows) {
+    doc.setFontSize(8);
+    const descLines = doc.splitTextToSize(`Descripción: ${r.descripcionFallo || '—'}`, 174);
+    const actsText = (r.authorizedActivities || r.authorizedActivitiesPreview || []).map(a => `${a.description} (${activityTypeLabel(a.type)}, ${activityStatusLabel(a.status)}, ${activityPriorityLabel(a.priority)}, ${Number(a.estimatedHours || 0)} h${a.responsible ? `, ${a.responsible}` : ''}${a.notes ? `, ${a.notes}` : ''})`).join('; ') || 'Sin actividades autorizadas registradas.';
+    const actLines = doc.splitTextToSize(`Actividades: ${actsText}`, 174);
+    const obsLines = r.observacionesOperativo ? doc.splitTextToSize(`Observaciones: ${r.observacionesOperativo}`, 174) : [];
+    const blockHeight = 20 + (descLines.length + actLines.length + obsLines.length) * 4.2 + 10;
+    if (y + blockHeight > pageBottom) {
+      doc.addPage();
+      y = await addServicesPdfPage(doc, meta, 'Detalle de reportes');
+    }
+    doc.setFillColor(248,248,250);
+    doc.roundedRect(14, y, 182, blockHeight, 3, 3, 'F');
+    doc.setTextColor(35,35,35);
+    doc.setFontSize(10);
+    doc.text(`${r.folio || '—'} · ${r.empresa || '—'} · Unidad ${r.numeroEconomico || '—'}`, 18, y + 7);
+    doc.setFontSize(8);
+    let yy = y + 13;
+    yy = addWrappedText(doc, `Modelo: ${r.modelo || '—'} | Estatus: ${r.estatusValidacion || '—'} / ${r.estatusOperativo || '—'} | Refacción: ${r.solicitaRefaccion ? 'Sí' : 'No'} | Cierre: ${fmtDate(r.closedAt)}`, 18, yy, 174, 4.2) + 1;
+    doc.text(descLines, 18, yy); yy += descLines.length * 4.2 + 2;
+    doc.text(actLines, 18, yy); yy += actLines.length * 4.2 + 2;
+    if (obsLines.length) doc.text(obsLines, 18, yy);
+    y += blockHeight + 5;
+  }
+  return y;
+}
+
+async function exportServicesPdf(mode = 'executive') {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const rows = state.servicesReport.reports || [];
+  const s = state.servicesReport.summary || {};
+  const meta = {
+    generatedAt: new Date().toLocaleString('es-MX'),
+    period: `${els.servicesStartDate?.value || '—'} a ${els.servicesEndDate?.value || '—'}`,
+    empresa: els.servicesEmpresa?.value || (state.user?.role === 'supervisor_flotas' ? state.user?.empresa : 'Todas') || 'Todas',
+    user: state.user?.nombre || state.user?.email || '—',
+  };
+  let y = await addServicesPdfPage(doc, meta);
+  y = addPdfKpiCards(doc, s, y);
+  doc.setFontSize(10); doc.setTextColor(35,35,35);
+  y = ensurePdfSpace(doc, y, 22); doc.text('Semáforo operativo', 14, y);
+  addPdfStatusBadge(doc, `Verde ${s.terminados || 0}`, 52, y, [46,160,90]);
+  addPdfStatusBadge(doc, `Amarillo ${(s.pendientesSinIniciar || 0) + (s.enProceso || 0)}`, 90, y, [226,170,40]);
+  addPdfStatusBadge(doc, `Rojo ${(s.esperaRefaccion || 0) + (s.unidadesReincidentes || 0)}`, 136, y, [200,70,70]);
+  y += 12;
+  y = ensurePdfSpace(doc, y, 28); doc.setFontSize(12); doc.text('Lectura ejecutiva', 14, y); y += 7;
+  doc.setFontSize(9);
+  y = addWrappedText(doc, `Durante el periodo seleccionado se registraron ${s.totalReportes || 0} reportes en ${s.unidadesAtendidas || 0} unidades. La operación muestra ${s.terminados || 0} servicios terminados, ${s.enProceso || 0} en proceso y ${s.esperaRefaccion || 0} en espera de refacción. Se detectaron ${s.unidadesReincidentes || 0} unidades reincidentes y ${s.actividadesAutorizadas || 0} actividades autorizadas.`, 14, y, 182) + 6;
+  y = ensurePdfSpace(doc, y, 28); doc.setFontSize(12); doc.text('Top unidades con más reportes', 14, y); y += 7;
+  doc.setFontSize(9); topServiceUnits(rows).forEach(([unit, count]) => { doc.text(`${unit}: ${count}`, 18, y); y += 5; }); y += 4;
+  const highlighted = rows.filter(r => r.authorizedActivitiesCount > 0).slice(0, 5);
+  if (highlighted.length) {
+    y = ensurePdfSpace(doc, y, 28); doc.setFontSize(12); doc.text('Actividades autorizadas destacadas', 14, y); y += 7;
+    doc.setFontSize(9); highlighted.forEach(r => { doc.text(`${r.folio || '—'} · ${r.numeroEconomico || '—'} · ${r.authorizedActivitiesCount} actividad(es)`, 18, y); y += 5; }); y += 4;
+  }
+  y = await drawServicesTable(doc, rows, { y: ensurePdfSpace(doc, y, 20), meta });
+  if (mode === 'detail') {
+    doc.addPage();
+    await drawServicesDetailedBlocks(doc, rows, { meta });
+  }
+  addCarlabPdfFooter(doc);
+  doc.save(`servicios-carlab-${todayIso()}.pdf`);
+}
+function updateAuthorizedActivitiesSummary() { const rows=[...els.authorizedActivitiesList.querySelectorAll('.authorized-activity-row')].map(readActivityRow).filter(a=>a.description); const c=(fn)=>rows.filter(fn).length; const cards=[['Total',rows.length],['Pendientes',c(a=>a.status==='pendiente')],['En proceso',c(a=>a.status==='en_proceso')],['Realizadas',c(a=>a.status==='realizada')],['Urgentes',c(a=>a.priority==='urgente')],['Horas',rows.reduce((s,a)=>s+Number(a.estimatedHours||0),0)]]; if(els.authorizedActivitiesSummary) els.authorizedActivitiesSummary.innerHTML=cards.map(([k,v])=>`<article class="analytic-card"><strong>${k}</strong><div class="stat"><strong>${v}</strong></div></article>`).join(''); }
+function readActivityRow(row) { return { id: row.dataset.id || '', description: row.querySelector('.aa-description')?.value.trim() || '', type: row.querySelector('.aa-type')?.value || 'otro', responsible: row.querySelector('.aa-responsible')?.value.trim() || '', priority: row.querySelector('.aa-priority')?.value || 'normal', estimatedHours: Number((row.querySelector('.aa-estimated-hours') || row.querySelector('.aa-hours'))?.value || 0), status: row.querySelector('.aa-status')?.value || 'pendiente', notes: row.querySelector('.aa-notes')?.value.trim() || '' }; }
+function activityEditorRow(a = {}) { const wrap=document.createElement('div'); wrap.className='owner-card authorized-activity-row'; wrap.dataset.id=a.id||''; wrap.innerHTML=`<div class="schedule-manual-grid"><label class="span-2"><span>Descripción</span><input class="aa-description" value="${escapeHtml(a.description||'')}" /></label><label><span>Tipo</span><select class="aa-type"><option value="mano_obra">Mano de obra</option><option value="refaccion">Refacción</option><option value="pintura">Pintura</option><option value="ajuste">Ajuste</option><option value="diagnostico">Diagnóstico</option><option value="otro">Otro</option></select></label><label><span>Responsable</span><input class="aa-responsible" value="${escapeHtml(a.responsible||'')}" placeholder="Sin responsable" /></label><label><span>Prioridad</span><select class="aa-priority"><option value="normal">Normal</option><option value="alta">Alta</option><option value="urgente">Urgente</option></select></label><label><span>Horas estimadas</span><input class="aa-hours aa-estimated-hours" type="number" min="0" step="0.25" value="${Number(a.estimatedHours||0)}" /></label><label><span>Estatus</span><select class="aa-status"><option value="pendiente">Pendiente</option><option value="en_proceso">En proceso</option><option value="realizada">Realizada</option><option value="cancelada">Cancelada</option></select></label><label class="span-2"><span>Observaciones</span><textarea class="aa-notes" rows="2">${escapeHtml(a.notes||'')}</textarea></label><button class="btn btn-ghost aa-delete" type="button">Eliminar</button></div>`; wrap.querySelector('.aa-type').value=a.type||'otro'; wrap.querySelector('.aa-status').value=a.status||'pendiente'; wrap.querySelector('.aa-priority').value=a.priority||'normal'; wrap.querySelector('.aa-delete').onclick=()=>{wrap.remove(); updateAuthorizedActivitiesSummary();}; wrap.querySelectorAll('input,select,textarea').forEach(el=>el.addEventListener('input', updateAuthorizedActivitiesSummary)); return wrap; }
+function addAuthorizedActivityRow(preset = {}) { els.authorizedActivitiesList?.appendChild(activityEditorRow(preset)); updateAuthorizedActivitiesSummary(); }
+async function openAuthorizedActivitiesModal(garantiaId) { state.authorizedActivitiesEditingId=garantiaId; try { const items=await api.getAuthorizedActivities(garantiaId); els.authorizedActivitiesList.innerHTML=''; items.forEach(a=>els.authorizedActivitiesList.appendChild(activityEditorRow(a))); if(!items.length) addAuthorizedActivityRow(); updateAuthorizedActivitiesSummary(); els.authorizedActivitiesModal?.classList.remove('hidden'); document.body.classList.add('modal-open'); } catch(error) { notify(error.message || 'No se pudieron cargar las actividades autorizadas.', true); } }
+function closeAuthorizedActivitiesModal(){ els.authorizedActivitiesModal?.classList.add('hidden'); if(els.authorizedActivitiesList) els.authorizedActivitiesList.innerHTML=''; if (els.reportDetailModal?.classList.contains('hidden')) document.body.classList.remove('modal-open'); }
+function isActivityRowEmpty(activity = {}) {
+  return !activity.description && !activity.responsible && !activity.notes && Number(activity.estimatedHours || 0) === 0 && (activity.type || 'otro') === 'otro' && (activity.status || 'pendiente') === 'pendiente' && (activity.priority || 'normal') === 'normal';
+}
+
+async function refreshOpenReportDetailAfterActivitiesSave(garantiaId, activities = []) {
+  const id = String(garantiaId || '').trim();
+  if (!id) return;
+  try {
+    const freshGarantia = await api.getGarantia(id);
+    freshGarantia.authorizedActivities = activities;
+    freshGarantia.authorizedActivitiesCount = activities.length;
+    state.garantiaFullCache[id] = freshGarantia;
+  } catch (error) {
+    console.warn('[authorizedActivities] no se pudo refrescar garantía completa:', error?.message || error);
+  }
+
+  const container = [...document.querySelectorAll('[data-authorized-activities-container]')]
+    .find(el => el.dataset.authorizedActivitiesContainer === id) ||
+    document.querySelector('[data-authorized-activities-container]');
+  if (container) container.outerHTML = renderAuthorizedActivitiesSection(activities, id);
+
+  const badge = [...document.querySelectorAll('[data-authorized-activities-count]')]
+    .find(el => el.dataset.authorizedActivitiesCount === id) ||
+    document.querySelector('[data-authorized-activities-count]');
+  if (badge) badge.textContent = String(activities.length);
+}
+
+async function saveAuthorizedActivities() {
+  const garantiaId = state.authorizedActivitiesEditingId;
+  if (!garantiaId) {
+    notify('No hay reporte seleccionado para guardar actividades.', true);
+    return;
+  }
+
+  const rows = [...(els.authorizedActivitiesList?.querySelectorAll('.authorized-activity-row') || [])];
+  const activities = rows.map(readActivityRow).filter(a =>
+    a.description ||
+    a.responsible ||
+    a.notes ||
+    Number(a.estimatedHours || 0) > 0
+  );
+
+  const invalid = activities.find(a => !a.description);
+  if (invalid) {
+    notify('Toda actividad capturada necesita descripción.', true);
+    return;
+  }
+
+  const saveBtn = els.authorizedActivitiesSaveBtn;
+  const oldText = saveBtn?.textContent || 'Guardar';
+
+  try {
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Guardando...';
+    }
+
+    console.log('[authorizedActivities] saving', garantiaId, activities);
+    await api.saveAuthorizedActivitiesBulk(garantiaId, activities);
+
+    const verifiedActivities = await api.getAuthorizedActivities(garantiaId);
+    console.log('[authorizedActivities] verified', verifiedActivities);
+
+    if (!state.authorizedActivitiesByReport) state.authorizedActivitiesByReport = {};
+    state.authorizedActivitiesByReport[garantiaId] = verifiedActivities;
+
+    if (state.garantiaFullCache) delete state.garantiaFullCache[garantiaId];
+
+    await loadGarantias();
+    await refreshOpenReportDetailAfterActivitiesSave(garantiaId, verifiedActivities);
+
+    if (state.activePanel === 'services' && typeof loadServicesReport === 'function') {
+      await loadServicesReport();
+    }
+
+    closeAuthorizedActivitiesModal();
+    notify(`Actividades autorizadas guardadas: ${verifiedActivities.length}.`);
+  } catch (error) {
+    console.error('[authorizedActivities] save failed:', error);
+    notify(error.message || 'No se pudieron guardar las actividades autorizadas.', true);
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = oldText;
+    }
   }
 }
 
@@ -2833,7 +3129,7 @@ async function loadRequests() { if (!isRole('admin')) return; state.registration
 function paintUnitHistory(history) {
   const q = normalizeText(els.unitHistorySearchInput?.value || '');
   const filtered = !q ? history : history.filter(item => normalizeText([item.numeroObra, item.modelo, item.empresa, item.tipoIncidente, item.descripcionFallo].join(' ')).includes(q));
-  els.unitHistoryResult.innerHTML = filtered.length ? filtered.map(item => `<div class="table-row"><div><strong>Obra ${escapeHtml(item.numeroObra)}</strong><div class="small muted">${escapeHtml(item.modelo)} · ${escapeHtml(item.empresa)}</div><div class="small muted">${escapeHtml(item.descripcionFallo || '')}</div></div><div>${escapeHtml(item.tipoIncidente)}</div><div><span class="badge ${badgeClassValidation(item.estatusValidacion)}">${escapeHtml(item.estatusValidacion)}</span></div><div>${fmtDate(item.createdAt)}</div></div>`).join('') : '<div class="empty-state"><strong>Sin historial.</strong><span>No hay coincidencias para esa unidad.</span></div>';
+  els.unitHistoryResult.innerHTML = filtered.length ? filtered.map(item => `<div class="table-row"><div><strong>Obra ${escapeHtml(item.numeroObra)}</strong><div class="small muted">${escapeHtml(item.modelo)} · ${escapeHtml(item.empresa)}</div><div class="small muted">${escapeHtml(item.descripcionFallo || '')}</div>${(item.authorizedActivities || []).length ? `<div class="small muted"><strong>${(item.authorizedActivities || []).length} actividades autorizadas:</strong> ${(item.authorizedActivities || []).slice(0,3).map(a => escapeHtml(a.description)).join(', ')}${(item.authorizedActivities || []).length > 3 ? ' · Ver detalle en ficha' : ''}</div>` : ''}</div><div>${escapeHtml(item.tipoIncidente)}</div><div><span class="badge ${badgeClassValidation(item.estatusValidacion)}">${escapeHtml(item.estatusValidacion)}</span></div><div>${fmtDate(item.createdAt)}</div></div>`).join('') : '<div class="empty-state"><strong>Sin historial.</strong><span>No hay coincidencias para esa unidad.</span></div>';
 }
 
 async function renderUnitHistory() {
@@ -2944,6 +3240,7 @@ async function openReportDetailModal(item) {
       ${full.observacionesOperativo ? `<p class="small muted"><strong>Observación operativa:</strong> ${escapeHtml(full.observacionesOperativo)}</p>` : ''}
       ${full.motivoDecision ? `<p class="small muted"><strong>Motivo decisión:</strong> ${escapeHtml(full.motivoDecision)}</p>` : ''}
     </div>
+    ${renderAuthorizedActivitiesSection(full.authorizedActivities || [], full.id)}
     <div class="owner-card owner-gallery-card">
       <div class="owner-card-head"><strong>Evidencia visual</strong><span class="badge badge-info">${gallery.length} archivo${gallery.length === 1 ? '' : 's'}</span></div>
       ${gallery.length ? `<div class="media-gallery">${gallery.map((entry, idx) => `<button type="button" class="media-thumb" onclick='openImageLightbox(${JSON.stringify(entry.src)}, ${JSON.stringify(entry.caption || `Evidencia ${idx + 1}`)})'><img src="${entry.src}" alt="Evidencia ${idx + 1}" /></button>`).join('')}</div>` : '<div class="muted">Sin evidencia cargada.</div>'}
@@ -2951,11 +3248,13 @@ async function openReportDetailModal(item) {
     </div>
     <div class="parts-request-actions report-detail-actions-sticky">
       <button id="reportDetailPdfBtn" class="btn btn-secondary" type="button">Exportar PDF</button>
+      ${isRole('admin','operativo') ? '<button id="reportDetailActivitiesBtn" class="btn btn-secondary" type="button">Asignar actividades autorizadas</button>' : ''}
       ${isRole('admin') ? '<button id="reportDetailRemindBtn" class="btn btn-secondary" type="button">Recordatorio por WhatsApp</button>' : ''}
       <button id="reportDetailCloseBtn" class="btn btn-ghost" type="button">Cerrar</button>
     </div>
   `;
   document.getElementById('reportDetailPdfBtn')?.addEventListener('click', () => exportPdf(full));
+  document.getElementById('reportDetailActivitiesBtn')?.addEventListener('click', () => openAuthorizedActivitiesModal(full.id));
   document.getElementById('reportDetailRemindBtn')?.addEventListener('click', async (event) => {
     const btn = event.currentTarget;
     if (!btn) return;
@@ -3201,6 +3500,7 @@ els.navAnalyticsBtn?.addEventListener('click', () => switchPanel('analytics'));
 els.navHistoryBtn?.addEventListener('click', () => switchPanel('history'));
 els.navScheduleBtn?.addEventListener('click', async () => { switchPanel('schedule'); });
 els.navFleetBtn?.addEventListener('click', async () => { switchPanel('fleet'); });
+els.navServicesBtn?.addEventListener('click', async () => { switchPanel('services'); });
 els.navPartsBtn?.addEventListener('click', async () => { await cargarSolicitudesIndependientes(); await loadPartsPending(true); switchPanel('parts'); });
 els.navStockBtn?.addEventListener('click', async () => { switchPanel('stock'); });
 els.navCobranzaBtn?.addEventListener('click', async () => { switchPanel('cobranza'); });
@@ -3419,3 +3719,17 @@ els.campaignUnitClearBtn?.addEventListener('click', resetCampaignUnitForm);
 els.campaignSaveBtn?.addEventListener('click', async () => { try { const payload = { nombre: els.campaignName?.value.trim(), empresa: els.campaignEmpresa?.value || '', notas: els.campaignNotes?.value.trim() || '' }; if (els.campaignGroupId?.value) await api.updateCampaign(els.campaignGroupId.value, payload); else await api.createCampaign(payload); notify('Campaña guardada.'); resetCampaignForm(); await loadCampaigns(); } catch (error) { notify(error.message, true); } });
 els.campaignUnitEvidence?.addEventListener('change', async (e) => { const files=[...(e.target.files||[])]; for (const file of files) { const data=await new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(file); }); state.campaignUnitEvidence.push(data); } renderCampaignEvidencePreview(); });
 els.campaignUnitSaveBtn?.addEventListener('click', async () => { try { if (!state.selectedCampaignId) throw new Error('Selecciona una campaña.'); const payload = { empresa: els.campaignUnitEmpresa?.value || '', numeroEconomico: els.campaignUnitNumero?.value || '', status: els.campaignUnitStatus?.value || 'sin_programar', notas: els.campaignUnitNotes?.value.trim() || '', evidencia: state.campaignUnitEvidence || [] }; if (els.campaignUnitId?.value) await api.updateCampaignUnit(els.campaignUnitId.value, payload); else await api.createCampaignUnit(state.selectedCampaignId, payload); notify('Unidad guardada en campaña.'); resetCampaignUnitForm(); await openCampaign(state.selectedCampaignId); await loadFleet(); } catch (error) { notify(error.message, true); } });
+
+els.servicesConsultBtn?.addEventListener('click', loadServicesReport);
+els.servicesCsvBtn?.addEventListener('click', exportServicesCsv);
+els.servicesPdfBtn?.addEventListener('click', () => exportServicesPdf('executive'));
+els.servicesDetailPdfBtn?.addEventListener('click', () => exportServicesPdf('detail'));
+els.servicesJsonBtn?.addEventListener('click', exportServicesJson);
+els.servicesPackageBtn?.addEventListener('click', () => { exportServicesPdf('executive'); setTimeout(() => exportServicesPdf('detail'), 250); setTimeout(exportServicesCsv, 500); setTimeout(exportServicesJson, 750); });
+els.servicesPeriod?.addEventListener('change', () => { if(els.servicesStartDate) els.servicesStartDate.value=''; if(els.servicesEndDate) els.servicesEndDate.value=''; setServicesDefaultDates(); });
+els.authorizedActivitiesAddBtn?.addEventListener('click', () => addAuthorizedActivityRow());
+document.querySelectorAll('.aa-quick').forEach(btn => btn.addEventListener('click', () => addAuthorizedActivityRow({ type: btn.dataset.type || 'otro' })));
+document.querySelectorAll('.aa-template').forEach(btn => btn.addEventListener('click', () => addAuthorizedActivityRow({ description: btn.dataset.template || '', type: btn.dataset.template === 'Pintura' ? 'pintura' : (btn.dataset.template || '').includes('Diagnóstico') ? 'diagnostico' : (btn.dataset.template || '').includes('refacción') ? 'refaccion' : 'mano_obra' })));
+els.authorizedActivitiesClose?.addEventListener('click', closeAuthorizedActivitiesModal);
+els.authorizedActivitiesCancelBtn?.addEventListener('click', closeAuthorizedActivitiesModal);
+els.authorizedActivitiesSaveBtn?.addEventListener('click', async (event) => { event.preventDefault(); await saveAuthorizedActivities(); });
