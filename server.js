@@ -1085,6 +1085,22 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_garantias_numero_economico ON garantias(numero_economico);
     CREATE INDEX IF NOT EXISTS idx_garantias_refacciones_pendientes ON garantias (empresa, refaccion_status, created_at) WHERE solicita_refaccion = TRUE;
     CREATE INDEX IF NOT EXISTS idx_garantias_folio ON garantias(folio);
+
+    CREATE TABLE IF NOT EXISTS authorized_activities (
+      id TEXT PRIMARY KEY,
+      garantia_id TEXT NOT NULL REFERENCES garantias(id) ON DELETE CASCADE,
+      description TEXT NOT NULL,
+      type TEXT DEFAULT 'otro',
+      responsible TEXT DEFAULT '',
+      status TEXT DEFAULT 'pendiente',
+      notes TEXT DEFAULT '',
+      created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+      created_by_nombre TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_authorized_activities_garantia ON authorized_activities(garantia_id);
+
     CREATE TABLE IF NOT EXISTS parts_requests (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       empresa TEXT NOT NULL,
@@ -1520,6 +1536,34 @@ app.delete('/api/users/:id', authRequired, requireRoles('admin'), async (req, re
   res.json({ ok: true });
 });
 
+
+function mapAuthorizedActivity(row) {
+  return {
+    id: row.id,
+    garantiaId: row.garantia_id,
+    description: row.description || '',
+    type: row.type || 'otro',
+    responsible: row.responsible || '',
+    status: row.status || 'pendiente',
+    notes: row.notes || '',
+    createdBy: row.created_by || '',
+    createdByNombre: row.created_by_nombre || '',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+async function canAccessGarantia(req, garantiaId) {
+  const params = [garantiaId];
+  const where = ['id = $1'];
+  if (SUPERVISOR_ROLES.includes(req.user.role)) {
+    params.push(req.user.empresa || '');
+    where.push(`${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql(`$${params.length}`)}`);
+  }
+  const found = await pool.query(`SELECT * FROM garantias WHERE ${where.join(' AND ')} LIMIT 1`, params);
+  return found.rows[0] || null;
+}
+
 app.get('/api/garantias', authRequired, async (req, res) => {
   try {
     let query = `
@@ -1573,6 +1617,78 @@ app.get('/api/garantias/:id', authRequired, async (req, res) => {
     console.error('Error leyendo garantía:', error?.message || error);
     res.status(500).json({ error: 'No se pudo cargar el reporte.' });
   }
+});
+
+
+app.get('/api/services-report', authRequired, requireRoles('admin','operativo','supervisor_flotas'), async (req, res) => {
+  try {
+    const params = [];
+    const where = [];
+    const add = (sql, value) => { params.push(value); where.push(sql.replace('?', `$${params.length}`)); };
+    if (req.query.startDate) add(`created_at >= ?::date`, req.query.startDate);
+    if (req.query.endDate) add(`created_at < (?::date + INTERVAL '1 day')`, req.query.endDate);
+    if (req.user.role === 'supervisor_flotas') add(`${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('?')}`, req.user.empresa || '');
+    else if (req.query.empresa) add(`${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('?')}`, req.query.empresa);
+    if (req.query.numeroEconomico) add(`${normalizedIdentitySql('numero_economico')} = ${normalizedIdentitySql('?')}`, req.query.numeroEconomico);
+    if (req.query.estatusOperativo) add(`estatus_operativo = ?`, req.query.estatusOperativo);
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const result = await pool.query(`
+      SELECT g.*, COALESCE(aa.total,0)::int AS authorized_activities_count
+      FROM garantias g
+      LEFT JOIN (SELECT garantia_id, COUNT(*) total FROM authorized_activities GROUP BY garantia_id) aa ON aa.garantia_id = g.id
+      ${whereSql}
+      ORDER BY g.created_at DESC
+      LIMIT 2000`, params);
+    const reports = result.rows.map(row => ({ ...mapGarantia(row), authorizedActivitiesCount: Number(row.authorized_activities_count || 0) }));
+    const byUnit = new Map(); reports.forEach(r => { const k = `${r.empresa}||${r.numeroEconomico}`; byUnit.set(k, (byUnit.get(k)||0)+1); });
+    const summary = {
+      totalReportes: reports.length,
+      unidadesAtendidas: new Set(reports.map(r => `${r.empresa}||${r.numeroEconomico}`)).size,
+      terminados: reports.filter(r => r.estatusOperativo === 'terminada').length,
+      enProceso: reports.filter(r => r.estatusOperativo === 'en proceso').length,
+      esperaRefaccion: reports.filter(r => r.estatusOperativo === 'espera refacción').length,
+      pendientesSinIniciar: reports.filter(r => r.estatusOperativo === 'sin iniciar').length,
+      rechazados: reports.filter(r => r.estatusValidacion === 'rechazada').length,
+      reportesConRefaccionSolicitada: reports.filter(r => r.solicitaRefaccion).length,
+      unidadesReincidentes: [...byUnit.values()].filter(v => v > 1).length,
+      actividadesAutorizadas: reports.reduce((sum, r) => sum + (r.authorizedActivitiesCount || 0), 0),
+    };
+    res.json({ summary, reports });
+  } catch (error) {
+    console.error('Error services-report:', error?.message || error);
+    res.status(500).json({ error: 'No se pudo generar el reporte de servicios.' });
+  }
+});
+
+app.get('/api/garantias/:id/authorized-activities', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
+  const garantia = await canAccessGarantia(req, req.params.id);
+  if (!garantia) return res.status(404).json({ error: 'Reporte no encontrado.' });
+  const result = await pool.query('SELECT * FROM authorized_activities WHERE garantia_id = $1 ORDER BY created_at ASC', [req.params.id]);
+  res.json(result.rows.map(mapAuthorizedActivity));
+});
+
+app.post('/api/garantias/:id/authorized-activities', authRequired, requireRoles('admin','operativo'), async (req, res) => {
+  const garantia = await canAccessGarantia(req, req.params.id);
+  if (!garantia) return res.status(404).json({ error: 'Reporte no encontrado.' });
+  const b = req.body || {}; const description = String(b.description || '').trim();
+  if (!description) return res.status(400).json({ error: 'La descripción es obligatoria.' });
+  const result = await pool.query(`INSERT INTO authorized_activities (id, garantia_id, description, type, responsible, status, notes, created_by, created_by_nombre, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW()) RETURNING *`, [cryptoRandomId(), req.params.id, description, b.type || 'otro', b.responsible || '', b.status || 'pendiente', b.notes || '', req.user.id, req.user.nombre]);
+  await addAuditLog(req.params.id, req.user.id, 'actividad_autorizada', `${req.user.nombre} agregó actividad autorizada`);
+  res.status(201).json(mapAuthorizedActivity(result.rows[0]));
+});
+
+app.patch('/api/authorized-activities/:activityId', authRequired, requireRoles('admin','operativo'), async (req, res) => {
+  const b = req.body || {}; const description = String(b.description || '').trim();
+  if (!description) return res.status(400).json({ error: 'La descripción es obligatoria.' });
+  const result = await pool.query(`UPDATE authorized_activities SET description=$2,type=$3,responsible=$4,status=$5,notes=$6,updated_at=NOW() WHERE id=$1 RETURNING *`, [req.params.activityId, description, b.type || 'otro', b.responsible || '', b.status || 'pendiente', b.notes || '']);
+  if (!result.rowCount) return res.status(404).json({ error: 'Actividad no encontrada.' });
+  res.json(mapAuthorizedActivity(result.rows[0]));
+});
+
+app.delete('/api/authorized-activities/:activityId', authRequired, requireRoles('admin','operativo'), async (req, res) => {
+  const result = await pool.query('DELETE FROM authorized_activities WHERE id=$1 RETURNING garantia_id', [req.params.activityId]);
+  if (!result.rowCount) return res.status(404).json({ error: 'Actividad no encontrada.' });
+  res.json({ ok: true });
 });
 
 app.post('/api/garantias', authRequired, requireRoles('operador', 'admin'), async (req, res) => {
@@ -1865,7 +1981,17 @@ app.get('/api/history/unit/:numeroEconomico', authRequired, requireRoles('admin'
     where.push(`${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql(`$${params.length}`)}`);
   }
   const result = await pool.query(`SELECT * FROM garantias WHERE ${where.join(' AND ')} ORDER BY created_at DESC`, params);
-  res.json(result.rows.map(mapGarantia));
+  const ids = result.rows.map(r => r.id);
+  let activitiesByReport = new Map();
+  if (ids.length) {
+    const activities = await pool.query('SELECT * FROM authorized_activities WHERE garantia_id = ANY($1::text[]) ORDER BY created_at ASC', [ids]);
+    activities.rows.forEach(row => {
+      const list = activitiesByReport.get(row.garantia_id) || [];
+      list.push(mapAuthorizedActivity(row));
+      activitiesByReport.set(row.garantia_id, list);
+    });
+  }
+  res.json(result.rows.map(row => ({ ...mapGarantia(row), authorizedActivities: activitiesByReport.get(row.id) || [] })));
 });
 
 
