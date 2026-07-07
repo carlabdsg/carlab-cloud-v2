@@ -2685,21 +2685,32 @@ function renderExecutiveDeck() {
   if (!els.executiveDeckGrid) return;
   const m = computeExecutiveMetrics();
   const role = state.user?.role || '';
+  const EXEC_ICONS = {
+    pulse: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12l3 3 5-6"/></svg>',
+    tool: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>',
+    repeat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>'
+  };
+  const pct = (num, den) => den ? Math.max(0, Math.min(100, Math.round((num / den) * 100))) : 0;
   const cards = [
-    { kicker:'Pulso general', value:m.total, text:`${m.empresas} empresas activas · ${m.unidades} unidades con historial`, chip:`${m.nuevas} nuevas`, cls:'focus-card', actions:[['Ver reportes', () => { resetBoardFilters(); switchPanel('board'); }], role !== 'operador' ? ['Agenda', async () => { await loadSchedules(''); switchPanel('schedule'); }] : null].filter(Boolean) },
-    { kicker:'Validación', value:m.aceptadas, text:`${m.revision} en revisión · ${m.rechazadas} rechazadas`, chip:'Bandeja viva', actions:[['Filtrar aceptadas', () => { if (els.validationFilter) els.validationFilter.value='aceptada'; renderGarantias(); }], ['Pendientes', () => { if (els.validationFilter) els.validationFilter.value='pendiente de revisión'; renderGarantias(); }]] },
-    { kicker:'Ejecución', value:m.proceso + m.espera, text:`${m.proceso} en proceso · ${m.espera} esperando refacción · ${m.terminadas} terminadas`, chip:'Operación', actions:[['En proceso', () => { if (els.operationalFilter) els.operationalFilter.value='en proceso'; renderGarantias(); }], ['Terminadas', () => { if (els.operationalFilter) els.operationalFilter.value='terminada'; renderGarantias(); }]] },
-    { kicker:'Reincidencia', value:m.reincidentes, text:'Unidades con más de una incidencia registrada. Excelente punto para control y venta.', chip:'Lectura comercial', actions:[ isRole('admin','operativo','supervisor','supervisor_flotas') ? ['Historial', () => switchPanel('history')] : null, isRole('admin','operativo','supervisor_flotas') ? ['Flotas', async () => { await loadFleet(); switchPanel('fleet'); }] : null].filter(Boolean) }
+    { kicker:'Pulso general', value:m.total, text:`${m.empresas} empresas activas · ${m.unidades} unidades con historial`, chip:`${m.nuevas} nuevas`, cls:'focus-card', tone:'purple', icon:'pulse', pct: pct(m.total - m.nuevas, m.total), actions:[['Ver reportes', () => { resetBoardFilters(); switchPanel('board'); }], role !== 'operador' ? ['Agenda', async () => { await loadSchedules(''); switchPanel('schedule'); }] : null].filter(Boolean) },
+    { kicker:'Validación', value:m.aceptadas, text:`${m.revision} en revisión · ${m.rechazadas} rechazadas`, chip:'Bandeja viva', tone:'green', icon:'check', pct: pct(m.aceptadas, m.aceptadas + m.revision + m.rechazadas), actions:[['Filtrar aceptadas', () => { if (els.validationFilter) els.validationFilter.value='aceptada'; renderGarantias(); }], ['Pendientes', () => { if (els.validationFilter) els.validationFilter.value='pendiente de revisión'; renderGarantias(); }]] },
+    { kicker:'Ejecución', value:m.proceso + m.espera, text:`${m.proceso} en proceso · ${m.espera} esperando refacción · ${m.terminadas} terminadas`, chip:'Operación', tone:'orange', icon:'tool', pct: pct(m.terminadas, m.proceso + m.espera + m.terminadas), actions:[['En proceso', () => { if (els.operationalFilter) els.operationalFilter.value='en proceso'; renderGarantias(); }], ['Terminadas', () => { if (els.operationalFilter) els.operationalFilter.value='terminada'; renderGarantias(); }]] },
+    { kicker:'Reincidencia', value:m.reincidentes, text:'Unidades con más de una incidencia registrada. Excelente punto para control y venta.', chip:'Lectura comercial', tone:'blue', icon:'repeat', pct: pct(m.reincidentes, m.unidades), actions:[ isRole('admin','operativo','supervisor','supervisor_flotas') ? ['Historial', () => switchPanel('history')] : null, isRole('admin','operativo','supervisor_flotas') ? ['Flotas', async () => { await loadFleet(); switchPanel('fleet'); }] : null].filter(Boolean) }
   ];
   if (role === 'operador') {
-    cards[1] = { kicker:'Seguimiento', value:m.aceptadas, text:`${m.revision} reportes siguen en análisis y ${m.terminadas} ya quedaron listos.`, chip:'Mi avance', actions:[['Nuevo reporte', () => { resetReportForm(); switchPanel('report'); }], ['Mi agenda', async () => { await loadSchedules(''); switchPanel('schedule'); }]] };
-    cards[3] = { kicker:'Refacciones', value:m.espera, text:'Tus reportes que requieren pieza quedan visibles para seguimiento.', chip:'Trazabilidad', actions:[['Ver reportes', () => { resetBoardFilters(); switchPanel('board'); }]] };
+    cards[1] = { kicker:'Seguimiento', value:m.aceptadas, text:`${m.revision} reportes siguen en análisis y ${m.terminadas} ya quedaron listos.`, chip:'Mi avance', tone:'green', icon:'check', pct: pct(m.aceptadas, m.aceptadas + m.revision), actions:[['Nuevo reporte', () => { resetReportForm(); switchPanel('report'); }], ['Mi agenda', async () => { await loadSchedules(''); switchPanel('schedule'); }]] };
+    cards[3] = { kicker:'Refacciones', value:m.espera, text:'Tus reportes que requieren pieza quedan visibles para seguimiento.', chip:'Trazabilidad', tone:'blue', icon:'repeat', pct: pct(m.espera, m.total), actions:[['Ver reportes', () => { resetBoardFilters(); switchPanel('board'); }]] };
   }
   els.executiveDeckGrid.innerHTML = cards.map(card => `
-    <article class="executive-card ${card.cls || ''}">
-      <div class="executive-kicker">${escapeHtml(card.kicker)}</div>
+    <article class="executive-card exec-tone-${card.tone || 'purple'} ${card.cls || ''}">
+      <div class="executive-card-head">
+        <div class="executive-icon">${EXEC_ICONS[card.icon] || EXEC_ICONS.pulse}</div>
+        <div class="executive-kicker">${escapeHtml(card.kicker)}</div>
+      </div>
       <strong>${escapeHtml(String(card.value))}</strong>
       <p>${escapeHtml(card.text)}</p>
+      <div class="executive-progress-track"><div class="executive-progress-bar" style="width:${card.pct || 0}%"></div></div>
       <div class="executive-meta">
         <span class="executive-chip">${escapeHtml(card.chip)}</span>
       </div>
