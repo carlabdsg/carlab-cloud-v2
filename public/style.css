@@ -5792,3 +5792,41 @@ body[data-role="supervisor_flotas"] #campaignsPanel #campaignUnitsGrid .campaign
 .fleet-red-pulse .cardUnidad{animation:fleetPulseCritical 1.5s ease-in-out infinite}
 @keyframes fleetPulseCritical{0%{transform:scale(1);box-shadow:0 10px 24px rgba(15,23,42,.06)}50%{transform:scale(1.03);box-shadow:0 14px 30px rgba(239,68,68,.18)}100%{transform:scale(1);box-shadow:0 10px 24px rgba(15,23,42,.06)}}
 @keyframes fleetAlertIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+
+
+/* Scroll-safe action/download menus */
+.action-dropdown-menu,
+.download-menu,
+.services-download-menu {
+  max-height: min(70vh, 360px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  z-index: 9999;
+}
+
+.authorized-activities-modal-body {
+  max-height: 70vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 760px) {
+  .action-dropdown-menu,
+  .download-menu,
+  .services-download-menu {
+    max-height: 60vh;
+    width: min(92vw, 360px);
+  }
+  .authorized-activities-modal-body {
+    max-height: 76vh;
+  }
+}
+
+.locked-field,
+select.locked-field:disabled {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: rgba(15, 23, 42, 0.12);
+  opacity: 1;
+  cursor: not-allowed;
+}
