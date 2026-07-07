@@ -669,7 +669,7 @@ function switchPanel(panel) {
   if (panel === 'stock') loadStock();
   if (panel === 'cobranza') loadCobranza();
   if (panel === 'campaigns') loadCampaigns();
-  if (panel === 'services') loadServicesReport();
+  if (panel === 'services') { configureServicesCompanyFilter(); loadServicesReport(); }
   updateOperatorAppNav(panel);
   setActiveNav(
     panel === 'report' ? els.navNewReportBtn :
@@ -727,7 +727,7 @@ function showDashboard() {
     if (els.navCobranzaBtn) { els.navCobranzaBtn.classList.add('hidden'); els.navCobranzaBtn.style.display = 'none'; }
   }
   els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas'));
-  updateHeaderForRole(); switchPanel(state.user?.role === 'operador' ? 'report' : (state.user?.role === 'supervisor_flotas' ? 'fleet' : 'board'));
+  configureServicesCompanyFilter(); updateHeaderForRole(); switchPanel(state.user?.role === 'operador' ? 'report' : (state.user?.role === 'supervisor_flotas' ? 'fleet' : 'board'));
 }
 function showLogin() { els.dashboardView?.classList.add('hidden'); els.loginView?.classList.remove('hidden'); els.operatorAppNav?.classList.add('hidden'); document.body.classList.remove('executive-mode','operator-mode'); document.body.dataset.role=''; document.body.dataset.panel='login'; }
 
@@ -2841,7 +2841,7 @@ function renderCompanies() {
   fillSelect(els.empresa, activeCompanies, 'Selecciona empresa');
   fillSelect(els.regEmpresa, activeCompanies, 'Selecciona empresa');
   fillSelect(els.userEmpresa, activeCompanies, 'Sin empresa');
-  fillSelect(els.servicesEmpresa, activeCompanies, 'Todas');
+  configureServicesCompanyFilter(activeCompanies);
 
   // conservar selección del operador si ya tiene empresa
   if (isRole('operador') && state.user?.empresa && els.empresa && !els.empresa.value) {
@@ -2867,7 +2867,28 @@ function renderAuthorizedActivitiesSection(items = [], garantiaId = '') {
   const cards = items.map(a => `<article class="owner-card"><div class="owner-card-head"><strong>${escapeHtml(a.description)}</strong><span class="badge ${activityBadgeClass(a.status)}">${activityStatusLabel(a.status)}</span></div><div class="small muted">${activityTypeLabel(a.type)} · ${escapeHtml(a.responsible || 'Sin responsable')} · Prioridad ${activityPriorityLabel(a.priority)} · ${Number(a.estimatedHours || 0)} h</div>${a.notes ? `<div class="small muted">${escapeHtml(a.notes)}</div>` : ''}</article>`).join('');
   return `<div class="owner-card" data-authorized-activities-container="${safeId}"><div class="owner-card-head"><strong>Actividades autorizadas</strong><span class="badge badge-info" data-authorized-activities-count="${safeId}">${items.length}</span></div>${items.length ? `<div class="cards">${cards}</div>` : '<div class="muted">Sin actividades autorizadas registradas.</div>'}</div>`;
 }
-function getServicesFilters() { return { startDate: els.servicesStartDate?.value || '', endDate: els.servicesEndDate?.value || '', empresa: els.servicesEmpresa?.value || '', numeroEconomico: els.servicesUnidad?.value || '', estatusOperativo: els.servicesEstatus?.value || '' }; }
+
+function configureServicesCompanyFilter(companies = null) {
+  if (!els.servicesEmpresa) return;
+  if (isRole('supervisor_flotas')) {
+    const empresa = state.user?.empresa || '';
+    els.servicesEmpresa.innerHTML = '';
+    const option = document.createElement('option');
+    option.value = empresa;
+    option.textContent = empresa || 'Sin empresa asignada';
+    els.servicesEmpresa.appendChild(option);
+    els.servicesEmpresa.value = empresa;
+    els.servicesEmpresa.disabled = true;
+    els.servicesEmpresa.classList.add('locked-field');
+    return;
+  }
+  els.servicesEmpresa.disabled = false;
+  els.servicesEmpresa.classList.remove('locked-field');
+  const activeCompanies = (companies || state.companies || []).filter(c => c.activo !== false);
+  fillSelect(els.servicesEmpresa, activeCompanies, 'Todas');
+}
+
+function getServicesFilters() { return { startDate: els.servicesStartDate?.value || '', endDate: els.servicesEndDate?.value || '', empresa: isRole('supervisor_flotas') ? (state.user?.empresa || '') : (els.servicesEmpresa?.value || ''), numeroEconomico: els.servicesUnidad?.value || '', estatusOperativo: els.servicesEstatus?.value || '' }; }
 function renderServicesReport() {
   const s = state.servicesReport.summary || {}, rows = state.servicesReport.reports || [];
   const cards = [['Total de reportes',s.totalReportes],['Unidades atendidas',s.unidadesAtendidas],['Terminados',s.terminados],['En proceso',s.enProceso],['Espera refacción',s.esperaRefaccion],['Refacciones solicitadas',s.reportesConRefaccionSolicitada],['Actividades autorizadas',s.actividadesAutorizadas],['Actividades urgentes',s.actividadesUrgentes],['Horas estimadas',s.estimatedHoursTotal],['Reincidencias',s.unidadesReincidentes]];
@@ -2876,6 +2897,11 @@ function renderServicesReport() {
 }
 async function loadServicesReport() {
   if (!isRole('admin','operativo','supervisor_flotas')) return;
+  configureServicesCompanyFilter();
+  if (isRole('supervisor_flotas') && !String(state.user?.empresa || '').trim()) {
+    notify('Tu usuario no tiene empresa asignada.', true);
+    return;
+  }
   setServicesDefaultDates();
   state.servicesReport = await api.getServicesReport(getServicesFilters()); renderServicesReport();
 }
@@ -3722,10 +3748,7 @@ els.campaignUnitSaveBtn?.addEventListener('click', async () => { try { if (!stat
 
 els.servicesConsultBtn?.addEventListener('click', loadServicesReport);
 els.servicesCsvBtn?.addEventListener('click', exportServicesCsv);
-els.servicesPdfBtn?.addEventListener('click', () => exportServicesPdf('executive'));
 els.servicesDetailPdfBtn?.addEventListener('click', () => exportServicesPdf('detail'));
-els.servicesJsonBtn?.addEventListener('click', exportServicesJson);
-els.servicesPackageBtn?.addEventListener('click', () => { exportServicesPdf('executive'); setTimeout(() => exportServicesPdf('detail'), 250); setTimeout(exportServicesCsv, 500); setTimeout(exportServicesJson, 750); });
 els.servicesPeriod?.addEventListener('change', () => { if(els.servicesStartDate) els.servicesStartDate.value=''; if(els.servicesEndDate) els.servicesEndDate.value=''; setServicesDefaultDates(); });
 els.authorizedActivitiesAddBtn?.addEventListener('click', () => addAuthorizedActivityRow());
 document.querySelectorAll('.aa-quick').forEach(btn => btn.addEventListener('click', () => addAuthorizedActivityRow({ type: btn.dataset.type || 'otro' })));

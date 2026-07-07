@@ -1655,8 +1655,11 @@ app.get('/api/services-report', authRequired, requireRoles('admin','operativo','
     const add = (sql, value) => { params.push(value); where.push(sql.replace('?', `$${params.length}`)); };
     if (req.query.startDate) add(`g.created_at >= ?::date`, req.query.startDate);
     if (req.query.endDate) add(`g.created_at < (?::date + INTERVAL '1 day')`, req.query.endDate);
-    if (req.user.role === 'supervisor_flotas') add(`${normalizedIdentitySql('g.empresa')} = ${normalizedIdentitySql('?')}`, req.user.empresa || '');
-    else if (req.query.empresa) add(`${normalizedIdentitySql('g.empresa')} = ${normalizedIdentitySql('?')}`, req.query.empresa);
+    if (req.user.role === 'supervisor_flotas') {
+      const empresaUsuario = String(req.user.empresa || '').trim();
+      if (!empresaUsuario) return res.status(400).json({ error: 'Tu usuario no tiene empresa asignada.' });
+      add(`${normalizedIdentitySql('g.empresa')} = ${normalizedIdentitySql('?')}`, empresaUsuario);
+    } else if (req.query.empresa) add(`${normalizedIdentitySql('g.empresa')} = ${normalizedIdentitySql('?')}`, req.query.empresa);
     if (req.query.numeroEconomico) add(`${normalizedIdentitySql('g.numero_economico')} = ${normalizedIdentitySql('?')}`, req.query.numeroEconomico);
     if (req.query.estatusOperativo) add(`g.estatus_operativo = ?`, req.query.estatusOperativo);
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';

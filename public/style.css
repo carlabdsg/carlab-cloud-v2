@@ -5821,3 +5821,12 @@ body[data-role="supervisor_flotas"] #campaignsPanel #campaignUnitsGrid .campaign
     max-height: 76vh;
   }
 }
+
+.locked-field,
+select.locked-field:disabled {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: rgba(15, 23, 42, 0.12);
+  opacity: 1;
+  cursor: not-allowed;
+}
