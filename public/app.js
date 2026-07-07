@@ -47,6 +47,7 @@ const state = {
   garantiaFullCache: {},
   servicesReport: { summary: {}, reports: [] },
   authorizedActivitiesEditingId: '',
+  authorizedActivitiesByReport: {},
 };
 
 const api = {
@@ -231,6 +232,8 @@ async function getGarantiaFull(id) {
     evidencias: normalizeEvidence(full.evidencias),
     evidenciasRefaccion: normalizeEvidence(full.evidenciasRefaccion),
     firma: typeof full.firma === 'string' ? full.firma : '',
+    authorizedActivities: activities,
+    authorizedActivitiesCount: activities.length,
   };
   state.garantiaFullCache[garantiaId] = normalized;
   return normalized;
@@ -2859,9 +2862,10 @@ function activityTypeLabel(value = '') { return ({ mano_obra:'Mano de obra', ref
 function activityStatusLabel(value = '') { return ({ pendiente:'Pendiente', en_proceso:'En proceso', realizada:'Realizada', cancelada:'Cancelada' })[String(value || '').replace(/\s+/g,'_')] || 'Pendiente'; }
 function activityPriorityLabel(value = '') { return ({ normal:'Normal', alta:'Alta', urgente:'Urgente' })[String(value || '').toLowerCase()] || 'Normal'; }
 function activityBadgeClass(value = '') { return ({ pendiente:'badge-role', en_proceso:'badge-info', realizada:'badge-success', cancelada:'badge-rejected' })[String(value || '').replace(/\s+/g,'_')] || 'badge-info'; }
-function renderAuthorizedActivitiesSection(items = []) {
+function renderAuthorizedActivitiesSection(items = [], garantiaId = '') {
+  const safeId = escapeHtml(garantiaId || '');
   const cards = items.map(a => `<article class="owner-card"><div class="owner-card-head"><strong>${escapeHtml(a.description)}</strong><span class="badge ${activityBadgeClass(a.status)}">${activityStatusLabel(a.status)}</span></div><div class="small muted">${activityTypeLabel(a.type)} · ${escapeHtml(a.responsible || 'Sin responsable')} · Prioridad ${activityPriorityLabel(a.priority)} · ${Number(a.estimatedHours || 0)} h</div>${a.notes ? `<div class="small muted">${escapeHtml(a.notes)}</div>` : ''}</article>`).join('');
-  return `<div class="owner-card"><div class="owner-card-head"><strong>Actividades autorizadas</strong><span class="badge badge-info">${items.length}</span></div>${items.length ? `<div class="cards">${cards}</div>` : '<div class="muted">Sin actividades autorizadas registradas.</div>'}</div>`;
+  return `<div class="owner-card" data-authorized-activities-container="${safeId}"><div class="owner-card-head"><strong>Actividades autorizadas</strong><span class="badge badge-info" data-authorized-activities-count="${safeId}">${items.length}</span></div>${items.length ? `<div class="cards">${cards}</div>` : '<div class="muted">Sin actividades autorizadas registradas.</div>'}</div>`;
 }
 function getServicesFilters() { return { startDate: els.servicesStartDate?.value || '', endDate: els.servicesEndDate?.value || '', empresa: els.servicesEmpresa?.value || '', numeroEconomico: els.servicesUnidad?.value || '', estatusOperativo: els.servicesEstatus?.value || '' }; }
 function renderServicesReport() {
@@ -3023,43 +3027,96 @@ async function exportServicesPdf(mode = 'executive') {
   doc.save(`servicios-carlab-${todayIso()}.pdf`);
 }
 function updateAuthorizedActivitiesSummary() { const rows=[...els.authorizedActivitiesList.querySelectorAll('.authorized-activity-row')].map(readActivityRow).filter(a=>a.description); const c=(fn)=>rows.filter(fn).length; const cards=[['Total',rows.length],['Pendientes',c(a=>a.status==='pendiente')],['En proceso',c(a=>a.status==='en_proceso')],['Realizadas',c(a=>a.status==='realizada')],['Urgentes',c(a=>a.priority==='urgente')],['Horas',rows.reduce((s,a)=>s+Number(a.estimatedHours||0),0)]]; if(els.authorizedActivitiesSummary) els.authorizedActivitiesSummary.innerHTML=cards.map(([k,v])=>`<article class="analytic-card"><strong>${k}</strong><div class="stat"><strong>${v}</strong></div></article>`).join(''); }
-function readActivityRow(row) { return { id: row.dataset.id || '', description: row.querySelector('.aa-description')?.value.trim() || '', type: row.querySelector('.aa-type')?.value || 'otro', responsible: row.querySelector('.aa-responsible')?.value.trim() || '', priority: row.querySelector('.aa-priority')?.value || 'normal', estimatedHours: Number(row.querySelector('.aa-hours')?.value || 0), status: row.querySelector('.aa-status')?.value || 'pendiente', notes: row.querySelector('.aa-notes')?.value.trim() || '' }; }
-function activityEditorRow(a = {}) { const wrap=document.createElement('div'); wrap.className='owner-card authorized-activity-row'; wrap.dataset.id=a.id||''; wrap.innerHTML=`<div class="schedule-manual-grid"><label class="span-2"><span>Descripción</span><input class="aa-description" value="${escapeHtml(a.description||'')}" /></label><label><span>Tipo</span><select class="aa-type"><option value="mano_obra">Mano de obra</option><option value="refaccion">Refacción</option><option value="pintura">Pintura</option><option value="ajuste">Ajuste</option><option value="diagnostico">Diagnóstico</option><option value="otro">Otro</option></select></label><label><span>Responsable</span><input class="aa-responsible" value="${escapeHtml(a.responsible||'')}" placeholder="Sin responsable" /></label><label><span>Prioridad</span><select class="aa-priority"><option value="normal">Normal</option><option value="alta">Alta</option><option value="urgente">Urgente</option></select></label><label><span>Horas estimadas</span><input class="aa-hours" type="number" min="0" step="0.25" value="${Number(a.estimatedHours||0)}" /></label><label><span>Estatus</span><select class="aa-status"><option value="pendiente">Pendiente</option><option value="en_proceso">En proceso</option><option value="realizada">Realizada</option><option value="cancelada">Cancelada</option></select></label><label class="span-2"><span>Observaciones</span><textarea class="aa-notes" rows="2">${escapeHtml(a.notes||'')}</textarea></label><button class="btn btn-ghost aa-delete" type="button">Eliminar</button></div>`; wrap.querySelector('.aa-type').value=a.type||'otro'; wrap.querySelector('.aa-status').value=a.status||'pendiente'; wrap.querySelector('.aa-priority').value=a.priority||'normal'; wrap.querySelector('.aa-delete').onclick=()=>{wrap.remove(); updateAuthorizedActivitiesSummary();}; wrap.querySelectorAll('input,select,textarea').forEach(el=>el.addEventListener('input', updateAuthorizedActivitiesSummary)); return wrap; }
+function readActivityRow(row) { return { id: row.dataset.id || '', description: row.querySelector('.aa-description')?.value.trim() || '', type: row.querySelector('.aa-type')?.value || 'otro', responsible: row.querySelector('.aa-responsible')?.value.trim() || '', priority: row.querySelector('.aa-priority')?.value || 'normal', estimatedHours: Number((row.querySelector('.aa-estimated-hours') || row.querySelector('.aa-hours'))?.value || 0), status: row.querySelector('.aa-status')?.value || 'pendiente', notes: row.querySelector('.aa-notes')?.value.trim() || '' }; }
+function activityEditorRow(a = {}) { const wrap=document.createElement('div'); wrap.className='owner-card authorized-activity-row'; wrap.dataset.id=a.id||''; wrap.innerHTML=`<div class="schedule-manual-grid"><label class="span-2"><span>Descripción</span><input class="aa-description" value="${escapeHtml(a.description||'')}" /></label><label><span>Tipo</span><select class="aa-type"><option value="mano_obra">Mano de obra</option><option value="refaccion">Refacción</option><option value="pintura">Pintura</option><option value="ajuste">Ajuste</option><option value="diagnostico">Diagnóstico</option><option value="otro">Otro</option></select></label><label><span>Responsable</span><input class="aa-responsible" value="${escapeHtml(a.responsible||'')}" placeholder="Sin responsable" /></label><label><span>Prioridad</span><select class="aa-priority"><option value="normal">Normal</option><option value="alta">Alta</option><option value="urgente">Urgente</option></select></label><label><span>Horas estimadas</span><input class="aa-hours aa-estimated-hours" type="number" min="0" step="0.25" value="${Number(a.estimatedHours||0)}" /></label><label><span>Estatus</span><select class="aa-status"><option value="pendiente">Pendiente</option><option value="en_proceso">En proceso</option><option value="realizada">Realizada</option><option value="cancelada">Cancelada</option></select></label><label class="span-2"><span>Observaciones</span><textarea class="aa-notes" rows="2">${escapeHtml(a.notes||'')}</textarea></label><button class="btn btn-ghost aa-delete" type="button">Eliminar</button></div>`; wrap.querySelector('.aa-type').value=a.type||'otro'; wrap.querySelector('.aa-status').value=a.status||'pendiente'; wrap.querySelector('.aa-priority').value=a.priority||'normal'; wrap.querySelector('.aa-delete').onclick=()=>{wrap.remove(); updateAuthorizedActivitiesSummary();}; wrap.querySelectorAll('input,select,textarea').forEach(el=>el.addEventListener('input', updateAuthorizedActivitiesSummary)); return wrap; }
 function addAuthorizedActivityRow(preset = {}) { els.authorizedActivitiesList?.appendChild(activityEditorRow(preset)); updateAuthorizedActivitiesSummary(); }
 async function openAuthorizedActivitiesModal(garantiaId) { state.authorizedActivitiesEditingId=garantiaId; try { const items=await api.getAuthorizedActivities(garantiaId); els.authorizedActivitiesList.innerHTML=''; items.forEach(a=>els.authorizedActivitiesList.appendChild(activityEditorRow(a))); if(!items.length) addAuthorizedActivityRow(); updateAuthorizedActivitiesSummary(); els.authorizedActivitiesModal?.classList.remove('hidden'); document.body.classList.add('modal-open'); } catch(error) { notify(error.message || 'No se pudieron cargar las actividades autorizadas.', true); } }
-function closeAuthorizedActivitiesModal(){ els.authorizedActivitiesModal?.classList.add('hidden'); if(els.authorizedActivitiesList) els.authorizedActivitiesList.innerHTML=''; document.body.classList.remove('modal-open'); }
+function closeAuthorizedActivitiesModal(){ els.authorizedActivitiesModal?.classList.add('hidden'); if(els.authorizedActivitiesList) els.authorizedActivitiesList.innerHTML=''; if (els.reportDetailModal?.classList.contains('hidden')) document.body.classList.remove('modal-open'); }
 function isActivityRowEmpty(activity = {}) {
   return !activity.description && !activity.responsible && !activity.notes && Number(activity.estimatedHours || 0) === 0 && (activity.type || 'otro') === 'otro' && (activity.status || 'pendiente') === 'pendiente' && (activity.priority || 'normal') === 'normal';
 }
 
-async function saveAuthorizedActivities(){
-  const gid = state.authorizedActivitiesEditingId;
-  const btn = els.authorizedActivitiesSaveBtn;
-  if (!gid) return notify('No se encontró el reporte para guardar actividades.', true);
-  const allRows = [...els.authorizedActivitiesList.querySelectorAll('.authorized-activity-row')].map(readActivityRow);
-  const invalid = allRows.find(a => !a.description && !isActivityRowEmpty(a));
-  if (invalid) return notify('Hay una actividad con datos pero sin descripción. Agrega descripción o elimínala.', true);
-  const activities = allRows.filter(a => !isActivityRowEmpty(a));
+async function refreshOpenReportDetailAfterActivitiesSave(garantiaId, activities = []) {
+  const id = String(garantiaId || '').trim();
+  if (!id) return;
   try {
-    if (btn) { btn.disabled = true; btn.textContent = 'Guardando…'; }
-    console.log('[authorizedActivities] saving', gid, activities.length);
-    const saved = await api.saveAuthorizedActivitiesBulk(gid, activities);
-    console.log('[authorizedActivities] saved', saved.length);
-    state.garantiaFullCache[gid] = null;
-    const detailOpen = els.reportDetailModal && !els.reportDetailModal.classList.contains('hidden');
-    await loadGarantias();
-    if (state.activePanel === 'services') await loadServicesReport();
-    closeAuthorizedActivitiesModal();
-    if (detailOpen) {
-      const current = state.garantias.find(g => g.id === gid) || { id: gid };
-      await openReportDetailModal(current);
+    const freshGarantia = await api.getGarantia(id);
+    freshGarantia.authorizedActivities = activities;
+    freshGarantia.authorizedActivitiesCount = activities.length;
+    state.garantiaFullCache[id] = freshGarantia;
+  } catch (error) {
+    console.warn('[authorizedActivities] no se pudo refrescar garantía completa:', error?.message || error);
+  }
+
+  const container = [...document.querySelectorAll('[data-authorized-activities-container]')]
+    .find(el => el.dataset.authorizedActivitiesContainer === id) ||
+    document.querySelector('[data-authorized-activities-container]');
+  if (container) container.outerHTML = renderAuthorizedActivitiesSection(activities, id);
+
+  const badge = [...document.querySelectorAll('[data-authorized-activities-count]')]
+    .find(el => el.dataset.authorizedActivitiesCount === id) ||
+    document.querySelector('[data-authorized-activities-count]');
+  if (badge) badge.textContent = String(activities.length);
+}
+
+async function saveAuthorizedActivities() {
+  const garantiaId = state.authorizedActivitiesEditingId;
+  if (!garantiaId) {
+    notify('No hay reporte seleccionado para guardar actividades.', true);
+    return;
+  }
+
+  const rows = [...(els.authorizedActivitiesList?.querySelectorAll('.authorized-activity-row') || [])];
+  const activities = rows.map(readActivityRow).filter(a =>
+    a.description ||
+    a.responsible ||
+    a.notes ||
+    Number(a.estimatedHours || 0) > 0
+  );
+
+  const invalid = activities.find(a => !a.description);
+  if (invalid) {
+    notify('Toda actividad capturada necesita descripción.', true);
+    return;
+  }
+
+  const saveBtn = els.authorizedActivitiesSaveBtn;
+  const oldText = saveBtn?.textContent || 'Guardar';
+
+  try {
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Guardando...';
     }
-    notify('Actividades autorizadas guardadas');
-  } catch(error) {
-    console.error('Error guardando actividades autorizadas:', error);
+
+    console.log('[authorizedActivities] saving', garantiaId, activities);
+    await api.saveAuthorizedActivitiesBulk(garantiaId, activities);
+
+    const verifiedActivities = await api.getAuthorizedActivities(garantiaId);
+    console.log('[authorizedActivities] verified', verifiedActivities);
+
+    if (!state.authorizedActivitiesByReport) state.authorizedActivitiesByReport = {};
+    state.authorizedActivitiesByReport[garantiaId] = verifiedActivities;
+
+    if (state.garantiaFullCache) delete state.garantiaFullCache[garantiaId];
+
+    await loadGarantias();
+    await refreshOpenReportDetailAfterActivitiesSave(garantiaId, verifiedActivities);
+
+    if (state.activePanel === 'services' && typeof loadServicesReport === 'function') {
+      await loadServicesReport();
+    }
+
+    closeAuthorizedActivitiesModal();
+    notify(`Actividades autorizadas guardadas: ${verifiedActivities.length}.`);
+  } catch (error) {
+    console.error('[authorizedActivities] save failed:', error);
     notify(error.message || 'No se pudieron guardar las actividades autorizadas.', true);
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = oldText;
+    }
   }
 }
 
@@ -3183,7 +3240,7 @@ async function openReportDetailModal(item) {
       ${full.observacionesOperativo ? `<p class="small muted"><strong>Observación operativa:</strong> ${escapeHtml(full.observacionesOperativo)}</p>` : ''}
       ${full.motivoDecision ? `<p class="small muted"><strong>Motivo decisión:</strong> ${escapeHtml(full.motivoDecision)}</p>` : ''}
     </div>
-    ${renderAuthorizedActivitiesSection(full.authorizedActivities || [])}
+    ${renderAuthorizedActivitiesSection(full.authorizedActivities || [], full.id)}
     <div class="owner-card owner-gallery-card">
       <div class="owner-card-head"><strong>Evidencia visual</strong><span class="badge badge-info">${gallery.length} archivo${gallery.length === 1 ? '' : 's'}</span></div>
       ${gallery.length ? `<div class="media-gallery">${gallery.map((entry, idx) => `<button type="button" class="media-thumb" onclick='openImageLightbox(${JSON.stringify(entry.src)}, ${JSON.stringify(entry.caption || `Evidencia ${idx + 1}`)})'><img src="${entry.src}" alt="Evidencia ${idx + 1}" /></button>`).join('')}</div>` : '<div class="muted">Sin evidencia cargada.</div>'}
@@ -3675,4 +3732,4 @@ document.querySelectorAll('.aa-quick').forEach(btn => btn.addEventListener('clic
 document.querySelectorAll('.aa-template').forEach(btn => btn.addEventListener('click', () => addAuthorizedActivityRow({ description: btn.dataset.template || '', type: btn.dataset.template === 'Pintura' ? 'pintura' : (btn.dataset.template || '').includes('Diagnóstico') ? 'diagnostico' : (btn.dataset.template || '').includes('refacción') ? 'refaccion' : 'mano_obra' })));
 els.authorizedActivitiesClose?.addEventListener('click', closeAuthorizedActivitiesModal);
 els.authorizedActivitiesCancelBtn?.addEventListener('click', closeAuthorizedActivitiesModal);
-els.authorizedActivitiesSaveBtn?.addEventListener('click', saveAuthorizedActivities);
+els.authorizedActivitiesSaveBtn?.addEventListener('click', async (event) => { event.preventDefault(); await saveAuthorizedActivities(); });

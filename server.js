@@ -1722,7 +1722,8 @@ app.put('/api/garantias/:id/authorized-activities', authRequired, requireRoles('
   try {
     const garantia = await canAccessGarantia(req, req.params.id);
     if (!garantia) return res.status(404).json({ error: 'Reporte no encontrado.' });
-    const incoming = Array.isArray(req.body?.activities) ? req.body.activities : [];
+    if (!Array.isArray(req.body?.activities)) return res.status(400).json({ error: 'activities debe ser un arreglo.' });
+    const incoming = req.body.activities;
     const normalized = incoming
       .map((item) => ({
         id: String(item.id || '').trim(),
