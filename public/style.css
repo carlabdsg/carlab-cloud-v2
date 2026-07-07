@@ -5926,3 +5926,58 @@ select.locked-field:disabled {
 @media (max-width: 640px) {
   .board-side { flex-direction:column; }
 }
+
+/* ====================================================================
+   Estilo del Centro de mando aplicado a TODO el programa.
+   Estas clases ya se reutilizan en Refacciones, Stock, Cobranza,
+   Analítica, Servicios, Campañas y Actividades autorizadas — al
+   actualizarlas aquí, el mismo lenguaje visual (acento de color +
+   número destacado) se propaga a todos esos paneles sin tocar JS.
+==================================================================== */
+.parts-summary-card:nth-of-type(4n+1),
+.analytic-card:nth-of-type(4n+1),
+.campaign-mini-stat:nth-of-type(4n+1) { --tone: var(--purple); }
+
+.parts-summary-card:nth-of-type(4n+2),
+.analytic-card:nth-of-type(4n+2),
+.campaign-mini-stat:nth-of-type(4n+2) { --tone: var(--green); }
+
+.parts-summary-card:nth-of-type(4n+3),
+.analytic-card:nth-of-type(4n+3),
+.campaign-mini-stat:nth-of-type(4n+3) { --tone: var(--orange); }
+
+.parts-summary-card:nth-of-type(4n+4),
+.analytic-card:nth-of-type(4n+4),
+.campaign-mini-stat:nth-of-type(4n+4) { --tone: var(--blue); }
+
+.parts-summary-card,
+.analytic-card,
+.campaign-mini-stat {
+  border-top: 3px solid var(--tone, var(--purple));
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.parts-summary-card:hover,
+.analytic-card:hover,
+.campaign-mini-stat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px rgba(16,24,40,.08);
+}
+.parts-summary-card strong,
+.analytic-card strong,
+.campaign-mini-stat strong {
+  color: var(--tone, var(--title));
+}
+.parts-summary-card.glass-card,
+.parts-summary-action-card { border-top-color: var(--accent); }
+.parts-summary-card.glass-card strong { color: var(--accent); }
+
+/* Tarjetas de historial, refacciones y flotas: mismo ícono avatar
+   circular que ya usa el radar de unidades, para que toda lista de
+   registros se lea igual en cualquier panel. */
+.table-row.rich-row,
+.fleet-card,
+.cobranza-quote-card,
+.campaign-unit-card {
+  border-radius: 16px;
+}
+.badge-done { background:#f2f4f7; color:#475467; border-color:#e4e7ec; }
