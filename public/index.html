@@ -669,11 +669,35 @@
           <div id="servicesTable" class="table-list compact-list"></div>
         </section>
 
-        <section id="boardPanel" class="panel">
-          <div class="panel-head"><div><div class="topbar-kicker" id="boardKicker">CENTRAL</div><h3 id="listTitle">Bandeja de garantías</h3></div></div>
-          <div id="garantiasList" class="cards"></div>
-          <div id="emptyState" class="empty-state hidden"><strong>No hay registros para esta vista.</strong><span>Cuando entren reportes o cambien los filtros, aquí aparecerán.</span></div>
-        </section>
+        <div class="board-row">
+          <section id="boardPanel" class="panel board-panel-main">
+            <div class="panel-head"><div><div class="topbar-kicker" id="boardKicker">CENTRAL</div><h3 id="listTitle">Bandeja de garantías</h3></div></div>
+            <div id="garantiasList" class="cards"></div>
+            <div id="emptyState" class="empty-state hidden"><strong>No hay registros para esta vista.</strong><span>Cuando entren reportes o cambien los filtros, aquí aparecerán.</span></div>
+          </section>
+
+          <aside id="commandSidePanel" class="board-side hidden">
+            <section class="panel side-card">
+              <div class="panel-head compact-panel-head"><h3>Actividad reciente</h3></div>
+              <div id="recentActivityList" class="activity-list"></div>
+            </section>
+
+            <section class="panel side-card">
+              <div class="panel-head compact-panel-head"><h3>Agenda próxima</h3></div>
+              <div id="upcomingAgendaList" class="agenda-list"></div>
+            </section>
+
+            <section class="panel side-card">
+              <div class="panel-head compact-panel-head"><h3>Unidades por estado</h3></div>
+              <div class="donut-wrap">
+                <div id="statusDonut" class="donut-ring">
+                  <div class="donut-hole"><strong id="statusDonutTotal">0</strong><span>Total</span></div>
+                </div>
+                <div id="statusDonutLegend" class="donut-legend"></div>
+              </div>
+            </section>
+          </aside>
+        </div>
       </main>
     </section>
   </div>

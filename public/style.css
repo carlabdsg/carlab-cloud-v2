@@ -5882,3 +5882,47 @@ select.locked-field:disabled {
 /* Estados alineados al mockup: terminada = gris neutro, en proceso = azul,
    aceptada = verde. Evita que "terminada" y "aceptada" compartan el mismo verde. */
 .badge-done { background:#f2f4f7; color:#475467; border-color:#e4e7ec; }
+
+/* ====================================================================
+   Panel lateral del Centro de mando: Actividad reciente, Agenda próxima
+   y Unidades por estado (mockup 2026-07-07)
+==================================================================== */
+.board-row { display:flex; gap:16px; align-items:flex-start; }
+.board-panel-main { flex: 2 1 0; min-width:0; }
+.board-side { flex: 1 1 320px; max-width:360px; display:flex; flex-direction:column; gap:16px; }
+.side-card { padding:18px; }
+.side-card .panel-head { margin-bottom:8px; }
+.side-card h3 { font-size:15px; margin:0; }
+
+.activity-row, .agenda-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); }
+.activity-row:last-child, .agenda-row:last-child { border-bottom:0; }
+.activity-dot { width:9px; height:9px; border-radius:50%; flex:0 0 auto; }
+.activity-dot.tone-purple { background: var(--purple); }
+.activity-dot.tone-green { background: var(--green); }
+.activity-dot.tone-blue { background: var(--blue); }
+.activity-row-body, .agenda-row-body { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.activity-row-body strong, .agenda-row-body strong { font-size:13px; }
+.activity-time { white-space:nowrap; font-size:11px; }
+
+.agenda-date { width:44px; text-align:center; background: var(--surface-3); border-radius:10px; padding:6px 4px; flex:0 0 auto; }
+.agenda-date strong { display:block; font-size:15px; line-height:1; color: var(--title); }
+.agenda-date span { display:block; font-size:10px; letter-spacing:.06em; color:var(--muted); margin-top:2px; }
+
+.donut-wrap { display:flex; align-items:center; gap:16px; }
+.donut-ring { width:104px; height:104px; border-radius:50%; flex:0 0 auto; display:flex; align-items:center; justify-content:center; }
+.donut-hole { width:64px; height:64px; border-radius:50%; background: var(--surface); display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.donut-hole strong { font-size:20px; line-height:1; color: var(--title); }
+.donut-hole span { font-size:10px; color:var(--muted); }
+.donut-legend { flex:1; display:flex; flex-direction:column; gap:8px; min-width:0; }
+.donut-legend-row { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); }
+.donut-legend-row strong { margin-left:auto; color:var(--text); }
+.donut-dot { width:8px; height:8px; border-radius:50%; flex:0 0 auto; }
+
+@media (max-width: 1100px) {
+  .board-row { flex-direction:column; }
+  .board-side { max-width:none; flex-direction:row; flex-wrap:wrap; }
+  .board-side .side-card { flex:1 1 260px; }
+}
+@media (max-width: 640px) {
+  .board-side { flex-direction:column; }
+}
