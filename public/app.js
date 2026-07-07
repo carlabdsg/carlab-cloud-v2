@@ -77,7 +77,7 @@ const api = {
   createAuthorizedActivity(id, payload) { return this.request(`/api/garantias/${id}/authorized-activities`, { method: 'POST', body: JSON.stringify(payload || {}) }); },
   updateAuthorizedActivity(id, payload) { return this.request(`/api/authorized-activities/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   deleteAuthorizedActivity(id) { return this.request(`/api/authorized-activities/${id}`, { method: 'DELETE' }); },
-  saveAuthorizedActivitiesBulk(id, payload) { return this.request(`/api/garantias/${id}/authorized-activities`, { method: 'PUT', body: JSON.stringify(payload || {}) }); },
+  saveAuthorizedActivitiesBulk(id, activities) { return this.request(`/api/garantias/${id}/authorized-activities`, { method: 'PUT', body: JSON.stringify({ activities: Array.isArray(activities) ? activities : [] }) }); },
   createGarantia(payload) { return this.request('/api/garantias', { method: 'POST', body: JSON.stringify(payload) }); },
   updateGarantia(id, payload) { return this.request(`/api/garantias/${id}`, { method: 'PATCH', body: JSON.stringify(payload || {}) }); },
   deleteGarantia(id) { return this.request(`/api/garantias/${id}`, { method: 'DELETE' }); },
@@ -2884,14 +2884,184 @@ function addCarlabPdfFooter(doc) { const pages = doc.internal.getNumberOfPages()
 function addWrappedText(doc, text, x, y, width, lineHeight = 5) { const lines = doc.splitTextToSize(String(text || '—'), width); doc.text(lines, x, y); return y + (lines.length * lineHeight); }
 function addPdfKpiCards(doc, summary = {}, y = 44) { const cards=[['Reportes',summary.totalReportes],['Unidades',summary.unidadesAtendidas],['Terminados',summary.terminados],['En proceso',summary.enProceso],['Espera ref.',summary.esperaRefaccion],['Refacciones',summary.reportesConRefaccionSolicitada],['Actividades',summary.actividadesAutorizadas],['Reincidencias',summary.unidadesReincidentes]]; cards.forEach((c,i)=>{ const x=14+(i%4)*46; const yy=y+Math.floor(i/4)*22; doc.setFillColor(248,248,250); doc.roundedRect(x,yy,42,17,3,3,'F'); doc.setTextColor(226,42,116); doc.setFontSize(13); doc.text(String(Number(c[1]||0)),x+4,yy+8); doc.setTextColor(70,70,70); doc.setFontSize(7); doc.text(c[0],x+4,yy+14); }); return y+48; }
 function addPdfStatusBadge(doc, text, x, y, color = [120,120,120]) { doc.setFillColor(...color); doc.roundedRect(x,y-4,34,7,2,2,'F'); doc.setTextColor(255,255,255); doc.setFontSize(7); doc.text(String(text), x+17, y+1, { align:'center' }); doc.setTextColor(35,35,35); }
-async function exportServicesPdf(mode = 'executive') { const { jsPDF } = window.jspdf; const doc = new jsPDF(); const rows = state.servicesReport.reports || []; const s = state.servicesReport.summary || {}; const meta={ generatedAt:new Date().toLocaleString('es-MX'), period:`${els.servicesStartDate?.value || '—'} a ${els.servicesEndDate?.value || '—'}`, empresa: els.servicesEmpresa?.value || (state.user?.role==='supervisor_flotas'?state.user?.empresa:'Todas') || 'Todas', user: state.user?.nombre || state.user?.email || '—' }; let y=await addCarlabPdfHeader(doc,'Reporte de servicios','Resumen operativo de flota',meta); y=addPdfKpiCards(doc,s,y); doc.setFontSize(10); doc.setTextColor(35,35,35); y=ensurePdfSpace(doc,y,22); doc.text('Semáforo operativo',14,y); addPdfStatusBadge(doc,`Verde ${s.terminados||0}`,52,y,[46,160,90]); addPdfStatusBadge(doc,`Amarillo ${(s.pendientesSinIniciar||0)+(s.enProceso||0)}`,90,y,[226,170,40]); addPdfStatusBadge(doc,`Rojo ${(s.esperaRefaccion||0)+(s.unidadesReincidentes||0)}`,136,y,[200,70,70]); y+=12; y=ensurePdfSpace(doc,y,28); doc.setFontSize(12); doc.text('Lectura ejecutiva',14,y); y+=7; doc.setFontSize(9); y=addWrappedText(doc,`Durante el periodo seleccionado se registraron ${s.totalReportes||0} reportes en ${s.unidadesAtendidas||0} unidades. La operación muestra ${s.terminados||0} servicios terminados, ${s.enProceso||0} en proceso y ${s.esperaRefaccion||0} en espera de refacción. Se detectaron ${s.unidadesReincidentes||0} unidades reincidentes y ${s.actividadesAutorizadas||0} actividades autorizadas.`,14,y,182); y+=6; y=ensurePdfSpace(doc,y,28); doc.setFontSize(12); doc.text('Top unidades con más reportes',14,y); y+=7; doc.setFontSize(9); topServiceUnits(rows).forEach(([unit,count])=>{ doc.text(`${unit}: ${count}`,18,y); y+=5; }); y+=4; const highlighted=rows.filter(r=>r.authorizedActivitiesCount>0).slice(0,5); if(highlighted.length){ y=ensurePdfSpace(doc,y,28); doc.setFontSize(12); doc.text('Actividades autorizadas destacadas',14,y); y+=7; doc.setFontSize(9); highlighted.forEach(r=>{ doc.text(`${r.folio||'—'} · ${r.numeroEconomico||'—'} · ${r.authorizedActivitiesCount} actividad(es)`,18,y); y+=5; }); y+=4; } y=ensurePdfSpace(doc,y,20); doc.setFillColor(32,32,36); doc.rect(14,y,182,8,'F'); doc.setTextColor(255,255,255); doc.setFontSize(7); ['Folio','Fecha','Empresa','Unidad','Tipo','Estatus','Ref.','Act.','Cierre'].forEach((h,i)=>doc.text(h,[16,36,58,86,108,126,155,169,181][i],y+5)); y+=8; doc.setTextColor(45,45,45); rows.forEach((r,idx)=>{ y=ensurePdfSpace(doc,y,15); if (y < 26) y=44; doc.setFillColor(idx%2?255:248,idx%2?255:248,idx%2?255:250); doc.rect(14,y,182,13,'F'); doc.setFontSize(7); doc.text(String(r.folio||'—').slice(0,16),16,y+5); doc.text(String(fmtDate(r.createdAt)).slice(0,10),36,y+5); doc.text(String(r.empresa||'—').slice(0,16),58,y+5); doc.text(String(r.numeroEconomico||'—').slice(0,10),86,y+5); doc.text(String(r.tipoIncidente||'—').slice(0,10),108,y+5); doc.text(String(r.estatusOperativo||'—').slice(0,18),126,y+5); doc.text(r.solicitaRefaccion?'Sí':'No',155,y+5); doc.text(String(r.authorizedActivitiesCount||0),171,y+5); doc.text(String(fmtDate(r.closedAt)).slice(0,10),181,y+5); if(r.descripcionFallo) { doc.setTextColor(105,105,105); doc.text(String(r.descripcionFallo).slice(0,95),16,y+11); doc.setTextColor(45,45,45); } y+=13; }); if(mode==='detail'){ doc.addPage(); y=await addCarlabPdfHeader(doc,'Reporte de servicios','Detalle de reportes',meta); rows.forEach(r=>{ y=ensurePdfSpace(doc,y,44); doc.setFillColor(248,248,250); doc.roundedRect(14,y,182,36,3,3,'F'); doc.setFontSize(10); doc.setTextColor(35,35,35); doc.text(`${r.folio||'—'} · ${r.empresa||'—'} · Unidad ${r.numeroEconomico||'—'}`,18,y+7); doc.setFontSize(8); y=addWrappedText(doc,`Modelo: ${r.modelo||'—'} | Estatus: ${r.estatusValidacion||'—'} / ${r.estatusOperativo||'—'} | Refacción: ${r.solicitaRefaccion?'Sí':'No'} | Cierre: ${fmtDate(r.closedAt)}`,18,y+13,174,4); y=addWrappedText(doc,`Descripción: ${r.descripcionFallo||'—'}`,18,y+2,174,4); const acts=(r.authorizedActivities||r.authorizedActivitiesPreview||[]).map(a=>`${a.description} (${activityStatusLabel(a.status)}, ${activityPriorityLabel(a.priority)}, ${Number(a.estimatedHours||0)} h)`).join('; ') || 'Sin actividades autorizadas registradas.'; y=addWrappedText(doc,`Actividades: ${acts}`,18,y+2,174,4); if(r.observacionesOperativo) y=addWrappedText(doc,`Observaciones: ${r.observacionesOperativo}`,18,y+2,174,4); y+=8; }); } addCarlabPdfFooter(doc); doc.save(`servicios-carlab-${todayIso()}.pdf`); }
+function truncatePdfLines(doc, text, width, maxLines = 2) {
+  const lines = doc.splitTextToSize(String(text || '—'), width);
+  if (lines.length <= maxLines) return lines;
+  const out = lines.slice(0, maxLines);
+  out[out.length - 1] = String(out[out.length - 1]).replace(/\s+$/, '').replace(/[.…]+$/, '') + '…';
+  return out;
+}
+
+async function addServicesPdfPage(doc, meta, subtitle = 'Resumen operativo de flota') {
+  return addCarlabPdfHeader(doc, 'Reporte de servicios', subtitle, meta);
+}
+
+async function drawServicesTable(doc, rows = [], options = {}) {
+  const meta = options.meta || {};
+  const pageBottom = 276;
+  const descWidth = 176;
+  const baseRowHeight = 10;
+  const lineHeight = 4;
+  const padding = 4;
+  const cols = [16, 38, 62, 88, 112, 150, 163, 176];
+  const widths = [20, 21, 24, 22, 36, 12, 10, 18];
+  let y = options.y || 44;
+
+  const drawHeader = () => {
+    doc.setFillColor(32, 32, 36);
+    doc.rect(14, y, 182, 8, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(7.5);
+    ['Folio','Fecha','Empresa','Unidad','Estatus','Ref.','Act.','Cierre'].forEach((h, i) => doc.text(h, cols[i], y + 5));
+    y += 8;
+    doc.setTextColor(45,45,45);
+  };
+
+  drawHeader();
+  rows.forEach((r, idx) => {
+    doc.setFontSize(7.5);
+    const descLines = r.descripcionFallo ? truncatePdfLines(doc, `Descripción: ${r.descripcionFallo}`, descWidth, 2) : [];
+    const rowHeight = baseRowHeight + (descLines.length ? (descLines.length * lineHeight + padding) : padding);
+    if (y + rowHeight > pageBottom) {
+      doc.addPage();
+      y = 44;
+      drawHeader();
+    }
+    doc.setFillColor(idx % 2 ? 255 : 248, idx % 2 ? 255 : 248, idx % 2 ? 255 : 250);
+    doc.rect(14, y, 182, rowHeight, 'F');
+    const top = y + 5;
+    const values = [
+      r.folio || '—',
+      String(fmtDate(r.createdAt)).slice(0, 10),
+      r.empresa || '—',
+      r.numeroEconomico || '—',
+      r.estatusOperativo || '—',
+      r.solicitaRefaccion ? 'Sí' : 'No',
+      String(r.authorizedActivitiesCount || 0),
+      String(fmtDate(r.closedAt)).slice(0, 10),
+    ];
+    values.forEach((value, i) => {
+      const txt = truncatePdfLines(doc, value, widths[i], 1)[0] || '—';
+      doc.text(txt, cols[i], top);
+    });
+    if (descLines.length) {
+      doc.setTextColor(95,95,95);
+      doc.text(descLines, 16, y + baseRowHeight + 3);
+      doc.setTextColor(45,45,45);
+    }
+    y += rowHeight;
+  });
+  return y;
+}
+
+async function drawServicesDetailedBlocks(doc, rows = [], options = {}) {
+  const meta = options.meta || {};
+  let y = options.y || await addServicesPdfPage(doc, meta, 'Detalle de reportes');
+  const pageBottom = 276;
+  for (const r of rows) {
+    doc.setFontSize(8);
+    const descLines = doc.splitTextToSize(`Descripción: ${r.descripcionFallo || '—'}`, 174);
+    const actsText = (r.authorizedActivities || r.authorizedActivitiesPreview || []).map(a => `${a.description} (${activityTypeLabel(a.type)}, ${activityStatusLabel(a.status)}, ${activityPriorityLabel(a.priority)}, ${Number(a.estimatedHours || 0)} h${a.responsible ? `, ${a.responsible}` : ''}${a.notes ? `, ${a.notes}` : ''})`).join('; ') || 'Sin actividades autorizadas registradas.';
+    const actLines = doc.splitTextToSize(`Actividades: ${actsText}`, 174);
+    const obsLines = r.observacionesOperativo ? doc.splitTextToSize(`Observaciones: ${r.observacionesOperativo}`, 174) : [];
+    const blockHeight = 20 + (descLines.length + actLines.length + obsLines.length) * 4.2 + 10;
+    if (y + blockHeight > pageBottom) {
+      doc.addPage();
+      y = await addServicesPdfPage(doc, meta, 'Detalle de reportes');
+    }
+    doc.setFillColor(248,248,250);
+    doc.roundedRect(14, y, 182, blockHeight, 3, 3, 'F');
+    doc.setTextColor(35,35,35);
+    doc.setFontSize(10);
+    doc.text(`${r.folio || '—'} · ${r.empresa || '—'} · Unidad ${r.numeroEconomico || '—'}`, 18, y + 7);
+    doc.setFontSize(8);
+    let yy = y + 13;
+    yy = addWrappedText(doc, `Modelo: ${r.modelo || '—'} | Estatus: ${r.estatusValidacion || '—'} / ${r.estatusOperativo || '—'} | Refacción: ${r.solicitaRefaccion ? 'Sí' : 'No'} | Cierre: ${fmtDate(r.closedAt)}`, 18, yy, 174, 4.2) + 1;
+    doc.text(descLines, 18, yy); yy += descLines.length * 4.2 + 2;
+    doc.text(actLines, 18, yy); yy += actLines.length * 4.2 + 2;
+    if (obsLines.length) doc.text(obsLines, 18, yy);
+    y += blockHeight + 5;
+  }
+  return y;
+}
+
+async function exportServicesPdf(mode = 'executive') {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const rows = state.servicesReport.reports || [];
+  const s = state.servicesReport.summary || {};
+  const meta = {
+    generatedAt: new Date().toLocaleString('es-MX'),
+    period: `${els.servicesStartDate?.value || '—'} a ${els.servicesEndDate?.value || '—'}`,
+    empresa: els.servicesEmpresa?.value || (state.user?.role === 'supervisor_flotas' ? state.user?.empresa : 'Todas') || 'Todas',
+    user: state.user?.nombre || state.user?.email || '—',
+  };
+  let y = await addServicesPdfPage(doc, meta);
+  y = addPdfKpiCards(doc, s, y);
+  doc.setFontSize(10); doc.setTextColor(35,35,35);
+  y = ensurePdfSpace(doc, y, 22); doc.text('Semáforo operativo', 14, y);
+  addPdfStatusBadge(doc, `Verde ${s.terminados || 0}`, 52, y, [46,160,90]);
+  addPdfStatusBadge(doc, `Amarillo ${(s.pendientesSinIniciar || 0) + (s.enProceso || 0)}`, 90, y, [226,170,40]);
+  addPdfStatusBadge(doc, `Rojo ${(s.esperaRefaccion || 0) + (s.unidadesReincidentes || 0)}`, 136, y, [200,70,70]);
+  y += 12;
+  y = ensurePdfSpace(doc, y, 28); doc.setFontSize(12); doc.text('Lectura ejecutiva', 14, y); y += 7;
+  doc.setFontSize(9);
+  y = addWrappedText(doc, `Durante el periodo seleccionado se registraron ${s.totalReportes || 0} reportes en ${s.unidadesAtendidas || 0} unidades. La operación muestra ${s.terminados || 0} servicios terminados, ${s.enProceso || 0} en proceso y ${s.esperaRefaccion || 0} en espera de refacción. Se detectaron ${s.unidadesReincidentes || 0} unidades reincidentes y ${s.actividadesAutorizadas || 0} actividades autorizadas.`, 14, y, 182) + 6;
+  y = ensurePdfSpace(doc, y, 28); doc.setFontSize(12); doc.text('Top unidades con más reportes', 14, y); y += 7;
+  doc.setFontSize(9); topServiceUnits(rows).forEach(([unit, count]) => { doc.text(`${unit}: ${count}`, 18, y); y += 5; }); y += 4;
+  const highlighted = rows.filter(r => r.authorizedActivitiesCount > 0).slice(0, 5);
+  if (highlighted.length) {
+    y = ensurePdfSpace(doc, y, 28); doc.setFontSize(12); doc.text('Actividades autorizadas destacadas', 14, y); y += 7;
+    doc.setFontSize(9); highlighted.forEach(r => { doc.text(`${r.folio || '—'} · ${r.numeroEconomico || '—'} · ${r.authorizedActivitiesCount} actividad(es)`, 18, y); y += 5; }); y += 4;
+  }
+  y = await drawServicesTable(doc, rows, { y: ensurePdfSpace(doc, y, 20), meta });
+  if (mode === 'detail') {
+    doc.addPage();
+    await drawServicesDetailedBlocks(doc, rows, { meta });
+  }
+  addCarlabPdfFooter(doc);
+  doc.save(`servicios-carlab-${todayIso()}.pdf`);
+}
 function updateAuthorizedActivitiesSummary() { const rows=[...els.authorizedActivitiesList.querySelectorAll('.authorized-activity-row')].map(readActivityRow).filter(a=>a.description); const c=(fn)=>rows.filter(fn).length; const cards=[['Total',rows.length],['Pendientes',c(a=>a.status==='pendiente')],['En proceso',c(a=>a.status==='en_proceso')],['Realizadas',c(a=>a.status==='realizada')],['Urgentes',c(a=>a.priority==='urgente')],['Horas',rows.reduce((s,a)=>s+Number(a.estimatedHours||0),0)]]; if(els.authorizedActivitiesSummary) els.authorizedActivitiesSummary.innerHTML=cards.map(([k,v])=>`<article class="analytic-card"><strong>${k}</strong><div class="stat"><strong>${v}</strong></div></article>`).join(''); }
 function readActivityRow(row) { return { id: row.dataset.id || '', description: row.querySelector('.aa-description')?.value.trim() || '', type: row.querySelector('.aa-type')?.value || 'otro', responsible: row.querySelector('.aa-responsible')?.value.trim() || '', priority: row.querySelector('.aa-priority')?.value || 'normal', estimatedHours: Number(row.querySelector('.aa-hours')?.value || 0), status: row.querySelector('.aa-status')?.value || 'pendiente', notes: row.querySelector('.aa-notes')?.value.trim() || '' }; }
 function activityEditorRow(a = {}) { const wrap=document.createElement('div'); wrap.className='owner-card authorized-activity-row'; wrap.dataset.id=a.id||''; wrap.innerHTML=`<div class="schedule-manual-grid"><label class="span-2"><span>Descripción</span><input class="aa-description" value="${escapeHtml(a.description||'')}" /></label><label><span>Tipo</span><select class="aa-type"><option value="mano_obra">Mano de obra</option><option value="refaccion">Refacción</option><option value="pintura">Pintura</option><option value="ajuste">Ajuste</option><option value="diagnostico">Diagnóstico</option><option value="otro">Otro</option></select></label><label><span>Responsable</span><input class="aa-responsible" value="${escapeHtml(a.responsible||'')}" placeholder="Sin responsable" /></label><label><span>Prioridad</span><select class="aa-priority"><option value="normal">Normal</option><option value="alta">Alta</option><option value="urgente">Urgente</option></select></label><label><span>Horas estimadas</span><input class="aa-hours" type="number" min="0" step="0.25" value="${Number(a.estimatedHours||0)}" /></label><label><span>Estatus</span><select class="aa-status"><option value="pendiente">Pendiente</option><option value="en_proceso">En proceso</option><option value="realizada">Realizada</option><option value="cancelada">Cancelada</option></select></label><label class="span-2"><span>Observaciones</span><textarea class="aa-notes" rows="2">${escapeHtml(a.notes||'')}</textarea></label><button class="btn btn-ghost aa-delete" type="button">Eliminar</button></div>`; wrap.querySelector('.aa-type').value=a.type||'otro'; wrap.querySelector('.aa-status').value=a.status||'pendiente'; wrap.querySelector('.aa-priority').value=a.priority||'normal'; wrap.querySelector('.aa-delete').onclick=()=>{wrap.remove(); updateAuthorizedActivitiesSummary();}; wrap.querySelectorAll('input,select,textarea').forEach(el=>el.addEventListener('input', updateAuthorizedActivitiesSummary)); return wrap; }
 function addAuthorizedActivityRow(preset = {}) { els.authorizedActivitiesList?.appendChild(activityEditorRow(preset)); updateAuthorizedActivitiesSummary(); }
 async function openAuthorizedActivitiesModal(garantiaId) { state.authorizedActivitiesEditingId=garantiaId; try { const items=await api.getAuthorizedActivities(garantiaId); els.authorizedActivitiesList.innerHTML=''; items.forEach(a=>els.authorizedActivitiesList.appendChild(activityEditorRow(a))); if(!items.length) addAuthorizedActivityRow(); updateAuthorizedActivitiesSummary(); els.authorizedActivitiesModal?.classList.remove('hidden'); document.body.classList.add('modal-open'); } catch(error) { notify(error.message || 'No se pudieron cargar las actividades autorizadas.', true); } }
 function closeAuthorizedActivitiesModal(){ els.authorizedActivitiesModal?.classList.add('hidden'); if(els.authorizedActivitiesList) els.authorizedActivitiesList.innerHTML=''; document.body.classList.remove('modal-open'); }
-async function saveAuthorizedActivities(){ const gid=state.authorizedActivitiesEditingId; const btn=els.authorizedActivitiesSaveBtn; const activities=[...els.authorizedActivitiesList.querySelectorAll('.authorized-activity-row')].map(readActivityRow).filter(a=>a.description); const empty=[...els.authorizedActivitiesList.querySelectorAll('.authorized-activity-row')].some(row=>!readActivityRow(row).description && (row.textContent || row.querySelector('input')?.value)); if (!activities.length && !confirm('No hay actividades con descripción. ¿Guardar la lista vacía?')) return; if (empty && !confirm('Hay actividades vacías; se ignorarán al guardar. ¿Continuar?')) return; try { if(btn){btn.disabled=true; btn.textContent='Guardando…';} const saved=await api.saveAuthorizedActivitiesBulk(gid,{ activities }); state.garantiaFullCache[gid]=null; notify('Actividades autorizadas guardadas'); closeAuthorizedActivitiesModal(); await loadGarantias(); if(state.activePanel==='services') await loadServicesReport(); } catch(error) { console.error('Error guardando actividades autorizadas:', error); notify(error.message || 'No se pudieron guardar las actividades autorizadas.', true); } finally { if(btn){btn.disabled=false; btn.textContent='Guardar';} } }
+function isActivityRowEmpty(activity = {}) {
+  return !activity.description && !activity.responsible && !activity.notes && Number(activity.estimatedHours || 0) === 0 && (activity.type || 'otro') === 'otro' && (activity.status || 'pendiente') === 'pendiente' && (activity.priority || 'normal') === 'normal';
+}
+
+async function saveAuthorizedActivities(){
+  const gid = state.authorizedActivitiesEditingId;
+  const btn = els.authorizedActivitiesSaveBtn;
+  if (!gid) return notify('No se encontró el reporte para guardar actividades.', true);
+  const allRows = [...els.authorizedActivitiesList.querySelectorAll('.authorized-activity-row')].map(readActivityRow);
+  const invalid = allRows.find(a => !a.description && !isActivityRowEmpty(a));
+  if (invalid) return notify('Hay una actividad con datos pero sin descripción. Agrega descripción o elimínala.', true);
+  const activities = allRows.filter(a => !isActivityRowEmpty(a));
+  try {
+    if (btn) { btn.disabled = true; btn.textContent = 'Guardando…'; }
+    console.log('[authorizedActivities] saving', gid, activities.length);
+    const saved = await api.saveAuthorizedActivitiesBulk(gid, activities);
+    console.log('[authorizedActivities] saved', saved.length);
+    state.garantiaFullCache[gid] = null;
+    const detailOpen = els.reportDetailModal && !els.reportDetailModal.classList.contains('hidden');
+    await loadGarantias();
+    if (state.activePanel === 'services') await loadServicesReport();
+    closeAuthorizedActivitiesModal();
+    if (detailOpen) {
+      const current = state.garantias.find(g => g.id === gid) || { id: gid };
+      await openReportDetailModal(current);
+    }
+    notify('Actividades autorizadas guardadas');
+  } catch(error) {
+    console.error('Error guardando actividades autorizadas:', error);
+    notify(error.message || 'No se pudieron guardar las actividades autorizadas.', true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
+  }
+}
 
 
 async function loadGarantias() { state.garantias = await api.getGarantias(); renderGarantias(); await loadNotifications(); }
