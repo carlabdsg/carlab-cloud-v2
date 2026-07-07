@@ -662,8 +662,11 @@
             <div><label>Unidad</label><input id="servicesUnidad" placeholder="Número económico" /></div>
             <div><label>Estatus operativo</label><select id="servicesEstatus"><option value="">Todos</option><option value="sin iniciar">Sin iniciar</option><option value="en proceso">En proceso</option><option value="espera refacción">Espera refacción</option><option value="terminada">Terminada</option></select></div>
             <button id="servicesConsultBtn" class="btn btn-primary" type="button">Consultar</button>
-            <button id="servicesPdfBtn" class="btn btn-secondary" type="button">Exportar PDF</button>
-            <button id="servicesCsvBtn" class="btn btn-secondary" type="button">Exportar Excel</button>
+            <button id="servicesPdfBtn" class="btn btn-secondary" type="button">PDF ejecutivo</button>
+            <button id="servicesDetailPdfBtn" class="btn btn-secondary" type="button">PDF detallado</button>
+            <button id="servicesCsvBtn" class="btn btn-secondary" type="button">Excel / CSV</button>
+            <button id="servicesJsonBtn" class="btn btn-secondary" type="button">JSON respaldo</button>
+            <button id="servicesPackageBtn" class="btn btn-ghost" type="button">Descargar paquete</button>
           </div>
           <div id="servicesSummary" class="executive-grid"></div>
           <div id="servicesTable" class="table-list compact-list"></div>
@@ -718,6 +721,9 @@
     <div class="parts-request-modal report-detail-modal">
       <button id="authorizedActivitiesClose" class="parts-request-close" type="button" aria-label="Cerrar">×</button>
       <div class="parts-request-head"><div class="topbar-kicker">ACTIVIDADES AUTORIZADAS</div><h3>Asignar actividades autorizadas</h3><p>Admin / operativo pueden capturar actividades para el cierre y PDF final.</p></div>
+      <div id="authorizedActivitiesSummary" class="executive-grid"></div>
+      <div class="parts-request-actions"><button class="btn btn-secondary aa-quick" data-type="mano_obra" type="button">+ Mano de obra</button><button class="btn btn-secondary aa-quick" data-type="refaccion" type="button">+ Refacción</button><button class="btn btn-secondary aa-quick" data-type="pintura" type="button">+ Pintura</button><button class="btn btn-secondary aa-quick" data-type="diagnostico" type="button">+ Diagnóstico</button><button class="btn btn-ghost aa-quick" data-type="otro" type="button">+ Actividad libre</button></div>
+      <div class="parts-request-actions"><button class="btn btn-ghost aa-template" data-template="Diagnóstico general" type="button">Diagnóstico general</button><button class="btn btn-ghost aa-template" data-template="Desmontaje" type="button">Desmontaje</button><button class="btn btn-ghost aa-template" data-template="Reparación" type="button">Reparación</button><button class="btn btn-ghost aa-template" data-template="Pintura" type="button">Pintura</button><button class="btn btn-ghost aa-template" data-template="Instalación de refacción" type="button">Instalación de refacción</button><button class="btn btn-ghost aa-template" data-template="Prueba funcional" type="button">Prueba funcional</button><button class="btn btn-ghost aa-template" data-template="Limpieza y entrega" type="button">Limpieza y entrega</button></div>
       <div id="authorizedActivitiesList" class="stack gap-16"></div>
       <div class="parts-request-actions"><button id="authorizedActivitiesAddBtn" class="btn btn-secondary" type="button">Agregar actividad</button><button id="authorizedActivitiesCancelBtn" class="btn btn-ghost" type="button">Cancelar</button><button id="authorizedActivitiesSaveBtn" class="btn btn-primary" type="button">Guardar</button></div>
     </div>

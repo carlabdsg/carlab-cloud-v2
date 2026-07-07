@@ -1099,7 +1099,13 @@ async function initDb() {
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
+    ALTER TABLE authorized_activities ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'normal';
+    ALTER TABLE authorized_activities ADD COLUMN IF NOT EXISTS estimated_hours NUMERIC(8,2) DEFAULT 0;
+    ALTER TABLE authorized_activities ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+    ALTER TABLE authorized_activities ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
     CREATE INDEX IF NOT EXISTS idx_authorized_activities_garantia ON authorized_activities(garantia_id);
+    CREATE INDEX IF NOT EXISTS idx_authorized_activities_status ON authorized_activities(status);
+    CREATE INDEX IF NOT EXISTS idx_authorized_activities_type ON authorized_activities(type);
 
     CREATE TABLE IF NOT EXISTS parts_requests (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1537,19 +1543,41 @@ app.delete('/api/users/:id', authRequired, requireRoles('admin'), async (req, re
 });
 
 
+function normalizeAuthorizedType(value = '') {
+  const raw = String(value || '').trim().toLowerCase();
+  const map = { 'mano de obra': 'mano_obra', 'refacción': 'refaccion', 'diagnóstico': 'diagnostico' };
+  const normalized = map[raw] || raw.replace(/\s+/g, '_');
+  return ['mano_obra','refaccion','pintura','ajuste','diagnostico','otro'].includes(normalized) ? normalized : 'otro';
+}
+
+function normalizeAuthorizedStatus(value = '') {
+  const raw = String(value || '').trim().toLowerCase();
+  const normalized = raw.replace(/\s+/g, '_');
+  return ['pendiente','en_proceso','realizada','cancelada'].includes(normalized) ? normalized : 'pendiente';
+}
+
+function normalizeAuthorizedPriority(value = '') {
+  const raw = String(value || '').trim().toLowerCase();
+  return ['normal','alta','urgente'].includes(raw) ? raw : 'normal';
+}
+
 function mapAuthorizedActivity(row) {
   return {
     id: row.id,
     garantiaId: row.garantia_id,
     description: row.description || '',
-    type: row.type || 'otro',
+    type: normalizeAuthorizedType(row.type || 'otro'),
     responsible: row.responsible || '',
-    status: row.status || 'pendiente',
+    status: normalizeAuthorizedStatus(row.status || 'pendiente'),
+    priority: normalizeAuthorizedPriority(row.priority || 'normal'),
+    estimatedHours: Number(row.estimated_hours || 0),
     notes: row.notes || '',
     createdBy: row.created_by || '',
     createdByNombre: row.created_by_nombre || '',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    completedAt: row.completed_at,
+    cancelledAt: row.cancelled_at,
   };
 }
 
@@ -1625,21 +1653,37 @@ app.get('/api/services-report', authRequired, requireRoles('admin','operativo','
     const params = [];
     const where = [];
     const add = (sql, value) => { params.push(value); where.push(sql.replace('?', `$${params.length}`)); };
-    if (req.query.startDate) add(`created_at >= ?::date`, req.query.startDate);
-    if (req.query.endDate) add(`created_at < (?::date + INTERVAL '1 day')`, req.query.endDate);
-    if (req.user.role === 'supervisor_flotas') add(`${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('?')}`, req.user.empresa || '');
-    else if (req.query.empresa) add(`${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('?')}`, req.query.empresa);
-    if (req.query.numeroEconomico) add(`${normalizedIdentitySql('numero_economico')} = ${normalizedIdentitySql('?')}`, req.query.numeroEconomico);
-    if (req.query.estatusOperativo) add(`estatus_operativo = ?`, req.query.estatusOperativo);
+    if (req.query.startDate) add(`g.created_at >= ?::date`, req.query.startDate);
+    if (req.query.endDate) add(`g.created_at < (?::date + INTERVAL '1 day')`, req.query.endDate);
+    if (req.user.role === 'supervisor_flotas') add(`${normalizedIdentitySql('g.empresa')} = ${normalizedIdentitySql('?')}`, req.user.empresa || '');
+    else if (req.query.empresa) add(`${normalizedIdentitySql('g.empresa')} = ${normalizedIdentitySql('?')}`, req.query.empresa);
+    if (req.query.numeroEconomico) add(`${normalizedIdentitySql('g.numero_economico')} = ${normalizedIdentitySql('?')}`, req.query.numeroEconomico);
+    if (req.query.estatusOperativo) add(`g.estatus_operativo = ?`, req.query.estatusOperativo);
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-    const result = await pool.query(`
-      SELECT g.*, COALESCE(aa.total,0)::int AS authorized_activities_count
-      FROM garantias g
-      LEFT JOIN (SELECT garantia_id, COUNT(*) total FROM authorized_activities GROUP BY garantia_id) aa ON aa.garantia_id = g.id
-      ${whereSql}
-      ORDER BY g.created_at DESC
-      LIMIT 2000`, params);
-    const reports = result.rows.map(row => ({ ...mapGarantia(row), authorizedActivitiesCount: Number(row.authorized_activities_count || 0) }));
+    const result = await pool.query(`SELECT g.* FROM garantias g ${whereSql} ORDER BY g.created_at DESC LIMIT 2000`, params);
+    const ids = result.rows.map(r => r.id);
+    const activitiesByReport = new Map();
+    if (ids.length) {
+      const activities = await pool.query('SELECT * FROM authorized_activities WHERE garantia_id = ANY($1::text[]) ORDER BY created_at ASC', [ids]);
+      activities.rows.forEach(row => {
+        const list = activitiesByReport.get(row.garantia_id) || [];
+        list.push(mapAuthorizedActivity(row));
+        activitiesByReport.set(row.garantia_id, list);
+      });
+    }
+    const reports = result.rows.map(row => {
+      const activities = activitiesByReport.get(row.id) || [];
+      const byStatus = activities.reduce((acc, a) => { acc[a.status] = (acc[a.status] || 0) + 1; return acc; }, {});
+      return {
+        ...mapGarantia(row),
+        authorizedActivitiesCount: activities.length,
+        authorizedActivities: activities,
+        authorizedActivitiesPreview: activities.slice(0, 3),
+        authorizedActivitiesByStatus: byStatus,
+        authorizedActivitiesUrgentes: activities.filter(a => a.priority === 'urgente').length,
+        estimatedHoursTotal: activities.reduce((sum, a) => sum + Number(a.estimatedHours || 0), 0),
+      };
+    });
     const byUnit = new Map(); reports.forEach(r => { const k = `${r.empresa}||${r.numeroEconomico}`; byUnit.set(k, (byUnit.get(k)||0)+1); });
     const summary = {
       totalReportes: reports.length,
@@ -1652,6 +1696,11 @@ app.get('/api/services-report', authRequired, requireRoles('admin','operativo','
       reportesConRefaccionSolicitada: reports.filter(r => r.solicitaRefaccion).length,
       unidadesReincidentes: [...byUnit.values()].filter(v => v > 1).length,
       actividadesAutorizadas: reports.reduce((sum, r) => sum + (r.authorizedActivitiesCount || 0), 0),
+      actividadesPendientes: reports.reduce((sum, r) => sum + (r.authorizedActivitiesByStatus?.pendiente || 0), 0),
+      actividadesEnProceso: reports.reduce((sum, r) => sum + (r.authorizedActivitiesByStatus?.en_proceso || 0), 0),
+      actividadesRealizadas: reports.reduce((sum, r) => sum + (r.authorizedActivitiesByStatus?.realizada || 0), 0),
+      actividadesUrgentes: reports.reduce((sum, r) => sum + (r.authorizedActivitiesUrgentes || 0), 0),
+      estimatedHoursTotal: reports.reduce((sum, r) => sum + Number(r.estimatedHoursTotal || 0), 0),
     };
     res.json({ summary, reports });
   } catch (error) {
@@ -1667,12 +1716,72 @@ app.get('/api/garantias/:id/authorized-activities', authRequired, requireRoles('
   res.json(result.rows.map(mapAuthorizedActivity));
 });
 
+
+app.put('/api/garantias/:id/authorized-activities', authRequired, requireRoles('admin','operativo'), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const garantia = await canAccessGarantia(req, req.params.id);
+    if (!garantia) return res.status(404).json({ error: 'Reporte no encontrado.' });
+    const incoming = Array.isArray(req.body?.activities) ? req.body.activities : [];
+    const normalized = incoming
+      .map((item) => ({
+        id: String(item.id || '').trim(),
+        description: String(item.description || '').trim(),
+        type: normalizeAuthorizedType(item.type),
+        responsible: String(item.responsible || '').trim(),
+        status: normalizeAuthorizedStatus(item.status),
+        priority: normalizeAuthorizedPriority(item.priority),
+        estimatedHours: Number.isFinite(Number(item.estimatedHours)) ? Math.max(0, Number(item.estimatedHours)) : 0,
+        notes: String(item.notes || '').trim(),
+      }))
+      .filter(item => item.description);
+
+    await client.query('BEGIN');
+    const current = await client.query('SELECT id FROM authorized_activities WHERE garantia_id = $1 FOR UPDATE', [req.params.id]);
+    const currentIds = new Set(current.rows.map(r => r.id));
+    const keptIds = new Set();
+    for (const item of normalized) {
+      if (item.id && currentIds.has(item.id)) {
+        keptIds.add(item.id);
+        await client.query(`
+          UPDATE authorized_activities
+          SET description=$2, type=$3, responsible=$4, status=$5, priority=$6, estimated_hours=$7, notes=$8, updated_at=NOW(),
+              completed_at = CASE WHEN $5 = 'realizada' THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
+              cancelled_at = CASE WHEN $5 = 'cancelada' THEN COALESCE(cancelled_at, NOW()) ELSE cancelled_at END
+          WHERE id=$1 AND garantia_id=$9`,
+          [item.id, item.description, item.type, item.responsible, item.status, item.priority, item.estimatedHours, item.notes, req.params.id]
+        );
+      } else {
+        const id = cryptoRandomId();
+        keptIds.add(id);
+        await client.query(`
+          INSERT INTO authorized_activities (id, garantia_id, description, type, responsible, status, priority, estimated_hours, notes, created_by, created_by_nombre, completed_at, cancelled_at, updated_at)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,CASE WHEN $6='realizada' THEN NOW() ELSE NULL END,CASE WHEN $6='cancelada' THEN NOW() ELSE NULL END,NOW())`,
+          [id, req.params.id, item.description, item.type, item.responsible, item.status, item.priority, item.estimatedHours, item.notes, req.user.id, req.user.nombre]
+        );
+      }
+    }
+    const deleteIds = [...currentIds].filter(id => !keptIds.has(id));
+    if (deleteIds.length) await client.query('DELETE FROM authorized_activities WHERE garantia_id = $1 AND id = ANY($2::text[])', [req.params.id, deleteIds]);
+    await client.query(`INSERT INTO audit_logs (garantia_id, user_id, accion, detalle) VALUES ($1,$2,$3,$4)`, [req.params.id, req.user.id, 'actividades_autorizadas_actualizadas', `${req.user.nombre} actualizó actividades autorizadas`]);
+    const finalRows = await client.query('SELECT * FROM authorized_activities WHERE garantia_id = $1 ORDER BY created_at ASC', [req.params.id]);
+    await client.query('COMMIT');
+    res.json(finalRows.rows.map(mapAuthorizedActivity));
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('Error guardando actividades autorizadas:', error?.message || error);
+    res.status(500).json({ error: 'No se pudieron guardar las actividades autorizadas.' });
+  } finally {
+    client.release();
+  }
+});
+
 app.post('/api/garantias/:id/authorized-activities', authRequired, requireRoles('admin','operativo'), async (req, res) => {
   const garantia = await canAccessGarantia(req, req.params.id);
   if (!garantia) return res.status(404).json({ error: 'Reporte no encontrado.' });
   const b = req.body || {}; const description = String(b.description || '').trim();
   if (!description) return res.status(400).json({ error: 'La descripción es obligatoria.' });
-  const result = await pool.query(`INSERT INTO authorized_activities (id, garantia_id, description, type, responsible, status, notes, created_by, created_by_nombre, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW()) RETURNING *`, [cryptoRandomId(), req.params.id, description, b.type || 'otro', b.responsible || '', b.status || 'pendiente', b.notes || '', req.user.id, req.user.nombre]);
+  const result = await pool.query(`INSERT INTO authorized_activities (id, garantia_id, description, type, responsible, status, priority, estimated_hours, notes, created_by, created_by_nombre, completed_at, cancelled_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,CASE WHEN $6='realizada' THEN NOW() ELSE NULL END,CASE WHEN $6='cancelada' THEN NOW() ELSE NULL END,NOW()) RETURNING *`, [cryptoRandomId(), req.params.id, description, normalizeAuthorizedType(b.type), b.responsible || '', normalizeAuthorizedStatus(b.status), normalizeAuthorizedPriority(b.priority), Number(b.estimatedHours || 0), b.notes || '', req.user.id, req.user.nombre]);
   await addAuditLog(req.params.id, req.user.id, 'actividad_autorizada', `${req.user.nombre} agregó actividad autorizada`);
   res.status(201).json(mapAuthorizedActivity(result.rows[0]));
 });
@@ -1680,7 +1789,7 @@ app.post('/api/garantias/:id/authorized-activities', authRequired, requireRoles(
 app.patch('/api/authorized-activities/:activityId', authRequired, requireRoles('admin','operativo'), async (req, res) => {
   const b = req.body || {}; const description = String(b.description || '').trim();
   if (!description) return res.status(400).json({ error: 'La descripción es obligatoria.' });
-  const result = await pool.query(`UPDATE authorized_activities SET description=$2,type=$3,responsible=$4,status=$5,notes=$6,updated_at=NOW() WHERE id=$1 RETURNING *`, [req.params.activityId, description, b.type || 'otro', b.responsible || '', b.status || 'pendiente', b.notes || '']);
+  const result = await pool.query(`UPDATE authorized_activities SET description=$2,type=$3,responsible=$4,status=$5,priority=$6,estimated_hours=$7,notes=$8,updated_at=NOW(), completed_at=CASE WHEN $5='realizada' THEN COALESCE(completed_at,NOW()) ELSE completed_at END, cancelled_at=CASE WHEN $5='cancelada' THEN COALESCE(cancelled_at,NOW()) ELSE cancelled_at END WHERE id=$1 RETURNING *`, [req.params.activityId, description, normalizeAuthorizedType(b.type), b.responsible || '', normalizeAuthorizedStatus(b.status), normalizeAuthorizedPriority(b.priority), Number(b.estimatedHours || 0), b.notes || '']);
   if (!result.rowCount) return res.status(404).json({ error: 'Actividad no encontrada.' });
   res.json(mapAuthorizedActivity(result.rows[0]));
 });
