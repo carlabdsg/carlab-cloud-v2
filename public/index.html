@@ -741,6 +741,36 @@ También acepta: B100-B126 o AUS 346, AUS 347"></textarea>
           <div id="garantiasList" class="cards"></div>
           <div id="emptyState" class="empty-state hidden"><strong>No hay registros para esta vista.</strong><span>Cuando entren reportes o cambien los filtros, aquí aparecerán.</span></div>
         </section>
+
+        <div class="board-row">
+          <section id="boardPanel" class="panel board-panel-main">
+            <div class="panel-head"><div><div class="topbar-kicker" id="boardKicker">CENTRAL</div><h3 id="listTitle">Bandeja de garantías</h3></div></div>
+            <div id="garantiasList" class="cards"></div>
+            <div id="emptyState" class="empty-state hidden"><strong>No hay registros para esta vista.</strong><span>Cuando entren reportes o cambien los filtros, aquí aparecerán.</span></div>
+          </section>
+
+          <aside id="commandSidePanel" class="board-side hidden">
+            <section class="panel side-card">
+              <div class="panel-head compact-panel-head"><h3>Actividad reciente</h3></div>
+              <div id="recentActivityList" class="activity-list"></div>
+            </section>
+
+            <section class="panel side-card">
+              <div class="panel-head compact-panel-head"><h3>Agenda próxima</h3></div>
+              <div id="upcomingAgendaList" class="agenda-list"></div>
+            </section>
+
+            <section class="panel side-card">
+              <div class="panel-head compact-panel-head"><h3>Unidades por estado</h3></div>
+              <div class="donut-wrap">
+                <div id="statusDonut" class="donut-ring">
+                  <div class="donut-hole"><strong id="statusDonutTotal">0</strong><span>Total</span></div>
+                </div>
+                <div id="statusDonutLegend" class="donut-legend"></div>
+              </div>
+            </section>
+          </aside>
+        </div>
       </main>
     </section>
   </div>
@@ -750,7 +780,10 @@ También acepta: B100-B126 o AUS 346, AUS 347"></textarea>
   <template id="garantiaCardTemplate">
     <article class="card">
       <div class="card-top">
-        <div><h4 class="title"></h4><p class="meta"></p></div>
+        <div class="card-top-lead">
+          <div class="unit-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17h1a2 2 0 1 0 4 0h6a2 2 0 1 0 4 0h1V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v10Z"/><path d="M4 12h16"/><circle cx="7.5" cy="17.5" r="0.5"/><circle cx="16.5" cy="17.5" r="0.5"/></svg></div>
+          <div><h4 class="title"></h4><p class="meta"></p></div>
+        </div>
         <div class="badge-stack"><span class="badge validation-badge"></span><span class="badge operational-badge"></span></div>
       </div>
       <p class="description"></p>
