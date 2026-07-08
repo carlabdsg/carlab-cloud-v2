@@ -377,121 +377,87 @@
 
         
         
-        <section id="fleetPanel" class="panel hidden fleet-clean-panel fleet-page">
-          <div class="fleet-shell">
-            <div class="fleet-header">
-              <div>
-                <div class="fleet-title-eyebrow">FLOTAS</div>
-                <h3 class="fleet-title">Cabina ejecutiva de flota</h3>
-                <p class="fleet-subtitle">Vista consolidada del estado operativo de tu flota.</p>
-              </div>
-              <div class="fleet-toolbar">
-                <input id="fleetSearchInput" class="fleet-search" placeholder="Buscar unidad, empresa o modelo" />
-                <div class="fleet-chip-row" role="group" aria-label="Filtros de flota">
-                  <button class="fleet-chip active" type="button" data-fleet-filter="todos">Todos</button>
-                  <button class="fleet-chip" type="button" data-fleet-filter="ok">Operando</button>
-                  <button class="fleet-chip" type="button" data-fleet-filter="critical">Detenidas</button>
-                  <button class="fleet-chip" type="button" data-fleet-filter="warning">En proceso</button>
-                  <button class="fleet-chip" type="button" data-fleet-filter="campania">Campaña</button>
-                  <button class="fleet-chip" type="button" data-fleet-filter="poliza">Póliza</button>
-                </div>
-                <select id="fleetStatusFilter" class="hidden" aria-hidden="true">
-                  <option value="todos">Todos</option>
-                  <option value="critical">Detenidas</option>
-                  <option value="warning">En proceso</option>
-                  <option value="ok">Operando</option>
-                  <option value="campania">Campaña</option>
-                  <option value="poliza">Póliza</option>
-                </select>
-                <button id="fleetRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
-                <button id="fleetNewBtn" class="fleet-primary-button fleet-form-only" type="button">+ Nueva unidad</button>
-                <button id="fleetCancelBtn" class="btn btn-ghost hidden" type="button">Cancelar edición</button>
-              </div>
+        <section id="fleetPanel" class="panel hidden fleet-clean-panel">
+          <div class="panel-head compact-panel-head">
+            <div>
+              <div class="topbar-kicker">FLOTAS</div>
+              <h3>Flota ejecutiva</h3>
             </div>
+            <span class="badge badge-info">Estado · Póliza · Campaña</span>
+          </div>
 
-            <div id="fleetFormBox" class="history-search-box history-panel-box fleet-form-only hidden fleet-create-box">
-              <div class="fleet-create-head">
-                <div>
-                  <strong>Alta de unidades</strong>
-                  <span>Captura una unidad individual o pega un lote para cargar varias unidades sin romper la operación.</span>
-                </div>
-              </div>
-              <div class="fleet-create-grid">
-                <div>
-                  <label>Empresa</label>
-                  <input id="fleetEmpresa" placeholder="Empresa ligada" />
-                </div>
-                <div>
-                  <label>Número económico</label>
-                  <input id="fleetNumeroEconomico" placeholder="Ej. 502" />
-                </div>
-                <div>
-                  <label>Obra</label>
-                  <input id="fleetNumeroObra" placeholder="Opcional" />
-                </div>
-                <div>
-                  <label>Marca</label>
-                  <input id="fleetMarca" list="fleetMarcaOptions" placeholder="Selecciona o escribe marca" />
-                  <datalist id="fleetMarcaOptions">
-                    <option value="Irizar"></option>
-                    <option value="Volvo"></option>
-                  </datalist>
-                </div>
-                <div>
-                  <label>Modelo</label>
-                  <input id="fleetModelo" placeholder="Ej. i6" />
-                </div>
-                <div>
-                  <label>Año</label>
-                  <input id="fleetAnio" placeholder="Ej. 2020" />
-                </div>
-                <div>
-                  <label>Kilometraje</label>
-                  <input id="fleetKilometraje" placeholder="Ej. 145000" />
-                </div>
-                <div>
-                  <label>Nombre de flota</label>
-                  <input id="fleetNombreFlota" placeholder="Ej. Flota Norte" />
-                </div>
-                <div>
-                  <label class="checkbox-row" style="height:auto"><input id="fleetPolizaActiva" type="checkbox" /> Póliza activa</label>
-                </div>
-                <div>
-                  <label class="checkbox-row" style="height:auto"><input id="fleetCampaignActiva" type="checkbox" /> Campaña de mantenimiento</label>
-                </div>
-                <div class="stack-inline fleet-single-actions">
-                  <button id="fleetSaveBtn" class="btn btn-primary hidden" type="button">Guardar unidad</button>
-                </div>
-              </div>
-              <div class="fleet-batch-box fleet-form-only">
-                <div>
-                  <strong>Añadir lote a la flota</strong>
-                  <p>Pega una unidad por línea. Formato recomendado: <b>Número, Empresa, Marca, Modelo, Año, Kilometraje, Flota</b>.</p>
-                </div>
-                <textarea id="fleetBatchText" rows="4" placeholder="Ej.
-B08, AUS, Irizar, i5, 2020, 145000, Flota Norte
-B100, AUS, Irizar, i5, 2021, 132000, Flota Norte"></textarea>
-                <div class="fleet-batch-actions">
-                  <button id="fleetBatchSaveBtn" class="btn btn-secondary" type="button">Añadir lote</button>
-                  <small>Los campos vacíos toman empresa, marca, modelo, año, kilometraje y flota de la captura individual si están llenos.</small>
-                </div>
-              </div>
+          <div class="fleet-admin-toolbar compact-toolbar">
+            <div class="fleet-line-filters">
+              <input id="fleetSearchInput" placeholder="Buscar unidad, empresa o modelo" />
+              <select id="fleetStatusFilter">
+                <option value="todos">Todos</option>
+                <option value="critical">Crítico</option>
+                <option value="warning">Con atención</option>
+                <option value="ok">Operativa</option>
+              </select>
+              <button id="fleetRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
             </div>
+            <div class="stack-inline fleet-toolbar-actions fleet-form-only">
+              <button id="fleetNewBtn" class="btn btn-primary" type="button">Nueva unidad</button>
+              <button id="fleetCancelBtn" class="btn btn-ghost hidden" type="button">Cancelar edición</button>
+            </div>
+          </div>
 
-            <div id="fleetOwnerDeck" class="fleet-owner-deck"></div>
+          <div class="history-search-box history-panel-box fleet-form-only">
+            <div>
+              <label>Empresa</label>
+              <input id="fleetEmpresa" placeholder="Empresa ligada" />
+            </div>
+            <div>
+              <label>Número económico</label>
+              <input id="fleetNumeroEconomico" placeholder="Ej. 502" />
+            </div>
+            <div>
+              <label>Obra</label>
+              <input id="fleetNumeroObra" placeholder="Opcional" />
+            </div>
+            <div>
+              <label>Marca</label>
+              <input id="fleetMarca" list="fleetMarcaOptions" placeholder="Selecciona o escribe marca" />
+              <datalist id="fleetMarcaOptions">
+                <option value="Irizar"></option>
+                <option value="Volvo"></option>
+              </datalist>
+            </div>
+            <div>
+              <label>Modelo</label>
+              <input id="fleetModelo" placeholder="Ej. i6" />
+            </div>
+            <div>
+              <label>Año</label>
+              <input id="fleetAnio" placeholder="Ej. 2020" />
+            </div>
+            <div>
+              <label>Kilometraje</label>
+              <input id="fleetKilometraje" placeholder="Ej. 145000" />
+            </div>
+            <div>
+              <label>Nombre de flota</label>
+              <input id="fleetNombreFlota" placeholder="Ej. Flota Norte" />
+            </div>
+            <div>
+              <label class="checkbox-row" style="height:auto"><input id="fleetPolizaActiva" type="checkbox" /> Póliza activa</label>
+            </div>
+            <div>
+              <label class="checkbox-row" style="height:auto"><input id="fleetCampaignActiva" type="checkbox" /> Campaña de mantenimiento</label>
+            </div>
+            <div class="stack-inline">
+              <button id="fleetSaveBtn" class="btn btn-primary hidden" type="button">Guardar unidad</button>
+            </div>
+          </div>
 
-            <div id="fleetUnitsGrid" class="fleet-units-grid">
-              <div class="fleet-grid-header">
-                <div>
-                  <strong>Flota</strong>
-                  <span>Vista general de todas las unidades</span>
-                </div>
-              </div>
-              <div id="fleetUnitsList" class="fleet-line-list"></div>
-            </div>
-            <div id="fleetDetail" class="panel-subtle fleet-detail-premium hidden" aria-hidden="true">
-              <div class="muted">Selecciona una unidad para ver historial, reportes, póliza, campaña y costos.</div>
-            </div>
+          <div id="fleetOwnerDeck" class="fleet-owner-deck"></div>
+
+          <div id="fleetUnitsGrid" class="fleet-units-grid">
+            <div id="fleetUnitsList" class="fleet-line-list"></div>
+          </div>
+          <div id="fleetDetail" class="panel-subtle fleet-detail-premium hidden" aria-hidden="true">
+            <div class="muted">Selecciona una unidad para ver historial, reportes, póliza, campaña y costos.</div>
           </div>
         </section>
 
