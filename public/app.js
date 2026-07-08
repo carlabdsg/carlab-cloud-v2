@@ -165,7 +165,7 @@ function bind() {
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
     'executiveDeck','executiveDeckGrid','liveRefreshBadge','topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistorySearchInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','partsPanel','partsRefreshBtn','partsSummary','partsList','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn','fleetOwnerDeck','imageLightbox','imageLightboxImg','imageLightboxClose',
-    'navFleetBtn','fleetPanel','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsGrid','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas','fleetNewBtn','fleetCancelBtn','fleetFormBox','fleetSearchInput','fleetStatusFilter','navCampaignsBtn','campaignsPanel','campaignsRefreshBtn','campaignSummary','campaignGroupId','campaignName','campaignEmpresa','campaignNotes','campaignSaveBtn','campaignClearBtn','campaignGroupsList','campaignDetail','campaignDetailTitle','campaignDetailBadge','campaignUnitId','campaignUnitEmpresa','campaignUnitNumero','campaignUnitStatus','campaignUnitNotes','campaignUnitEvidence','campaignEvidencePreview','campaignUnitSaveBtn','campaignUnitClearBtn','campaignUnitsGrid',
+    'navFleetBtn','fleetPanel','fleetBatchText','fleetBatchSaveBtn','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsGrid','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas','fleetNewBtn','fleetCancelBtn','fleetFormBox','fleetSearchInput','fleetStatusFilter','navCampaignsBtn','campaignsPanel','campaignsRefreshBtn','campaignSummary','campaignGroupId','campaignName','campaignEmpresa','campaignNotes','campaignSaveBtn','campaignClearBtn','campaignGroupsList','campaignDetail','campaignDetailTitle','campaignDetailBadge','campaignUnitId','campaignUnitEmpresa','campaignUnitNumero','campaignUnitStatus','campaignUnitNotes','campaignUnitEvidence','campaignEvidencePreview','campaignUnitSaveBtn','campaignUnitClearBtn','campaignUnitsGrid',
     'partsRequestModal','partsRequestClose','partsRequestCancel','partsRequestForm','partsRequestEmpresa','partsRequestUnidad','partsRequestSolicitud','partsRequestPriority','partsRequestNotes','partsRequestOwnerHint','imageLightboxCaption','reportDetailModal','reportDetailClose','reportDetailContent','stockRefreshBtn','stockSummary','stockList','stockMovements','stockPartForm','stockPartId','stockNombre','stockSku','stockProveedor','stockActual','stockMinimo','stockCosto','stockPrecio','stockUbicacion','stockNotas','stockSaveBtn','stockCancelBtn','scheduleManualForm','scheduleManualEmpresa','scheduleManualUnidad','scheduleManualTelefono','scheduleManualFolio','scheduleManualDatetime','scheduleManualContacto','scheduleManualNotes','scheduleManualCancelBtn','cobranzaRefreshBtn','cobranzaSummary','cobranzaQuotesList','cobranzaQuoteDetail','directSaleForm','directSaleCustomer','directSalePhone','directSaleCompany','directSaleUnit','directSaleType','directSaleConcept','directSaleStockPart','directSaleQty','directSalePrice','directSaleMethod','directSalePaymentStatus','directSaleNotes','directSaleAddConceptBtn','directSaleItemsList','directSaleResetBtn','directSalePdfBtn','directSaleTotal','directSalesList','stockAssignModal','stockAssignClose','stockAssignCancel','stockAssignForm','stockAssignPartName','stockAssignPartMeta','stockAssignQty','stockAssignUnit','stockAssignCompany','stockAssignFolio','stockAssignNotes',
     'commandSidePanel','recentActivityList','upcomingAgendaList','statusDonut','statusDonutTotal','statusDonutLegend'
   ].forEach(id => els[id] = document.getElementById(id));
@@ -328,7 +328,7 @@ function formatLastMovement(date) {
 }
 
 function normalizeFleetStatus(unit) {
-  const sem = fleetSemaforo(unit);
+  const sem = fleetSemaforo(unit || {});
   const raw = `${unit?.estado || ''} ${unit?.status || ''} ${unit?.estatus || ''} ${unit?.statusAuto || ''} ${sem.label || ''}`.toLowerCase();
   if (raw.includes('refacción') || raw.includes('refaccion') || raw.includes('detenida') || raw.includes('detenido') || raw.includes('pendiente') || sem.key === 'critical') {
     return { label: 'Refacción pendiente', priority: 'Crítica', color: 'red', busColor: 'red', visual: 'status-red', dot: '🔴' };
@@ -378,13 +378,27 @@ function mountFleetOwnerLiveTimer() {
   if (state.fleetOwnerLiveTimer) clearInterval(state.fleetOwnerLiveTimer);
   state.fleetOwnerLiveTimer = null;
 }
-function countBy(items, getter) {
-  const map = new Map();
-  items.forEach(item => {
-    const key = getter(item) || '—';
-    map.set(key, (map.get(key) || 0) + 1);
-  });
-  return [...map.entries()].sort((a,b) => b[1] - a[1]);
+function parseFleetBatch(text = '') {
+  return String(text || '')
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(line => {
+      const parts = line.split(/[	,;|]+/).map(v => v.trim());
+      return {
+        numeroEconomico: parts[0] || '',
+        empresa: parts[1] || String(els.fleetEmpresa?.value || '').trim(),
+        marca: parts[2] || String(els.fleetMarca?.value || '').trim(),
+        modelo: parts[3] || String(els.fleetModelo?.value || '').trim(),
+        anio: parts[4] || String(els.fleetAnio?.value || '').trim(),
+        kilometraje: parts[5] || String(els.fleetKilometraje?.value || '').trim(),
+        nombreFlota: parts[6] || String(els.fleetNombreFlota?.value || '').trim(),
+        numeroObra: parts[7] || '',
+        polizaActiva: !!els.fleetPolizaActiva?.checked,
+        campaignActiva: !!els.fleetCampaignActiva?.checked,
+      };
+    })
+    .filter(item => item.numeroEconomico);
 }
 function fillSelect(select, options, placeholder = 'Selecciona') {
   if (!select) return;
@@ -2115,8 +2129,8 @@ async function loadFleet() {
   try {
     const canManageFleet = isRole('admin','operativo');
     els.fleetSaveBtn?.classList.toggle('hidden', !canManageFleet);
-    document.querySelectorAll('.fleet-form-only').forEach(el => { if (el.id !== 'fleetFormBox') el.classList.toggle('hidden', !canManageFleet); });
-    if (!canManageFleet || !state.editingFleetUnitId) toggleFleetForm(false);
+    document.querySelectorAll('.fleet-form-only').forEach(el => el.classList.toggle('hidden', !canManageFleet));
+    if (!canManageFleet) toggleFleetForm(false);
     if (['supervisor','supervisor_flotas'].includes(state.user?.role) && els.fleetEmpresa) {
       els.fleetEmpresa.value = state.user.empresa || '';
       els.fleetEmpresa.disabled = true;
@@ -2241,7 +2255,6 @@ function renderFleet() {
   visibleUnits.forEach(unit => {
     const status = fleetStatusLuxury(unit);
     const normalized = normalizeFleetStatus(unit);
-    const sem = fleetSemaforo(unit);
     const movementText = formatLastMovement(unit.lastMovementAt || unit.lastReportAt || unit.lastOpenReportAt || unit.lastRefaccionAt);
     const selected = state.selectedFleetUnit?.unit?.id === unit.id;
     const row = document.createElement('article');
@@ -3720,11 +3733,33 @@ els.partsRefreshBtn?.addEventListener('click', async () => { await loadPartsPend
 els.fleetSearchInput?.addEventListener('input', renderFleet);
 els.fleetStatusFilter?.addEventListener('change', () => { document.querySelectorAll('[data-fleet-filter]').forEach(btn => btn.classList.toggle('active', btn.dataset.fleetFilter === (els.fleetStatusFilter?.value || 'todos'))); renderFleet(); });
 document.querySelectorAll('[data-fleet-filter]').forEach(btn => btn.addEventListener('click', () => { if (els.fleetStatusFilter) els.fleetStatusFilter.value = btn.dataset.fleetFilter || 'todos'; document.querySelectorAll('[data-fleet-filter]').forEach(item => item.classList.toggle('active', item === btn)); renderFleet(); }));
-['fleetEmpresa','fleetNombreFlota','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetPolizaActiva','fleetCampaignActiva'].forEach(id => {
+['fleetEmpresa','fleetNombreFlota','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetPolizaActiva','fleetCampaignActiva','fleetBatchText'].forEach(id => {
   const el = document.getElementById(id);
   el?.addEventListener('input', () => state.fleetDirty = true);
   el?.addEventListener('change', () => state.fleetDirty = true);
 });
+els.fleetBatchSaveBtn?.addEventListener('click', async () => {
+  try {
+    const rows = parseFleetBatch(els.fleetBatchText?.value || '');
+    if (!rows.length) throw new Error('Pega al menos una unidad en el lote. Ejemplo: B08, AUS, Irizar, i5, 2020, 145000, Flota Norte');
+    if (!confirm(`Se agregarán ${rows.length} unidades a la flota. ¿Continuar?`)) return;
+    let ok = 0;
+    const errores = [];
+    for (const payload of rows) {
+      try {
+        await api.createFleetUnit(payload);
+        ok += 1;
+      } catch (error) {
+        errores.push(`${payload.numeroEconomico}: ${error.message}`);
+      }
+    }
+    if (els.fleetBatchText) els.fleetBatchText.value = errores.length ? errores.join('\n') : '';
+    notify(errores.length ? `Lote parcial: ${ok} guardadas, ${errores.length} con error.` : `${ok} unidades agregadas al lote.` , !!errores.length);
+    state.fleetDirty = false;
+    await loadFleet();
+  } catch (error) { notify(error.message, true); }
+});
+
 els.fleetSaveBtn?.addEventListener('click', async () => {
   try {
     const payload = {
