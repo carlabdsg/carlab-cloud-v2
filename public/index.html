@@ -516,6 +516,32 @@
               </div>
             </div>
 
+            <div id="fleetBulkDeleteBox" class="fleet-form-card fleet-bulk-delete-card fleet-admin-only hidden" aria-hidden="true">
+              <div class="fleet-form-intro">
+                <div>
+                  <strong>Eliminación segura por lote</strong>
+                  <span>Previsualiza unidades por empresa y número económico antes de borrar registros cargados por error.</span>
+                </div>
+              </div>
+              <div class="fleet-form-grid">
+                <div>
+                  <label>Empresa obligatoria</label>
+                  <input id="fleetBulkDeleteEmpresa" placeholder="Empresa exacta" />
+                </div>
+                <div class="fleet-batch-numbers">
+                  <label>Números económicos</label>
+                  <textarea id="fleetBulkDeleteNumeros" rows="5" placeholder="B100-B126&#10;100-126&#10;502, 503"></textarea>
+                  <small>Acepta uno por línea, separados por coma o rangos como B100-B126 o 100-126.</small>
+                </div>
+                <div id="fleetBulkDeleteSummary" class="fleet-batch-summary muted"></div>
+                <div class="fleet-form-actions">
+                  <button id="fleetBulkDeletePreviewBtn" class="btn btn-secondary" type="button">Previsualizar</button>
+                  <button id="fleetBulkDeleteConfirmBtn" class="fleet-primary-button hidden" type="button">Confirmar eliminación</button>
+                </div>
+              </div>
+              <div id="fleetBulkDeletePreview" class="fleet-bulk-delete-preview"></div>
+            </div>
+
             <div id="fleetOwnerDeck" class="fleet-owner-deck"></div>
 
             <div id="fleetUnitsGrid" class="fleet-units-grid">
