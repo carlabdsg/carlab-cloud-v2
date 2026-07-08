@@ -392,6 +392,28 @@ function fleetHumanStatusByAuto(statusAuto = 'ok') {
   if (statusAuto === 'warning') return '🟠 En proceso';
   return '🟢 Operando';
 }
+function normalizeFleetStatus(unit) {
+  const sem = fleetSemaforo(unit);
+  const raw = `${unit?.estado || ''} ${unit?.status || ''} ${unit?.estatus || ''} ${unit?.statusAuto || ''} ${sem.label || ''}`.toLowerCase();
+  if (raw.includes('refacción') || raw.includes('refaccion') || raw.includes('detenida') || raw.includes('detenido') || raw.includes('pendiente') || sem.key === 'critical') {
+    return { label: 'Refacción pendiente', priority: 'Crítica', color: 'red', busColor: 'red', visual: 'status-red', dot: '🔴' };
+  }
+  if (raw.includes('proceso') || sem.key === 'warning') {
+    return { label: 'En proceso', priority: 'En proceso', color: 'orange', busColor: 'orange', visual: 'status-amber', dot: '🟠' };
+  }
+  if (sem.key === 'campania') return { label: 'Campaña activa', priority: 'Campaña', color: 'blue', busColor: 'blue', visual: 'status-blue', dot: '🔵' };
+  return { label: 'Operando', priority: 'Operando', color: 'green', busColor: 'green', visual: 'status-green', dot: '🟢' };
+}
+function formatLastMovement(date) {
+  if (!date) return 'Sin movimiento';
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return 'Sin movimiento';
+  if (parsed.getFullYear() <= 1970) return 'Sin movimiento';
+  const today = new Date();
+  const sameDay = parsed.getFullYear() === today.getFullYear() && parsed.getMonth() === today.getMonth() && parsed.getDate() === today.getDate();
+  if (sameDay) return 'Último movimiento: hoy';
+  return `Último movimiento: ${parsed.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}`;
+}
 function fleetInactiveTimeMeta(unit = {}) {
   const reference = unit.lastOpenReportAt || unit.lastReportAt || unit.lastRefaccionAt || unit.lastMovementAt || null;
   const parsed = reference ? new Date(reference) : null;
@@ -666,10 +688,36 @@ function resetCompanyForm() {
   if (els.companySubmitBtn) els.companySubmitBtn.textContent = 'Guardar empresa';
   els.companyCancelEditBtn?.classList.add('hidden');
 }
+function setFleetEntryMode(mode = 'single') {
+  state.fleetEntryMode = mode === 'batch' ? 'batch' : 'single';
+  const isBatch = state.fleetEntryMode === 'batch';
+  document.getElementById('fleetIndividualForm')?.classList.toggle('hidden', isBatch);
+  document.getElementById('fleetBatchForm')?.classList.toggle('hidden', !isBatch);
+  document.getElementById('fleetIndividualForm')?.setAttribute('aria-hidden', String(isBatch));
+  document.getElementById('fleetBatchForm')?.setAttribute('aria-hidden', String(!isBatch));
+  document.querySelectorAll('#fleetPanel [data-fleet-entry-mode]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.fleetEntryMode === state.fleetEntryMode);
+  });
+  if (els.fleetSaveBtn) els.fleetSaveBtn.textContent = state.editingFleetUnitId ? 'Guardar cambios' : 'Guardar unidad';
+}
 function toggleFleetForm(show = false) {
   els.fleetFormBox?.classList.toggle('hidden', !show);
+  els.fleetFormBox?.setAttribute('aria-hidden', String(!show));
   els.fleetCancelBtn?.classList.toggle('hidden', !show);
-  if (els.fleetNewBtn) els.fleetNewBtn.textContent = show ? (state.editingFleetUnitId ? 'Editando unidad' : 'Nueva unidad') : 'Nueva unidad';
+  if (els.fleetNewBtn) els.fleetNewBtn.textContent = show ? (state.editingFleetUnitId ? 'Editando unidad' : '+ Nueva unidad') : '+ Nueva unidad';
+  if (show) setFleetEntryMode(state.editingFleetUnitId ? 'single' : (state.fleetEntryMode || 'single'));
+}
+function clearFleetBatchForm() {
+  ['fleetBatchEmpresa','fleetBatchNombreFlota','fleetBatchMarca','fleetBatchModelo','fleetBatchAnio','fleetBatchNumeroObra','fleetBatchKilometraje','fleetBatchNumeros'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const poliza = document.getElementById('fleetBatchPolizaActiva');
+  const camp = document.getElementById('fleetBatchCampaignActiva');
+  if (poliza) poliza.checked = false;
+  if (camp) camp.checked = false;
+  const summary = document.getElementById('fleetBatchSummary');
+  if (summary) summary.textContent = '';
 }
 function setFleetFormMode(mode = 'individual') {
   const batch = mode === 'batch' && !state.editingFleetUnitId;
@@ -709,6 +757,72 @@ function beginFleetEdit(unit) {
   if (els.fleetSaveBtn) els.fleetSaveBtn.textContent = 'Guardar cambios';
   toggleFleetForm(true);
   els.fleetNumeroEconomico?.focus();
+}
+function parseFleetBatchUnits(text = '') {
+  const units = [];
+  const push = (value) => {
+    const clean = String(value || '').trim().replace(/\s+/g, ' ');
+    if (clean && !units.some(item => normalizeIdentityKey(item) === normalizeIdentityKey(clean))) units.push(clean);
+  };
+  String(text || '').split(/[\n,]+/).map(part => part.trim()).filter(Boolean).forEach(part => {
+    const range = part.match(/^([A-Za-zÁÉÍÓÚÑáéíóúñ\s]*?)(\d+)\s*-\s*([A-Za-zÁÉÍÓÚÑáéíóúñ\s]*?)(\d+)$/);
+    if (range) {
+      const prefixA = String(range[1] || '').trimEnd();
+      const prefixB = String(range[3] || '').trimEnd();
+      if (normalizeText(prefixA) === normalizeText(prefixB)) {
+        const start = Number(range[2]);
+        const end = Number(range[4]);
+        const width = Math.max(range[2].length, range[4].length);
+        const step = start <= end ? 1 : -1;
+        if (Math.abs(end - start) <= 500) {
+          for (let n = start; step > 0 ? n <= end : n >= end; n += step) push(`${prefixA}${String(n).padStart(width, '0')}`);
+          return;
+        }
+      }
+    }
+    push(part);
+  });
+  return units;
+}
+async function saveFleetBatch() {
+  const empresa = String(document.getElementById('fleetBatchEmpresa')?.value || '').trim();
+  const numeros = parseFleetBatchUnits(document.getElementById('fleetBatchNumeros')?.value || '');
+  const summary = document.getElementById('fleetBatchSummary');
+  if (!empresa) throw new Error('Captura la empresa para registrar el lote.');
+  if (!numeros.length) throw new Error('Captura al menos un número económico para el lote.');
+  const companyKey = normalizeIdentityKey(empresa);
+  const duplicates = [];
+  const toCreate = numeros.filter(num => {
+    const exists = (state.fleetUnits || []).some(unit => normalizeIdentityKey(unit.numeroEconomico) === normalizeIdentityKey(num) && normalizeIdentityKey(unit.empresa) === companyKey);
+    if (exists) duplicates.push(num);
+    return !exists;
+  });
+  let created = 0;
+  let failed = 0;
+  for (const numeroEconomico of toCreate) {
+    const payload = {
+      empresa,
+      nombreFlota: String(document.getElementById('fleetBatchNombreFlota')?.value || '').trim(),
+      numeroEconomico,
+      numeroObra: String(document.getElementById('fleetBatchNumeroObra')?.value || '').trim(),
+      marca: String(document.getElementById('fleetBatchMarca')?.value || '').trim(),
+      modelo: String(document.getElementById('fleetBatchModelo')?.value || '').trim(),
+      anio: String(document.getElementById('fleetBatchAnio')?.value || '').trim(),
+      kilometraje: String(document.getElementById('fleetBatchKilometraje')?.value || '').trim(),
+      polizaActiva: !!document.getElementById('fleetBatchPolizaActiva')?.checked,
+      campaignActiva: !!document.getElementById('fleetBatchCampaignActiva')?.checked,
+    };
+    try { await api.createFleetUnit(payload); created += 1; }
+    catch (_error) { failed += 1; }
+  }
+  const msg = `Se crearon ${created} unidades. Se omitieron ${duplicates.length} duplicadas${failed ? ` y fallaron ${failed}` : ''}.`;
+  if (summary) summary.textContent = msg;
+  notify(msg, failed > 0);
+  state.fleetDirty = false;
+  if (created > 0) {
+    resetFleetForm();
+    await loadFleet();
+  }
 }
 
 function reportPayload() {
@@ -792,6 +906,7 @@ function switchPanel(panel) {
   const board = panel === 'board';
   els.filtersPanel?.classList.toggle('hidden', !board);
   els.executiveDeck?.classList.toggle('hidden', !board);
+  els.commandSidePanel?.classList.toggle('hidden', !board);
   if (panel === 'schedule') loadSchedules('');
   if (panel === 'fleet') loadFleet();
   if (panel === 'parts') loadPartsPending();
@@ -2433,6 +2548,7 @@ function renderFleet() {
   renderFleetDetail();
 }
 
+
 function ensureFleetDetailModalRoot() {
   let root = document.getElementById('fleetDetailModalRoot');
   if (root) return root;
@@ -2807,6 +2923,7 @@ function computeExecutiveMetrics() {
   const proceso = items.filter(i => i.estatusOperativo === 'en proceso').length;
   const espera = items.filter(i => i.estatusOperativo === 'espera refacción').length;
   const terminadas = items.filter(i => i.estatusOperativo === 'terminada').length;
+  const sinIniciar = items.filter(i => i.estatusOperativo === 'sin iniciar').length;
   const empresas = new Set(items.map(i => i.empresa).filter(Boolean)).size;
   const unidades = new Set(items.map(i => i.numeroEconomico).filter(Boolean)).size;
   const reincidentesMap = new Map();
@@ -2816,28 +2933,118 @@ function computeExecutiveMetrics() {
     reincidentesMap.set(key, (reincidentesMap.get(key) || 0) + 1);
   });
   const reincidentes = [...reincidentesMap.values()].filter(v => v > 1).length;
-  return { total, nuevas, revision, aceptadas, rechazadas, proceso, espera, terminadas, empresas, unidades, reincidentes };
+  return { total, nuevas, revision, aceptadas, rechazadas, proceso, espera, terminadas, sinIniciar, empresas, unidades, reincidentes };
+}
+
+function timeAgo(dateStr) {
+  const d = new Date(dateStr);
+  if (isNaN(d)) return '';
+  const mins = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (mins < 1) return 'Hace un momento';
+  if (mins < 60) return `Hace ${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `Hace ${hrs} h`;
+  return `Hace ${Math.floor(hrs / 24)} d`;
+}
+
+function renderCommandSidePanels() {
+  if (!els.commandSidePanel) return;
+  const items = Array.isArray(state.garantias) ? state.garantias : [];
+
+  if (els.recentActivityList) {
+    const sorted = [...items]
+      .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))
+      .slice(0, 5);
+    els.recentActivityList.innerHTML = sorted.length ? sorted.map(i => {
+      const tone = i.estatusOperativo === 'terminada' ? 'green' : i.estatusOperativo === 'en proceso' ? 'blue' : i.estatusValidacion === 'aceptada' ? 'green' : 'purple';
+      const label = i.estatusOperativo === 'terminada' ? 'Reporte terminado' : i.estatusValidacion === 'aceptada' ? 'Reporte aceptado' : i.estatusOperativo === 'en proceso' ? 'Unidad en proceso' : 'Reporte actualizado';
+      return `<div class="activity-row">
+        <span class="activity-dot tone-${tone}"></span>
+        <div class="activity-row-body">
+          <strong>${escapeHtml(label)}</strong>
+          <span class="muted small">${escapeHtml(i.folio || 'GAR-—')} · Unidad ${escapeHtml(String(i.numeroEconomico || '—'))}</span>
+        </div>
+        <span class="activity-time muted small">${timeAgo(i.updatedAt || i.createdAt)}</span>
+      </div>`;
+    }).join('') : '<div class="muted small">Sin actividad reciente.</div>';
+  }
+
+  if (els.upcomingAgendaList) {
+    const now = Date.now();
+    const upcoming = [...(state.schedules || [])]
+      .filter(s => s.status !== 'cancelled')
+      .map(s => ({ ...s, _d: new Date(s.scheduledFor || s.proposedAt || s.requestedAt || 0) }))
+      .filter(s => !isNaN(s._d) && s._d.getTime() >= now - 3600000)
+      .sort((a, b) => a._d - b._d)
+      .slice(0, 3);
+    els.upcomingAgendaList.innerHTML = upcoming.length ? upcoming.map(s => {
+      const day = s._d.toLocaleDateString('es-MX', { day: '2-digit' });
+      const mon = s._d.toLocaleDateString('es-MX', { month: 'short' }).replace('.', '').toUpperCase();
+      const hh = s._d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+      const statusLabel = ({ proposed: 'Propuesta', confirmed: 'Confirmada', waiting_operator: 'Esperando operador' })[s.status] || 'Programada';
+      return `<div class="agenda-row">
+        <div class="agenda-date"><strong>${escapeHtml(day)}</strong><span>${escapeHtml(mon)}</span></div>
+        <div class="agenda-row-body">
+          <strong>Unidad ${escapeHtml(String(s.numeroEconomico || '—'))}</strong>
+          <span class="muted small">${escapeHtml(s.empresa || '—')} · ${escapeHtml(hh)}</span>
+        </div>
+        <span class="badge badge-info">${escapeHtml(statusLabel)}</span>
+      </div>`;
+    }).join('') : '<div class="muted small">Sin ingresos programados.</div>';
+  }
+
+  if (els.statusDonut) {
+    const m = computeExecutiveMetrics();
+    const segs = [
+      { label: 'En proceso', value: m.proceso, color: 'var(--blue)' },
+      { label: 'Espera refacción', value: m.espera, color: 'var(--orange)' },
+      { label: 'Terminadas', value: m.terminadas, color: 'var(--green)' },
+      { label: 'Sin iniciar', value: m.sinIniciar || 0, color: 'var(--purple)' }
+    ];
+    const total = segs.reduce((s, x) => s + x.value, 0) || 1;
+    let acc = 0;
+    const stops = segs.map(s => {
+      const start = (acc / total) * 360; acc += s.value; const end = (acc / total) * 360;
+      return `${s.color} ${start}deg ${end}deg`;
+    }).join(', ');
+    els.statusDonut.style.background = `conic-gradient(${stops})`;
+    if (els.statusDonutTotal) els.statusDonutTotal.textContent = m.total;
+    if (els.statusDonutLegend) {
+      els.statusDonutLegend.innerHTML = segs.map(s => `<div class="donut-legend-row"><span class="donut-dot" style="background:${s.color}"></span><span>${escapeHtml(s.label)}</span><strong>${s.value}</strong></div>`).join('');
+    }
+  }
 }
 
 function renderExecutiveDeck() {
   if (!els.executiveDeckGrid) return;
   const m = computeExecutiveMetrics();
   const role = state.user?.role || '';
+  const EXEC_ICONS = {
+    pulse: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12l3 3 5-6"/></svg>',
+    tool: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>',
+    repeat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>'
+  };
+  const pct = (num, den) => den ? Math.max(0, Math.min(100, Math.round((num / den) * 100))) : 0;
   const cards = [
-    { kicker:'Pulso general', value:m.total, text:`${m.empresas} empresas activas · ${m.unidades} unidades con historial`, chip:`${m.nuevas} nuevas`, cls:'focus-card', actions:[['Ver reportes', () => { resetBoardFilters(); switchPanel('board'); }], role !== 'operador' ? ['Agenda', async () => { await loadSchedules(''); switchPanel('schedule'); }] : null].filter(Boolean) },
-    { kicker:'Validación', value:m.aceptadas, text:`${m.revision} en revisión · ${m.rechazadas} rechazadas`, chip:'Bandeja viva', actions:[['Filtrar aceptadas', () => { if (els.validationFilter) els.validationFilter.value='aceptada'; renderGarantias(); }], ['Pendientes', () => { if (els.validationFilter) els.validationFilter.value='pendiente de revisión'; renderGarantias(); }]] },
-    { kicker:'Ejecución', value:m.proceso + m.espera, text:`${m.proceso} en proceso · ${m.espera} esperando refacción · ${m.terminadas} terminadas`, chip:'Operación', actions:[['En proceso', () => { if (els.operationalFilter) els.operationalFilter.value='en proceso'; renderGarantias(); }], ['Terminadas', () => { if (els.operationalFilter) els.operationalFilter.value='terminada'; renderGarantias(); }]] },
-    { kicker:'Reincidencia', value:m.reincidentes, text:'Unidades con más de una incidencia registrada. Excelente punto para control y venta.', chip:'Lectura comercial', actions:[ isRole('admin','operativo','supervisor','supervisor_flotas') ? ['Historial', () => switchPanel('history')] : null, isRole('admin','operativo','supervisor_flotas') ? ['Flotas', async () => { await loadFleet(); switchPanel('fleet'); }] : null].filter(Boolean) }
+    { kicker:'Pulso general', value:m.total, text:`${m.empresas} empresas activas · ${m.unidades} unidades con historial`, chip:`${m.nuevas} nuevas`, cls:'focus-card', tone:'purple', icon:'pulse', pct: pct(m.total - m.nuevas, m.total), actions:[['Ver reportes', () => { resetBoardFilters(); switchPanel('board'); }], role !== 'operador' ? ['Agenda', async () => { await loadSchedules(''); switchPanel('schedule'); }] : null].filter(Boolean) },
+    { kicker:'Validación', value:m.aceptadas, text:`${m.revision} en revisión · ${m.rechazadas} rechazadas`, chip:'Bandeja viva', tone:'green', icon:'check', pct: pct(m.aceptadas, m.aceptadas + m.revision + m.rechazadas), actions:[['Filtrar aceptadas', () => { if (els.validationFilter) els.validationFilter.value='aceptada'; renderGarantias(); }], ['Pendientes', () => { if (els.validationFilter) els.validationFilter.value='pendiente de revisión'; renderGarantias(); }]] },
+    { kicker:'Ejecución', value:m.proceso + m.espera, text:`${m.proceso} en proceso · ${m.espera} esperando refacción · ${m.terminadas} terminadas`, chip:'Operación', tone:'orange', icon:'tool', pct: pct(m.terminadas, m.proceso + m.espera + m.terminadas), actions:[['En proceso', () => { if (els.operationalFilter) els.operationalFilter.value='en proceso'; renderGarantias(); }], ['Terminadas', () => { if (els.operationalFilter) els.operationalFilter.value='terminada'; renderGarantias(); }]] },
+    { kicker:'Reincidencia', value:m.reincidentes, text:'Unidades con más de una incidencia registrada. Excelente punto para control y venta.', chip:'Lectura comercial', tone:'blue', icon:'repeat', pct: pct(m.reincidentes, m.unidades), actions:[ isRole('admin','operativo','supervisor','supervisor_flotas') ? ['Historial', () => switchPanel('history')] : null, isRole('admin','operativo','supervisor_flotas') ? ['Flotas', async () => { await loadFleet(); switchPanel('fleet'); }] : null].filter(Boolean) }
   ];
   if (role === 'operador') {
-    cards[1] = { kicker:'Seguimiento', value:m.aceptadas, text:`${m.revision} reportes siguen en análisis y ${m.terminadas} ya quedaron listos.`, chip:'Mi avance', actions:[['Nuevo reporte', () => { resetReportForm(); switchPanel('report'); }], ['Mi agenda', async () => { await loadSchedules(''); switchPanel('schedule'); }]] };
-    cards[3] = { kicker:'Refacciones', value:m.espera, text:'Tus reportes que requieren pieza quedan visibles para seguimiento.', chip:'Trazabilidad', actions:[['Ver reportes', () => { resetBoardFilters(); switchPanel('board'); }]] };
+    cards[1] = { kicker:'Seguimiento', value:m.aceptadas, text:`${m.revision} reportes siguen en análisis y ${m.terminadas} ya quedaron listos.`, chip:'Mi avance', tone:'green', icon:'check', pct: pct(m.aceptadas, m.aceptadas + m.revision), actions:[['Nuevo reporte', () => { resetReportForm(); switchPanel('report'); }], ['Mi agenda', async () => { await loadSchedules(''); switchPanel('schedule'); }]] };
+    cards[3] = { kicker:'Refacciones', value:m.espera, text:'Tus reportes que requieren pieza quedan visibles para seguimiento.', chip:'Trazabilidad', tone:'blue', icon:'repeat', pct: pct(m.espera, m.total), actions:[['Ver reportes', () => { resetBoardFilters(); switchPanel('board'); }]] };
   }
   els.executiveDeckGrid.innerHTML = cards.map(card => `
-    <article class="executive-card ${card.cls || ''}">
-      <div class="executive-kicker">${escapeHtml(card.kicker)}</div>
+    <article class="executive-card exec-tone-${card.tone || 'purple'} ${card.cls || ''}">
+      <div class="executive-card-head">
+        <div class="executive-icon">${EXEC_ICONS[card.icon] || EXEC_ICONS.pulse}</div>
+        <div class="executive-kicker">${escapeHtml(card.kicker)}</div>
+      </div>
       <strong>${escapeHtml(String(card.value))}</strong>
       <p>${escapeHtml(card.text)}</p>
+      <div class="executive-progress-track"><div class="executive-progress-bar" style="width:${card.pct || 0}%"></div></div>
       <div class="executive-meta">
         <span class="executive-chip">${escapeHtml(card.chip)}</span>
       </div>
@@ -2855,7 +3062,7 @@ function renderExecutiveDeck() {
 }
 
 function renderGarantias() {
-  updateStats(); renderAnalytics(); renderExecutiveDeck();
+  updateStats(); renderAnalytics(); renderExecutiveDeck(); renderCommandSidePanels();
   const items = filteredGarantias();
   if (els.garantiasList) els.garantiasList.innerHTML = '';
   els.emptyState?.classList.toggle('hidden', items.length > 0);
@@ -3618,6 +3825,10 @@ async function openFleetUnitDetail(unitId, options = {}) {
     notify(error.message, true);
   }
 }
+async function focusFleetUnit(id) {
+  return openFleetUnitDetail(id);
+}
+
 
 async function focusFleetUnit(id) {
   if (!id) return;
