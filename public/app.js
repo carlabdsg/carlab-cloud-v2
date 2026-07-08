@@ -600,6 +600,7 @@ function resetFleetForm() {
 }
 function beginFleetEdit(unit) {
   state.editingFleetUnitId = unit.id;
+  state.fleetEntryMode = 'single';
   setFleetEntryMode('single');
   if (els.fleetEmpresa) els.fleetEmpresa.value = unit.empresa || '';
   if (els.fleetNumeroEconomico) els.fleetNumeroEconomico.value = unit.numeroEconomico || '';
@@ -641,10 +642,6 @@ function parseFleetBatchUnits(text = '') {
   });
   return units;
 }
-function fleetBatchDuplicateCount(numbers, empresa) {
-  const companyKey = normalizeIdentityKey(empresa || '');
-  return numbers.filter(num => (state.fleetUnits || []).some(unit => normalizeIdentityKey(unit.numeroEconomico) === normalizeIdentityKey(num) && normalizeIdentityKey(unit.empresa) === companyKey)).length;
-}
 async function saveFleetBatch() {
   const empresa = String(document.getElementById('fleetBatchEmpresa')?.value || '').trim();
   const numeros = parseFleetBatchUnits(document.getElementById('fleetBatchNumeros')?.value || '');
@@ -685,6 +682,7 @@ async function saveFleetBatch() {
     await loadFleet();
   }
 }
+
 function reportPayload() {
   return {
     numeroObra: els.numeroObra?.value.trim(), modelo: els.modelo?.value.trim(), numeroEconomico: els.numeroEconomico?.value.trim(), empresa: els.empresa?.value.trim(), kilometraje: els.kilometraje?.value.trim(),
@@ -2387,6 +2385,7 @@ function renderFleet() {
   renderFleetDetail();
 }
 
+
 function ensureFleetDetailModalRoot() {
   let root = document.getElementById('fleetDetailModalRoot');
   if (root) return root;
@@ -3659,6 +3658,101 @@ async function focusFleetUnit(id) {
   return openFleetUnitDetail(id);
 }
 
+
+async function uploadPartsImages(input) {
+  const files = [...(input?.files || [])];
+  if (!files.length) return [];
+  const urls = await Promise.all(files.map(file => fileToCompressedDataUrl(file, 1600, 0.8)));
+  input.value = '';
+  return urls;
+}
+
+function logoutSession() {
+  localStorage.removeItem('carlabToken');
+  state.token = '';
+  state.user = null;
+  state.selectedFleetUnit = null;
+  if (state.fleetOwnerLiveTimer) {
+    clearInterval(state.fleetOwnerLiveTimer);
+    state.fleetOwnerLiveTimer = null;
+  }
+  if (els.operatorAppNav) {
+    els.operatorAppNav.classList.add('hidden');
+    els.operatorAppNav.style.display = 'none';
+    requestAnimationFrame(() => { if (els.operatorAppNav) els.operatorAppNav.style.display = ''; });
+  }
+  updateOperatorAppNav('');
+  showLogin();
+}
+
+els.logoutBtn?.addEventListener('click', logoutSession);
+els.globalRefreshBtn?.addEventListener('click', async () => {
+  await loadGarantias();
+  await loadNotifications();
+  if (state.activePanel === 'schedule') await loadSchedules('');
+  if (state.activePanel === 'fleet') await loadFleet();
+  if (state.activePanel === 'parts') await loadPartsPending(true);
+  if (state.activePanel === 'stock' && isRole('admin')) await loadStock(true);
+  if (state.activePanel === 'cobranza' && isRole('admin')) await loadCobranza(true);
+  if (state.activePanel === 'campaigns') await loadCampaigns(state.selectedCampaignId);
+  renderExecutiveDeck();
+  notify('Datos actualizados.');
+});
+els.opNavHomeBtn?.addEventListener('click', () => switchPanel('board'));
+els.opNavNewBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); });
+els.opNavScheduleBtn?.addEventListener('click', async () => { switchPanel('schedule'); });
+els.opNavLogoutBtn?.addEventListener('click', logoutSession);
+els.imageLightboxClose?.addEventListener('click', closeImageLightbox);
+els.imageLightbox?.addEventListener('click', (e) => { if (e.target === els.imageLightbox) closeImageLightbox(); });
+els.navBoardBtn?.addEventListener('click', () => switchPanel('board'));
+els.navNewReportBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); });
+els.navAnalyticsBtn?.addEventListener('click', () => switchPanel('analytics'));
+els.navHistoryBtn?.addEventListener('click', () => switchPanel('history'));
+els.navScheduleBtn?.addEventListener('click', async () => { switchPanel('schedule'); });
+els.navFleetBtn?.addEventListener('click', async () => { switchPanel('fleet'); });
+els.navServicesBtn?.addEventListener('click', async () => { switchPanel('services'); });
+els.navPartsBtn?.addEventListener('click', async () => { await cargarSolicitudesIndependientes(); await loadPartsPending(true); switchPanel('parts'); });
+els.navStockBtn?.addEventListener('click', async () => { switchPanel('stock'); });
+els.navCobranzaBtn?.addEventListener('click', async () => { switchPanel('cobranza'); });
+els.stockRefreshBtn?.addEventListener('click', async () => { await loadStock(true); switchPanel('stock'); });
+els.cobranzaRefreshBtn?.addEventListener('click', async () => { await loadCobranza(true); switchPanel('cobranza'); });
+els.stockCancelBtn?.addEventListener('click', resetStockForm);
+
+els.stockPartForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    const payload = {
+      nombre: els.stockNombre?.value || '',
+      sku: els.stockSku?.value || '',
+      proveedor: els.stockProveedor?.value || '',
+      stockActual: els.stockActual?.value || 0,
+      stockMinimo: els.stockMinimo?.value || 0,
+      costoUnitario: els.stockCosto?.value || 0,
+      precioVenta: els.stockPrecio?.value || 0,
+      ubicacion: els.stockUbicacion?.value || '',
+      notas: els.stockNotas?.value || ''
+    };
+    if (els.stockPartId?.value) await api.updateStockPart(els.stockPartId.value, payload);
+    else await api.createStockPart(payload);
+    notify('Refacción guardada en stock.');
+    resetStockForm();
+    await loadStock(true);
+  } catch (error) { notify(error.message, true); }
+});
+els.stockAssignClose?.addEventListener('click', closeStockAssignModal);
+els.stockAssignCancel?.addEventListener('click', closeStockAssignModal);
+els.stockAssignForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    await api.createStockMovement(state.selectedStockPartId, { tipo:'salida_unidad', cantidad:Number(els.stockAssignQty?.value || 0), unidad:els.stockAssignUnit?.value || '', empresa:els.stockAssignCompany?.value || '', garantiaFolio:els.stockAssignFolio?.value || '', notas:els.stockAssignNotes?.value || '' });
+    notify('Salida a camión registrada.');
+    closeStockAssignModal();
+    await loadStock(true);
+  } catch (error) { notify(error.message, true); }
+});
+els.directSaleStockPart?.addEventListener('change', () => { state.directSaleDraftPartId = els.directSaleStockPart.value || ''; syncDirectSalePartDefaults(true); });
+['directSaleQty','directSalePrice','directSaleConcept','directSaleType'].forEach(id => document.getElementById(id)?.addEventListener('input', updateDirectSalePreview));
+document.getElementById('directSaleType')?.addEventListener('change', updateDirectSalePreview);
 els.directSaleAddConceptBtn?.addEventListener('click', () => { try { pushCurrentDirectSaleItem(); } catch (error) { notify(error.message, true); } });
 els.directSaleResetBtn?.addEventListener('click', resetDirectSaleForm);
 els.directSalePdfBtn?.addEventListener('click', () => exportDirectSalePdf({ folio:'VTA-BORRADOR', customerName:String(els.directSaleCustomer?.value || '').trim() || 'Mostrador', customerPhone:String(els.directSalePhone?.value || '').trim(), companyName:String(els.directSaleCompany?.value || '').trim(), unitNumber:String(els.directSaleUnit?.value || '').trim(), paymentMethod:String(els.directSaleMethod?.value || '').trim(), paymentStatus:String(els.directSalePaymentStatus?.value || 'pendiente'), notes:String(els.directSaleNotes?.value || '').trim(), subtotal:updateDirectSalePreview(), total:updateDirectSalePreview(), createdAt:new Date().toISOString(), items: currentDirectSalePayload(true).items.map(item => ({ ...item, total: Number((item.qty * item.unitPrice).toFixed(2)) })) }));
@@ -3681,9 +3775,9 @@ els.cancelReportBtn?.addEventListener('click', () => { resetReportForm(); switch
 els.userCancelEditBtn?.addEventListener('click', resetUserForm);
 els.companyCancelEditBtn?.addEventListener('click', resetCompanyForm);
 els.fleetNewBtn?.addEventListener('click', () => { if (!isRole('admin','operativo')) return; state.editingFleetUnitId = ''; setFleetEntryMode('single'); toggleFleetForm(true); if (els.fleetSaveBtn) els.fleetSaveBtn.textContent = 'Guardar unidad'; els.fleetEmpresa?.focus(); });
-els.fleetCancelBtn?.addEventListener('click', resetFleetForm);
 document.querySelectorAll('#fleetPanel [data-fleet-entry-mode]').forEach(btn => btn.addEventListener('click', () => setFleetEntryMode(btn.dataset.fleetEntryMode || 'single')));
 document.getElementById('fleetBatchSaveBtn')?.addEventListener('click', async () => { try { await saveFleetBatch(); } catch (error) { notify(error.message, true); } });
+els.fleetCancelBtn?.addEventListener('click', resetFleetForm);
 els.userRole?.addEventListener('change', () => {
   const role = els.userRole.value;
   const needsEmpresa = ['operador','supervisor','supervisor_flotas'].includes(role);
