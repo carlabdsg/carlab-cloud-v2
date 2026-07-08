@@ -6087,6 +6087,17 @@ body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-form-card {
 body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-form-card.hidden { display:none !important; }
 body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-form-intro strong { display:block; font-size:16px; color:#0f172a; }
 body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-form-intro span { display:block; color:#64748b; font-size:13px; margin-top:4px; line-height:1.35; }
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-bulk-delete-card {
+  border-color:#fecaca !important;
+  background:linear-gradient(180deg,#fff,#fff7f7) !important;
+}
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-bulk-delete-preview {
+  grid-column:1 / -1;
+  margin-top:12px;
+}
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-bulk-delete-table .table-row {
+  grid-template-columns:1.1fr .9fr .8fr .8fr 1fr;
+}
 body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-mode-tabs { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
 body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-form-grid {
   display:grid !important;
