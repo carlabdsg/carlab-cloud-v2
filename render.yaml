@@ -2,7 +2,7 @@ services:
   - type: web
     name: carlab-cloud-v2
     env: node
-    plan: free
+    plan: standard
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /api/health
@@ -10,7 +10,7 @@ services:
       - key: DATABASE_URL
         fromDatabase:
           name: carlab-cloud-v2-db
-          property: connectionString
+          property: connectionPoolString
       - key: NODE_ENV
         value: production
       - key: JWT_SECRET
@@ -21,9 +21,11 @@ services:
         value: admin@carlab.local
       - key: ADMIN_PASSWORD
         value: Admin123*
+      - key: PG_POOL_MAX
+        value: "4"
 
 databases:
   - name: carlab-cloud-v2-db
-    plan: free
+    plan: basic-256mb
     databaseName: carlab_cloud_v2
     user: carlab
