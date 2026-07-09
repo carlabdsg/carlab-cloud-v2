@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CARLAB CLOUD V3 | Cobranza 2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.min.css" />
+</head>
+<body>
+  <div id="app">
+    <section id="loginView" class="auth-shell">
+      <div class="auth-backdrop"></div>
+      <div class="auth-layout">
+        <div class="auth-card">
+          <img src="/logo.jpg" alt="CARLAB" class="auth-logo" />
+          <div class="stack-inline auth-switcher">
+            <button id="tabLoginBtn" class="btn btn-primary" type="button">Iniciar sesión</button>
+            <button id="tabRegisterBtn" class="btn btn-ghost" type="button">Solicitar acceso</button>
+          </div>
+
+          <div id="loginPane">
+            <div class="card-eyebrow">ACCESO INTERNO</div>
+            <h2>Entrar al sistema</h2>
+            <p class="muted">Admin, supervisor, operativo y operadores aprobados.</p>
+            <form id="loginForm" class="stack gap-16" autocomplete="off">
+              <div>
+                <label>Correo</label>
+                <input id="loginEmail" type="email" placeholder="Correo corporativo" autocomplete="off" required />
+              </div>
+              <div>
+                <label>Contraseña</label>
+                <input id="loginPassword" type="password" placeholder="Tu contraseña" autocomplete="new-password" required />
+              </div>
+              <button class="btn btn-primary" type="submit">Entrar</button>
+            </form>
+            <div id="loginError" class="alert hidden"></div>
+          </div>
+
+          <div id="registerPane" class="hidden">
+            <div class="card-eyebrow">ALTA DE OPERADOR</div>
+            <h2>Solicitar acceso</h2>
+            <p class="muted">El operador llena el formato y el admin aprueba o rechaza la solicitud.</p>
+            <form id="registerForm" class="stack gap-16" autocomplete="off">
+              <div>
+                <label>Nombre completo</label>
+                <input id="regNombre" required />
+              </div>
+              <div>
+                <label>Correo</label>
+                <input id="regEmail" type="email" required />
+              </div>
+              <div>
+                <label>Teléfono</label>
+                <input id="regTelefono" required />
+              </div>
+              <div>
+                <label>Empresa</label>
+                <select id="regEmpresa" required></select>
+              </div>
+              <div>
+                <label>Número económico de unidad</label>
+                <input id="regNumeroEconomico" />
+              </div>
+              <div>
+                <label>Contraseña</label>
+                <input id="regPassword" type="password" required />
+              </div>
+              <button class="btn btn-primary" type="submit">Enviar solicitud</button>
+            </form>
+            <div id="registerMessage" class="alert hidden"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="dashboardView" class="hidden shell">
+      <aside class="sidebar">
+        <div class="sidebar-top">
+          <div class="brand-lockup">
+            <div class="pill">CARLAB</div>
+            <h2>Cloud</h2>
+            <p class="muted">Garantías, trazabilidad y lectura comercial.</p>
+          </div>
+
+          <div class="profile-panel">
+            <div class="avatar-circle" id="avatarCircle">A</div>
+            <div>
+              <strong id="currentUserName">Administrador</strong>
+              <div class="muted small" id="welcomeText"></div>
+            </div>
+            <span id="currentRoleBadge" class="badge badge-role"></span>
+          </div>
+
+          <nav class="nav-stack">
+            <div class="nav-group">
+              <div class="nav-group-label">Operación</div>
+              <button id="navBoardBtn" class="nav-btn active" type="button">Reportes</button>
+              <button id="navNewReportBtn" class="nav-btn hidden" type="button">Nuevo reporte</button>
+              <button id="navAnalyticsBtn" class="nav-btn hidden" type="button">Analítica</button>
+              <button id="navHistoryBtn" class="nav-btn hidden" type="button">Historial por unidad</button>
+              <button id="navScheduleBtn" class="nav-btn hidden" type="button">Agenda</button>
+              <button id="navFleetBtn" class="nav-btn hidden" type="button">Flotas</button>
+              <button id="navServicesBtn" class="nav-btn hidden" type="button">Servicios</button>
+              <button id="navPartsBtn" class="nav-btn hidden" type="button">Refacciones</button>
+              <button id="navStockBtn" class="nav-btn hidden" type="button">Stock</button>
+              <button id="navCobranzaBtn" class="nav-btn hidden" type="button">Cobranza</button>
+              <button id="navCampaignsBtn" class="nav-btn hidden" type="button">Campañas</button>
+            </div>
+            <div class="nav-group">
+              <div class="nav-group-label">Administración</div>
+              <button id="navUsersBtn" class="nav-btn hidden" type="button">Usuarios</button>
+              <button id="navRequestsBtn" class="nav-btn hidden" type="button">Solicitudes</button>
+              <button id="navCompaniesBtn" class="nav-btn hidden" type="button">Empresas</button>
+            </div>
+          </nav>
+        </div>
+
+        <div class="stats">
+          <div class="stat"><span>Total</span><strong id="statTotal">0</strong></div>
+          <div class="stat"><span>Nuevas</span><strong id="statNew">0</strong></div>
+          <div class="stat"><span>Aceptadas</span><strong id="statAccepted">0</strong></div>
+          <div class="stat"><span>Terminadas</span><strong id="statDone">0</strong></div>
+        </div>
+
+        <div class="sidebar-bottom">
+          <div class="system-note">
+            <strong>Modo actual</strong>
+            <p id="roleSummaryText">Todo lo importante a la vista.</p>
+          </div>
+          <button id="logoutBtn" class="btn btn-ghost">Cerrar sesión</button>
+        </div>
+      </aside>
+
+      <main class="main-area">
+        <header class="topbar panel">
+          <div>
+            <div class="topbar-kicker">CARLAB CLOUD V3 · COBRANZA 2</div>
+            <h1 id="pageTitle">Bandeja general</h1>
+            <p id="statusLegend" class="muted">Operación más venta, con control y lectura por unidad.</p>
+          </div>
+          <div class="topbar-side">
+            <div class="topbar-chip"><span>Sesión</span><strong id="currentUserEmail">admin@carlab.local</strong></div>
+            <div class="topbar-chip notif-chip"><span>Alertas</span><strong id="notifSummary">0 pendientes</strong></div>
+            <button id="globalRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
+          </div>
+        </header>
+
+        <section id="roleBrief" class="panel role-brief"></section>
+
+        
+
+        <section id="executiveDeck" class="panel executive-deck">
+          <div class="panel-head compact-panel-head">
+            <div>
+              <div class="topbar-kicker">CENTRO DE MANDO</div>
+              <h3>Resumen vivo del sistema</h3>
+            </div>
+            <span class="badge badge-info" id="liveRefreshBadge">Sincronización inteligente</span>
+          </div>
+          <div id="executiveDeckGrid" class="executive-grid"></div>
+        </section>
+
+        <section id="analyticsPanel" class="panel hidden">
+          <div class="panel-head">
+            <div>
+              <div class="topbar-kicker">FASE 3</div>
+              <h3>Lectura comercial y operativa</h3>
+            </div>
+            <span class="badge badge-info">Solo supervisión y dirección</span>
+          </div>
+          <div class="analytics-grid">
+            <article class="analytic-card">
+              <strong>Top empresas</strong>
+              <div id="topCompanies" class="list-plain muted">Sin datos todavía.</div>
+            </article>
+            <article class="analytic-card">
+              <strong>Top modelos</strong>
+              <div id="topModels" class="list-plain muted">Sin datos todavía.</div>
+            </article>
+            <article class="analytic-card">
+              <strong>Tipos de incidencia</strong>
+              <div id="topIncidentTypes" class="list-plain muted">Sin datos todavía.</div>
+            </article>
+            <article class="analytic-card highlight-card">
+              <strong>Unidades reincidentes</strong>
+              <div id="repeatUnits" class="list-plain muted">Cuando una unidad repita fallas, aparecerá aquí.</div>
+            </article>
+          </div>
+        </section>
+
+        <section id="historyPanel" class="panel hidden">
+          <div class="panel-head">
+            <div>
+              <div class="topbar-kicker">CONSULTA</div>
+              <h3>Historial por unidad</h3>
+            </div>
+            <span class="badge badge-info">Trazabilidad</span>
+          </div>
+          <div class="history-search-box history-panel-box history-toolbar">
+            <div>
+              <label>Número económico</label>
+              <input id="unitHistoryInput" placeholder="Ej. 1042" />
+            </div>
+            <div>
+              <label>Buscar dentro del historial</label>
+              <input id="unitHistorySearchInput" placeholder="Modelo, obra, incidencia o empresa" />
+            </div>
+            <button id="unitHistoryBtn" class="btn btn-secondary" type="button">Consultar historial</button>
+          </div>
+          <div id="unitHistoryResult" class="table-list compact-list"></div>
+        </section>
+
+        <section id="schedulePanel" class="panel hidden">
+          <div class="panel-head">
+            <div>
+              <div class="topbar-kicker">AGENDA</div>
+              <h3>Programación de unidades</h3>
+            </div>
+            <span class="badge badge-info">Ingresos a taller</span>
+          </div>
+          <div class="schedule-toolbar history-search-box history-panel-box schedule-toolbar-pro">
+            <div>
+              <label>Fecha</label>
+              <input id="scheduleDateInput" type="date" />
+            </div>
+            <button id="scheduleRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
+          </div>
+          <div class="owner-card schedule-manual-card">
+            <div class="owner-card-head"><strong>Programar ingreso manual</strong><span class="badge badge-info">Admin / operativo</span></div>
+            <form id="scheduleManualForm" class="schedule-manual-grid">
+              <label><span>Empresa</span><select id="scheduleManualEmpresa"></select></label>
+              <label><span>Unidad</span><select id="scheduleManualUnidad"></select></label>
+              <label><span>Folio</span><input id="scheduleManualFolio" placeholder="Opcional" /></label>
+              <label><span>Contacto</span><input id="scheduleManualContacto" placeholder="Nombre de contacto" /></label>
+              <label><span>Teléfono</span><input id="scheduleManualTelefono" placeholder="521667..." /></label>
+              <label><span>Fecha y hora</span><input id="scheduleManualDatetime" type="datetime-local" required /></label>
+              <label class="span-2"><span>Notas</span><textarea id="scheduleManualNotes" rows="2" placeholder="Motivo, observaciones o logística"></textarea></label>
+              <div class="schedule-manual-actions span-2">
+                <button id="scheduleManualCancelBtn" class="btn btn-ghost" type="button">Limpiar</button>
+                <button class="btn btn-primary" type="submit">Programar ingreso</button>
+              </div>
+            </form>
+          </div>
+          <div id="scheduleAlerts" class="schedule-alerts"></div>
+          <div id="scheduleCalendar" class="schedule-calendar"></div>
+          <div id="scheduleList" class="table-list compact-list schedule-list-pro"></div>
+        </section>
+
+        <section id="filtersPanel" class="toolbar panel">
+          <input id="searchInput" type="text" placeholder="Buscar por obra, económico, empresa, modelo o contacto" />
+          <select id="validationFilter">
+            <option value="todos">Todas las validaciones</option>
+            <option value="nueva">Nueva</option>
+            <option value="pendiente de revisión">Pendiente de revisión</option>
+            <option value="aceptada">Aceptada</option>
+            <option value="rechazada">Rechazada</option>
+          </select>
+          <select id="operationalFilter">
+            <option value="todos">Todos los operativos</option>
+            <option value="sin iniciar">Sin iniciar</option>
+            <option value="en proceso">En proceso</option>
+            <option value="espera refacción">Espera refacción</option>
+            <option value="terminada">Terminada</option>
+          </select>
+        </section>
+
+        <section id="reportFormPanel" class="panel hidden">
+          <div class="panel-head">
+            <div>
+              <div class="topbar-kicker">PORTAL OPERADOR</div>
+              <h3>Nuevo reporte</h3>
+            </div>
+            <span class="badge badge-info">Captura controlada</span>
+          </div>
+          <form id="reportForm" class="grid-form">
+            <div><label>Número de obra</label><input id="numeroObra" required /></div>
+            <div><label>Modelo</label><input id="modelo" required /></div>
+            <div><label>Número económico</label><input id="numeroEconomico" required /></div>
+            <div><label>Empresa</label><select id="empresa" required></select></div>
+            <div><label>Kilometraje</label><input id="kilometraje" inputmode="numeric" placeholder="Ej. 245000" /></div>
+            <div><label>Nombre de contacto</label><input id="contactoNombre" placeholder="Nombre del operador o responsable" /></div>
+            <div><label>Teléfono</label><input id="telefono" placeholder="Ej. 6671234567" /></div>
+            <div class="col-span-2">
+              <label>Tipo de incidencia</label>
+              <div class="radio-row role-radio-row">
+                <label><input type="radio" name="tipoIncidente" value="daño" checked /> Daño</label>
+                <label><input type="radio" name="tipoIncidente" value="falla" /> Falla</label>
+                <label><input type="radio" name="tipoIncidente" value="sin daño" /> Sin daño</label>
+              </div>
+            </div>
+            <div class="col-span-2"><label>Descripción del fallo</label><textarea id="descripcionFallo" rows="4" required></textarea></div>
+            <div class="col-span-2">
+              <label>Evidencias generales</label>
+              <div class="evidence-input-stack">
+                <input id="evidencias" type="file" accept="image/*" multiple />
+                <div class="stack-inline evidence-capture-row">
+                  <label class="btn btn-secondary evidence-capture-btn" for="evidenciasCamara">Tomar foto con cámara</label>
+                  <input id="evidenciasCamara" class="camera-capture-input" type="file" accept="image/*" capture="environment" />
+                  <span class="muted small">En Android y iPhone puedes tomar una foto y seguir agregando más una por una desde la cámara. También puedes elegir varias desde galería.</span>
+                </div>
+              </div>
+              <div id="previewEvidencias" class="preview-grid"></div>
+            </div>
+            <div class="col-span-2"><label class="checkbox-row"><input id="solicitaRefaccion" type="checkbox" /> Solicita refacción</label></div>
+            <div id="refaccionFields" class="col-span-2 hidden stack gap-12">
+              <div><label>Detalle de refacción solicitada</label><textarea id="detalleRefaccion" rows="3"></textarea></div>
+              <div>
+                <label>Evidencia de refacción</label>
+                <div class="evidence-input-stack">
+                  <input id="evidenciasRefaccion" type="file" accept="image/*" multiple />
+                  <div class="stack-inline evidence-capture-row">
+                    <label class="btn btn-secondary evidence-capture-btn" for="evidenciasRefaccionCamara">Tomar foto de refacción</label>
+                    <input id="evidenciasRefaccionCamara" class="camera-capture-input" type="file" accept="image/*" capture="environment" />
+                    <span class="muted small">Úsalo cuando quieras capturar la refacción directo desde la cámara.</span>
+                  </div>
+                </div>
+                <div id="previewRefaccion" class="preview-grid"></div>
+              </div>
+            </div>
+            <div class="col-span-2">
+              <label>Firma del operador</label>
+              <canvas id="firmaCanvas" width="900" height="240"></canvas>
+              <div class="stack-inline"><button id="clearSignatureBtn" class="btn btn-ghost" type="button">Borrar firma</button><span class="muted">Firma con dedo o mouse.</span></div>
+            </div>
+            <div class="col-span-2 stack-inline"><button class="btn btn-primary" type="submit">Enviar reporte</button><button id="cancelReportBtn" class="btn btn-secondary" type="button">Cancelar</button></div>
+          </form>
+        </section>
+
+        <section id="usersPanel" class="panel hidden">
+          <div class="panel-head"><div><div class="topbar-kicker">ADMINISTRACIÓN</div><h3>Usuarios y accesos</h3></div><span class="badge badge-info">Solo admin</span></div>
+          <form id="userForm" class="grid-form compact">
+            <input id="userId" type="hidden" />
+            <div><label>Nombre</label><input id="userNombre" required /></div>
+            <div><label>Correo</label><input id="userEmail" type="email" required /></div>
+            <div><label>Rol</label><select id="userRole"><option value="operador">Operador</option><option value="operativo">Operativo</option><option value="supervisor">Supervisor</option><option value="supervisor_flotas">Supervisor flotas</option><option value="admin">Admin</option></select></div>
+            <div><label>Empresa</label><select id="userEmpresa"></select></div>
+            <div><label>Teléfono</label><input id="userTelefono" /></div>
+            <div><label>Contraseña</label><input id="userPassword" type="text" required /></div>
+            <div class="col-span-2 stack-inline"><button id="userSubmitBtn" class="btn btn-primary" type="submit">Crear usuario</button><button id="userCancelEditBtn" class="btn btn-ghost hidden" type="button">Cancelar edición</button></div>
+          </form>
+          <div id="usersList" class="table-list"></div>
+        </section>
+
+        <section id="requestsPanel" class="panel hidden">
+          <div class="panel-head"><div><div class="topbar-kicker">ACCESO OPERADOR</div><h3>Solicitudes de registro</h3></div><span class="badge badge-info">Aprobación admin</span></div>
+          <div id="requestsList" class="table-list"></div>
+        </section>
+
+        <section id="companiesPanel" class="panel hidden">
+          <div class="panel-head"><div><div class="topbar-kicker">CATÁLOGO</div><h3>Empresas habilitadas</h3></div><span class="badge badge-info">Base para registro</span></div>
+          <form id="companyForm" class="grid-form compact">
+            <input id="companyId" type="hidden" />
+            <div><label>Empresa</label><input id="companyNombre" placeholder="Nombre de empresa" /></div>
+            <div><label>Contacto</label><input id="companyContacto" placeholder="Nombre del contacto" /></div>
+            <div><label>Teléfono</label><input id="companyTelefono" placeholder="6671234567" /></div>
+            <div><label>Correo</label><input id="companyEmail" placeholder="correo@empresa.com" /></div>
+            <div class="col-span-2"><label>Notas</label><textarea id="companyNotas" rows="2" placeholder="Datos útiles para operación o registro"></textarea></div>
+            <div class="col-span-2 stack-inline"><button id="companySubmitBtn" class="btn btn-primary" type="submit">Guardar empresa</button><button id="companyCancelEditBtn" class="btn btn-ghost hidden" type="button">Cancelar edición</button></div>
+          </form>
+          <div id="companiesList" class="table-list"></div>
+        </section>
+
+        
+        
+        <section id="fleetPanel" class="panel hidden fleet-clean-panel fleet-page">
+          <div class="fleet-shell">
+            <div class="fleet-header">
+              <div class="fleet-heading-block">
+                <div class="fleet-title-eyebrow">FLOTAS</div>
+                <h3 class="fleet-title">Cabina ejecutiva de flota</h3>
+                <p class="fleet-subtitle">Vista consolidada del estado operativo de tu flota.</p>
+              </div>
+              <div class="fleet-toolbar">
+                <input id="fleetSearchInput" class="fleet-search" placeholder="Buscar unidad, empresa o modelo" />
+                <div class="fleet-chip-row" role="group" aria-label="Filtros de flota">
+                  <button class="fleet-chip active" type="button" data-fleet-filter="todos">Todos</button>
+                  <button class="fleet-chip" type="button" data-fleet-filter="ok">Operando</button>
+                  <button class="fleet-chip" type="button" data-fleet-filter="critical">Detenidas</button>
+                  <button class="fleet-chip" type="button" data-fleet-filter="warning">En proceso</button>
+                  <button class="fleet-chip" type="button" data-fleet-filter="campania">Campaña</button>
+                  <button class="fleet-chip" type="button" data-fleet-filter="poliza">Póliza</button>
+                </div>
+                <select id="fleetStatusFilter" class="hidden" aria-hidden="true">
+                  <option value="todos">Todos</option>
+                  <option value="critical">Detenidas</option>
+                  <option value="warning">En proceso</option>
+                  <option value="ok">Operando</option>
+                  <option value="campania">Campaña</option>
+                  <option value="poliza">Póliza</option>
+                </select>
+                <button id="fleetRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
+                <button id="fleetNewBtn" class="fleet-primary-button fleet-manage-only" type="button">+ Nueva unidad</button>
+                <button id="fleetCancelBtn" class="btn btn-ghost fleet-cancel-button hidden" type="button">Cancelar edición</button>
+              </div>
+            </div>
+
+            <div id="fleetFormBox" class="fleet-form-card hidden" aria-hidden="true">
+              <div class="fleet-form-intro">
+                <div>
+                  <strong>Registro de unidades</strong>
+                  <span>Captura una unidad o registra varias por lote.</span>
+                </div>
+                <div class="fleet-mode-tabs" role="group" aria-label="Modo de registro">
+                  <button id="fleetModeIndividualBtn" class="fleet-mode-tab active" type="button" data-fleet-entry-mode="single">Unidad individual</button>
+                  <button id="fleetModeBatchBtn" class="fleet-mode-tab" type="button" data-fleet-entry-mode="batch">Registro por lote</button>
+                </div>
+              </div>
+
+              <div id="fleetIndividualForm" class="fleet-form-grid">
+                <div>
+                  <label>Empresa</label>
+                  <input id="fleetEmpresa" placeholder="Empresa ligada" />
+                </div>
+                <div>
+                  <label>Número económico</label>
+                  <input id="fleetNumeroEconomico" placeholder="Ej. 502" />
+                </div>
+                <div>
+                  <label>Obra</label>
+                  <input id="fleetNumeroObra" placeholder="Opcional" />
+                </div>
+                <div>
+                  <label>Marca</label>
+                  <input id="fleetMarca" list="fleetMarcaOptions" placeholder="Selecciona o escribe marca" />
+                  <datalist id="fleetMarcaOptions">
+                    <option value="Irizar"></option>
+                    <option value="Volvo"></option>
+                  </datalist>
+                </div>
+                <div>
+                  <label>Modelo</label>
+                  <input id="fleetModelo" placeholder="Ej. i6" />
+                </div>
+                <div>
+                  <label>Año</label>
+                  <input id="fleetAnio" placeholder="Ej. 2020" />
+                </div>
+                <div>
+                  <label>Kilometraje</label>
+                  <input id="fleetKilometraje" placeholder="Ej. 145000" />
+                </div>
+                <div>
+                  <label>Nombre de flota</label>
+                  <input id="fleetNombreFlota" placeholder="Ej. Flota Norte" />
+                </div>
+                <div>
+                  <label class="checkbox-row" style="height:auto"><input id="fleetPolizaActiva" type="checkbox" /> Póliza activa</label>
+                </div>
+                <div>
+                  <label class="checkbox-row" style="height:auto"><input id="fleetCampaignActiva" type="checkbox" /> Campaña de mantenimiento</label>
+                </div>
+                <div class="fleet-form-actions">
+                  <button id="fleetSaveBtn" class="fleet-primary-button hidden" type="button">Guardar unidad</button>
+                </div>
+              </div>
+
+              <div id="fleetBatchForm" class="fleet-form-grid hidden" aria-hidden="true">
+                <div>
+                  <label>Empresa</label>
+                  <input id="fleetBatchEmpresa" placeholder="Empresa ligada" />
+                </div>
+                <div>
+                  <label>Nombre de flota</label>
+                  <input id="fleetBatchNombreFlota" placeholder="Ej. Flota Norte" />
+                </div>
+                <div>
+                  <label>Marca</label>
+                  <input id="fleetBatchMarca" list="fleetMarcaOptions" placeholder="Irizar / Volvo" />
+                </div>
+                <div>
+                  <label>Modelo</label>
+                  <input id="fleetBatchModelo" placeholder="Ej. i6" />
+                </div>
+                <div>
+                  <label>Año</label>
+                  <input id="fleetBatchAnio" placeholder="Ej. 2020" />
+                </div>
+                <div>
+                  <label>Obra</label>
+                  <input id="fleetBatchNumeroObra" placeholder="Opcional" />
+                </div>
+                <div>
+                  <label>Kilometraje inicial</label>
+                  <input id="fleetBatchKilometraje" placeholder="Opcional" />
+                </div>
+                <div>
+                  <label class="checkbox-row" style="height:auto"><input id="fleetBatchPolizaActiva" type="checkbox" /> Póliza activa</label>
+                </div>
+                <div>
+                  <label class="checkbox-row" style="height:auto"><input id="fleetBatchCampaignActiva" type="checkbox" /> Campaña de mantenimiento</label>
+                </div>
+                <div class="fleet-batch-numbers">
+                  <label>Números económicos</label>
+                  <textarea id="fleetBatchNumeros" rows="5" placeholder="B100-B126&#10;AUS 346, AUS 347&#10;502&#10;503"></textarea>
+                  <small>Acepta uno por línea, separados por coma o rangos como B100-B126.</small>
+                </div>
+                <div id="fleetBatchSummary" class="fleet-batch-summary muted"></div>
+                <div class="fleet-form-actions">
+                  <button id="fleetBatchSaveBtn" class="fleet-primary-button hidden" type="button">Guardar lote</button>
+                </div>
+              </div>
+            </div>
+
+            <div id="fleetBulkDeleteBox" class="fleet-form-card fleet-bulk-delete-card fleet-admin-only hidden" aria-hidden="true">
+              <div class="fleet-form-intro">
+                <div>
+                  <strong>Eliminación segura por lote</strong>
+                  <span>Previsualiza unidades por empresa y número económico antes de borrar registros cargados por error.</span>
+                </div>
+              </div>
+              <div class="fleet-form-grid">
+                <div>
+                  <label>Empresa obligatoria</label>
+                  <input id="fleetBulkDeleteEmpresa" placeholder="Empresa exacta" />
+                </div>
+                <div class="fleet-batch-numbers">
+                  <label>Números económicos</label>
+                  <textarea id="fleetBulkDeleteNumeros" rows="5" placeholder="B100-B126&#10;100-126&#10;502, 503"></textarea>
+                  <small>Acepta uno por línea, separados por coma o rangos como B100-B126 o 100-126.</small>
+                </div>
+                <div id="fleetBulkDeleteSummary" class="fleet-batch-summary muted"></div>
+                <div class="fleet-form-actions">
+                  <button id="fleetBulkDeletePreviewBtn" class="btn btn-secondary" type="button">Previsualizar</button>
+                  <button id="fleetBulkDeleteConfirmBtn" class="fleet-primary-button hidden" type="button">Confirmar eliminación</button>
+                </div>
+              </div>
+              <div id="fleetBulkDeletePreview" class="fleet-bulk-delete-preview"></div>
+            </div>
+
+            <div id="fleetOwnerDeck" class="fleet-owner-deck"></div>
+
+            <div id="fleetUnitsGrid" class="fleet-units-grid">
+              <div id="fleetUnitsList" class="fleet-line-list"></div>
+            </div>
+            <div id="fleetDetail" class="panel-subtle fleet-detail-premium hidden" aria-hidden="true">
+              <div class="muted">Selecciona una unidad para ver historial, reportes, póliza, campaña y costos.</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="campaignsPanel" class="panel hidden">
+          <div class="panel-head compact-panel-head">
+            <div>
+              <div class="topbar-kicker">CAMPAÑAS</div>
+              <h3>Campañas por empresa y unidad</h3>
+            </div>
+            <button id="campaignsRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
+          </div>
+          <div id="campaignSummary" class="parts-summary-row"></div>
+          <div class="campaign-layout">
+            <article class="owner-card campaign-form-card" data-role-admin-only>
+              <div class="owner-card-head"><strong>Registrar campaña</strong><span class="badge badge-info">Admin</span></div>
+              <input id="campaignGroupId" type="hidden" />
+              <div class="stock-form-grid">
+                <label><span>Nombre de la campaña</span><input id="campaignName" placeholder="Ej. Revisión de filtraciones abril" /></label>
+                <label><span>Empresa</span><select id="campaignEmpresa"></select></label>
+                <label class="span-2"><span>Notas</span><textarea id="campaignNotes" rows="3" placeholder="Alcance, prioridad o contexto"></textarea></label>
+              </div>
+              <div class="stock-form-actions">
+                <button id="campaignClearBtn" class="btn btn-ghost" type="button">Limpiar</button>
+                <button id="campaignSaveBtn" class="btn btn-primary" type="button">Guardar campaña</button>
+              </div>
+            </article>
+            <article class="owner-card campaign-list-card">
+              <div class="owner-card-head"><strong>Campañas activas</strong><span class="badge badge-info">Tarjetas</span></div>
+              <div id="campaignGroupsList" class="campaign-groups-list"></div>
+            </article>
+          </div>
+          <div id="campaignDetail" class="owner-card hidden">
+            <div class="owner-card-head"><strong id="campaignDetailTitle">Campaña</strong><span id="campaignDetailBadge" class="badge badge-info">0 unidades</span></div>
+            <div class="campaign-layout">
+              <article class="owner-card campaign-form-card" data-role-admin-only>
+                <div class="owner-card-head"><strong>Agregar unidad a campaña</strong><span class="badge badge-info">Visible solo aquí</span></div>
+                <input id="campaignUnitId" type="hidden" />
+                <div class="stock-form-grid">
+                  <label><span>Empresa</span><select id="campaignUnitEmpresa"></select></label>
+                  <label><span>Unidad</span><select id="campaignUnitNumero"></select></label>
+                  <label><span>Estatus</span><select id="campaignUnitStatus"><option value="sin_programar">Sin programar</option><option value="programada">Programada</option><option value="realizada">Realizada</option></select></label>
+                  <label class="span-2"><span>Notas</span><textarea id="campaignUnitNotes" rows="3" placeholder="Seguimiento operativo"></textarea></label>
+                  <label class="span-2"><span>Evidencias</span><input id="campaignUnitEvidence" type="file" accept="image/*" multiple /></label>
+                </div>
+                <div id="campaignEvidencePreview" class="evidence-grid"></div>
+                <div class="stock-form-actions">
+                  <button id="campaignUnitClearBtn" class="btn btn-ghost" type="button">Limpiar</button>
+                  <button id="campaignUnitSaveBtn" class="btn btn-primary" type="button">Guardar unidad</button>
+                </div>
+              </article>
+              <article class="owner-card campaign-cards-card span-2">
+                <div class="owner-card-head"><strong>Unidades de la campaña</strong><span class="badge badge-info">Vista tipo flota</span></div>
+                <div id="campaignUnitsGrid" class="fleet-line-list"></div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        
+        <section id="partsPanel" class="panel hidden">
+          <div class="panel-head compact-panel-head">
+            <div>
+              <div class="topbar-kicker">REFACCIONES</div>
+              <h3>Refacciones y evidencia</h3>
+            </div>
+            <button id="partsRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
+          </div>
+          <div id="partsSummary" class="parts-summary-row"></div>
+          <div id="partsList" class="parts-grid"></div>
+        </section>
+
+        <section id="stockPanel" class="panel hidden">
+          <div class="panel-head compact-panel-head">
+            <div>
+              <div class="topbar-kicker">INVENTARIO</div>
+              <h3>Stock y control de refacciones</h3>
+            </div>
+            <button id="stockRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
+          </div>
+          <div id="stockSummary" class="parts-summary-row"></div>
+          <div class="stock-layout">
+            <article class="owner-card">
+              <div class="owner-card-head"><strong>Alta / edición de refacción</strong><span class="badge badge-info">Solo admin</span></div>
+              <form id="stockPartForm" class="stock-form-grid">
+                <input id="stockPartId" type="hidden" />
+                <label><span>Nombre</span><input id="stockNombre" required /></label>
+                <label><span>SKU</span><input id="stockSku" /></label>
+                <label><span>Proveedor</span><input id="stockProveedor" /></label>
+                <label><span>Stock actual</span><input id="stockActual" type="number" min="0" step="1" value="0" /></label>
+                <label><span>Stock mínimo</span><input id="stockMinimo" type="number" min="0" step="1" value="0" /></label>
+                <label><span>Costo unitario</span><input id="stockCosto" type="number" min="0" step="0.01" value="0" /></label>
+                <label><span>Precio venta</span><input id="stockPrecio" type="number" min="0" step="0.01" value="0" /></label>
+                <label><span>Ubicación</span><input id="stockUbicacion" placeholder="Rack / pasillo / taller" /></label>
+                <label class="span-2"><span>Notas</span><textarea id="stockNotas" rows="3"></textarea></label>
+                <div class="stock-form-actions span-2">
+                  <button id="stockCancelBtn" class="btn btn-ghost" type="button">Limpiar</button>
+                  <button id="stockSaveBtn" class="btn btn-primary" type="submit">Guardar refacción</button>
+                </div>
+              </form>
+            </article>
+            <article class="owner-card">
+              <div class="owner-card-head"><strong>Movimientos recientes</strong><span class="badge badge-info">Trazabilidad</span></div>
+              <div id="stockMovements" class="table-list compact-list"></div>
+            </article>
+          </div>
+          <div id="stockList" class="stock-list-grid"></div>
+        </section>
+
+
+        <section id="cobranzaPanel" class="panel hidden">
+          <div class="panel-head compact-panel-head">
+            <div>
+              <div class="topbar-kicker">COBRANZA</div>
+              <h3>Autorización, cobro y ventas directas</h3>
+            </div>
+            <button id="cobranzaRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
+          </div>
+          <div id="cobranzaSummary" class="parts-summary-row"></div>
+          <div class="cobranza-layout">
+            <article class="owner-card cobranza-col">
+              <div class="owner-card-head"><strong>Cobros de reportes terminados</strong><span class="badge badge-info">PDF comercial</span></div>
+              <div id="cobranzaQuotesList" class="table-list compact-list"></div>
+            </article>
+            <article class="owner-card cobranza-col wide">
+              <div class="owner-card-head"><strong>Editor comercial</strong><span class="badge badge-info">Admin</span></div>
+              <div id="cobranzaQuoteDetail" class="muted">Selecciona un reporte terminado o prepara un cobro desde la bandeja.</div>
+            </article>
+          </div>
+          <div class="cobranza-layout second">
+            <article class="owner-card cobranza-col wide">
+              <div class="owner-card-head"><strong>Venta directa desde stock</strong><span class="badge badge-info">Mostrador / salida</span></div>
+              <form id="directSaleForm" class="direct-sale-grid">
+                <section class="direct-sale-section span-4">
+                  <div class="direct-sale-block">
+                    <div class="topbar-kicker">DATOS DEL CLIENTE</div>
+                  </div>
+                  <div class="direct-sale-fields client-fields">
+                    <label><span>Cliente</span><input id="directSaleCustomer" placeholder="Nombre o razón social" /></label>
+                    <label><span>Teléfono</span><input id="directSalePhone" placeholder="521667..." /></label>
+                    <label><span>Empresa</span><input id="directSaleCompany" placeholder="Opcional" /></label>
+                    <label><span>Unidad</span><input id="directSaleUnit" placeholder="Opcional" /></label>
+                  </div>
+                </section>
+                <section class="direct-sale-section span-4">
+                  <div class="direct-sale-block direct-sale-block-head">
+                    <div class="topbar-kicker">CAPTURA DE CONCEPTO</div>
+                    <button id="directSaleAddConceptBtn" class="btn btn-primary" type="button">Agregar concepto</button>
+                  </div>
+                  <div class="direct-sale-fields concept-fields">
+                    <label><span>Tipo</span><select id="directSaleType"><option value="refaccion">Refacción</option><option value="mano_obra">Mano de obra</option><option value="mixto">Mixto</option></select></label>
+                    <label><span>Concepto</span><input id="directSaleConcept" placeholder="Concepto de venta" /></label>
+                    <label><span>Producto desde stock</span><select id="directSaleStockPart"></select></label>
+                    <label><span>Cantidad</span><input id="directSaleQty" type="number" min="1" step="1" value="1" /></label>
+                    <label><span>Precio unitario</span><input id="directSalePrice" type="number" min="0" step="0.01" value="0" /></label>
+                  </div>
+                </section>
+                <section class="direct-sale-section span-4">
+                  <div class="direct-sale-block">
+                    <div class="topbar-kicker">CONCEPTOS AGREGADOS</div>
+                  </div>
+                  <div class="direct-sale-items">
+                    <div id="directSaleItemsList" class="direct-sale-items-list muted">Aún no hay conceptos agregados.</div>
+                  </div>
+                </section>
+                <section class="direct-sale-section span-4">
+                  <div class="direct-sale-block">
+                    <div class="topbar-kicker">PAGO Y CIERRE</div>
+                  </div>
+                  <div class="direct-sale-fields payment-fields">
+                    <label><span>Método de pago</span><input id="directSaleMethod" placeholder="Transferencia / efectivo" /></label>
+                    <label><span>Estatus de pago</span><select id="directSalePaymentStatus"><option value="pendiente">Pendiente</option><option value="pagado_parcial">Pago parcial</option><option value="pagada">Pagada</option></select></label>
+                    <label class="span-3"><span>Notas</span><textarea id="directSaleNotes" rows="2" placeholder="Observaciones, cliente o salida a mostrador"></textarea></label>
+                  </div>
+                  <div class="direct-sale-foot">
+                    <div class="direct-sale-total"><span>Total estimado</span><strong id="directSaleTotal">$0.00</strong></div>
+                    <div class="stock-form-actions">
+                      <button id="directSaleResetBtn" class="btn btn-ghost" type="button">Limpiar</button>
+                      <button id="directSalePdfBtn" class="btn btn-secondary" type="button">PDF venta</button>
+                      <button class="btn btn-primary" type="submit">Registrar venta directa</button>
+                    </div>
+                  </div>
+                </section>
+              </form>
+            </article>
+            <article class="owner-card cobranza-col">
+              <div class="owner-card-head"><strong>Ventas recientes</strong><span class="badge badge-info">Trazabilidad</span></div>
+              <div id="directSalesList" class="table-list compact-list"></div>
+            </article>
+          </div>
+        </section>
+
+        <div id="stockAssignModal" class="modal hidden"><div class="modal-card compact-modal"><div class="owner-card-head"><strong>Salida a camión</strong><button id="stockAssignClose" class="btn btn-ghost" type="button">Cerrar</button></div><div class="small muted" id="stockAssignPartMeta">Selecciona la unidad y guarda la salida.</div><form id="stockAssignForm" class="schedule-manual-grid"><label><span>Refacción</span><input id="stockAssignPartName" disabled /></label><label><span>Cantidad</span><input id="stockAssignQty" type="number" min="1" step="1" value="1" required /></label><label><span>Unidad</span><input id="stockAssignUnit" placeholder="Número económico" required /></label><label><span>Empresa</span><input id="stockAssignCompany" placeholder="Empresa / flota" /></label><label><span>Folio</span><input id="stockAssignFolio" placeholder="Folio garantía opcional" /></label><label class="span-2"><span>Notas</span><textarea id="stockAssignNotes" rows="2" placeholder="Notas del movimiento"></textarea></label><div class="schedule-manual-actions span-2"><button id="stockAssignCancel" class="btn btn-ghost" type="button">Cancelar</button><button class="btn btn-primary" type="submit">Guardar salida</button></div></form></div></div>
+
+
+        <section id="servicesPanel" class="panel hidden">
+          <div class="panel-head"><div><div class="topbar-kicker">SERVICIOS</div><h3>Reporte de servicios</h3></div><span class="badge badge-info">Admin / operativo / flotas</span></div>
+          <div class="history-search-box history-panel-box schedule-toolbar-pro">
+            <div><label>Periodo</label><select id="servicesPeriod"><option value="day">Día</option><option value="week" selected>Semana</option><option value="month">Mes</option><option value="custom">Rango personalizado</option></select></div>
+            <div><label>Fecha inicio</label><input id="servicesStartDate" type="date" /></div>
+            <div><label>Fecha fin</label><input id="servicesEndDate" type="date" /></div>
+            <div><label>Empresa</label><select id="servicesEmpresa"><option value="">Todas</option></select></div>
+            <div><label>Unidad</label><input id="servicesUnidad" placeholder="Número económico" /></div>
+            <div><label>Estatus operativo</label><select id="servicesEstatus"><option value="">Todos</option><option value="sin iniciar">Sin iniciar</option><option value="en proceso">En proceso</option><option value="espera refacción">Espera refacción</option><option value="terminada">Terminada</option></select></div>
+            <button id="servicesConsultBtn" class="btn btn-primary" type="button">Consultar</button>
+            <button id="servicesDetailPdfBtn" class="btn btn-secondary" type="button">PDF detallado</button>
+            <button id="servicesCsvBtn" class="btn btn-secondary" type="button">Excel / CSV</button>
+          </div>
+          <div id="servicesSummary" class="executive-grid"></div>
+          <div id="servicesTable" class="table-list compact-list"></div>
+        </section>
+
+        <div class="board-row">
+          <section id="boardPanel" class="panel board-panel-main">
+            <div class="panel-head"><div><div class="topbar-kicker" id="boardKicker">CENTRAL</div><h3 id="listTitle">Bandeja de garantías</h3></div></div>
+            <div id="garantiasList" class="cards"></div>
+            <div id="emptyState" class="empty-state hidden"><strong>No hay registros para esta vista.</strong><span>Cuando entren reportes o cambien los filtros, aquí aparecerán.</span></div>
+          </section>
+
+          <aside id="commandSidePanel" class="board-side hidden">
+            <section class="panel side-card">
+              <div class="panel-head compact-panel-head"><h3>Actividad reciente</h3></div>
+              <div id="recentActivityList" class="activity-list"></div>
+            </section>
+
+            <section class="panel side-card">
+              <div class="panel-head compact-panel-head"><h3>Agenda próxima</h3></div>
+              <div id="upcomingAgendaList" class="agenda-list"></div>
+            </section>
+
+            <section class="panel side-card">
+              <div class="panel-head compact-panel-head"><h3>Unidades por estado</h3></div>
+              <div class="donut-wrap">
+                <div id="statusDonut" class="donut-ring">
+                  <div class="donut-hole"><strong id="statusDonutTotal">0</strong><span>Total</span></div>
+                </div>
+                <div id="statusDonutLegend" class="donut-legend"></div>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </main>
+    </section>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <template id="garantiaCardTemplate">
+    <article class="card">
+      <div class="card-top">
+        <div class="card-top-lead">
+          <div class="unit-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17h1a2 2 0 1 0 4 0h6a2 2 0 1 0 4 0h1V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v10Z"/><path d="M4 12h16"/><circle cx="7.5" cy="17.5" r="0.5"/><circle cx="16.5" cy="17.5" r="0.5"/></svg></div>
+          <div><h4 class="title"></h4><p class="meta"></p></div>
+        </div>
+        <div class="badge-stack"><span class="badge validation-badge"></span><span class="badge operational-badge"></span></div>
+      </div>
+      <p class="description"></p>
+      <div class="mini-grid"></div>
+      <div class="evidence-strip"></div>
+      <div class="action-area"></div>
+    </article>
+  </template>
+
+  <nav id="operatorAppNav" class="operator-app-nav hidden">
+    <button id="opNavHomeBtn" type="button">Reportes</button>
+    <button id="opNavNewBtn" type="button">Nuevo</button>
+    <button id="opNavScheduleBtn" type="button">Agenda</button>
+    <button id="opNavLogoutBtn" type="button">Salir</button>
+  </nav>
+
+  <div id="imageLightbox" class="image-lightbox hidden" role="dialog" aria-modal="true">
+    <button id="imageLightboxClose" class="image-lightbox-close" type="button" aria-label="Cerrar">×</button>
+    <img id="imageLightboxImg" alt="Vista ampliada" />
+    <div id="imageLightboxCaption" class="image-lightbox-caption"></div>
+  </div>
+
+  <div id="reportDetailModal" class="modal-shell hidden" role="dialog" aria-modal="true">
+    <div class="parts-request-modal report-detail-modal">
+      <button id="reportDetailClose" class="parts-request-close" type="button" aria-label="Cerrar">×</button>
+      <div id="reportDetailContent"></div>
+    </div>
+  </div>
+
+
+  <div id="authorizedActivitiesModal" class="modal-shell hidden" role="dialog" aria-modal="true">
+    <div class="parts-request-modal report-detail-modal authorized-activities-modal-body">
+      <button id="authorizedActivitiesClose" class="parts-request-close" type="button" aria-label="Cerrar">×</button>
+      <div class="parts-request-head"><div class="topbar-kicker">ACTIVIDADES AUTORIZADAS</div><h3>Asignar actividades autorizadas</h3><p>Admin / operativo pueden capturar actividades para el cierre y PDF final.</p></div>
+      <div id="authorizedActivitiesSummary" class="executive-grid"></div>
+      <div class="parts-request-actions"><button class="btn btn-secondary aa-quick" data-type="mano_obra" type="button">+ Mano de obra</button><button class="btn btn-secondary aa-quick" data-type="refaccion" type="button">+ Refacción</button><button class="btn btn-secondary aa-quick" data-type="pintura" type="button">+ Pintura</button><button class="btn btn-secondary aa-quick" data-type="diagnostico" type="button">+ Diagnóstico</button><button class="btn btn-ghost aa-quick" data-type="otro" type="button">+ Actividad libre</button></div>
+      <div class="parts-request-actions"><button class="btn btn-ghost aa-template" data-template="Diagnóstico general" type="button">Diagnóstico general</button><button class="btn btn-ghost aa-template" data-template="Desmontaje" type="button">Desmontaje</button><button class="btn btn-ghost aa-template" data-template="Reparación" type="button">Reparación</button><button class="btn btn-ghost aa-template" data-template="Pintura" type="button">Pintura</button><button class="btn btn-ghost aa-template" data-template="Instalación de refacción" type="button">Instalación de refacción</button><button class="btn btn-ghost aa-template" data-template="Prueba funcional" type="button">Prueba funcional</button><button class="btn btn-ghost aa-template" data-template="Limpieza y entrega" type="button">Limpieza y entrega</button></div>
+      <div id="authorizedActivitiesList" class="stack gap-16"></div>
+      <div class="parts-request-actions"><button id="authorizedActivitiesAddBtn" class="btn btn-secondary" type="button">Agregar actividad</button><button id="authorizedActivitiesCancelBtn" class="btn btn-ghost" type="button">Cancelar</button><button id="authorizedActivitiesSaveBtn" class="btn btn-primary" type="button">Guardar</button></div>
+    </div>
+  </div>
+
+  <div id="partsRequestModal" class="modal-shell hidden" role="dialog" aria-modal="true">
+    <div class="parts-request-modal">
+      <button id="partsRequestClose" class="parts-request-close" type="button" aria-label="Cerrar">×</button>
+      <div class="parts-request-head">
+        <div class="topbar-kicker">REFACCIÓN PREMIUM</div>
+        <h3>Solicitar refacción</h3>
+        <p id="partsRequestOwnerHint">Alta premium de solicitud independiente con trazabilidad y evidencia.</p>
+      </div>
+      <form id="partsRequestForm" class="parts-request-form">
+        <div class="parts-request-grid">
+          <label><span>Empresa</span><select id="partsRequestEmpresa" required></select></label>
+          <label><span>Unidad</span><select id="partsRequestUnidad"></select></label>
+          <label class="wide"><span>Refacción / concepto</span><input id="partsRequestSolicitud" required placeholder="Ej. Módulo master 25 / calavera trasera" /></label>
+          <label><span>Prioridad</span><select id="partsRequestPriority"><option value="alta">Alta</option><option value="media" selected>Media</option><option value="baja">Baja</option></select></label>
+          <label class="wide"><span>Notas</span><textarea id="partsRequestNotes" rows="4" placeholder="Detalles para compras, instalación o visibilidad del dueño"></textarea></label>
+        </div>
+        <div class="parts-request-actions">
+          <button id="partsRequestCancel" class="btn btn-ghost" type="button">Cancelar</button>
+          <button class="btn btn-primary" type="submit">Crear solicitud</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="/app.min.js"></script>
+</body>
+</html>
