@@ -2291,45 +2291,17 @@ async function loadFleet() {
     } else if (els.fleetEmpresa) {
       els.fleetEmpresa.disabled = false;
     }
-    const previousUnits = Array.isArray(state.fleetUnits) ? state.fleetUnits : [];
-    const previousSelected = state.selectedFleetUnit;
     const [summaryRes, unitsRes, analyticsRes] = await Promise.allSettled([api.getFleetSummary(), api.getFleetUnits(), api.getFleetAnalytics()]);
     if (summaryRes.status === 'fulfilled') state.fleetSummary = summaryRes.value || state.fleetSummary;
-    let preservingFleet = false;
-    if (unitsRes.status === 'fulfilled') {
-      const nextUnits = Array.isArray(unitsRes.value) ? unitsRes.value : [];
-      if (nextUnits.length || !previousUnits.length) {
-        state.fleetUnits = nextUnits;
-      } else {
-        preservingFleet = true;
-        state.fleetUnits = previousUnits;
-      }
-    } else {
-      preservingFleet = true;
-      state.fleetUnits = previousUnits;
-    }
-    if (analyticsRes.status === 'fulfilled') state.fleetAnalytics = analyticsRes.value || state.fleetAnalytics;
-    if (preservingFleet && previousUnits.length) notify('Conservando última flota cargada. Reintentando conexión.');
-    if (unitsRes.status !== 'fulfilled' && !previousUnits.length) throw unitsRes.reason || new Error('No se pudieron cargar unidades de flota.');
+    if (unitsRes.status === 'fulfilled') state.fleetUnits = unitsRes.value || [];
+    if (analyticsRes.status === 'fulfilled') state.fleetAnalytics = analyticsRes.value || null;
+    if (unitsRes.status !== 'fulfilled') throw unitsRes.reason || new Error('No se pudieron cargar unidades de flota.');
     if (state.selectedFleetUnit?.unit?.id) {
       const still = state.fleetUnits.find(u => u.id === state.selectedFleetUnit.unit.id);
       if (still) {
-        try {
-          const base = await api.getFleetUnit(still.id);
-          state.selectedFleetUnit = {
-            ...(base || {}),
-            reports: previousSelected?.reports || [],
-            costs: previousSelected?.costs || [],
-            campaigns: previousSelected?.campaigns || [],
-            schedules: previousSelected?.schedules || [],
-            parts: previousSelected?.parts || [],
-            loading: { reports:true, costs:true, campaigns:true, schedules:true, parts:true }
-          };
-          startFleetUnitProgressiveLoad(still.id);
-        } catch {
-          state.selectedFleetUnit = previousSelected;
-          notify('Conservando última flota cargada. Reintentando conexión.');
-        }
+        const base = await api.getFleetUnit(still.id);
+        state.selectedFleetUnit = { ...(base || {}), reports: [], costs: [], campaigns: [], schedules: [], parts: [], loading: { reports:true, costs:true, campaigns:true, schedules:true, parts:true } };
+        startFleetUnitProgressiveLoad(still.id);
       }
     }
     renderFleet();
@@ -2344,7 +2316,7 @@ async function loadFleetUnitReports(unitId) {
     if (state.selectedFleetUnit?.unit?.id !== unitId) return;
     state.selectedFleetUnit.reports = rows || [];
   } catch {
-    // Conserva los datos previos de reports ante fallas temporales de red/DB.
+    if (state.selectedFleetUnit?.unit?.id === unitId) state.selectedFleetUnit.reports = [];
   } finally {
     if (state.selectedFleetUnit?.unit?.id === unitId) state.selectedFleetUnit.loading.reports = false;
     renderFleetDetail();
@@ -2356,7 +2328,7 @@ async function loadFleetUnitCampaigns(unitId) {
     if (state.selectedFleetUnit?.unit?.id !== unitId) return;
     state.selectedFleetUnit.campaigns = rows || [];
   } catch {
-    // Conserva los datos previos de campaigns ante fallas temporales de red/DB.
+    if (state.selectedFleetUnit?.unit?.id === unitId) state.selectedFleetUnit.campaigns = [];
   } finally {
     if (state.selectedFleetUnit?.unit?.id === unitId) state.selectedFleetUnit.loading.campaigns = false;
     renderFleetDetail();
@@ -2368,7 +2340,7 @@ async function loadFleetUnitSchedules(unitId) {
     if (state.selectedFleetUnit?.unit?.id !== unitId) return;
     state.selectedFleetUnit.schedules = rows || [];
   } catch {
-    // Conserva los datos previos de schedules ante fallas temporales de red/DB.
+    if (state.selectedFleetUnit?.unit?.id === unitId) state.selectedFleetUnit.schedules = [];
   } finally {
     if (state.selectedFleetUnit?.unit?.id === unitId) state.selectedFleetUnit.loading.schedules = false;
     renderFleetDetail();
@@ -2380,7 +2352,7 @@ async function loadFleetUnitParts(unitId) {
     if (state.selectedFleetUnit?.unit?.id !== unitId) return;
     state.selectedFleetUnit.parts = rows || [];
   } catch {
-    // Conserva los datos previos de parts ante fallas temporales de red/DB.
+    if (state.selectedFleetUnit?.unit?.id === unitId) state.selectedFleetUnit.parts = [];
   } finally {
     if (state.selectedFleetUnit?.unit?.id === unitId) state.selectedFleetUnit.loading.parts = false;
     renderFleetDetail();
@@ -2392,7 +2364,7 @@ async function loadFleetUnitCosts(unitId) {
     if (state.selectedFleetUnit?.unit?.id !== unitId) return;
     state.selectedFleetUnit.costs = (rows || []).map(c => ({ ...c, fleetUnitId: c.fleetUnitId || c.fleet_unit_id, createdByNombre: c.createdByNombre || c.created_by_nombre || '' }));
   } catch {
-    // Conserva los costos previos ante fallas temporales de red/DB.
+    if (state.selectedFleetUnit?.unit?.id === unitId) state.selectedFleetUnit.costs = [];
   } finally {
     if (state.selectedFleetUnit?.unit?.id === unitId) state.selectedFleetUnit.loading.costs = false;
     renderFleetDetail();

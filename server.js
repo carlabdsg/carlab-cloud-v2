@@ -39,50 +39,13 @@ if (!DATABASE_URL) {
 
 const pool = new Pool({
   connectionString: DATABASE_URL,
-  max: Number(process.env.PG_POOL_MAX || 4),
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
-  allowExitOnIdle: false,
+  max: 5,
+  idleTimeoutMillis: 10000,
+  connectionTimeoutMillis: 5000,
+  allowExitOnIdle: true,
   keepAlive: true,
-  keepAliveInitialDelayMillis: 10000,
   ssl: { rejectUnauthorized: false }
 });
-
-function isTransientDbError(error) {
-  const transientCodes = new Set(['57P03', '57P01', '57P02', '08006', '08003', '53300']);
-  const message = String(error?.message || error || '').toLowerCase();
-  return transientCodes.has(String(error?.code || ''))
-    || message.includes('connection terminated unexpectedly')
-    || message.includes('database system is in recovery mode')
-    || message.includes('terminating connection');
-}
-
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function dbQuery(sql, params = [], options = {}) {
-  const retries = Number.isFinite(Number(options.retries)) ? Number(options.retries) : 2;
-  const retryDelayMs = Number.isFinite(Number(options.retryDelayMs)) ? Number(options.retryDelayMs) : 180;
-  let lastError;
-  for (let attempt = 0; attempt <= retries; attempt += 1) {
-    try {
-      return await pool.query(sql, params);
-    } catch (error) {
-      lastError = error;
-      if (!isTransientDbError(error) || attempt >= retries) break;
-      await delay(retryDelayMs * (attempt + 1));
-    }
-  }
-  throw lastError;
-}
-
-function transientDbResponse(res, fallbackMessage) {
-  return res.status(503).json({
-    error: fallbackMessage || 'La base de datos está reiniciando o saturada. Conserva la información anterior y reintenta.',
-    retryable: true
-  });
-}
 
 pool.on('error', (error) => {
   console.error('PG pool error:', error?.message || error);
@@ -1671,12 +1634,11 @@ app.get('/api/garantias', authRequired, async (req, res) => {
     if (where.length) query += ' WHERE ' + where.join(' AND ');
     params.push(safeLimit);
     query += ` ORDER BY created_at DESC LIMIT $${params.length}`;
-    const result = await dbQuery(query, params);
+    const result = await pool.query(query, params);
     res.json(result.rows.map(mapGarantia));
   } catch (error) {
     console.error('Error leyendo garantias:', error?.message || error);
-    if (isTransientDbError(error)) return transientDbResponse(res, 'La base de datos está reiniciando o saturada. Conserva los reportes anteriores y reintenta.');
-    res.status(500).json({ error: 'No se pudieron cargar los reportes.' });
+    res.json([]);
   }
 });
 
@@ -1717,11 +1679,11 @@ app.get('/api/services-report', authRequired, requireRoles('admin','operativo','
     if (req.query.numeroEconomico) add(`${normalizedIdentitySql('g.numero_economico')} = ${normalizedIdentitySql('?')}`, req.query.numeroEconomico);
     if (req.query.estatusOperativo) add(`g.estatus_operativo = ?`, req.query.estatusOperativo);
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-    const result = await dbQuery(`SELECT g.* FROM garantias g ${whereSql} ORDER BY g.created_at DESC LIMIT 2000`, params);
+    const result = await pool.query(`SELECT g.* FROM garantias g ${whereSql} ORDER BY g.created_at DESC LIMIT 2000`, params);
     const ids = result.rows.map(r => r.id);
     const activitiesByReport = new Map();
     if (ids.length) {
-      const activities = await dbQuery('SELECT * FROM authorized_activities WHERE garantia_id = ANY($1::text[]) ORDER BY created_at ASC', [ids]);
+      const activities = await pool.query('SELECT * FROM authorized_activities WHERE garantia_id = ANY($1::text[]) ORDER BY created_at ASC', [ids]);
       activities.rows.forEach(row => {
         const list = activitiesByReport.get(row.garantia_id) || [];
         list.push(mapAuthorizedActivity(row));
@@ -1762,7 +1724,6 @@ app.get('/api/services-report', authRequired, requireRoles('admin','operativo','
     res.json({ summary, reports });
   } catch (error) {
     console.error('Error services-report:', error?.message || error);
-    if (isTransientDbError(error)) return transientDbResponse(res, 'La base de datos está reiniciando o saturada. Conserva el reporte de servicios anterior y reintenta.');
     res.status(500).json({ error: 'No se pudo generar el reporte de servicios.' });
   }
 });
@@ -2152,7 +2113,7 @@ app.get('/api/history/unit/:numeroEconomico', authRequired, requireRoles('admin'
   const ids = result.rows.map(r => r.id);
   let activitiesByReport = new Map();
   if (ids.length) {
-    const activities = await dbQuery('SELECT * FROM authorized_activities WHERE garantia_id = ANY($1::text[]) ORDER BY created_at ASC', [ids]);
+    const activities = await pool.query('SELECT * FROM authorized_activities WHERE garantia_id = ANY($1::text[]) ORDER BY created_at ASC', [ids]);
     activities.rows.forEach(row => {
       const list = activitiesByReport.get(row.garantia_id) || [];
       list.push(mapAuthorizedActivity(row));
@@ -2187,7 +2148,7 @@ app.get('/api/schedules', authRequired, requireRoles('admin', 'operativo', 'supe
       where.push(`g.reportado_por_id = $${params.length}`);
     }
     params.push(safeLimit);
-    const result = await dbQuery(`
+    const result = await pool.query(`
       SELECT sr.id, sr.garantia_id, sr.status, sr.notes, sr.requested_at, sr.proposed_at, sr.confirmed_at, sr.scheduled_for, sr.created_at, sr.updated_at,
         COALESCE(g.folio, sr.folio_manual) AS folio,
         COALESCE(g.numero_economico, sr.numero_economico) AS numero_economico,
@@ -2203,8 +2164,7 @@ app.get('/api/schedules', authRequired, requireRoles('admin', 'operativo', 'supe
     res.json(result.rows.map(scheduleSummary));
   } catch (error) {
     console.error('Error leyendo agenda:', error?.message || error);
-    if (isTransientDbError(error)) return transientDbResponse(res, 'La base de datos está reiniciando o saturada. Conserva la agenda anterior y reintenta.');
-    res.status(500).json({ error: 'No se pudo cargar la agenda.' });
+    res.json([]);
   }
 });
 
@@ -2397,15 +2357,14 @@ app.get('/api/notifications', authRequired, requireRoles('admin','operativo','su
 
 
 app.get('/api/fleet/summary', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
-  try {
-    const params = [];
-    const where = [];
-    if (SUPERVISOR_ROLES.includes(req.user.role)) {
-      params.push(req.user.empresa || '');
-      where.push(`${normalizedIdentitySql('fu.empresa')} = ${normalizedIdentitySql(`$${params.length}`)}`);
-    }
-    const totalQ = await dbQuery(`SELECT COUNT(*)::int AS total FROM fleet_units fu ${where.length ? 'WHERE ' + where.join(' AND ') : ''}`, params);
-    const sem = await dbQuery(`
+  const params = [];
+  const where = [];
+  if (SUPERVISOR_ROLES.includes(req.user.role)) {
+    params.push(req.user.empresa || '');
+    where.push(`${normalizedIdentitySql('fu.empresa')} = ${normalizedIdentitySql(`$${params.length}`)}`);
+  }
+  const totalQ = await pool.query(`SELECT COUNT(*)::int AS total FROM fleet_units fu ${where.length ? 'WHERE ' + where.join(' AND ') : ''}`, params);
+  const sem = await pool.query(`
     WITH base AS (
       SELECT fu.id, fu.empresa, fu.numero_economico,
              COALESCE(fu.manual_status,(
@@ -2427,18 +2386,13 @@ app.get('/api/fleet/summary', authRequired, requireRoles('admin','operativo','su
     SELECT status, COUNT(*)::int AS total FROM base GROUP BY status
   `, params);
   const grouped = Object.fromEntries(sem.rows.map(r => [r.status, r.total]));
-    res.json({
-      total: totalQ.rows[0]?.total || 0,
-      operando: grouped.operando || 0,
-      enTaller: grouped.en_taller || 0,
-      detenidas: grouped.detenida || 0,
-      programadas: grouped.programada || 0
-    });
-  } catch (error) {
-    console.error('Error leyendo resumen de flota:', error?.message || error);
-    if (isTransientDbError(error)) return transientDbResponse(res, 'La base de datos está reiniciando o saturada. Conserva el resumen de flota anterior y reintenta.');
-    res.status(500).json({ error: 'No se pudo cargar el resumen de flota.' });
-  }
+  res.json({
+    total: totalQ.rows[0]?.total || 0,
+    operando: grouped.operando || 0,
+    enTaller: grouped.en_taller || 0,
+    detenidas: grouped.detenida || 0,
+    programadas: grouped.programada || 0
+  });
 });
 
 app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
@@ -2449,7 +2403,7 @@ app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supe
       params.push(req.user.empresa || '');
       where.push(`${normalizedIdentitySql('fu.empresa')} = ${normalizedIdentitySql(`$${params.length}`)}`);
     }
-    const result = await dbQuery(`
+    const result = await pool.query(`
     WITH unit_scope AS (
       SELECT fu.*,
         ${normalizedIdentitySql('fu.empresa')} AS empresa_key,
@@ -2574,13 +2528,7 @@ app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supe
     res.json(result.rows.map(mapFleetUnit));
   } catch (error) {
     console.error('Error leyendo unidades de flota:', error?.message || error);
-    if (isTransientDbError(error)) {
-      return res.status(503).json({
-        error: 'La base de datos está reiniciando o saturada. Conserva la flota anterior y reintenta.',
-        retryable: true
-      });
-    }
-    res.status(500).json({ error: 'No se pudieron cargar las unidades de flota.' });
+    res.json([]);
   }
 });
 
@@ -2676,7 +2624,7 @@ app.get('/api/fleet/analytics', authRequired, requireRoles('admin','operativo','
     `;
 
     const [summaryQ, topQ, trendQ] = await Promise.all([
-      dbQuery(`
+      pool.query(`
         ${baseAnalyticsQuery}
         SELECT
           COUNT(*)::int AS total_units,
@@ -2689,7 +2637,7 @@ app.get('/api/fleet/analytics', authRequired, requireRoles('admin','operativo','
           ROUND(COALESCE(AVG(open_reports_count), 0)::numeric, 2) AS avg_open_reports_per_unit
         FROM unit_kpis
       `, params),
-      dbQuery(`
+      pool.query(`
         ${baseAnalyticsQuery}
         SELECT
           uk.id AS unit_id,
@@ -2714,7 +2662,7 @@ app.get('/api/fleet/analytics', authRequired, requireRoles('admin','operativo','
           uk.costo_total DESC
         LIMIT 10
       `, params),
-      dbQuery(`
+      pool.query(`
         WITH days AS (
           SELECT generate_series((CURRENT_DATE - INTERVAL '13 days')::date, CURRENT_DATE::date, INTERVAL '1 day')::date AS day
         ),
@@ -2765,8 +2713,11 @@ app.get('/api/fleet/analytics', authRequired, requireRoles('admin','operativo','
     });
   } catch (error) {
     console.error('Error leyendo analytics de flota:', error?.message || error);
-    if (isTransientDbError(error)) return transientDbResponse(res, 'La base de datos está reiniciando o saturada. Conserva la analítica anterior y reintenta.');
-    res.status(500).json({ error: 'No se pudo cargar la analítica de flota.' });
+    res.status(500).json({
+      totalUnits: 0, criticalUnits: 0, warningUnits: 0, okUnits: 0,
+      openReports: 0, criticalOpenReports: 0, unitsWithRecurrence: 0, avgOpenReportsPerUnit: 0,
+      topProblemUnits: [], recentTrend: []
+    });
   }
 });
 
@@ -2899,7 +2850,7 @@ app.get('/api/fleet/units/:id', authRequired, requireRoles('admin','operativo','
 
 app.get('/api/fleet/units/:id/details', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
   try {
-    const unit = await dbQuery(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
+    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
     if (!unit.rowCount) return res.json({ reports: [], costs: [], campaigns: [], schedules: [], parts: [] });
     const u = unit.rows[0];
     await backfillFleetUnitIdForGarantiasByIdentity(u.empresa, u.numero_economico, u.id);
@@ -2954,14 +2905,14 @@ app.get('/api/fleet/units/:id/details', authRequired, requireRoles('admin','oper
 
 app.get('/api/fleet/units/:id/reports', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
   try {
-    const unit = await dbQuery(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
+    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
     if (!unit.rowCount) return res.json([]);
     const u = unit.rows[0];
     await backfillFleetUnitIdForGarantiasByIdentity(u.empresa, u.numero_economico, u.id);
     const reportsCompanyGuard = SUPERVISOR_ROLES.includes(req.user.role)
       ? `AND ${normalizedIdentitySql('g.empresa')} = ${normalizedIdentitySql('$2')}`
       : '';
-    const reports = await dbQuery(`
+    const reports = await pool.query(`
       SELECT g.id, g.folio, g.descripcion_fallo, g.estatus_validacion, g.estatus_operativo, g.created_at, g.updated_at, g.evidencias, g.evidencias_refaccion
       FROM garantias g
       WHERE (
@@ -2989,14 +2940,13 @@ app.get('/api/fleet/units/:id/reports', authRequired, requireRoles('admin','oper
     })));
   } catch (error) {
     console.error('Error leyendo reportes de unidad:', error?.message || error);
-    if (isTransientDbError(error)) return transientDbResponse(res, 'La base de datos está reiniciando o saturada. Conserva los datos anteriores de reportes y reintenta.');
-    res.status(500).json({ error: 'No se pudieron cargar los datos de reportes.' });
+    res.json([]);
   }
 });
 
 app.get('/api/fleet/units/:id/activity', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
   try {
-    const unit = await dbQuery(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
+    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
     if (!unit.rowCount) return res.json([]);
     const u = unit.rows[0];
     const activity = await pool.query(`
@@ -3049,7 +2999,7 @@ app.get('/api/fleet/units/:id/activity', authRequired, requireRoles('admin','ope
 
 app.get('/api/fleet/units/:id/evidence', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
   try {
-    const unit = await dbQuery(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
+    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
     if (!unit.rowCount) return res.json([]);
     const u = unit.rows[0];
     const rows = await pool.query(`
@@ -3086,10 +3036,10 @@ app.get('/api/fleet/units/:id/evidence', authRequired, requireRoles('admin','ope
 
 app.get('/api/fleet/units/:id/campaigns', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
   try {
-    const unit = await dbQuery(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
+    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
     if (!unit.rowCount) return res.json([]);
     const u = unit.rows[0];
-    const campaigns = await dbQuery(`
+    const campaigns = await pool.query(`
       SELECT cu.*, COALESCE(cg.nombre, cg.campaign_nombre, cg.campaign_name, '') AS campaign_nombre
       FROM campaign_units cu
       JOIN campaign_groups cg ON cg.id = cu.campaign_group_id
@@ -3100,17 +3050,16 @@ app.get('/api/fleet/units/:id/campaigns', authRequired, requireRoles('admin','op
     res.json(campaigns.rows.map(r => ({ id:r.id, campaignGroupId:r.campaign_group_id, nombre:r.campaign_nombre || '', empresa:r.empresa || '', numeroEconomico:r.numero_economico || '', status:r.status || 'sin_programar', evidencia:Array.isArray(r.evidencia)?r.evidencia:[], notas:r.notas || '', updatedAt:r.updated_at })));
   } catch (error) {
     console.error('Error leyendo campañas de unidad:', error?.message || error);
-    if (isTransientDbError(error)) return transientDbResponse(res, 'La base de datos está reiniciando o saturada. Conserva los datos anteriores de campañas y reintenta.');
-    res.status(500).json({ error: 'No se pudieron cargar los datos de campañas.' });
+    res.json([]);
   }
 });
 
 app.get('/api/fleet/units/:id/schedules', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
   try {
-    const unit = await dbQuery(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
+    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
     if (!unit.rowCount) return res.json([]);
     const u = unit.rows[0];
-    const schedules = await dbQuery(`
+    const schedules = await pool.query(`
       SELECT id, status, notes, requested_at, proposed_at, confirmed_at, scheduled_for, created_at, updated_at
       FROM schedule_requests
       WHERE ${unitIdentityMatchSql('COALESCE(empresa, \'\')', 'COALESCE(numero_economico, \'\')', '$1', '$2')}
@@ -3121,17 +3070,16 @@ app.get('/api/fleet/units/:id/schedules', authRequired, requireRoles('admin','op
     res.json(schedules.rows.map(row => ({ id: row.id, status: row.status || '', notes: row.notes || '', requestedAt: row.requested_at || null, proposedAt: row.proposed_at || null, confirmedAt: row.confirmed_at || null, scheduledFor: row.scheduled_for || null, updatedAt: row.updated_at || null })));
   } catch (error) {
     console.error('Error leyendo agenda de unidad:', error?.message || error);
-    if (isTransientDbError(error)) return transientDbResponse(res, 'La base de datos está reiniciando o saturada. Conserva los datos anteriores de agenda y reintenta.');
-    res.status(500).json({ error: 'No se pudieron cargar los datos de agenda.' });
+    res.json([]);
   }
 });
 
 app.get('/api/fleet/units/:id/parts', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
   try {
-    const unit = await dbQuery(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
+    const unit = await pool.query(`SELECT * FROM fleet_units WHERE id = $1 ${SUPERVISOR_ROLES.includes(req.user.role) ? `AND ${normalizedIdentitySql('empresa')} = ${normalizedIdentitySql('$2')}` : ''} LIMIT 1`, SUPERVISOR_ROLES.includes(req.user.role) ? [req.params.id, req.user.empresa || ''] : [req.params.id]);
     if (!unit.rowCount) return res.json([]);
     const u = unit.rows[0];
-    const parts = await dbQuery(`
+    const parts = await pool.query(`
       SELECT id, folio, detalle_refaccion, refaccion_status, refaccion_asignada, refaccion_updated_at, updated_at, evidencias_refaccion
       FROM garantias g
       WHERE g.solicita_refaccion = TRUE
@@ -3145,8 +3093,7 @@ app.get('/api/fleet/units/:id/parts', authRequired, requireRoles('admin','operat
     res.json(parts.rows.map(row => ({ id: row.id, folio: row.folio || '', detalleRefaccion: row.detalle_refaccion || '', refaccionStatus: row.refaccion_status || 'pendiente', refaccionAsignada: row.refaccion_asignada || '', refaccionUpdatedAt: row.refaccion_updated_at, updatedAt: row.updated_at, evidenciasRefaccion: Array.isArray(row.evidencias_refaccion) ? row.evidencias_refaccion : [] })));
   } catch (error) {
     console.error('Error leyendo refacciones de unidad:', error?.message || error);
-    if (isTransientDbError(error)) return transientDbResponse(res, 'La base de datos está reiniciando o saturada. Conserva los datos anteriores de refacciones y reintenta.');
-    res.status(500).json({ error: 'No se pudieron cargar los datos de refacciones.' });
+    res.json([]);
   }
 });
 
@@ -3259,10 +3206,10 @@ app.delete('/api/campaigns/:id', authRequired, requireRoles('admin'), async (req
 
 app.get('/api/campaigns/:id/units', authRequired, requireRoles('admin','operativo','supervisor_flotas'), async (req, res) => {
   try {
-    const group = await dbQuery(`SELECT * FROM campaign_groups WHERE id = $1`, [req.params.id]);
+    const group = await pool.query(`SELECT * FROM campaign_groups WHERE id = $1`, [req.params.id]);
     if (!group.rowCount) return res.status(404).json({ error:'Campaña no encontrada.' });
     if (req.user.role === 'supervisor_flotas' && normalizeIdentityValue(group.rows[0].empresa) !== normalizeIdentityValue(req.user.empresa || '')) return res.status(403).json({ error:'Sin acceso a esta campaña.' });
-    const units = await dbQuery(`
+    const units = await pool.query(`
       WITH garantia_stats AS (
         SELECT
           ${normalizedIdentitySql('g.empresa')} AS empresa_key,
@@ -3281,16 +3228,12 @@ app.get('/api/campaigns/:id/units', authRequired, requireRoles('admin','operativ
       WHERE cu.campaign_group_id = $1
       ORDER BY cu.updated_at DESC, cu.numero_economico ASC`, [req.params.id]);
     res.json({ group: { id:group.rows[0].id, nombre:(group.rows[0].nombre || group.rows[0].campaign_nombre || group.rows[0].campaign_name || ''), empresa:group.rows[0].empresa, notas:group.rows[0].notas || '' }, units: units.rows.map(r => ({ id:r.id, campaignGroupId:r.campaign_group_id, empresa:r.empresa || '', numeroEconomico:r.numero_economico || '', status:r.status || 'sin_programar', evidencia:Array.isArray(r.evidencia)?r.evidencia:[], notas:r.notas || '', fleetUnitId:r.fleet_unit_id || '', numeroObra:r.numero_obra || '', marca:r.marca || '', modelo:r.modelo || '', anio:r.anio || '', kilometraje:r.kilometraje || '', polizaActiva:!!r.poliza_activa, reportesCount:Number(r.reportes_count||0), lastReportAt:r.last_report_at || null, updatedAt:r.updated_at })) });
-  } catch (error) {
-    console.error('Error leyendo unidades de campaña:', error?.message || error);
-    if (isTransientDbError(error)) return transientDbResponse(res, 'La base de datos está reiniciando o saturada. Conserva las unidades de campaña anteriores y reintenta.');
-    res.status(500).json({ error:'No se pudieron cargar las unidades de campaña.' });
-  }
+  } catch (error) { console.error('Error leyendo unidades de campaña:', error); res.status(500).json({ error:'No se pudieron cargar las unidades de campaña.' }); }
 });
 
 app.post('/api/campaigns/:id/units', authRequired, requireRoles('admin'), async (req, res) => {
   try {
-    const group = await dbQuery(`SELECT * FROM campaign_groups WHERE id = $1`, [req.params.id]);
+    const group = await pool.query(`SELECT * FROM campaign_groups WHERE id = $1`, [req.params.id]);
     if (!group.rowCount) return res.status(404).json({ error:'Campaña no encontrada.' });
     const empresa = String(req.body.empresa || group.rows[0].empresa || '').trim();
     const numeroEconomico = String(req.body.numeroEconomico || '').trim();
@@ -3507,7 +3450,7 @@ app.patch('/api/schedules/:id/cancel', authRequired, requireRoles('admin','opera
 
 app.get('/api/fleet/units/:id/costs', authRequired, requireRoles('admin'), async (req, res) => {
   try {
-    const result = await dbQuery(
+    const result = await pool.query(
       `SELECT id, tipo, concepto, monto, created_at
        FROM fleet_cost_entries
        WHERE fleet_unit_id = $1
@@ -3516,8 +3459,7 @@ app.get('/api/fleet/units/:id/costs', authRequired, requireRoles('admin'), async
     );
     res.json(result.rows);
   } catch (error) {
-    console.error('Error leyendo costos de unidad:', error?.message || error);
-    if (isTransientDbError(error)) return transientDbResponse(res, 'La base de datos está reiniciando o saturada. Conserva los costos anteriores y reintenta.');
+    console.error('Error leyendo costos de unidad:', error);
     res.status(500).json({ error: 'No se pudieron leer los costos.' });
   }
 });
