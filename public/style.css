@@ -6282,3 +6282,259 @@ body:not(.operator-mode)[data-panel="fleet"] #fleetPanel #fleetUnitsList .cardUn
   body:not(.operator-mode)[data-panel="fleet"] #fleetPanel #fleetUnitsList.fleet-line-list { grid-template-columns:1fr !important; }
   body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .priority-row { grid-template-columns:1fr !important; }
 }
+
+/* Dashboard glass theme: aligns internal app surfaces with the current login visual language. */
+:root {
+  --app-bg-dark: #0a0b0f;
+  --app-glass: rgba(23,24,30,.60);
+  --app-glass-strong: rgba(23,24,30,.76);
+  --app-glass-soft: rgba(255,255,255,.07);
+  --app-glass-border: rgba(255,255,255,.14);
+  --app-text-light: #f5f5f7;
+  --app-text-muted-light: rgba(245,245,247,.62);
+  --app-accent: #c73779;
+  --app-accent-soft: rgba(199,55,121,.22);
+}
+
+body { background: var(--app-bg-dark); }
+
+#dashboardView.shell {
+  color: var(--app-text-light);
+  background:
+    radial-gradient(120% 90% at 50% 12%, rgba(10,11,15,.35) 0%, rgba(10,11,15,.72) 55%, rgba(6,7,10,.94) 100%),
+    linear-gradient(180deg, rgba(6,7,10,.42) 0%, rgba(6,7,10,.74) 100%),
+    url('/assets/login-bg.jpg') center 30% / cover fixed no-repeat;
+}
+
+#dashboardView .main-area { background: transparent; }
+
+#dashboardView .sidebar,
+#dashboardView .panel,
+#dashboardView .card,
+#dashboardView .owner-card,
+#dashboardView .topbar,
+#dashboardView .table-row,
+#dashboardView .history-search-box,
+#dashboardView .schedule-card,
+#dashboardView .fleet-panel,
+#dashboardView .fleet-unit-card,
+#dashboardView .fleet-detail-premium,
+#dashboardView .modal,
+#dashboardView .report-detail-modal,
+#dashboardView .analytic-card,
+#dashboardView .role-brief article,
+#dashboardView .role-brief-card,
+#dashboardView .topbar-chip,
+#dashboardView .mini-grid div,
+#dashboardView .system-note,
+#dashboardView .profile-panel,
+#dashboardView .stat,
+#dashboardView .side-card,
+#dashboardView .campaign-unit-card,
+#dashboardView .cobranza-quote-card,
+#dashboardView .fleet-card,
+#dashboardView .parts-summary-card,
+#dashboardView .parts-summary-action-card,
+#dashboardView .parts-edit-box,
+.modal-shell .parts-request-modal,
+#stockAssignModal .modal-card,
+.fleet-detail-modal-shell,
+.fleet-detail-modal-content {
+  background: var(--app-glass);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  border-color: var(--app-glass-border);
+  box-shadow: 0 24px 60px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.06);
+  color: var(--app-text-light);
+}
+
+#dashboardView .sidebar {
+  background: rgba(10,11,15,.72);
+  border-right-color: rgba(255,255,255,.12);
+}
+
+#dashboardView .sidebar-bottom {
+  background: linear-gradient(180deg, rgba(10,11,15,0) 0%, rgba(10,11,15,.82) 24%, rgba(10,11,15,.94) 100%);
+}
+
+#dashboardView h1,
+#dashboardView h2,
+#dashboardView h3,
+#dashboardView h4,
+#dashboardView strong,
+#dashboardView .title,
+#dashboardView .brand-lockup h2,
+.modal-shell .parts-request-modal h1,
+.modal-shell .parts-request-modal h2,
+.modal-shell .parts-request-modal h3,
+.modal-shell .parts-request-modal strong,
+.fleet-detail-modal-root strong {
+  color: #fff;
+}
+
+#dashboardView .muted,
+#dashboardView .meta,
+#dashboardView .small,
+#dashboardView label,
+#dashboardView .topbar-kicker,
+#dashboardView .card-eyebrow,
+#dashboardView .description,
+#dashboardView .system-note p,
+#dashboardView .role-brief article span,
+#dashboardView .role-brief-card span,
+#dashboardView .topbar-chip span,
+#dashboardView .mini-grid strong,
+#dashboardView .nav-group-label,
+.modal-shell .parts-request-modal .muted,
+.modal-shell .parts-request-modal label,
+.fleet-detail-modal-root .muted,
+.fleet-detail-modal-root label {
+  color: var(--app-text-muted-light);
+}
+
+#dashboardView input,
+#dashboardView textarea,
+#dashboardView select,
+.modal-shell .parts-request-modal input,
+.modal-shell .parts-request-modal textarea,
+.modal-shell .parts-request-modal select,
+#stockAssignModal input,
+#stockAssignModal textarea,
+#stockAssignModal select {
+  background: var(--app-glass-soft);
+  border-color: rgba(255,255,255,.16);
+  color: #fff;
+}
+
+#dashboardView input::placeholder,
+#dashboardView textarea::placeholder,
+.modal-shell .parts-request-modal input::placeholder,
+.modal-shell .parts-request-modal textarea::placeholder { color: rgba(245,245,247,.38); }
+
+#dashboardView input:focus,
+#dashboardView textarea:focus,
+#dashboardView select:focus,
+.modal-shell .parts-request-modal input:focus,
+.modal-shell .parts-request-modal textarea:focus,
+.modal-shell .parts-request-modal select:focus {
+  border-color: var(--app-accent);
+  box-shadow: 0 0 0 3px rgba(199,55,121,.28);
+  background: rgba(255,255,255,.10);
+}
+
+#dashboardView .btn-primary,
+.modal-shell .parts-request-modal .btn-primary,
+#stockAssignModal .btn-primary { background: var(--app-accent); color: #fff; }
+#dashboardView .btn-primary:hover,
+.modal-shell .parts-request-modal .btn-primary:hover,
+#stockAssignModal .btn-primary:hover { background: #a92d66; }
+
+#dashboardView .btn-secondary,
+#dashboardView .btn-ghost,
+.modal-shell .parts-request-modal .btn-secondary,
+.modal-shell .parts-request-modal .btn-ghost,
+#stockAssignModal .btn-ghost {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.16);
+  color: var(--app-text-light);
+}
+#dashboardView .btn-secondary:hover,
+#dashboardView .btn-ghost:hover,
+.modal-shell .parts-request-modal .btn-secondary:hover,
+.modal-shell .parts-request-modal .btn-ghost:hover,
+#stockAssignModal .btn-ghost:hover { background: rgba(255,255,255,.12); }
+
+#dashboardView .nav-btn {
+  color: rgba(245,245,247,.72);
+  background: transparent;
+  border-color: transparent;
+}
+#dashboardView .nav-btn:hover,
+#dashboardView .nav-btn.active {
+  background: rgba(255,255,255,.10);
+  border-color: rgba(255,255,255,.16);
+  color: #fff;
+}
+
+#dashboardView .pill,
+#dashboardView .badge-role,
+#dashboardView .avatar-circle,
+#dashboardView .agenda-date,
+#dashboardView .donut-hole,
+#dashboardView .role-radio-row label,
+#dashboardView .locked-field,
+#dashboardView select.locked-field:disabled {
+  background: rgba(255,255,255,.08);
+  border-color: rgba(255,255,255,.14);
+  color: var(--app-text-light);
+}
+
+#dashboardView .badge-info,
+#dashboardView .badge-review,
+#dashboardView .badge-progress { background: rgba(59,130,246,.18); color: #bfdbfe; border-color: rgba(147,197,253,.28); }
+#dashboardView .badge-new,
+#dashboardView .badge-waiting { background: rgba(247,144,9,.18); color: #fed7aa; border-color: rgba(251,191,36,.28); }
+#dashboardView .badge-accepted,
+#dashboardView .badge-done { background: rgba(18,183,106,.18); color: #bbf7d0; border-color: rgba(74,222,128,.28); }
+#dashboardView .badge-rejected { background: rgba(240,68,56,.18); color: #fecaca; border-color: rgba(248,113,113,.28); }
+
+#dashboardView .activity-row,
+#dashboardView .agenda-row,
+#dashboardView .list-plain li,
+#dashboardView .parts-edit-shell,
+#dashboardView .fleet-card-footer,
+#dashboardView .nav-group + .nav-group { border-color: rgba(255,255,255,.12); }
+
+#dashboardView .highlight-card,
+#dashboardView .parts-summary-action-card,
+#dashboardView .parts-summary-card.glass-card { border-color: rgba(199,55,121,.36); }
+#dashboardView .analytic-card strong,
+#dashboardView .campaign-mini-stat strong,
+#dashboardView .parts-summary-card strong { color: #fff; }
+
+.modal-shell { background: rgba(2,6,23,.66); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.image-lightbox { background: rgba(2,6,23,.78); }
+.toast { background: rgba(23,24,30,.92); border-color: rgba(255,255,255,.14); box-shadow: 0 24px 60px rgba(0,0,0,.34); }
+
+/* Fleet-specific visual skin only. Preserve fleet JS, bus status colors and layout semantics. */
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel.fleet-page { background: transparent !important; color: var(--app-text-light) !important; }
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-title,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-panel-title,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-unit-number,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-kpi-value,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-summary-mini strong,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .priority-unit { color:#fff !important; }
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-title-eyebrow,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-subtitle,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-unit-meta,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-kpi-label,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-kpi-note,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-stat-label,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .last-movement,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-summary-mini span,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .priority-problem,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .priority-action { color: var(--app-text-muted-light) !important; }
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-search,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-form-grid input,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-form-grid textarea { background: rgba(255,255,255,.07) !important; border-color: rgba(255,255,255,.16) !important; color:#fff !important; }
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-chip,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-mode-tab,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-cancel-button { background: rgba(255,255,255,.06) !important; color: var(--app-text-light) !important; border-color: rgba(255,255,255,.16) !important; }
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-chip.active,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-mode-tab.active { background: var(--app-accent-soft) !important; border-color: rgba(199,55,121,.5) !important; box-shadow: 0 0 0 3px rgba(199,55,121,.20) !important; }
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-primary-button { background: var(--app-accent) !important; color:#fff !important; box-shadow: 0 14px 34px rgba(199,55,121,.24) !important; }
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-form-card,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-kpi-card,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-panel,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-summary-mini div,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel #fleetUnitsList .fleet-line-item .cardUnidad,
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .priority-row {
+  background: var(--app-glass) !important;
+  border-color: var(--app-glass-border) !important;
+  box-shadow: 0 24px 60px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.06) !important;
+  color: var(--app-text-light) !important;
+}
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-bulk-delete-card { background: rgba(127,29,29,.22) !important; border-color: rgba(248,113,113,.32) !important; }
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .priority-row:hover { background: rgba(255,255,255,.10) !important; }
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-card-footer { border-top-color: rgba(255,255,255,.12) !important; }
+body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .fleet-stat-value { color:#fff !important; }
