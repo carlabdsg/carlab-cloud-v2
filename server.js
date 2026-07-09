@@ -37,19 +37,69 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 
+const PG_POOL_MAX = Math.max(1, Number(process.env.PG_POOL_MAX || 4));
+
 const pool = new Pool({
   connectionString: DATABASE_URL,
-  max: 5,
-  idleTimeoutMillis: 10000,
-  connectionTimeoutMillis: 5000,
-  allowExitOnIdle: true,
+  max: PG_POOL_MAX,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
+  allowExitOnIdle: false,
   keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
   ssl: { rejectUnauthorized: false }
 });
 
 pool.on('error', (error) => {
   console.error('PG pool error:', error?.message || error);
 });
+
+
+const TRANSIENT_DB_ERROR_CODES = new Set(['57P03', '57P01', '57P02', '08006', '08003', '53300', 'ECONNRESET', 'ETIMEDOUT']);
+const TRANSIENT_DB_ERROR_PATTERNS = [
+  /connection terminated unexpectedly/i,
+  /database system is in recovery mode/i,
+  /terminating connection/i,
+  /connection timeout/i,
+  /timeout exceeded/i,
+  /server closed the connection unexpectedly/i,
+  /remaining connection slots are reserved/i,
+  /too many clients/i,
+];
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isTransientDbError(error) {
+  if (!error) return false;
+  const code = String(error.code || error.errno || '').trim();
+  const message = String(error.message || error.detail || error || '');
+  return TRANSIENT_DB_ERROR_CODES.has(code) || TRANSIENT_DB_ERROR_PATTERNS.some(pattern => pattern.test(message));
+}
+
+async function dbQuery(sql, params = [], options = {}) {
+  const retries = Number.isFinite(Number(options.retries)) ? Number(options.retries) : 2;
+  const label = options.label || 'dbQuery';
+  let lastError;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await pool.query(sql, params);
+    } catch (error) {
+      lastError = error;
+      if (!isTransientDbError(error) || attempt >= retries) break;
+      const delay = 250 * (attempt + 1);
+      console.warn(`[db][retry] ${label} intento ${attempt + 1}/${retries + 1}: ${error?.code || ''} ${error?.message || error}`);
+      await sleep(delay);
+    }
+  }
+  throw lastError;
+}
+
+function respondDbError(res, error, message = 'No se pudo cargar la información.') {
+  const retryable = isTransientDbError(error);
+  return res.status(retryable ? 503 : 500).json({ error: message, retryable });
+}
 
 app.use(compression());
 app.use(express.json({ limit: '50mb' }));
@@ -1634,11 +1684,11 @@ app.get('/api/garantias', authRequired, async (req, res) => {
     if (where.length) query += ' WHERE ' + where.join(' AND ');
     params.push(safeLimit);
     query += ` ORDER BY created_at DESC LIMIT $${params.length}`;
-    const result = await pool.query(query, params);
+    const result = await dbQuery(query, params, { label: 'garantias-list' });
     res.json(result.rows.map(mapGarantia));
   } catch (error) {
     console.error('Error leyendo garantias:', error?.message || error);
-    res.json([]);
+    respondDbError(res, error, 'No se pudieron cargar los reportes.');
   }
 });
 
@@ -1679,11 +1729,11 @@ app.get('/api/services-report', authRequired, requireRoles('admin','operativo','
     if (req.query.numeroEconomico) add(`${normalizedIdentitySql('g.numero_economico')} = ${normalizedIdentitySql('?')}`, req.query.numeroEconomico);
     if (req.query.estatusOperativo) add(`g.estatus_operativo = ?`, req.query.estatusOperativo);
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-    const result = await pool.query(`SELECT g.* FROM garantias g ${whereSql} ORDER BY g.created_at DESC LIMIT 2000`, params);
+    const result = await dbQuery(`SELECT g.* FROM garantias g ${whereSql} ORDER BY g.created_at DESC LIMIT 2000`, params, { label: 'services-report' });
     const ids = result.rows.map(r => r.id);
     const activitiesByReport = new Map();
     if (ids.length) {
-      const activities = await pool.query('SELECT * FROM authorized_activities WHERE garantia_id = ANY($1::text[]) ORDER BY created_at ASC', [ids]);
+      const activities = await dbQuery('SELECT * FROM authorized_activities WHERE garantia_id = ANY($1::text[]) ORDER BY created_at ASC', [ids], { label: 'services-report-activities' });
       activities.rows.forEach(row => {
         const list = activitiesByReport.get(row.garantia_id) || [];
         list.push(mapAuthorizedActivity(row));
@@ -1724,7 +1774,7 @@ app.get('/api/services-report', authRequired, requireRoles('admin','operativo','
     res.json({ summary, reports });
   } catch (error) {
     console.error('Error services-report:', error?.message || error);
-    res.status(500).json({ error: 'No se pudo generar el reporte de servicios.' });
+    respondDbError(res, error, 'No se pudo generar el reporte de servicios.');
   }
 });
 
@@ -2148,7 +2198,7 @@ app.get('/api/schedules', authRequired, requireRoles('admin', 'operativo', 'supe
       where.push(`g.reportado_por_id = $${params.length}`);
     }
     params.push(safeLimit);
-    const result = await pool.query(`
+    const result = await dbQuery(`
       SELECT sr.id, sr.garantia_id, sr.status, sr.notes, sr.requested_at, sr.proposed_at, sr.confirmed_at, sr.scheduled_for, sr.created_at, sr.updated_at,
         COALESCE(g.folio, sr.folio_manual) AS folio,
         COALESCE(g.numero_economico, sr.numero_economico) AS numero_economico,
@@ -2160,11 +2210,11 @@ app.get('/api/schedules', authRequired, requireRoles('admin', 'operativo', 'supe
       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
       ORDER BY COALESCE(sr.scheduled_for, sr.proposed_at, sr.requested_at) ASC
       LIMIT $${params.length}
-    `, params);
+    `, params, { label: 'schedules-list' });
     res.json(result.rows.map(scheduleSummary));
   } catch (error) {
     console.error('Error leyendo agenda:', error?.message || error);
-    res.json([]);
+    respondDbError(res, error, 'No se pudo cargar la agenda.');
   }
 });
 
@@ -2357,42 +2407,47 @@ app.get('/api/notifications', authRequired, requireRoles('admin','operativo','su
 
 
 app.get('/api/fleet/summary', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
-  const params = [];
-  const where = [];
-  if (SUPERVISOR_ROLES.includes(req.user.role)) {
-    params.push(req.user.empresa || '');
-    where.push(`${normalizedIdentitySql('fu.empresa')} = ${normalizedIdentitySql(`$${params.length}`)}`);
+  try {
+    const params = [];
+    const where = [];
+    if (SUPERVISOR_ROLES.includes(req.user.role)) {
+      params.push(req.user.empresa || '');
+      where.push(`${normalizedIdentitySql('fu.empresa')} = ${normalizedIdentitySql(`$${params.length}`)}`);
+    }
+    const totalQ = await dbQuery(`SELECT COUNT(*)::int AS total FROM fleet_units fu ${where.length ? 'WHERE ' + where.join(' AND ') : ''}`, params, { label: 'fleet-summary-total' });
+    const sem = await dbQuery(`
+      WITH base AS (
+        SELECT fu.id, fu.empresa, fu.numero_economico,
+               COALESCE(fu.manual_status,(
+                 SELECT CASE
+                   WHEN g.estatus_operativo = 'terminada' THEN 'operando'
+                   WHEN g.estatus_operativo = 'en proceso' THEN 'en_taller'
+                   WHEN g.estatus_operativo = 'espera refacción' THEN 'detenida'
+                   WHEN g.estatus_validacion = 'aceptada' THEN 'programada'
+                   ELSE 'operando'
+                 END
+                 FROM garantias g
+                 WHERE ${unitIdentityMatchSql('g.empresa', 'g.numero_economico', 'fu.empresa', 'fu.numero_economico')}
+                 ORDER BY g.created_at DESC
+                 LIMIT 1
+               ), 'operando') AS status
+        FROM fleet_units fu
+        ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+      )
+      SELECT status, COUNT(*)::int AS total FROM base GROUP BY status
+    `, params, { label: 'fleet-summary-status' });
+    const grouped = Object.fromEntries(sem.rows.map(r => [r.status, r.total]));
+    res.json({
+      total: totalQ.rows[0]?.total || 0,
+      operando: grouped.operando || 0,
+      enTaller: grouped.en_taller || 0,
+      detenidas: grouped.detenida || 0,
+      programadas: grouped.programada || 0
+    });
+  } catch (error) {
+    console.error('Error leyendo resumen de flota:', error?.message || error);
+    respondDbError(res, error, 'No se pudo cargar el resumen de flota.');
   }
-  const totalQ = await pool.query(`SELECT COUNT(*)::int AS total FROM fleet_units fu ${where.length ? 'WHERE ' + where.join(' AND ') : ''}`, params);
-  const sem = await pool.query(`
-    WITH base AS (
-      SELECT fu.id, fu.empresa, fu.numero_economico,
-             COALESCE(fu.manual_status,(
-               SELECT CASE
-                 WHEN g.estatus_operativo = 'terminada' THEN 'operando'
-                 WHEN g.estatus_operativo = 'en proceso' THEN 'en_taller'
-                 WHEN g.estatus_operativo = 'espera refacción' THEN 'detenida'
-                 WHEN g.estatus_validacion = 'aceptada' THEN 'programada'
-                 ELSE 'operando'
-               END
-               FROM garantias g
-               WHERE ${unitIdentityMatchSql('g.empresa', 'g.numero_economico', 'fu.empresa', 'fu.numero_economico')}
-               ORDER BY g.created_at DESC
-               LIMIT 1
-             ), 'operando') AS status
-      FROM fleet_units fu
-      ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
-    )
-    SELECT status, COUNT(*)::int AS total FROM base GROUP BY status
-  `, params);
-  const grouped = Object.fromEntries(sem.rows.map(r => [r.status, r.total]));
-  res.json({
-    total: totalQ.rows[0]?.total || 0,
-    operando: grouped.operando || 0,
-    enTaller: grouped.en_taller || 0,
-    detenidas: grouped.detenida || 0,
-    programadas: grouped.programada || 0
-  });
 });
 
 app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
@@ -2403,7 +2458,7 @@ app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supe
       params.push(req.user.empresa || '');
       where.push(`${normalizedIdentitySql('fu.empresa')} = ${normalizedIdentitySql(`$${params.length}`)}`);
     }
-    const result = await pool.query(`
+    const result = await dbQuery(`
     WITH unit_scope AS (
       SELECT fu.*,
         ${normalizedIdentitySql('fu.empresa')} AS empresa_key,
@@ -2524,11 +2579,11 @@ app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supe
     LEFT JOIN schedule_stats ss ON ss.fleet_unit_id = us.id
     LEFT JOIN cost_stats ct ON ct.fleet_unit_id = us.id
     ORDER BY us.empresa ASC, us.numero_economico ASC
-    `, params);
+    `, params, { label: 'fleet-units' });
     res.json(result.rows.map(mapFleetUnit));
   } catch (error) {
     console.error('Error leyendo unidades de flota:', error?.message || error);
-    res.json([]);
+    respondDbError(res, error, 'La base de datos está reiniciando o saturada. Conserva la flota anterior y reintenta.');
   }
 });
 
@@ -2624,7 +2679,7 @@ app.get('/api/fleet/analytics', authRequired, requireRoles('admin','operativo','
     `;
 
     const [summaryQ, topQ, trendQ] = await Promise.all([
-      pool.query(`
+      dbQuery(`
         ${baseAnalyticsQuery}
         SELECT
           COUNT(*)::int AS total_units,
@@ -2636,8 +2691,8 @@ app.get('/api/fleet/analytics', authRequired, requireRoles('admin','operativo','
           COUNT(*) FILTER (WHERE reports_last_30d >= 2)::int AS units_with_recurrence,
           ROUND(COALESCE(AVG(open_reports_count), 0)::numeric, 2) AS avg_open_reports_per_unit
         FROM unit_kpis
-      `, params),
-      pool.query(`
+      `, params, { label: 'fleet-analytics' }),
+      dbQuery(`
         ${baseAnalyticsQuery}
         SELECT
           uk.id AS unit_id,
@@ -2661,8 +2716,8 @@ app.get('/api/fleet/analytics', authRequired, requireRoles('admin','operativo','
           uk.open_reports_count DESC,
           uk.costo_total DESC
         LIMIT 10
-      `, params),
-      pool.query(`
+      `, params, { label: 'fleet-analytics' }),
+      dbQuery(`
         WITH days AS (
           SELECT generate_series((CURRENT_DATE - INTERVAL '13 days')::date, CURRENT_DATE::date, INTERVAL '1 day')::date AS day
         ),
@@ -2677,7 +2732,7 @@ app.get('/api/fleet/analytics', authRequired, requireRoles('admin','operativo','
         LEFT JOIN scoped_reports sr ON sr.day = d.day
         GROUP BY d.day
         ORDER BY d.day ASC
-      `, SUPERVISOR_ROLES.includes(req.user.role) ? [req.user.empresa || ''] : []),
+      `, SUPERVISOR_ROLES.includes(req.user.role) ? [req.user.empresa || ''] : [], { label: 'fleet-analytics-trend' }),
     ]);
 
     const summary = summaryQ.rows[0] || {};
@@ -2713,11 +2768,7 @@ app.get('/api/fleet/analytics', authRequired, requireRoles('admin','operativo','
     });
   } catch (error) {
     console.error('Error leyendo analytics de flota:', error?.message || error);
-    res.status(500).json({
-      totalUnits: 0, criticalUnits: 0, warningUnits: 0, okUnits: 0,
-      openReports: 0, criticalOpenReports: 0, unitsWithRecurrence: 0, avgOpenReportsPerUnit: 0,
-      topProblemUnits: [], recentTrend: []
-    });
+    respondDbError(res, error, 'No se pudo cargar analytics de flota.');
   }
 });
 
@@ -2899,7 +2950,7 @@ app.get('/api/fleet/units/:id/details', authRequired, requireRoles('admin','oper
     });
   } catch (error) {
     console.error('Error leyendo bloques de detalle flota:', error?.message || error);
-    res.json({ reports: [], costs: [], campaigns: [], schedules: [], parts: [] });
+    respondDbError(res, error, 'No se pudieron cargar los bloques de detalle de flota.');
   }
 });
 
@@ -2940,7 +2991,7 @@ app.get('/api/fleet/units/:id/reports', authRequired, requireRoles('admin','oper
     })));
   } catch (error) {
     console.error('Error leyendo reportes de unidad:', error?.message || error);
-    res.json([]);
+    respondDbError(res, error, 'No se pudieron cargar los reportes de la unidad.');
   }
 });
 
@@ -2993,7 +3044,7 @@ app.get('/api/fleet/units/:id/activity', authRequired, requireRoles('admin','ope
     res.json(merged.map(r => ({ tipo: r.tipo, titulo: r.titulo, detalle: r.detalle, fecha: r.fecha })));
   } catch (error) {
     console.error('Error leyendo actividad de unidad:', error?.message || error);
-    res.json([]);
+    respondDbError(res, error, 'No se pudo cargar la actividad de la unidad.');
   }
 });
 
@@ -3030,7 +3081,7 @@ app.get('/api/fleet/units/:id/evidence', authRequired, requireRoles('admin','ope
     res.json(rows.rows.map(r => r.img).filter(Boolean));
   } catch (error) {
     console.error('Error leyendo evidencias de unidad:', error?.message || error);
-    res.json([]);
+    respondDbError(res, error, 'No se pudieron cargar las evidencias de la unidad.');
   }
 });
 
@@ -3050,7 +3101,7 @@ app.get('/api/fleet/units/:id/campaigns', authRequired, requireRoles('admin','op
     res.json(campaigns.rows.map(r => ({ id:r.id, campaignGroupId:r.campaign_group_id, nombre:r.campaign_nombre || '', empresa:r.empresa || '', numeroEconomico:r.numero_economico || '', status:r.status || 'sin_programar', evidencia:Array.isArray(r.evidencia)?r.evidencia:[], notas:r.notas || '', updatedAt:r.updated_at })));
   } catch (error) {
     console.error('Error leyendo campañas de unidad:', error?.message || error);
-    res.json([]);
+    respondDbError(res, error, 'No se pudieron cargar las campañas de la unidad.');
   }
 });
 
@@ -3070,7 +3121,7 @@ app.get('/api/fleet/units/:id/schedules', authRequired, requireRoles('admin','op
     res.json(schedules.rows.map(row => ({ id: row.id, status: row.status || '', notes: row.notes || '', requestedAt: row.requested_at || null, proposedAt: row.proposed_at || null, confirmedAt: row.confirmed_at || null, scheduledFor: row.scheduled_for || null, updatedAt: row.updated_at || null })));
   } catch (error) {
     console.error('Error leyendo agenda de unidad:', error?.message || error);
-    res.json([]);
+    respondDbError(res, error, 'No se pudo cargar la agenda de la unidad.');
   }
 });
 
@@ -3093,7 +3144,7 @@ app.get('/api/fleet/units/:id/parts', authRequired, requireRoles('admin','operat
     res.json(parts.rows.map(row => ({ id: row.id, folio: row.folio || '', detalleRefaccion: row.detalle_refaccion || '', refaccionStatus: row.refaccion_status || 'pendiente', refaccionAsignada: row.refaccion_asignada || '', refaccionUpdatedAt: row.refaccion_updated_at, updatedAt: row.updated_at, evidenciasRefaccion: Array.isArray(row.evidencias_refaccion) ? row.evidencias_refaccion : [] })));
   } catch (error) {
     console.error('Error leyendo refacciones de unidad:', error?.message || error);
-    res.json([]);
+    respondDbError(res, error, 'No se pudieron cargar las refacciones de la unidad.');
   }
 });
 
@@ -3139,7 +3190,7 @@ app.get('/api/campaigns', authRequired, requireRoles('admin','operativo','superv
     res.json(groups.rows.map(r => ({ id:r.id, nombre:r.nombre || r.campaign_nombre || r.campaign_name || '', empresa:r.empresa || '', notas:r.notas || '', unidades:Number(r.unidades||0), sinProgramar:Number(r.sin_programar||0), programadas:Number(r.programadas||0), realizadas:Number(r.realizadas||0), createdAt:r.created_at, updatedAt:r.updated_at })));
   } catch (error) {
     console.error('Error leyendo campañas:', error?.message || error);
-    res.json([]);
+    respondDbError(res, error, 'No se pudieron cargar las campañas.');
   }
 });
 
@@ -3206,10 +3257,10 @@ app.delete('/api/campaigns/:id', authRequired, requireRoles('admin'), async (req
 
 app.get('/api/campaigns/:id/units', authRequired, requireRoles('admin','operativo','supervisor_flotas'), async (req, res) => {
   try {
-    const group = await pool.query(`SELECT * FROM campaign_groups WHERE id = $1`, [req.params.id]);
+    const group = await dbQuery(`SELECT * FROM campaign_groups WHERE id = $1`, [req.params.id], { label: 'campaign-units-group' });
     if (!group.rowCount) return res.status(404).json({ error:'Campaña no encontrada.' });
     if (req.user.role === 'supervisor_flotas' && normalizeIdentityValue(group.rows[0].empresa) !== normalizeIdentityValue(req.user.empresa || '')) return res.status(403).json({ error:'Sin acceso a esta campaña.' });
-    const units = await pool.query(`
+    const units = await dbQuery(`
       WITH garantia_stats AS (
         SELECT
           ${normalizedIdentitySql('g.empresa')} AS empresa_key,
@@ -3226,9 +3277,9 @@ app.get('/api/campaigns/:id/units', authRequired, requireRoles('admin','operativ
       LEFT JOIN fleet_units fu ON ${unitIdentityMatchSql('fu.empresa', 'fu.numero_economico', 'cu.empresa', 'cu.numero_economico')}
       LEFT JOIN garantia_stats gs ON gs.empresa_key = ${normalizedIdentitySql('cu.empresa')} AND gs.unidad_key = ${normalizedIdentitySql('cu.numero_economico')}
       WHERE cu.campaign_group_id = $1
-      ORDER BY cu.updated_at DESC, cu.numero_economico ASC`, [req.params.id]);
+      ORDER BY cu.updated_at DESC, cu.numero_economico ASC`, [req.params.id], { label: 'campaign-units' });
     res.json({ group: { id:group.rows[0].id, nombre:(group.rows[0].nombre || group.rows[0].campaign_nombre || group.rows[0].campaign_name || ''), empresa:group.rows[0].empresa, notas:group.rows[0].notas || '' }, units: units.rows.map(r => ({ id:r.id, campaignGroupId:r.campaign_group_id, empresa:r.empresa || '', numeroEconomico:r.numero_economico || '', status:r.status || 'sin_programar', evidencia:Array.isArray(r.evidencia)?r.evidencia:[], notas:r.notas || '', fleetUnitId:r.fleet_unit_id || '', numeroObra:r.numero_obra || '', marca:r.marca || '', modelo:r.modelo || '', anio:r.anio || '', kilometraje:r.kilometraje || '', polizaActiva:!!r.poliza_activa, reportesCount:Number(r.reportes_count||0), lastReportAt:r.last_report_at || null, updatedAt:r.updated_at })) });
-  } catch (error) { console.error('Error leyendo unidades de campaña:', error); res.status(500).json({ error:'No se pudieron cargar las unidades de campaña.' }); }
+  } catch (error) { console.error('Error leyendo unidades de campaña:', error?.message || error); respondDbError(res, error, 'No se pudieron cargar las unidades de campaña.'); }
 });
 
 app.post('/api/campaigns/:id/units', authRequired, requireRoles('admin'), async (req, res) => {
