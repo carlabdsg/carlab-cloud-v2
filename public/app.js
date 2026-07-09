@@ -3992,6 +3992,7 @@ els.companyForm?.addEventListener('submit', async (e) => {
 
 setInterval(async () => {
   if (!state.token || !state.user) return;
+  if (state.activePanel === 'fleet') return; // el usuario está viendo flotas: no interrumpir hasta que navegue o interactúe
   try {
     if (!shouldPauseLiveRefresh()) await loadNotifications();
     if (state.activePanel === 'schedule' && !shouldPauseLiveRefresh('schedule')) await Promise.allSettled([loadSchedules('')]);
