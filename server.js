@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
 const twilio = require('twilio');
+const compression = require('compression');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -50,9 +51,24 @@ pool.on('error', (error) => {
   console.error('PG pool error:', error?.message || error);
 });
 
+app.use(compression());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    if (/\.(png|jpg|jpeg|svg|gif|webp|ico)$/i.test(filePath)) {
+      // Assets estáticos que casi no cambian: cache larga en el navegador.
+      res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+    } else if (/\.(css|js)$/i.test(filePath)) {
+      // CSS/JS se revisan siempre contra el servidor (rápido con ETag) para
+      // que una actualización se vea de inmediato sin perder el beneficio
+      // de no re-descargar el archivo si no cambió.
+      res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+    }
+  }
+}));
 
 function cryptoRandomId() {
   return global.crypto?.randomUUID?.() || `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
