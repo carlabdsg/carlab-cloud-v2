@@ -37,7 +37,7 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 
-const PG_POOL_MAX = Math.max(1, Number(process.env.PG_POOL_MAX || 4));
+const PG_POOL_MAX = Math.max(1, Number(process.env.PG_POOL_MAX || 8));
 
 const pool = new Pool({
   connectionString: DATABASE_URL,
@@ -1036,6 +1036,7 @@ async function initDb() {
     ALTER TABLE schedule_requests ADD COLUMN IF NOT EXISTS numero_economico TEXT;
     ALTER TABLE schedule_requests ADD COLUMN IF NOT EXISTS contacto_nombre TEXT;
     ALTER TABLE schedule_requests ADD COLUMN IF NOT EXISTS folio_manual TEXT;
+    CREATE INDEX IF NOT EXISTS idx_schedule_requests_empresa_numero_norm ON schedule_requests (${normalizedIdentitySql("COALESCE(empresa, '')")}, ${normalizedIdentitySql("COALESCE(numero_economico, '')")});
     CREATE TABLE IF NOT EXISTS fleet_units (
       id TEXT PRIMARY KEY,
       empresa TEXT NOT NULL,
@@ -1072,6 +1073,13 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_fleet_cost_entries_garantia ON fleet_cost_entries(garantia_id);
     ALTER TABLE fleet_cost_entries ADD COLUMN IF NOT EXISTS source_quote_id TEXT;
     CREATE INDEX IF NOT EXISTS idx_fleet_cost_entries_source_quote ON fleet_cost_entries(source_quote_id);
+
+    -- Índices de expresión: aceleran el cruce por identidad normalizada (empresa/unidad)
+    -- que usan los módulos de Flotas y Analítica. Sin estos, cada carga de Flotas
+    -- forzaba un recorrido completo de garantias/campaign_units/schedule_requests.
+    CREATE INDEX IF NOT EXISTS idx_fleet_units_empresa_norm ON fleet_units (${normalizedIdentitySql('empresa')});
+    CREATE INDEX IF NOT EXISTS idx_fleet_units_numero_norm ON fleet_units (${normalizedIdentitySql('numero_economico')});
+    CREATE INDEX IF NOT EXISTS idx_fleet_units_empresa_numero_norm ON fleet_units (${normalizedIdentitySql('empresa')}, ${normalizedIdentitySql('numero_economico')});
 
     CREATE TABLE IF NOT EXISTS campaign_groups (
       id TEXT PRIMARY KEY,
@@ -1123,6 +1131,7 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_campaign_groups_empresa ON campaign_groups(empresa);
     CREATE INDEX IF NOT EXISTS idx_campaign_units_group ON campaign_units(campaign_group_id);
     CREATE INDEX IF NOT EXISTS idx_campaign_units_empresa_numero ON campaign_units(empresa, numero_economico);
+    CREATE INDEX IF NOT EXISTS idx_campaign_units_empresa_numero_norm ON campaign_units (${normalizedIdentitySql('empresa')}, ${normalizedIdentitySql('numero_economico')});
 
     ALTER TABLE garantias ADD COLUMN IF NOT EXISTS fleet_unit_id TEXT;
     ALTER TABLE fleet_units ADD COLUMN IF NOT EXISTS manual_status TEXT;
@@ -1151,6 +1160,11 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_garantias_numero_economico ON garantias(numero_economico);
     CREATE INDEX IF NOT EXISTS idx_garantias_refacciones_pendientes ON garantias (empresa, refaccion_status, created_at) WHERE solicita_refaccion = TRUE;
     CREATE INDEX IF NOT EXISTS idx_garantias_folio ON garantias(folio);
+    -- Cruce por identidad normalizada (empresa+unidad) más fecha: es el que usa
+    -- el módulo de Flotas para calcular estatus, reportes abiertos y "último movimiento"
+    -- de cada unidad. Antes de este índice, Postgres recorría TODA la tabla garantias
+    -- por cada carga del módulo (y hasta 3 veces en Analítica).
+    CREATE INDEX IF NOT EXISTS idx_garantias_empresa_numero_norm ON garantias (${normalizedIdentitySql('empresa')}, ${normalizedIdentitySql('numero_economico')}, created_at DESC);
 
     CREATE TABLE IF NOT EXISTS authorized_activities (
       id TEXT PRIMARY KEY,
@@ -2596,15 +2610,19 @@ app.get('/api/fleet/analytics', authRequired, requireRoles('admin','operativo','
       where.push(`${normalizedIdentitySql('fu.empresa')} = ${normalizedIdentitySql(`$${params.length}`)}`);
     }
 
-    const baseAnalyticsQuery = `
-      WITH unit_scope AS (
+    // NOTA DE RENDIMIENTO: antes, este endpoint ejecutaba el mismo cruce pesado
+    // (unit_scope + garantia_stats) en 3 viajes de ida y vuelta separados a la base
+    // de datos (resumen, top de unidades, tendencia). Ahora se calcula UNA sola vez
+    // (CTEs MATERIALIZED) y las 3 salidas se obtienen en una sola consulta.
+    const combined = await dbQuery(`
+      WITH unit_scope AS MATERIALIZED (
         SELECT fu.*,
           ${normalizedIdentitySql('fu.empresa')} AS empresa_key,
           ${normalizedIdentitySql('fu.numero_economico')} AS unidad_key
         FROM fleet_units fu
         ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
       ),
-      garantia_stats AS (
+      garantia_stats AS MATERIALIZED (
         SELECT
           us.id AS fleet_unit_id,
           COUNT(g.*)::int AS reportes_count,
@@ -2645,12 +2663,12 @@ app.get('/api/fleet/analytics', authRequired, requireRoles('admin','operativo','
         LEFT JOIN garantias g ON ${unitIdentityMatchSql('g.empresa', 'g.numero_economico', 'us.empresa', 'us.numero_economico')}
         GROUP BY us.id
       ),
-      cost_stats AS (
+      cost_stats AS MATERIALIZED (
         SELECT fce.fleet_unit_id, COALESCE(SUM(fce.monto),0) AS costo_total
         FROM fleet_cost_entries fce
         GROUP BY fce.fleet_unit_id
       ),
-      unit_kpis AS (
+      unit_kpis AS MATERIALIZED (
         SELECT
           us.id,
           us.empresa,
@@ -2675,83 +2693,79 @@ app.get('/api/fleet/analytics', authRequired, requireRoles('admin','operativo','
         FROM unit_scope us
         LEFT JOIN garantia_stats gs ON gs.fleet_unit_id = us.id
         LEFT JOIN cost_stats ct ON ct.fleet_unit_id = us.id
+      ),
+      days AS (
+        SELECT generate_series((CURRENT_DATE - INTERVAL '13 days')::date, CURRENT_DATE::date, INTERVAL '1 day')::date AS day
+      ),
+      scoped_reports AS (
+        SELECT DISTINCT g.id, g.created_at::date AS day
+        FROM garantias g
+        JOIN unit_scope us ON ${unitIdentityMatchSql('g.empresa', 'g.numero_economico', 'us.empresa', 'us.numero_economico')}
       )
-    `;
+      SELECT
+        (SELECT row_to_json(s) FROM (
+          SELECT
+            COUNT(*)::int AS total_units,
+            COUNT(*) FILTER (WHERE status_auto = 'critical')::int AS critical_units,
+            COUNT(*) FILTER (WHERE status_auto = 'warning')::int AS warning_units,
+            COUNT(*) FILTER (WHERE status_auto = 'ok')::int AS ok_units,
+            COALESCE(SUM(open_reports_count),0)::int AS open_reports,
+            COALESCE(SUM(pending_parts_count),0)::int AS critical_open_reports,
+            COUNT(*) FILTER (WHERE reports_last_30d >= 2)::int AS units_with_recurrence,
+            ROUND(COALESCE(AVG(open_reports_count), 0)::numeric, 2) AS avg_open_reports_per_unit
+          FROM unit_kpis
+        ) s) AS summary,
+        (SELECT COALESCE(json_agg(t), '[]'::json) FROM (
+          SELECT
+            uk.id AS unit_id,
+            uk.numero_economico,
+            uk.empresa,
+            uk.modelo,
+            uk.status_auto,
+            COALESCE(NULLIF(TRIM(uk.manual_status), ''), uk.status_auto) AS effective_status,
+            uk.open_reports_count,
+            uk.pending_parts_count,
+            uk.critical_reports_count,
+            uk.reports_last_30d AS total_reports_last_30d,
+            uk.last_report_at,
+            uk.last_open_report_at,
+            uk.last_refaccion_at,
+            uk.costo_total
+          FROM unit_kpis uk
+          ORDER BY
+            CASE WHEN uk.status_auto = 'critical' THEN 0 WHEN uk.status_auto = 'warning' THEN 1 ELSE 2 END ASC,
+            COALESCE(uk.last_open_report_at, uk.last_refaccion_at, uk.last_report_at) ASC NULLS LAST,
+            uk.open_reports_count DESC,
+            uk.costo_total DESC
+          LIMIT 10
+        ) t) AS top,
+        (SELECT COALESCE(json_agg(tr), '[]'::json) FROM (
+          SELECT d.day::text AS day, COALESCE(COUNT(sr.day),0)::int AS reports
+          FROM days d
+          LEFT JOIN scoped_reports sr ON sr.day = d.day
+          GROUP BY d.day
+          ORDER BY d.day ASC
+        ) tr) AS trend
+    `, params, { label: 'fleet-analytics' });
 
-    const [summaryQ, topQ, trendQ] = await Promise.all([
-      dbQuery(`
-        ${baseAnalyticsQuery}
-        SELECT
-          COUNT(*)::int AS total_units,
-          COUNT(*) FILTER (WHERE status_auto = 'critical')::int AS critical_units,
-          COUNT(*) FILTER (WHERE status_auto = 'warning')::int AS warning_units,
-          COUNT(*) FILTER (WHERE status_auto = 'ok')::int AS ok_units,
-          COALESCE(SUM(open_reports_count),0)::int AS open_reports,
-          COALESCE(SUM(pending_parts_count),0)::int AS critical_open_reports,
-          COUNT(*) FILTER (WHERE reports_last_30d >= 2)::int AS units_with_recurrence,
-          ROUND(COALESCE(AVG(open_reports_count), 0)::numeric, 2) AS avg_open_reports_per_unit
-        FROM unit_kpis
-      `, params, { label: 'fleet-analytics' }),
-      dbQuery(`
-        ${baseAnalyticsQuery}
-        SELECT
-          uk.id AS unit_id,
-          uk.numero_economico,
-          uk.empresa,
-          uk.modelo,
-          uk.status_auto,
-          COALESCE(NULLIF(TRIM(uk.manual_status), ''), uk.status_auto) AS effective_status,
-          uk.open_reports_count,
-          uk.pending_parts_count,
-          uk.critical_reports_count,
-          uk.reports_last_30d AS total_reports_last_30d,
-          uk.last_report_at,
-          uk.last_open_report_at,
-          uk.last_refaccion_at,
-          uk.costo_total
-        FROM unit_kpis uk
-        ORDER BY
-          CASE WHEN uk.status_auto = 'critical' THEN 0 WHEN uk.status_auto = 'warning' THEN 1 ELSE 2 END ASC,
-          COALESCE(uk.last_open_report_at, uk.last_refaccion_at, uk.last_report_at) ASC NULLS LAST,
-          uk.open_reports_count DESC,
-          uk.costo_total DESC
-        LIMIT 10
-      `, params, { label: 'fleet-analytics' }),
-      dbQuery(`
-        WITH days AS (
-          SELECT generate_series((CURRENT_DATE - INTERVAL '13 days')::date, CURRENT_DATE::date, INTERVAL '1 day')::date AS day
-        ),
-        scoped_reports AS (
-          SELECT DISTINCT g.id, g.created_at::date AS day
-          FROM garantias g
-          JOIN fleet_units fu ON ${unitIdentityMatchSql('g.empresa', 'g.numero_economico', 'fu.empresa', 'fu.numero_economico')}
-          ${SUPERVISOR_ROLES.includes(req.user.role) ? `WHERE ${normalizedIdentitySql('fu.empresa')} = ${normalizedIdentitySql('$1')}` : ''}
-        )
-        SELECT d.day::text AS day, COALESCE(COUNT(sr.day),0)::int AS reports
-        FROM days d
-        LEFT JOIN scoped_reports sr ON sr.day = d.day
-        GROUP BY d.day
-        ORDER BY d.day ASC
-      `, SUPERVISOR_ROLES.includes(req.user.role) ? [req.user.empresa || ''] : [], { label: 'fleet-analytics-trend' }),
-    ]);
-
-    const summary = summaryQ.rows[0] || {};
-    const topProblemUnits = (topQ.rows || []).map((row) => ({
-      unitId: row.unit_id,
-      numeroEconomico: row.numero_economico || '',
-      empresa: row.empresa || '',
-      modelo: row.modelo || '',
-      statusAuto: row.status_auto || 'ok',
-      effectiveStatus: row.effective_status || row.status_auto || 'ok',
-      openReportsCount: Number(row.open_reports_count || 0),
-      pendingPartsCount: Number(row.pending_parts_count || 0),
-      criticalReportsCount: Number(row.critical_reports_count || 0),
-      totalReportsLast30d: Number(row.total_reports_last_30d || 0),
-      recurrenceLevel: Number(row.total_reports_last_30d || 0) >= 4 ? 'high' : Number(row.total_reports_last_30d || 0) >= 2 ? 'medium' : 'normal',
-      lastReportAt: row.last_report_at || null,
-      lastOpenReportAt: row.last_open_report_at || null,
-      lastRefaccionAt: row.last_refaccion_at || null,
-      costoTotal: Number(row.costo_total || 0),
+    const row = combined.rows[0] || {};
+    const summary = row.summary || {};
+    const topProblemUnits = (row.top || []).map((u) => ({
+      unitId: u.unit_id,
+      numeroEconomico: u.numero_economico || '',
+      empresa: u.empresa || '',
+      modelo: u.modelo || '',
+      statusAuto: u.status_auto || 'ok',
+      effectiveStatus: u.effective_status || u.status_auto || 'ok',
+      openReportsCount: Number(u.open_reports_count || 0),
+      pendingPartsCount: Number(u.pending_parts_count || 0),
+      criticalReportsCount: Number(u.critical_reports_count || 0),
+      totalReportsLast30d: Number(u.total_reports_last_30d || 0),
+      recurrenceLevel: Number(u.total_reports_last_30d || 0) >= 4 ? 'high' : Number(u.total_reports_last_30d || 0) >= 2 ? 'medium' : 'normal',
+      lastReportAt: u.last_report_at || null,
+      lastOpenReportAt: u.last_open_report_at || null,
+      lastRefaccionAt: u.last_refaccion_at || null,
+      costoTotal: Number(u.costo_total || 0),
     }));
 
     res.json({
@@ -2764,7 +2778,7 @@ app.get('/api/fleet/analytics', authRequired, requireRoles('admin','operativo','
       unitsWithRecurrence: Number(summary.units_with_recurrence || 0),
       avgOpenReportsPerUnit: Number(summary.avg_open_reports_per_unit || 0),
       topProblemUnits,
-      recentTrend: (trendQ.rows || []).map(row => ({ day: row.day, reports: Number(row.reports || 0) })),
+      recentTrend: (row.trend || []).map(r => ({ day: r.day, reports: Number(r.reports || 0) })),
     });
   } catch (error) {
     console.error('Error leyendo analytics de flota:', error?.message || error);

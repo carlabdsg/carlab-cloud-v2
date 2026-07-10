@@ -6282,3 +6282,18 @@ body:not(.operator-mode)[data-panel="fleet"] #fleetPanel #fleetUnitsList .cardUn
   body:not(.operator-mode)[data-panel="fleet"] #fleetPanel #fleetUnitsList.fleet-line-list { grid-template-columns:1fr !important; }
   body:not(.operator-mode)[data-panel="fleet"] #fleetPanel .priority-row { grid-template-columns:1fr !important; }
 }
+
+/* Agenda: barra de herramientas con botón "Hoy" y buscador rápido (nutrición UX) */
+#schedulePanel .schedule-toolbar-pro {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:end;
+  gap:12px;
+}
+#schedulePanel .schedule-toolbar-pro > div { display:flex; flex-direction:column; gap:4px; min-width:160px; }
+#schedulePanel .schedule-toolbar-pro .span-2 { flex:1 1 240px; }
+#schedulePanel .schedule-toolbar-pro #scheduleTodayBtn { align-self:end; }
+@media (max-width: 680px) {
+  #schedulePanel .schedule-toolbar-pro { flex-direction:column; align-items:stretch; }
+  #schedulePanel .schedule-toolbar-pro > div { min-width:0; }
+}

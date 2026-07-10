@@ -166,7 +166,7 @@ function bind() {
     'evidencias','evidenciasCamara','evidenciasRefaccion','evidenciasRefaccionCamara','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn','searchInput','validationFilter','operationalFilter',
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
     'userRole','userEmpresa','userTelefono','userPassword','userSubmitBtn','userCancelEditBtn','usersList','emptyState','toast','requestsList','companiesList','companyForm','companyId','companyNombre','companyContacto','companyTelefono','companyEmail','companyNotas','companySubmitBtn','companyCancelEditBtn',
-    'executiveDeck','executiveDeckGrid','liveRefreshBadge','topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistorySearchInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','partsPanel','partsRefreshBtn','partsSummary','partsList','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn','fleetOwnerDeck','imageLightbox','imageLightboxImg','imageLightboxClose',
+    'executiveDeck','executiveDeckGrid','liveRefreshBadge','topCompanies','topModels','topIncidentTypes','repeatUnits','unitHistoryInput','unitHistorySearchInput','unitHistoryBtn','unitHistoryResult','scheduleDateInput','scheduleTodayBtn','scheduleSearchInput','scheduleRefreshBtn','scheduleList','scheduleCalendar','scheduleAlerts','partsPanel','partsRefreshBtn','partsSummary','partsList','globalRefreshBtn','notifSummary','operatorAppNav','opNavHomeBtn','opNavNewBtn','opNavScheduleBtn','opNavLogoutBtn','fleetOwnerDeck','imageLightbox','imageLightboxImg','imageLightboxClose',
     'navFleetBtn','fleetPanel','fleetBulkDeleteBox','fleetBulkDeleteEmpresa','fleetBulkDeleteNumeros','fleetBulkDeleteSummary','fleetBulkDeletePreview','fleetBulkDeletePreviewBtn','fleetBulkDeleteConfirmBtn','fleetEmpresa','fleetNumeroEconomico','fleetNumeroObra','fleetMarca','fleetModelo','fleetAnio','fleetKilometraje','fleetNombreFlota','fleetPolizaActiva','fleetCampaignActiva','fleetSaveBtn','fleetRefreshBtn','fleetUnitsGrid','fleetUnitsList','fleetDetail','fleetTotal','fleetOperando','fleetTaller','fleetDetenidas','fleetProgramadas','fleetNewBtn','fleetCancelBtn','fleetFormBox','fleetSearchInput','fleetStatusFilter','navCampaignsBtn','campaignsPanel','campaignsRefreshBtn','campaignSummary','campaignGroupId','campaignName','campaignEmpresa','campaignNotes','campaignSaveBtn','campaignClearBtn','campaignGroupsList','campaignDetail','campaignDetailTitle','campaignDetailBadge','campaignUnitId','campaignUnitEmpresa','campaignUnitNumero','campaignUnitStatus','campaignUnitNotes','campaignUnitEvidence','campaignEvidencePreview','campaignUnitSaveBtn','campaignUnitClearBtn','campaignUnitsGrid',
     'partsRequestModal','partsRequestClose','partsRequestCancel','partsRequestForm','partsRequestEmpresa','partsRequestUnidad','partsRequestSolicitud','partsRequestPriority','partsRequestNotes','partsRequestOwnerHint','imageLightboxCaption','reportDetailModal','reportDetailClose','reportDetailContent','stockRefreshBtn','stockSummary','stockList','stockMovements','stockPartForm','stockPartId','stockNombre','stockSku','stockProveedor','stockActual','stockMinimo','stockCosto','stockPrecio','stockUbicacion','stockNotas','stockSaveBtn','stockCancelBtn','scheduleManualForm','scheduleManualEmpresa','scheduleManualUnidad','scheduleManualTelefono','scheduleManualFolio','scheduleManualDatetime','scheduleManualContacto','scheduleManualNotes','scheduleManualCancelBtn','cobranzaRefreshBtn','cobranzaSummary','cobranzaQuotesList','cobranzaQuoteDetail','directSaleForm','directSaleCustomer','directSalePhone','directSaleCompany','directSaleUnit','directSaleType','directSaleConcept','directSaleStockPart','directSaleQty','directSalePrice','directSaleMethod','directSalePaymentStatus','directSaleNotes','directSaleAddConceptBtn','directSaleItemsList','directSaleResetBtn','directSalePdfBtn','directSaleTotal','directSalesList','stockAssignModal','stockAssignClose','stockAssignCancel','stockAssignForm','stockAssignPartName','stockAssignPartMeta','stockAssignQty','stockAssignUnit','stockAssignCompany','stockAssignFolio','stockAssignNotes',
     'commandSidePanel','recentActivityList','upcomingAgendaList','statusDonut','statusDonutTotal','statusDonutLegend'
@@ -1149,6 +1149,9 @@ async function loadNotifications() {
 
 async function loadSchedules(_date = '') {
   if (!isRole('admin','operativo','supervisor','supervisor_flotas','operador')) return;
+  if (!Array.isArray(state.schedules) || !state.schedules.length) {
+    if (els.scheduleList) els.scheduleList.innerHTML = '<div class="empty-state"><strong>Cargando agenda…</strong><span>Obteniendo citas y solicitudes.</span></div>';
+  }
   state.schedules = await api.request(`/api/schedules${state.user?.role === 'supervisor_flotas' ? '?futureOnly=1' : ''}`);
   const today = new Date().toISOString().slice(0,10);
   const existingDates = [...new Set(state.schedules.map(item => String((item.scheduledFor || item.proposedAt || item.requestedAt || '')).slice(0,10)).filter(Boolean))].sort();
@@ -1176,10 +1179,14 @@ function renderSchedules() {
   const waiting = state.schedules.filter(item => item.status === 'waiting_operator').length;
   const cancelled = state.schedules.filter(item => item.status === 'cancelled').length;
 
+  const searchTerm = (els.scheduleSearchInput?.value || '').trim().toLowerCase();
   const schedulesForDay = state.schedules.filter(item => {
     const raw = item.scheduledFor || item.proposedAt || item.requestedAt;
     if (!raw) return false;
-    return String(raw).slice(0,10) === selectedDate;
+    if (String(raw).slice(0,10) !== selectedDate) return false;
+    if (!searchTerm) return true;
+    const haystack = [item.folio, item.unidad, item.empresa, item.contactoNombre, item.telefono].map(v => String(v || '').toLowerCase()).join(' ');
+    return haystack.includes(searchTerm);
   });
 
   if (els.scheduleCalendar) {
@@ -1233,7 +1240,9 @@ function renderSchedules() {
 
   els.scheduleList.innerHTML = '';
   if (!schedulesForDay.length) {
-    els.scheduleList.innerHTML = '<div class="empty-state"><strong>Sin unidades programadas para esta fecha.</strong><span>Programa manualmente, confirma propuestas o reprograma desde aquí.</span></div>';
+    els.scheduleList.innerHTML = searchTerm
+      ? `<div class="empty-state"><strong>Sin coincidencias para "${escapeHtml(searchTerm)}".</strong><span>Prueba con el folio, la unidad o el nombre de contacto.</span></div>`
+      : '<div class="empty-state"><strong>Sin unidades programadas para esta fecha.</strong><span>Programa manualmente, confirma propuestas o reprograma desde aquí.</span></div>';
     return;
   }
 
@@ -2293,6 +2302,9 @@ async function loadFleet() {
     }
     const previousUnits = Array.isArray(state.fleetUnits) ? state.fleetUnits : [];
     const previousSelected = state.selectedFleetUnit;
+    if (!previousUnits.length && els.fleetUnitsList) {
+      els.fleetUnitsList.innerHTML = '<div class="empty-state"><strong>Cargando flota…</strong><span>Obteniendo unidades, reportes y estatus.</span></div>';
+    }
     const [summaryRes, unitsRes, analyticsRes] = await Promise.allSettled([api.getFleetSummary(), api.getFleetUnits(), api.getFleetAnalytics()]);
     if (summaryRes.status === 'fulfilled') state.fleetSummary = summaryRes.value || state.fleetSummary;
     let preservingFleet = false;
@@ -3886,6 +3898,11 @@ els.userRole?.addEventListener('change', () => {
 els.unitHistoryBtn?.addEventListener('click', renderUnitHistory);
 els.unitHistorySearchInput?.addEventListener('input', () => paintUnitHistory(state.unitHistoryRows || []));
 els.scheduleRefreshBtn?.addEventListener('click', async () => { await loadSchedules(''); switchPanel('schedule'); });
+els.scheduleTodayBtn?.addEventListener('click', () => {
+  if (els.scheduleDateInput) els.scheduleDateInput.value = new Date().toISOString().slice(0,10);
+  renderSchedules();
+});
+els.scheduleSearchInput?.addEventListener('input', () => renderSchedules());
 els.scheduleManualCancelBtn?.addEventListener('click', () => resetScheduleManualForm());
 els.scheduleManualEmpresa?.addEventListener('change', () => {
   const company = els.scheduleManualEmpresa?.value || '';
