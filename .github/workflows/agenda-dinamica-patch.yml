@@ -1,0 +1,74 @@
+name: Agenda dinamica patch
+on:
+  push:
+    paths:
+      - '.github/workflows/agenda-dinamica-patch.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agenda-dinamica-v2
+      - name: Aplicar cambios de agenda
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('server.js'); s=p.read_text()
+          s=s.replace("INSERT INTO schedule_requests (id, garantia_id, telefono, status, notes, scheduled_for, confirmed_at, empresa, numero_economico, contacto_nombre, folio_manual)\n      VALUES ($1,NULL,$2,'confirmed',$3,$4,NOW(),$5,$6,$7,$8)","INSERT INTO schedule_requests (id, garantia_id, telefono, status, notes, scheduled_for, proposed_at, empresa, numero_economico, contacto_nombre, folio_manual)\n      VALUES ($1,NULL,$2,'proposed',$3,$4,NOW(),$5,$6,$7,$8)",1)
+          s=s.replace("app.patch('/api/schedules/:id/confirm', authRequired, requireRoles('admin', 'operativo'), async (req, res) => {","app.patch('/api/schedules/:id/confirm', authRequired, requireRoles('admin', 'operativo', 'supervisor_flotas'), async (req, res) => {",1)
+          old="""  const found = await pool.query(`SELECT sr.*, g.folio, g.numero_economico, g.empresa, g.telefono FROM schedule_requests sr JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id = $1`, [req.params.id]);
+  if (!found.rowCount) return res.status(404).json({ error: 'Programación no encontrada.' });
+  const current = found.rows[0];"""
+          new="""  const found = await pool.query(`SELECT sr.*, COALESCE(g.folio, sr.folio_manual) AS folio, COALESCE(g.numero_economico, sr.numero_economico) AS numero_economico, COALESCE(g.empresa, sr.empresa) AS empresa, COALESCE(g.telefono, sr.telefono) AS telefono FROM schedule_requests sr LEFT JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id = $1`, [req.params.id]);
+  if (!found.rowCount) return res.status(404).json({ error: 'Programación no encontrada.' });
+  const current = found.rows[0];
+  if (req.user.role === 'supervisor_flotas' && normalizeIdentityValue(current.empresa || '') !== normalizeIdentityValue(req.user.empresa || '')) return res.status(403).json({ error: 'No puedes modificar programaciones de otra empresa.' });"""
+          assert old in s; s=s.replace(old,new,1)
+          old="""  const joined = await pool.query(`SELECT sr.*, g.folio, g.numero_economico, g.empresa, g.contacto_nombre, g.telefono FROM schedule_requests sr JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id = $1`, [req.params.id]);
+  res.json(scheduleSummary(joined.rows[0]));
+});
+
+app.post('/api/whatsapp/incoming'"""
+          new="""  const joined = await pool.query(`SELECT sr.*, COALESCE(g.folio, sr.folio_manual) AS folio, COALESCE(g.numero_economico, sr.numero_economico) AS numero_economico, COALESCE(g.empresa, sr.empresa) AS empresa, COALESCE(g.contacto_nombre, sr.contacto_nombre) AS contacto_nombre, COALESCE(g.telefono, sr.telefono) AS telefono FROM schedule_requests sr LEFT JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id = $1`, [req.params.id]);
+  res.json(scheduleSummary(joined.rows[0]));
+});
+
+app.patch('/api/schedules/:id/cancel', authRequired, requireRoles('admin','operativo','supervisor_flotas'), async (req, res) => {
+  const found = await pool.query(`SELECT sr.*, COALESCE(g.empresa, sr.empresa) AS empresa FROM schedule_requests sr LEFT JOIN garantias g ON g.id = sr.garantia_id WHERE sr.id=$1`, [req.params.id]);
+  if (!found.rowCount) return res.status(404).json({ error:'Programación no encontrada.' });
+  if (req.user.role === 'supervisor_flotas' && normalizeIdentityValue(found.rows[0].empresa||'') !== normalizeIdentityValue(req.user.empresa||'')) return res.status(403).json({ error:'No puedes cancelar programaciones de otra empresa.' });
+  const notes=String(req.body.notes||'Cancelada').trim();
+  const result=await pool.query(`UPDATE schedule_requests SET status='cancelled', notes=COALESCE(NULLIF($2,''),notes), updated_at=NOW() WHERE id=$1 RETURNING *`,[req.params.id,notes]);
+  res.json(scheduleSummary(result.rows[0]));
+});
+
+app.patch('/api/schedules/:id/reschedule', authRequired, requireRoles('admin','operativo','supervisor_flotas'), async (req, res) => {
+  const scheduledFor=req.body.scheduledFor?new Date(req.body.scheduledFor):null;
+  if (!scheduledFor || Number.isNaN(scheduledFor.getTime())) return res.status(400).json({ error:'Fecha y hora inválidas.' });
+  const found=await pool.query(`SELECT sr.*, COALESCE(g.empresa,sr.empresa) AS empresa FROM schedule_requests sr LEFT JOIN garantias g ON g.id=sr.garantia_id WHERE sr.id=$1`,[req.params.id]);
+  if (!found.rowCount) return res.status(404).json({ error:'Programación no encontrada.' });
+  if (req.user.role === 'supervisor_flotas' && normalizeIdentityValue(found.rows[0].empresa||'') !== normalizeIdentityValue(req.user.empresa||'')) return res.status(403).json({ error:'No puedes reprogramar unidades de otra empresa.' });
+  const busy=await pool.query(`SELECT id FROM schedule_requests WHERE id<>$1 AND status='confirmed' AND DATE(scheduled_for AT TIME ZONE 'UTC')=DATE($2::timestamptz AT TIME ZONE 'UTC') AND TO_CHAR(scheduled_for AT TIME ZONE 'UTC','HH24:MI')=TO_CHAR($2::timestamptz AT TIME ZONE 'UTC','HH24:MI') LIMIT 1`,[req.params.id,scheduledFor.toISOString()]);
+  if (busy.rowCount) return res.status(409).json({ error:'Ese horario ya está ocupado.' });
+  const result=await pool.query(`UPDATE schedule_requests SET status='proposed', scheduled_for=$2, proposed_at=NOW(), confirmed_at=NULL, updated_at=NOW() WHERE id=$1 RETURNING *`,[req.params.id,scheduledFor.toISOString()]);
+  res.json(scheduleSummary(result.rows[0]));
+});
+
+app.post('/api/whatsapp/incoming'"""
+          assert old in s; s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+      - name: Validar sintaxis
+        run: |
+          node --check server.js
+          node --check public/agenda-pro.js
+      - name: Guardar cambios
+        run: |
+          git config user.name 'CARLAB Agenda Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add server.js
+          git commit -m 'Corrige aceptar cancelar y reprogramar agenda' || exit 0
+          git push origin agenda-dinamica-v2
