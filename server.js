@@ -1888,6 +1888,11 @@ app.post('/api/garantias', authRequired, requireRoles('operador', 'admin'), asyn
   const client = await pool.connect();
   try {
     const body = req.body;
+    if (req.user.role === 'operador') {
+      // Un operador solo puede registrar reportes bajo su propia empresa,
+      // sin importar lo que llegue en el body (protección server-side).
+      body.empresa = req.user.empresa || '';
+    }
     const id = cryptoRandomId();
     const required = [body.numeroObra, body.modelo, body.numeroEconomico, body.empresa, body.tipoIncidente, body.descripcionFallo];
     if (required.some(v => !String(v || '').trim())) {
@@ -2464,11 +2469,11 @@ app.get('/api/fleet/summary', authRequired, requireRoles('admin','operativo','su
   }
 });
 
-app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas'), async (req, res) => {
+app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas','operador'), async (req, res) => {
   try {
     const params = [];
     const where = [];
-    if (SUPERVISOR_ROLES.includes(req.user.role)) {
+    if (SUPERVISOR_ROLES.includes(req.user.role) || req.user.role === 'operador') {
       params.push(req.user.empresa || '');
       where.push(`${normalizedIdentitySql('fu.empresa')} = ${normalizedIdentitySql(`$${params.length}`)}`);
     }

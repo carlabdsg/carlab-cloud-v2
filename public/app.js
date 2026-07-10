@@ -3128,14 +3128,26 @@ function renderCompanies() {
     });
   }
 
-  fillSelect(els.empresa, activeCompanies, 'Selecciona empresa');
+  const isOperador = isRole('operador');
+  let empresaOptions = activeCompanies;
+  if (isOperador && state.user?.empresa) {
+    const ownKey = normalizeIdentityKey(state.user.empresa);
+    const own = activeCompanies.filter(c => normalizeIdentityKey(c.nombre) === ownKey);
+    // Si por algún motivo no aparece en la lista de activas, igual limitamos a su empresa.
+    empresaOptions = own.length ? own : [{ nombre: state.user.empresa }];
+  }
+
+  fillSelect(els.empresa, empresaOptions, 'Selecciona empresa');
   fillSelect(els.regEmpresa, activeCompanies, 'Selecciona empresa');
   fillSelect(els.userEmpresa, activeCompanies, 'Sin empresa');
   configureServicesCompanyFilter(activeCompanies);
 
-  // conservar selección del operador si ya tiene empresa
-  if (isRole('operador') && state.user?.empresa && els.empresa && !els.empresa.value) {
+  // El operador queda bloqueado a su propia empresa: no puede ver ni elegir otras.
+  if (isOperador && state.user?.empresa && els.empresa) {
     els.empresa.value = state.user.empresa;
+    els.empresa.disabled = true;
+  } else if (els.empresa) {
+    els.empresa.disabled = false;
   }
 }
 
