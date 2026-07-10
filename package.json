@@ -4,8 +4,8 @@
   "description": "CARLAB CLOUD REBUILD 1 - base autorizada con cabina ejecutiva y pulso operativo",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node -r ./server-guards.js server.js",
+    "dev": "node -r ./server-guards.js server.js"
   },
   "engines": {
     "node": "20.x"
