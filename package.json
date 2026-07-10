@@ -1,11 +1,11 @@
 {
   "name": "carlab-cloud-rebuild-1",
-  "version": "4.1.1",
-  "description": "CARLAB CLOUD REBUILD 1 - hotfix operador empresa y agenda",
+  "version": "4.1.0",
+  "description": "CARLAB CLOUD REBUILD 1 - base autorizada con cabina ejecutiva y pulso operativo",
   "main": "server.js",
   "scripts": {
-    "start": "node -r ./server-guards.js server.js",
-    "dev": "node -r ./server-guards.js server.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "engines": {
     "node": "20.x"
