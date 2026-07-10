@@ -1,0 +1,33 @@
+CARLAB CLOUD — REPARACIÓN URGENTE OPERADOR V2
+
+CAUSA CONFIRMADA
+El despliegue estaba arrancando con:
+  node server.js
+
+Por eso server-guards.js NO se ejecutaba y la reparación anterior no podía aplicarse.
+
+ESTE PAQUETE CORRIGE ESO
+El package.json incluido arranca con:
+  node -r ./server-guards.js server.js
+
+SUBIDA CORRECTA
+1. Abre tu repositorio carlab-cloud-v2 en GitHub.
+2. Reemplaza package.json en la RAÍZ.
+3. Reemplaza server-guards.js en la RAÍZ.
+4. Reemplaza public/audit-fixes.js dentro de la carpeta public.
+5. Confirma los cambios en la rama main.
+6. En Render ejecuta Manual Deploy > Deploy latest commit.
+7. Cuando termine, cierra sesión del operador.
+8. En Safari usa Cmd + Option + E y después Cmd + Shift + R.
+9. Inicia sesión nuevamente.
+
+RESULTADO ESPERADO
+- Empresa del reporte fija a la empresa asignada al operador.
+- No se muestran otras empresas.
+- Selector de unidades en agenda cargado solo con unidades de esa empresa.
+- El operador puede registrar agenda manual.
+- El servidor bloquea unidades de otras empresas aunque se manipule el navegador.
+
+NO BORRAR
+No borres server.js, index.html, app.js, style.css, logo ni assets.
+Este ZIP se sube SOBRE el repositorio actual reemplazando estos 3 archivos.
