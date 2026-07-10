@@ -1,11 +1,11 @@
 {
   "name": "carlab-cloud-rebuild-1",
-  "version": "4.1.0",
-  "description": "CARLAB CLOUD REBUILD 1 - base autorizada con cabina ejecutiva y pulso operativo",
+  "version": "4.1.1",
+  "description": "CARLAB CLOUD REBUILD 1 - Agenda operativa reforzada",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node -r ./agenda-runtime.js server.js",
+    "dev": "node -r ./agenda-runtime.js server.js"
   },
   "engines": {
     "node": "20.x"
