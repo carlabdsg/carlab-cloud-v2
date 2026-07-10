@@ -1,0 +1,48 @@
+name: Integrar Agenda Pro
+on:
+  push:
+    paths:
+      - '.github/workflows/agenda-integracion.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agenda-refuerzo-seguro
+      - name: Aplicar cambios mínimos
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('server.js'); s=p.read_text()
+          a="app.post('/api/schedules/manual', authRequired, requireRoles('admin','operativo'), async (req, res) => {"
+          b="app.post('/api/schedules/manual', authRequired, requireRoles('admin','operativo','supervisor_flotas'), async (req, res) => {"
+          assert a in s; s=s.replace(a,b,1)
+          a="    const empresa = String(req.body.empresa || '').trim();\n    const unidad = String(req.body.unidad || '').trim();"
+          b="    const requestedEmpresa = String(req.body.empresa || '').trim();\n    const empresa = req.user.role === 'supervisor_flotas' ? String(req.user.empresa || '').trim() : requestedEmpresa;\n    const unidad = String(req.body.unidad || '').trim();"
+          assert a in s; s=s.replace(a,b,1)
+          a="    if (!empresa || !unidad || !scheduledFor || Number.isNaN(scheduledFor.getTime())) return res.status(400).json({ error: 'Completa empresa, unidad y fecha válida.' });\n    const result = await pool.query(`"
+          b="    if (!empresa || !unidad || !scheduledFor || Number.isNaN(scheduledFor.getTime())) return res.status(400).json({ error: 'Completa empresa, unidad y fecha válida.' });\n    const unitCheck = await pool.query(`SELECT id FROM fleet_units WHERE ${unitIdentityMatchSql('empresa', 'numero_economico', '$1', '$2')} LIMIT 1`, [empresa, unidad]);\n    if (!unitCheck.rowCount) return res.status(403).json({ error: 'La unidad seleccionada no pertenece a la empresa indicada.' });\n    const result = await pool.query(`"
+          assert a in s; s=s.replace(a,b,1); p.write_text(s)
+          p=Path('public/index.html'); s=p.read_text()
+          css='  <link rel="stylesheet" href="/agenda-pro.css?v=1" />'
+          js='  <script src="/agenda-pro.js?v=1"></script>'
+          if css not in s: s=s.replace('  <link rel="stylesheet" href="/style.min.css" />','  <link rel="stylesheet" href="/style.min.css" />\n'+css,1)
+          if js not in s: s=s.replace('  <script src="/app.min.js"></script>','  <script src="/app.min.js"></script>\n'+js,1)
+          p.write_text(s)
+          PY
+      - name: Validar
+        run: |
+          node --check server.js
+          node --check public/agenda-pro.js
+          grep -q 'agenda-pro.js' public/index.html
+          grep -q "supervisor_flotas')" server.js
+      - name: Guardar
+        run: |
+          git config user.name 'CARLAB Agenda Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add server.js public/index.html
+          git commit -m 'Integra Agenda Pro con permisos seguros' || exit 0
+          git push origin agenda-refuerzo-seguro
