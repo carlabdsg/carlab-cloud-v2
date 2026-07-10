@@ -2237,9 +2237,10 @@ app.get('/api/schedules', authRequired, requireRoles('admin', 'operativo', 'supe
   }
 });
 
-app.post('/api/schedules/manual', authRequired, requireRoles('admin','operativo'), async (req, res) => {
+app.post('/api/schedules/manual', authRequired, requireRoles('admin','operativo','supervisor_flotas'), async (req, res) => {
   try {
-    const empresa = String(req.body.empresa || '').trim();
+    const requestedEmpresa = String(req.body.empresa || '').trim();
+    const empresa = req.user.role === 'supervisor_flotas' ? String(req.user.empresa || '').trim() : requestedEmpresa;
     const unidad = String(req.body.unidad || '').trim();
     const telefono = normalizeMxPhone(req.body.telefono || '');
     const folioManual = String(req.body.folio || '').trim();
@@ -2247,6 +2248,8 @@ app.post('/api/schedules/manual', authRequired, requireRoles('admin','operativo'
     const scheduledFor = req.body.scheduledFor ? new Date(req.body.scheduledFor) : null;
     const notes = String(req.body.notes || '').trim();
     if (!empresa || !unidad || !scheduledFor || Number.isNaN(scheduledFor.getTime())) return res.status(400).json({ error: 'Completa empresa, unidad y fecha válida.' });
+    const unitCheck = await pool.query(`SELECT id FROM fleet_units WHERE ${unitIdentityMatchSql('empresa', 'numero_economico', '$1', '$2')} LIMIT 1`, [empresa, unidad]);
+    if (!unitCheck.rowCount) return res.status(403).json({ error: 'La unidad seleccionada no pertenece a la empresa indicada.' });
     const result = await pool.query(`
       INSERT INTO schedule_requests (id, garantia_id, telefono, status, notes, scheduled_for, confirmed_at, empresa, numero_economico, contacto_nombre, folio_manual)
       VALUES ($1,NULL,$2,'confirmed',$3,$4,NOW(),$5,$6,$7,$8)
