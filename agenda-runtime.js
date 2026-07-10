@@ -20,7 +20,15 @@ function normalize(value) {
     .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
 }
 
-function allowed(req, res) {
+function allowedManual(req, res) {
+  if (!['admin', 'operativo', 'supervisor_flotas', 'operador'].includes(req.user?.role)) {
+    res.status(403).json({ error: 'No tienes permiso para registrar ingresos manuales.' });
+    return false;
+  }
+  return true;
+}
+
+function allowedActions(req, res) {
   if (!['admin', 'operativo', 'supervisor_flotas'].includes(req.user?.role)) {
     res.status(403).json({ error: 'No tienes permiso para modificar la agenda.' });
     return false;
@@ -84,9 +92,10 @@ express.application.post = function patchedPost(path, ...handlers) {
   return originalPost.call(this, path, authRequired, async (req, res) => {
     try {
       if (!pool) return res.status(503).json({ error: 'Base de datos no disponible.' });
-      if (!allowed(req, res)) return;
+      if (!allowedManual(req, res)) return;
       const requestedCompany = String(req.body.empresa || '').trim();
-      const company = req.user.role === 'supervisor_flotas' ? String(req.user.empresa || '').trim() : requestedCompany;
+      const restrictedRole = ['supervisor_flotas', 'operador'].includes(req.user.role);
+      const company = restrictedRole ? String(req.user.empresa || '').trim() : requestedCompany;
       const unit = String(req.body.unidad || '').trim();
       const scheduledFor = req.body.scheduledFor ? new Date(req.body.scheduledFor) : null;
       if (!company || !unit || !scheduledFor || Number.isNaN(scheduledFor.getTime())) {
@@ -98,7 +107,7 @@ express.application.post = function patchedPost(path, ...handlers) {
           AND REGEXP_REPLACE(LOWER(COALESCE(numero_economico,'')), '[^a-z0-9]', '', 'g') = REGEXP_REPLACE(LOWER($2), '[^a-z0-9]', '', 'g')
         LIMIT 1
       `, [company, unit]);
-      if (!unitCheck.rowCount) return res.status(403).json({ error: 'La unidad no pertenece a la empresa seleccionada.' });
+      if (!unitCheck.rowCount) return res.status(403).json({ error: 'La unidad no pertenece a tu empresa.' });
       const result = await pool.query(`
         INSERT INTO schedule_requests
           (id, garantia_id, telefono, status, notes, scheduled_for, proposed_at, empresa, numero_economico, contacto_nombre, folio_manual)
@@ -122,7 +131,7 @@ express.application.patch = function patchedPatch(path, ...handlers) {
   return originalPatch.call(this, path, authRequired, async (req, res) => {
     try {
       if (!pool) return res.status(503).json({ error: 'Base de datos no disponible.' });
-      if (!allowed(req, res)) return;
+      if (!allowedActions(req, res)) return;
       const current = await findSchedule(req.params.id);
       if (!current) return res.status(404).json({ error: 'Programación no encontrada.' });
       if (!companyAllowed(req, current.empresa)) return res.status(403).json({ error: 'No puedes modificar programaciones de otra empresa.' });
