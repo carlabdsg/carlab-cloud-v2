@@ -1,1 +1,258 @@
-(function(){const token=()=>localStorage.getItem('carlabToken')||'';const user=()=>{try{const p=token().split('.')[1];return JSON.parse(decodeURIComponent(atob(p.replace(/-/g,'+').replace(/_/g,'/')).split('').map(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join('')))}catch{return null}};const allowed=()=>['admin','operativo','supervisor_flotas'].includes(user()?.role);const api=async(url,opt={})=>{const r=await fetch(url,{...opt,cache:'no-store',headers:{Authorization:`Bearer ${token()}`,'Content-Type':'application/json',...(opt.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||`Error ${r.status}`);return d};const esc=v=>String(v||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));const norm=v=>String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');const dt=s=>new Date(s.scheduledFor||s.proposedAt||s.requestedAt||s.createdAt);const statusKind=s=>['cancelled','rejected'].includes(s.status)?'cancelled':s.status==='confirmed'?'confirmed':'pending';const label=s=>({waiting_operator:'Esperando fecha',proposed:'Por confirmar',confirmed:'Confirmada',rejected:'Rechazada',cancelled:'Cancelada'}[s.status]||'Pendiente');let units=[],schedules=[],active='all',loaded=false,loading=false;function toast(msg,error=false){let el=document.getElementById('agendaToast');if(!el){el=document.createElement('div');el.id='agendaToast';el.className='agenda-toast';document.body.appendChild(el)}el.textContent=msg;el.classList.toggle('error',error);el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2500)}function lockCompany(){const u=user(),sel=document.getElementById('scheduleManualEmpresa');if(!sel||u?.role!=='supervisor_flotas')return;sel.innerHTML=`<option value="${esc(u.empresa)}">${esc(u.empresa)}</option>`;sel.value=u.empresa||'';sel.disabled=true}function populateUnits(){const sel=document.getElementById('scheduleManualUnidad');if(!sel)return;const company=document.getElementById('scheduleManualEmpresa')?.value||user()?.empresa||'';const current=sel.value;const list=units.filter(x=>!company||norm(x.empresa)===norm(company));sel.innerHTML='<option value="">Selecciona unidad</option>'+list.map(x=>`<option value="${esc(x.numeroEconomico)}">${esc(x.numeroEconomico)}${x.modelo?' · '+esc(x.modelo):''}</option>`).join('');if(list.some(x=>String(x.numeroEconomico)===String(current)))sel.value=current}function stats(){const now=new Date(),today=now.toDateString(),week=new Date(now);week.setDate(week.getDate()+7);return{today:schedules.filter(s=>dt(s).toDateString()===today&&statusKind(s)!=='cancelled').length,pending:schedules.filter(s=>statusKind(s)==='pending').length,week:schedules.filter(s=>dt(s)>=now&&dt(s)<=week&&statusKind(s)!=='cancelled').length,confirmed:schedules.filter(s=>statusKind(s)==='confirmed').length}}function filtered(){return schedules.filter(s=>active==='all'||(active==='today'&&dt(s).toDateString()===new Date().toDateString())||(active==='pending'&&statusKind(s)==='pending')||(active==='confirmed'&&statusKind(s)==='confirmed')||(active==='cancelled'&&statusKind(s)==='cancelled')).sort((a,b)=>dt(a)-dt(b))}function card(s){const d=dt(s),kind=statusKind(s),pending=kind==='pending',canAct=kind!=='cancelled';return `<article class="agenda-card ${kind}"><div class="agenda-card-head"><div><strong class="agenda-time">${d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}</strong><div class="agenda-date">${d.toLocaleDateString('es-MX',{weekday:'short',day:'numeric',month:'short'})}</div></div><span class="agenda-status ${kind}">${label(s)}</span></div><div class="agenda-unit">Unidad ${esc(s.unidad||'—')}</div><div class="agenda-company">${esc(s.empresa||'Sin empresa')}</div><div class="agenda-meta"><div><span>Folio</span><strong>${esc(s.folio||'Manual')}</strong></div><div><span>Contacto</span><strong>${esc(s.contactoNombre||'No indicado')}</strong></div><div><span>Teléfono</span><strong>${esc(s.telefono||'No indicado')}</strong></div><div><span>Origen</span><strong>${s.garantiaId?'Reporte':'Manual'}</strong></div></div>${s.notes?`<div class="agenda-notes">${esc(s.notes)}</div>`:''}<div class="agenda-actions">${pending?`<button class="agenda-action accept" data-action="accept" data-id="${s.id}">✓ Aceptar</button>`:''}${canAct?`<button class="agenda-action reschedule" data-action="reschedule" data-id="${s.id}">↻ Reprogramar</button><button class="agenda-action cancel" data-action="cancel" data-id="${s.id}">× Cancelar</button>`:''}</div></article>`}function render(){const list=document.getElementById('scheduleList');if(!list)return;let shell=document.getElementById('agendaProShell');if(!shell){shell=document.createElement('div');shell.id='agendaProShell';shell.className='agenda-pro-shell';list.insertAdjacentElement('beforebegin',shell);list.classList.add('agenda-pro-hidden-original')}const s=stats(),items=filtered();shell.innerHTML=`<div class="agenda-pro-summary">${[['Hoy',s.today,'today'],['Por confirmar',s.pending,'pending'],['Próximos 7 días',s.week,'all'],['Confirmadas',s.confirmed,'confirmed']].map(x=>`<button class="agenda-pro-stat" data-filter="${x[2]}"><span>${x[0]}</span><strong>${x[1]}</strong></button>`).join('')}</div><div class="agenda-controlbar"><div class="agenda-pro-filters">${[['all','Todas'],['today','Hoy'],['pending','Por confirmar'],['confirmed','Confirmadas'],['cancelled','Canceladas']].map(x=>`<button class="agenda-pro-filter ${active===x[0]?'active':''}" data-filter="${x[0]}">${x[1]}</button>`).join('')}</div><button id="agendaReloadBtn" class="agenda-reload" type="button">Actualizar</button></div><div class="agenda-pro-board">${items.length?items.map(card).join(''):'<div class="agenda-empty">Sin movimientos en esta vista.</div>'}</div>`;shell.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{active=b.dataset.filter;render()});shell.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>action(b.dataset.action,b.dataset.id));document.getElementById('agendaReloadBtn').onclick=()=>load(true)}async function action(type,id){try{if(type==='accept')await api(`/api/schedules/${id}/confirm`,{method:'PATCH',body:JSON.stringify({status:'confirmed'})});if(type==='cancel'){const reason=prompt('Motivo de cancelación:','Cancelación solicitada');if(reason===null)return;await api(`/api/schedules/${id}/cancel`,{method:'PATCH',body:JSON.stringify({notes:reason})})}if(type==='reschedule'){const value=prompt('Nueva fecha y hora (AAAA-MM-DDTHH:MM):');if(!value)return;const d=new Date(value);if(Number.isNaN(d.getTime()))throw new Error('Fecha inválida');await api(`/api/schedules/${id}/reschedule`,{method:'PATCH',body:JSON.stringify({scheduledFor:d.toISOString()})})}toast('Agenda actualizada');await load(true)}catch(e){toast(e.message,true)}}async function load(force=false){if(!allowed()||loading||(loaded&&!force))return;loading=true;const list=document.getElementById('scheduleList');if(list)list.setAttribute('aria-busy','true');try{[units,schedules]=await Promise.all([api('/api/fleet/units'),api('/api/schedules?limit=200')]);loaded=true;lockCompany();populateUnits();render()}catch(e){console.error('[Agenda PC]',e);toast(e.message,true)}finally{loading=false;if(list)list.removeAttribute('aria-busy')}}function openAgenda(){setTimeout(()=>load(false),80)}function boot(){if(!allowed())return;document.getElementById('navScheduleBtn')?.addEventListener('click',openAgenda);document.getElementById('scheduleRefreshBtn')?.addEventListener('click',()=>load(true));document.getElementById('scheduleManualEmpresa')?.addEventListener('change',populateUnits);document.getElementById('scheduleManualForm')?.addEventListener('submit',()=>setTimeout(()=>load(true),500));const panel=document.getElementById('schedulePanel');if(panel&&!panel.classList.contains('hidden')&&getComputedStyle(panel).display!=='none')openAgenda()}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot()})();
+(function () {
+  const token = () => localStorage.getItem('carlabToken') || '';
+  const user = () => {
+    try {
+      const p = token().split('.')[1];
+      return JSON.parse(decodeURIComponent(atob(p.replace(/-/g, '+').replace(/_/g, '/')).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
+    } catch {
+      return null;
+    }
+  };
+  const allowed = () => ['admin', 'operativo', 'supervisor_flotas', 'supervisor'].includes(user()?.role);
+  const api = async (url, opt = {}) => {
+    const r = await fetch(url, {
+      ...opt,
+      cache: 'no-store',
+      headers: {
+        Authorization: `Bearer ${token()}`,
+        'Content-Type': 'application/json',
+        ...(opt.headers || {})
+      }
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || `Error ${r.status}`);
+    return d;
+  };
+  const esc = v => String(v || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const norm = v => String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+  const dt = s => new Date(s.scheduledFor || s.proposedAt || s.requestedAt || s.createdAt);
+  const statusKind = s => ['cancelled', 'rejected'].includes(s.status) ? 'cancelled' : s.status === 'confirmed' ? 'confirmed' : 'pending';
+  const label = s => ({waiting_operator:'Esperando fecha', proposed:'Por confirmar', confirmed:'Confirmada', rejected:'Rechazada', cancelled:'Cancelada'}[s.status] || 'Pendiente');
+
+  let units = [];
+  let schedules = [];
+  let active = 'all';
+  let loaded = false;
+  let loading = false;
+
+  function toast(msg, error = false) {
+    let el = document.getElementById('agendaToast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'agendaToast';
+      el.className = 'agenda-toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.classList.toggle('error', error);
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2800);
+  }
+
+  function lockCompany() {
+    const u = user();
+    const sel = document.getElementById('scheduleManualEmpresa');
+    if (!sel || !['supervisor_flotas', 'supervisor'].includes(u?.role)) return;
+    sel.innerHTML = `<option value="${esc(u.empresa)}">${esc(u.empresa)}</option>`;
+    sel.value = u.empresa || '';
+    sel.disabled = true;
+  }
+
+  function populateUnits() {
+    const sel = document.getElementById('scheduleManualUnidad');
+    if (!sel) return;
+    const company = document.getElementById('scheduleManualEmpresa')?.value || user()?.empresa || '';
+    const current = sel.value;
+    const list = units.filter(x => !company || norm(x.empresa) === norm(company));
+    sel.innerHTML = '<option value="">Selecciona unidad</option>' + list.map(x =>
+      `<option value="${esc(x.numeroEconomico)}">${esc(x.numeroEconomico)}${x.modelo ? ' · ' + esc(x.modelo) : ''}</option>`
+    ).join('');
+    if (list.some(x => String(x.numeroEconomico) === String(current))) sel.value = current;
+  }
+
+  function stats() {
+    const now = new Date();
+    const today = now.toDateString();
+    const week = new Date(now);
+    week.setDate(week.getDate() + 7);
+    return {
+      today: schedules.filter(s => dt(s).toDateString() === today && statusKind(s) !== 'cancelled').length,
+      pending: schedules.filter(s => statusKind(s) === 'pending').length,
+      week: schedules.filter(s => dt(s) >= now && dt(s) <= week && statusKind(s) !== 'cancelled').length,
+      confirmed: schedules.filter(s => statusKind(s) === 'confirmed').length
+    };
+  }
+
+  function filtered() {
+    return schedules.filter(s =>
+      active === 'all' ||
+      (active === 'today' && dt(s).toDateString() === new Date().toDateString()) ||
+      (active === 'pending' && statusKind(s) === 'pending') ||
+      (active === 'confirmed' && statusKind(s) === 'confirmed') ||
+      (active === 'cancelled' && statusKind(s) === 'cancelled')
+    ).sort((a, b) => dt(a) - dt(b));
+  }
+
+  function card(s) {
+    const d = dt(s);
+    const kind = statusKind(s);
+    const pending = kind === 'pending';
+    const canAct = kind !== 'cancelled';
+    return `<article class="agenda-card ${kind}">
+      <div class="agenda-card-head">
+        <div>
+          <strong class="agenda-time">${d.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'})}</strong>
+          <div class="agenda-date">${d.toLocaleDateString('es-MX', {weekday:'short', day:'numeric', month:'short'})}</div>
+        </div>
+        <span class="agenda-status ${kind}">${label(s)}</span>
+      </div>
+      <div class="agenda-unit">Unidad ${esc(s.unidad || '—')}</div>
+      <div class="agenda-company">${esc(s.empresa || 'Sin empresa')}</div>
+      <div class="agenda-meta">
+        <div><span>Folio</span><strong>${esc(s.folio || 'Manual')}</strong></div>
+        <div><span>Contacto</span><strong>${esc(s.contactoNombre || 'No indicado')}</strong></div>
+        <div><span>Teléfono</span><strong>${esc(s.telefono || 'No indicado')}</strong></div>
+        <div><span>Origen</span><strong>${s.garantiaId ? 'Reporte' : 'Manual'}</strong></div>
+      </div>
+      ${s.notes ? `<div class="agenda-notes">${esc(s.notes)}</div>` : ''}
+      <div class="agenda-actions">
+        ${pending ? `<button class="agenda-action accept" data-action="accept" data-id="${s.id}">✓ Aceptar</button>` : ''}
+        ${canAct ? `<button class="agenda-action reschedule" data-action="reschedule" data-id="${s.id}">↻ Reprogramar</button><button class="agenda-action cancel" data-action="cancel" data-id="${s.id}">× Cancelar</button>` : ''}
+      </div>
+    </article>`;
+  }
+
+  function ensureShell() {
+    const list = document.getElementById('scheduleList');
+    if (!list) return null;
+    let shell = document.getElementById('agendaProShell');
+    if (!shell) {
+      shell = document.createElement('div');
+      shell.id = 'agendaProShell';
+      shell.className = 'agenda-pro-shell';
+      list.insertAdjacentElement('beforebegin', shell);
+    }
+    return { shell, list };
+  }
+
+  function renderLoading() {
+    const refs = ensureShell();
+    if (!refs) return;
+    refs.shell.innerHTML = `<div class="agenda-empty"><strong>Cargando agenda operativa…</strong><div>Preparando unidades y programaciones.</div></div>`;
+  }
+
+  function renderError(message) {
+    const refs = ensureShell();
+    if (!refs) return;
+    refs.shell.innerHTML = `<div class="agenda-empty"><strong>No se pudo cargar Agenda Pro</strong><div>${esc(message)}</div><button id="agendaRetryBtn" class="agenda-reload" type="button">Reintentar</button></div>`;
+    document.getElementById('agendaRetryBtn')?.addEventListener('click', () => load(true));
+  }
+
+  function render() {
+    const refs = ensureShell();
+    if (!refs) return;
+    const s = stats();
+    const items = filtered();
+    refs.shell.innerHTML = `
+      <div class="agenda-pro-summary">
+        ${[['Hoy', s.today, 'today'], ['Por confirmar', s.pending, 'pending'], ['Próximos 7 días', s.week, 'all'], ['Confirmadas', s.confirmed, 'confirmed']].map(x =>
+          `<button class="agenda-pro-stat" data-filter="${x[2]}"><span>${x[0]}</span><strong>${x[1]}</strong></button>`
+        ).join('')}
+      </div>
+      <div class="agenda-controlbar">
+        <div class="agenda-pro-filters">
+          ${[['all','Todas'],['today','Hoy'],['pending','Por confirmar'],['confirmed','Confirmadas'],['cancelled','Canceladas']].map(x =>
+            `<button class="agenda-pro-filter ${active === x[0] ? 'active' : ''}" data-filter="${x[0]}">${x[1]}</button>`
+          ).join('')}
+        </div>
+        <button id="agendaReloadBtn" class="agenda-reload" type="button">Actualizar</button>
+      </div>
+      <div class="agenda-pro-board">${items.length ? items.map(card).join('') : '<div class="agenda-empty">Sin movimientos en esta vista.</div>'}</div>
+    `;
+    refs.list.classList.add('agenda-pro-hidden-original');
+    refs.shell.querySelectorAll('[data-filter]').forEach(b => b.onclick = () => { active = b.dataset.filter; render(); });
+    refs.shell.querySelectorAll('[data-action]').forEach(b => b.onclick = () => action(b.dataset.action, b.dataset.id));
+    document.getElementById('agendaReloadBtn').onclick = () => load(true);
+  }
+
+  async function action(type, id) {
+    try {
+      if (type === 'accept') {
+        await api(`/api/schedules/${id}/confirm`, {method:'PATCH', body:JSON.stringify({status:'confirmed'})});
+      }
+      if (type === 'cancel') {
+        const reason = prompt('Motivo de cancelación:', 'Cancelación solicitada');
+        if (reason === null) return;
+        await api(`/api/schedules/${id}/cancel`, {method:'PATCH', body:JSON.stringify({notes:reason})});
+      }
+      if (type === 'reschedule') {
+        const value = prompt('Nueva fecha y hora (AAAA-MM-DDTHH:MM):');
+        if (!value) return;
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) throw new Error('Fecha inválida');
+        await api(`/api/schedules/${id}/reschedule`, {method:'PATCH', body:JSON.stringify({scheduledFor:d.toISOString()})});
+      }
+      toast('Agenda actualizada');
+      await load(true);
+    } catch (e) {
+      toast(e.message, true);
+    }
+  }
+
+  async function load(force = false) {
+    if (!allowed() || loading || (loaded && !force)) return;
+    loading = true;
+    renderLoading();
+    try {
+      schedules = await api('/api/schedules?limit=200');
+      render();
+      api('/api/fleet/units').then(data => {
+        units = Array.isArray(data) ? data : [];
+        lockCompany();
+        populateUnits();
+      }).catch(err => console.warn('[Agenda PC] Flota no disponible:', err.message));
+      loaded = true;
+    } catch (e) {
+      console.error('[Agenda PC]', e);
+      renderError(e.message);
+      toast(e.message, true);
+    } finally {
+      loading = false;
+    }
+  }
+
+  function panelVisible() {
+    const panel = document.getElementById('schedulePanel');
+    return !!panel && !panel.classList.contains('hidden') && getComputedStyle(panel).display !== 'none';
+  }
+
+  function openAgenda() {
+    if (panelVisible()) setTimeout(() => load(false), 50);
+  }
+
+  function boot() {
+    if (!allowed()) return;
+
+    document.addEventListener('click', e => {
+      const target = e.target.closest?.('#navScheduleBtn, #opNavScheduleBtn');
+      if (target) setTimeout(openAgenda, 80);
+    });
+
+    document.getElementById('scheduleRefreshBtn')?.addEventListener('click', () => load(true));
+    document.getElementById('scheduleManualEmpresa')?.addEventListener('change', populateUnits);
+    document.getElementById('scheduleManualForm')?.addEventListener('submit', () => setTimeout(() => load(true), 650));
+
+    const panel = document.getElementById('schedulePanel');
+    if (panel) {
+      const observer = new MutationObserver(() => {
+        if (panelVisible()) openAgenda();
+      });
+      observer.observe(panel, {attributes:true, attributeFilter:['class', 'style']});
+    }
+
+    if (panelVisible()) openAgenda();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
