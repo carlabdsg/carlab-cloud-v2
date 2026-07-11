@@ -1,7 +1,5 @@
 const express = require('express');
 const { Pool } = require('pg');
-const fs = require('fs');
-const pathModule = require('path');
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const pool = DATABASE_URL ? new Pool({
@@ -14,28 +12,9 @@ const pool = DATABASE_URL ? new Pool({
   ssl: { rejectUnauthorized: false }
 }) : null;
 
+const originalGet = express.application.get;
 const originalPost = express.application.post;
 const originalPatch = express.application.patch;
-const originalStatic = express.static;
-
-express.static = function analyticsAwareStatic(root, options) {
-  const staticMiddleware = originalStatic(root, options);
-  return function analyticsHtmlMiddleware(req, res, next) {
-    const requestPath = String(req.path || req.url || '').split('?')[0];
-    if (requestPath === '/' || requestPath === '/index.html') {
-      return fs.readFile(pathModule.join(root, 'index.html'), 'utf8', (error, source) => {
-        if (error) return staticMiddleware(req, res, next);
-        let html = source;
-        if (!html.includes('/analytics-fleet.css')) html = html.replace('</head>', '  <link rel="stylesheet" href="/analytics-fleet.css?v=20260710" />\n</head>');
-        if (!html.includes('/analytics-fleet.js')) html = html.replace('</body>', '  <script src="/analytics-fleet.js?v=20260710"></script>\n</body>');
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.setHeader('Cache-Control', 'no-store');
-        return res.send(html);
-      });
-    }
-    return staticMiddleware(req, res, next);
-  };
-};
 
 function normalize(value) {
   return String(value || '').toLowerCase().normalize('NFD')
@@ -107,6 +86,56 @@ async function slotBusy(id, scheduledFor) {
   `, [id, scheduledFor.toISOString()]);
   return result.rowCount > 0;
 }
+
+express.application.get = function patchedGet(path, ...handlers) {
+  if (path !== '/api/schedules') return originalGet.call(this, path, ...handlers);
+  const authRequired = handlers[0];
+  const roleGuard = handlers[1];
+  const originalHandler = handlers[handlers.length - 1];
+  return originalGet.call(this, path, authRequired, roleGuard, async (req, res, next) => {
+    if (req.user?.role !== 'operador') return originalHandler(req, res, next);
+    try {
+      if (!pool) return res.status(503).json({ error: 'Base de datos no disponible.' });
+      const date = String(req.query.date || '').trim();
+      const futureOnly = ['1', 'true', 'yes'].includes(String(req.query.futureOnly || '').toLowerCase());
+      const requestedLimit = Number(req.query.limit || 300);
+      const safeLimit = Number.isFinite(requestedLimit) ? Math.min(Math.max(Math.trunc(requestedLimit), 50), 1000) : 300;
+      const params = [req.user.id, req.user.empresa || ''];
+      const where = [`(
+        g.reportado_por_id = $1
+        OR (
+          sr.garantia_id IS NULL
+          AND REGEXP_REPLACE(LOWER(COALESCE(sr.empresa,'')), '[^a-z0-9]', '', 'g') = REGEXP_REPLACE(LOWER($2), '[^a-z0-9]', '', 'g')
+        )
+      )`];
+      if (date) {
+        params.push(date);
+        where.push(`DATE(sr.scheduled_for AT TIME ZONE 'UTC') = $${params.length}`);
+      }
+      if (futureOnly) {
+        where.push(`COALESCE(sr.scheduled_for, sr.proposed_at, sr.requested_at) >= NOW() - INTERVAL '1 day'`);
+      }
+      params.push(safeLimit);
+      const result = await pool.query(`
+        SELECT sr.*,
+          COALESCE(g.folio, sr.folio_manual) AS folio,
+          COALESCE(g.numero_economico, sr.numero_economico) AS numero_economico,
+          COALESCE(g.empresa, sr.empresa) AS empresa,
+          COALESCE(g.contacto_nombre, sr.contacto_nombre) AS contacto_nombre,
+          COALESCE(g.telefono, sr.telefono) AS telefono
+        FROM schedule_requests sr
+        LEFT JOIN garantias g ON g.id = sr.garantia_id
+        WHERE ${where.join(' AND ')}
+        ORDER BY COALESCE(sr.scheduled_for, sr.proposed_at, sr.requested_at) ASC
+        LIMIT $${params.length}
+      `, params);
+      return res.json(result.rows.map(summary));
+    } catch (error) {
+      console.error('[Agenda runtime] lectura operador:', error);
+      return res.status(500).json({ error: 'No se pudo cargar la agenda del operador.' });
+    }
+  });
+};
 
 express.application.post = function patchedPost(path, ...handlers) {
   if (path !== '/api/schedules/manual') return originalPost.call(this, path, ...handlers);
@@ -181,4 +210,4 @@ express.application.patch = function patchedPatch(path, ...handlers) {
   });
 };
 
-console.log('[Agenda runtime] acciones manuales y tablero KPI activados');
+console.log('[Agenda runtime] acciones manuales y lectura de operador activadas');

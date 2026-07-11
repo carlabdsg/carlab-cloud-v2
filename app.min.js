@@ -1147,8 +1147,25 @@ async function loadNotifications() {
   } catch {}
 }
 
+function readScheduleManualDraft() {
+  return {
+    empresa: els.scheduleManualEmpresa?.value || '',
+    unidad: els.scheduleManualUnidad?.value || '',
+    telefono: els.scheduleManualTelefono?.value || '',
+    folio: els.scheduleManualFolio?.value || '',
+    scheduledFor: els.scheduleManualDatetime?.value || '',
+    contactoNombre: els.scheduleManualContacto?.value || '',
+    notes: els.scheduleManualNotes?.value || ''
+  };
+}
+function hasScheduleManualDraft(draft = {}) {
+  return Object.values(draft).some(value => String(value || '').trim());
+}
+
 async function loadSchedules(_date = '') {
   if (!isRole('admin','operativo','supervisor','supervisor_flotas','operador')) return;
+  const manualDraft = readScheduleManualDraft();
+  const preserveManualDraft = hasScheduleManualDraft(manualDraft);
   state.schedules = await api.request(`/api/schedules${state.user?.role === 'supervisor_flotas' ? '?futureOnly=1' : ''}`);
   const today = new Date().toISOString().slice(0,10);
   const existingDates = [...new Set(state.schedules.map(item => String((item.scheduledFor || item.proposedAt || item.requestedAt || '')).slice(0,10)).filter(Boolean))].sort();
@@ -1161,7 +1178,7 @@ async function loadSchedules(_date = '') {
       els.scheduleDateInput.value = preferred;
     }
   }
-  resetScheduleManualForm();
+  resetScheduleManualForm(preserveManualDraft ? manualDraft : {});
   renderSchedules();
 }
 
@@ -3116,7 +3133,14 @@ function renderCompanies() {
     });
   }
 
-  fillSelect(els.empresa, activeCompanies, 'Selecciona empresa');
+  const reportCompanies = isRole('operador')
+    ? [{ nombre: String(state.user?.empresa || '').trim(), activo: true }].filter(item => item.nombre)
+    : activeCompanies;
+  fillSelect(els.empresa, reportCompanies, 'Selecciona empresa');
+  if (els.empresa) {
+    els.empresa.disabled = isRole('operador');
+    if (isRole('operador')) els.empresa.value = state.user?.empresa || '';
+  }
   fillSelect(els.regEmpresa, activeCompanies, 'Selecciona empresa');
   fillSelect(els.userEmpresa, activeCompanies, 'Sin empresa');
   configureServicesCompanyFilter(activeCompanies);

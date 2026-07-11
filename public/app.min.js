@@ -1147,8 +1147,25 @@ async function loadNotifications() {
   } catch {}
 }
 
+function readScheduleManualDraft() {
+  return {
+    empresa: els.scheduleManualEmpresa?.value || '',
+    unidad: els.scheduleManualUnidad?.value || '',
+    telefono: els.scheduleManualTelefono?.value || '',
+    folio: els.scheduleManualFolio?.value || '',
+    scheduledFor: els.scheduleManualDatetime?.value || '',
+    contactoNombre: els.scheduleManualContacto?.value || '',
+    notes: els.scheduleManualNotes?.value || ''
+  };
+}
+function hasScheduleManualDraft(draft = {}) {
+  return Object.values(draft).some(value => String(value || '').trim());
+}
+
 async function loadSchedules(_date = '') {
   if (!isRole('admin','operativo','supervisor','supervisor_flotas','operador')) return;
+  const manualDraft = readScheduleManualDraft();
+  const preserveManualDraft = hasScheduleManualDraft(manualDraft);
   if (!Array.isArray(state.schedules) || !state.schedules.length) {
     if (els.scheduleList) els.scheduleList.innerHTML = '<div class="empty-state"><strong>Cargando agenda…</strong><span>Obteniendo citas y solicitudes.</span></div>';
   }
@@ -1164,7 +1181,7 @@ async function loadSchedules(_date = '') {
       els.scheduleDateInput.value = preferred;
     }
   }
-  resetScheduleManualForm();
+  resetScheduleManualForm(preserveManualDraft ? manualDraft : {});
   renderSchedules();
 }
 
