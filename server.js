@@ -4120,6 +4120,9 @@ app.patch('/api/cobranza/direct-sales/:id', authRequired, requireRoles('admin'),
   }
 });
 
+// Additive admin module; its tables initialize only when an admin opens it.
+require('./modules/hispacold').register(app, { pool, authRequired });
+
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
