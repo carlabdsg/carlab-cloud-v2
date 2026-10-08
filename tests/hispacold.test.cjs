@@ -1,24 +1,295 @@
-const {test}=require('node:test');
-const assert=require('node:assert/strict');
-const fs=require('node:fs');
-const path=require('node:path');
-const {harness}=require('./harness.cjs');
-const {validate}=require('../modules/hispacold');
-const catalog=require('../modules/hispacold/catalog');
-const draft=(type='revision')=>({type,status:'borrador',company:'Transportes de prueba',unit:'402',serviceDate:'2026-10-07',interval:'mensual',fleetUnitId:'fleet-1',parts:[],evidence:[],measurements:[]});
-const completed=type=>({...draft(type),status:'completado',technician:'Técnico',diagnosis:'Filtro saturado',workDone:'Limpieza y sustitución',finalTest:'Prueba de ventilación y enfriamiento',result:'operativo',checklist:catalog.templates.find(t=>t.id===type).checklist.map(c=>({id:c.id,outcome:'bien',action:'V'})),authorization:'Autorizado por cliente',technicalReference:'Manual aplicable y hoja del equipo'});
-test('Hispacold: integración PostgreSQL y permisos',async t=>{
- const h=await harness();t.after(()=>h.close());const req=h.request;
- await t.test('Bloquea anónimo, operador, admin inactivo y rol alterado',async()=>{for(const route of ['/catalog','/services','/units','/manuals/'+catalog.manuals[0].id]){assert.equal((await req(route,{user:null})).status,401);assert.equal((await req(route,{user:'operator'})).status,403);assert.equal((await req(route,{user:'inactive'})).status,403);assert.equal((await req(route,{user:'operator',role:'admin'})).status,403);}assert.equal((await req('/services',{method:'POST',body:{data:draft()},user:'operator'})).status,403);});
- await t.test('Catálogo completo y unidades existentes',async()=>{const r=await req('/catalog');assert.equal(r.status,200);assert.equal(r.body.manuals.length,34);assert.equal(r.body.templates.length,4);assert.equal(r.body.templates.find(t=>t.id==='preventivo').checklist.length,44);assert.equal((await req('/units')).body[0].numero_economico,'402');});
- let saved;
- await t.test('Crea folio, calcula importes y conserva evidencias/firmas',async()=>{const data={...draft(),parts:[{description:'Filtro',quantity:2,unitPrice:125.5}],evidence:[{name:'foto',caption:'Antes',data:'data:image/png;base64,aGVsbG8='}],clientSignature:'data:image/png;base64,aGVsbG8='};const r=await req('/services',{method:'POST',body:{data}});assert.equal(r.status,201,JSON.stringify(r.body));saved=r.body;assert.equal(saved.folio,'HC-000001');assert.equal(saved.data.total,251);assert.equal(saved.data.evidence.length,1);assert.equal(saved.version,1);});
- await t.test('Filtros e historial con bitácora',async()=>{const r=await req('/services?q=402&from=2026-10-01&type=revision');assert.equal(r.body.summary.total,1);assert.equal(r.body.items[0].folio,saved.folio);assert.equal(r.body.items[0].data,undefined);const detail=await req('/services/'+saved.id);assert.equal(detail.body.events.length,1);assert.equal(detail.body.events[0].actor_name,'Administrador de prueba');assert.equal((await req('/services?q=no-existe')).body.summary.total,0);});
- await t.test('Evita pérdida por versión y requiere checklist de cierre',async()=>{const stale=await req('/services/'+saved.id,{method:'PUT',body:{version:99,data:draft()}});assert.equal(stale.status,409);const incomplete=await req('/services/'+saved.id,{method:'PUT',body:{version:1,data:{...draft(),status:'completado'}}});assert.equal(incomplete.status,400);const ok=await req('/services/'+saved.id,{method:'PUT',body:{version:1,data:completed('revision')}});assert.equal(ok.status,200,JSON.stringify(ok.body));assert.equal(ok.body.version,2);});
- await t.test('Cierre inmutable; reapertura explícita registrada',async()=>{assert.equal((await req('/services/'+saved.id,{method:'PUT',body:{version:2,data:completed('revision')}})).status,400);const reopened=await req('/services/'+saved.id,{method:'PUT',body:{version:2,data:{...completed('revision'),status:'en_proceso',reopenReason:'Revisión adicional solicitada'}}});assert.equal(reopened.status,200);const d=(await req('/services/'+saved.id)).body;assert.equal(d.events[0].details.reason,'Revisión adicional solicitada');assert.equal(d.events.length,3);});
- await t.test('Los cuatro tipos guardan; mayor valida autorización',async()=>{for(const type of Object.keys(catalog.types)){assert.equal((await req('/services',{method:'POST',body:{data:completed(type)}})).status,201,type);}const data=completed('mayor');delete data.authorization;assert.equal((await req('/services',{method:'POST',body:{data}})).status,400);});
- await t.test('Validación de empresa-unidad, fecha, hallazgos y cancelación',async()=>{assert.equal((await req('/services',{method:'POST',body:{data:{...draft(),company:'Otra'}}})).status,400);assert.equal((await req('/services',{method:'POST',body:{data:{...draft(),serviceDate:'2026-02-30'}}})).status,400);assert.equal((await req('/services',{method:'POST',body:{data:{...draft(),status:'cancelado'}}})).status,400);const data=completed('revision');data.checklist[0].outcome='hallazgo';data.checklist[0].notes='No corregido';assert.equal((await req('/services',{method:'POST',body:{data}})).status,400);});
- await t.test('PDF privado por hash, no publicable por ruta estática',async()=>{const m=catalog.manuals.find(m=>m.filename==='Basic Errores.pdf');const file=path.join(__dirname,'../private/hispacold-manuals',m.id+'.pdf');const pdf=fs.existsSync(file)?fs.readFileSync(file):null;assert.equal((await req('/manuals/'+m.id,{method:'PUT',body:{base64:Buffer.from('%PDF-invalido').toString('base64')}})).status,400);if(pdf){assert.equal((await req('/manuals/'+m.id,{method:'PUT',body:{base64:pdf.toString('base64')}})).status,200);const r=await req('/manuals/'+m.id,{raw:true});assert.equal(r.status,200);assert.deepEqual(r.body,pdf);assert.equal(r.headers.get('cache-control'),'no-store');}else{assert.equal((await req('/manuals/'+m.id)).status,404);}assert.equal((await fetch(h.url+'/private/hispacold-manuals/'+m.id+'.pdf')).status,404);});
- await t.test('Módulo no altera datos de otras áreas',async()=>{const r=await h.db.query('SELECT * FROM legacy_sentinel');assert.deepEqual(r.rows,[{id:'unchanged',data:'reportes-agenda-stock-cobranza'}]);assert.equal((await h.db.query('SELECT count(*)::int n FROM fleet_units')).rows[0].n,1);});
+const { test } = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const { harness } = require("./harness.cjs");
+const { validate } = require("../modules/hispacold");
+const catalog = require("../modules/hispacold/catalog");
+const draft = (type = "revision") => ({
+  type,
+  status: "borrador",
+  company: "Transportes de prueba",
+  unit: "402",
+  serviceDate: "2026-10-07",
+  interval: "mensual",
+  fleetUnitId: "fleet-1",
+  parts: [],
+  evidence: [],
+  measurements: [],
 });
-test('Validación pura: catálogo, cifras, imágenes y datos de circuito',()=>{assert.throws(()=>validate({...draft(),type:'constructor'}));assert.throws(()=>validate({...draft(),parts:[{description:'x',quantity:-1,unitPrice:3}]}));assert.throws(()=>validate({...draft(),evidence:[{data:'javascript:alert(1)'}]}));assert.throws(()=>validate({...completed('mayor'),circuitOpened:true}));assert.throws(()=>validate({...draft(),measurements:{bad:true}}));});
+const completed = (type) => ({
+  ...draft(type),
+  status: "completado",
+  technician: "Técnico",
+  diagnosis: "Filtro saturado",
+  workDone: "Limpieza y sustitución",
+  finalTest: "Prueba de ventilación y enfriamiento",
+  result: "operativo",
+  checklist: catalog.templates
+    .find((t) => t.id === type)
+    .checklist.map((c) => ({ id: c.id, outcome: "bien", action: "V" })),
+  authorization: "Autorizado por cliente",
+  technicalReference: "Manual aplicable y hoja del equipo",
+  eventKind: type === "express" ? "urgencia" : "",
+  eventLocation: type === "express" ? "Base de prueba" : "",
+  symptoms: type === "express" ? "Falla durante ruta" : "",
+});
+test("Hispacold: integración PostgreSQL y permisos", async (t) => {
+  const h = await harness();
+  t.after(() => h.close());
+  const req = h.request;
+  await t.test(
+    "Bloquea anónimo, operador, admin inactivo y rol alterado",
+    async () => {
+      for (const route of [
+        "/catalog",
+        "/services",
+        "/units",
+        "/manuals/" + catalog.manuals[0].id,
+      ]) {
+        assert.equal((await req(route, { user: null })).status, 401);
+        assert.equal((await req(route, { user: "operator" })).status, 403);
+        assert.equal((await req(route, { user: "inactive" })).status, 403);
+        assert.equal(
+          (await req(route, { user: "operator", role: "admin" })).status,
+          403,
+        );
+      }
+      assert.equal(
+        (
+          await req("/services", {
+            method: "POST",
+            body: { data: draft() },
+            user: "operator",
+          })
+        ).status,
+        403,
+      );
+    },
+  );
+  await t.test("Catálogo completo y unidades existentes", async () => {
+    const r = await req("/catalog");
+    assert.equal(r.status, 200);
+    assert.equal(r.body.manuals.length, 34);
+    assert.equal(r.body.templates.length, 5);
+    assert.equal(
+      r.body.templates.find((t) => t.id === "preventivo").checklist.length,
+      44,
+    );
+    assert.equal((await req("/units")).body[0].numero_economico, "402");
+  });
+  let saved;
+  await t.test(
+    "Crea folio, calcula importes y conserva evidencias/firmas",
+    async () => {
+      const data = {
+        ...draft(),
+        parts: [{ description: "Filtro", quantity: 2, unitPrice: 125.5 }],
+        evidence: [
+          {
+            name: "foto",
+            caption: "Antes",
+            data: "data:image/png;base64,aGVsbG8=",
+          },
+        ],
+        clientSignature: "data:image/png;base64,aGVsbG8=",
+      };
+      const r = await req("/services", { method: "POST", body: { data } });
+      assert.equal(r.status, 201, JSON.stringify(r.body));
+      saved = r.body;
+      assert.equal(saved.folio, "HC-000001");
+      assert.equal(saved.data.total, 251);
+      assert.equal(saved.data.evidence.length, 1);
+      assert.equal(saved.version, 1);
+    },
+  );
+  await t.test("Filtros e historial con bitácora", async () => {
+    const r = await req("/services?q=402&from=2026-10-01&type=revision");
+    assert.equal(r.body.summary.total, 1);
+    assert.equal(r.body.items[0].folio, saved.folio);
+    assert.equal(r.body.items[0].data, undefined);
+    const detail = await req("/services/" + saved.id);
+    assert.equal(detail.body.events.length, 1);
+    assert.equal(detail.body.events[0].actor_name, "Administrador de prueba");
+    assert.equal((await req("/services?q=no-existe")).body.summary.total, 0);
+  });
+  await t.test(
+    "Evita pérdida por versión y requiere checklist de cierre",
+    async () => {
+      const stale = await req("/services/" + saved.id, {
+        method: "PUT",
+        body: { version: 99, data: draft() },
+      });
+      assert.equal(stale.status, 409);
+      const incomplete = await req("/services/" + saved.id, {
+        method: "PUT",
+        body: { version: 1, data: { ...draft(), status: "completado" } },
+      });
+      assert.equal(incomplete.status, 400);
+      const ok = await req("/services/" + saved.id, {
+        method: "PUT",
+        body: { version: 1, data: completed("revision") },
+      });
+      assert.equal(ok.status, 200, JSON.stringify(ok.body));
+      assert.equal(ok.body.version, 2);
+    },
+  );
+  await t.test(
+    "Cierre inmutable; reapertura explícita registrada",
+    async () => {
+      assert.equal(
+        (
+          await req("/services/" + saved.id, {
+            method: "PUT",
+            body: { version: 2, data: completed("revision") },
+          })
+        ).status,
+        400,
+      );
+      const reopened = await req("/services/" + saved.id, {
+        method: "PUT",
+        body: {
+          version: 2,
+          data: {
+            ...completed("revision"),
+            status: "en_proceso",
+            reopenReason: "Revisión adicional solicitada",
+          },
+        },
+      });
+      assert.equal(reopened.status, 200);
+      const d = (await req("/services/" + saved.id)).body;
+      assert.equal(d.events[0].details.reason, "Revisión adicional solicitada");
+      assert.equal(d.events.length, 3);
+    },
+  );
+  await t.test(
+    "Los cinco tipos guardan; mayor valida autorización",
+    async () => {
+      for (const type of Object.keys(catalog.types)) {
+        assert.equal(
+          (
+            await req("/services", {
+              method: "POST",
+              body: { data: completed(type) },
+            })
+          ).status,
+          201,
+          type,
+        );
+      }
+      const data = completed("mayor");
+      delete data.authorization;
+      assert.equal(
+        (await req("/services", { method: "POST", body: { data } })).status,
+        400,
+      );
+    },
+  );
+  await t.test(
+    "Validación de empresa-unidad, fecha, hallazgos y cancelación",
+    async () => {
+      assert.equal(
+        (
+          await req("/services", {
+            method: "POST",
+            body: { data: { ...draft(), company: "Otra" } },
+          })
+        ).status,
+        400,
+      );
+      assert.equal(
+        (
+          await req("/services", {
+            method: "POST",
+            body: { data: { ...draft(), serviceDate: "2026-02-30" } },
+          })
+        ).status,
+        400,
+      );
+      assert.equal(
+        (
+          await req("/services", {
+            method: "POST",
+            body: { data: { ...draft(), status: "cancelado" } },
+          })
+        ).status,
+        400,
+      );
+      const data = completed("revision");
+      data.checklist[0].outcome = "hallazgo";
+      data.checklist[0].notes = "No corregido";
+      assert.equal(
+        (await req("/services", { method: "POST", body: { data } })).status,
+        400,
+      );
+    },
+  );
+  await t.test(
+    "PDF privado por hash, no publicable por ruta estática",
+    async () => {
+      const m = catalog.manuals.find((m) => m.filename === "Basic Errores.pdf");
+      const file = path.join(
+        __dirname,
+        "../private/hispacold-manuals",
+        m.id + ".pdf",
+      );
+      const pdf = fs.existsSync(file) ? fs.readFileSync(file) : null;
+      assert.equal(
+        (
+          await req("/manuals/" + m.id, {
+            method: "PUT",
+            body: { base64: Buffer.from("%PDF-invalido").toString("base64") },
+          })
+        ).status,
+        400,
+      );
+      if (pdf) {
+        assert.equal(
+          (
+            await req("/manuals/" + m.id, {
+              method: "PUT",
+              body: { base64: pdf.toString("base64") },
+            })
+          ).status,
+          200,
+        );
+        const r = await req("/manuals/" + m.id, { raw: true });
+        assert.equal(r.status, 200);
+        assert.deepEqual(r.body, pdf);
+        assert.equal(r.headers.get("cache-control"), "no-store");
+      } else {
+        assert.equal((await req("/manuals/" + m.id)).status, 404);
+      }
+      assert.equal(
+        (await fetch(h.url + "/private/hispacold-manuals/" + m.id + ".pdf"))
+          .status,
+        404,
+      );
+    },
+  );
+  await t.test("Módulo no altera datos de otras áreas", async () => {
+    const r = await h.db.query("SELECT * FROM legacy_sentinel");
+    assert.deepEqual(r.rows, [
+      { id: "unchanged", data: "reportes-agenda-stock-cobranza" },
+    ]);
+    assert.equal(
+      (await h.db.query("SELECT count(*)::int n FROM fleet_units")).rows[0].n,
+      1,
+    );
+  });
+});
+test("Validación pura: catálogo, cifras, imágenes y datos de circuito", () => {
+  assert.throws(() => validate({ ...draft(), type: "constructor" }));
+  assert.throws(() =>
+    validate({
+      ...draft(),
+      parts: [{ description: "x", quantity: -1, unitPrice: 3 }],
+    }),
+  );
+  assert.throws(() =>
+    validate({ ...draft(), evidence: [{ data: "javascript:alert(1)" }] }),
+  );
+  assert.throws(() => validate({ ...completed("mayor"), circuitOpened: true }));
+  assert.throws(() => validate({ ...draft(), measurements: { bad: true } }));
+});

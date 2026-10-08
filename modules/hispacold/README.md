@@ -32,3 +32,14 @@ No se cambian `app.js`, `app.min.js`, estilos antiguos, `agenda-runtime.js`, `pa
 ## Retirada
 
 Retira las cinco líneas anteriores para ocultar/desconectar el módulo. Conserva las tablas `hc_*` para no perder expedientes. No modifica datos de reportes, agenda, stock o cobranza durante instalación ni uso.
+
+## Versión 2
+
+- Tipo `express`, guías por síntoma y flujos de captura de 3 a 5 pasos.
+- `GET /history?company=&unit=&offset=`: historial y agregados sin transmitir fotos o firmas en el listado.
+- `GET /calendar?today=&from=&to=&bucket=&day=&offset=`: último seguimiento vigente por unidad. Los valores de fecha se calculan según el día local que envía la interfaz.
+- Columna `hc_services.client_key` e índice único parcial `(created_by, client_key)`: creación idempotente por borrador y administrador. Una repetición devuelve `replayed: true`; la interfaz conserva la captura local y permite actualizar el folio ya existente.
+- `hispacold-drafts.js`: borradores locales IndexedDB, nombres separados por administrador; sin sincronización entre dispositivos. Los datos del formulario se guardan aun cuando están incompletos. Fotos y firmas se incluyen.
+- `hispacold-pdf.js` y `public/vendor/hc-*`: jsPDF y AutoTable empaquetados con licencias MIT. No se agrega dependencia de producción a npm ni se usa un servicio externo de PDF.
+- Evidencia con `phase`, `component`, `checkId`; trabajos detectados en `findings`; `sourceOrderId` para nueva intervención vinculada. Los documentos anteriores admiten las propiedades nuevas ausentes.
+- Las tablas y comprobaciones de permisos se mantienen separadas de los módulos anteriores.

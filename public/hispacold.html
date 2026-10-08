@@ -1,14 +1,51 @@
 <!doctype html>
 <html lang="es">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Aire acondicionado · CARLAB Cloud</title>
-<link rel="stylesheet" href="/hispacold.css?v=1">
-<script src="/hispacold.js?v=1" defer></script>
-</head>
-<body class="hc-app">
-<aside class="hc-sidebar"><a class="hc-brand" href="/">CARLAB<span>CLOUD / SERVICIO TÉCNICO</span></a><div class="hc-space-label">ESPACIO ADMINISTRADOR</div><nav aria-label="Hispacold"><button data-view="services" class="selected">◈ &nbsp; Órdenes de servicio</button><button data-view="library">▤ &nbsp; Biblioteca técnica</button><button data-view="codes">⌁ &nbsp; Códigos de diagnóstico</button></nav><div class="hc-side-note"><span class="hc-dot"></span> HISPACOLD<span>Mantenimiento y reparación<br>Control técnico por unidad</span></div><a class="hc-back" href="/">← Volver a Carlab Cloud</a></aside>
-<div class="hc-workspace"><header class="hc-topbar"><span>OPERACIÓN / CLIMATIZACIÓN</span><span id="hc-user">Verificando acceso…</span></header><main id="hc-main" tabindex="-1"><div class="hc-empty">Cargando módulo…</div></main><footer class="hc-footer">CARLAB · Servicios integrales <span>Registro técnico de aire acondicionado</span></footer></div>
-<div id="hc-toast" role="status" aria-live="polite" hidden></div>
-<dialog id="hc-dialog"></dialog>
-</body></html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Aire acondicionado · CARLAB Cloud</title>
+    <link rel="stylesheet" href="/hispacold.css?v=2" />
+    <script src="/vendor/hc-jspdf.umd.min.js" defer></script>
+    <script src="/vendor/hc-autotable.min.js" defer></script>
+    <script src="/hispacold-pdf.js?v=2" defer></script>
+    <script src="/hispacold-drafts.js?v=2" defer></script>
+    <script src="/hispacold.js?v=2" defer></script>
+  </head>
+  <body class="hc-app">
+    <aside class="hc-sidebar">
+      <a class="hc-brand" href="/"
+        >CARLAB<span>CLOUD / SERVICIO TÉCNICO</span></a
+      >
+      <div class="hc-space-label">ESPACIO ADMINISTRADOR</div>
+      <nav aria-label="Hispacold">
+        <button data-view="services" class="selected">
+          ◈ &nbsp; Órdenes de servicio</button
+        ><button data-view="calendar">▦ &nbsp; Próximos servicios</button
+        ><button data-view="history">◎ &nbsp; Expediente por unidad</button
+        ><button data-view="library">▤ &nbsp; Biblioteca técnica</button
+        ><button data-view="codes">⌁ &nbsp; Códigos de diagnóstico</button>
+      </nav>
+      <div class="hc-side-note">
+        <span class="hc-dot"></span> HISPACOLD<span
+          >Mantenimiento y reparación<br />Control técnico por unidad</span
+        >
+      </div>
+      <a class="hc-back" href="/">← Volver a Carlab Cloud</a>
+    </aside>
+    <div class="hc-workspace">
+      <header class="hc-topbar">
+        <span>OPERACIÓN / CLIMATIZACIÓN</span
+        ><span id="hc-user">Verificando acceso…</span>
+      </header>
+      <main id="hc-main" tabindex="-1">
+        <div class="hc-empty">Cargando módulo…</div>
+      </main>
+      <footer class="hc-footer">
+        CARLAB · Servicios integrales
+        <span>Registro técnico de aire acondicionado</span>
+      </footer>
+    </div>
+    <div id="hc-toast" role="status" aria-live="polite" hidden></div>
+    <dialog id="hc-dialog"></dialog>
+  </body>
+</html>

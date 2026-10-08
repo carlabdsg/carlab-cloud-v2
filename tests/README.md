@@ -1,15 +1,17 @@
-# Pruebas del módulo Hispacold
+# Pruebas de Hispacold
 
-No requieren credenciales ni base de producción. Usan PostgreSQL embebido PGlite y un servidor HTTP aislado.
+Pruebas sin credenciales de producción. Usan PostgreSQL embebido PGlite y servidores HTTP efímeros.
 
 ```sh
 npm install
 npm install --prefix ../hispacold-test-tools --no-package-lock @electric-sql/pglite
-node --test tests/hispacold.test.cjs
+node --test --test-concurrency=1 tests/hispacold.test.cjs tests/hispacold-v2.test.cjs
 ```
 
-Se puede indicar otra carpeta de dependencias con `HISPACOLD_TEST_DEPS` (ruta al directorio `node_modules`).
+Se puede cambiar el directorio de herramientas mediante `HISPACOLD_TEST_DEPS`, con la ruta al `node_modules` correspondiente.
 
-Cubren control de acceso de administrador activo, catálogo, cuatro formatos, folios, costos, persistencia, filtros, cierre, reapertura, concurrencia optimista, validación y aislamiento. La comprobación del PDF original es opcional cuando los manuales privados están instalados localmente; en un checkout público se verifica que el manual pendiente devuelve 404 y que se rechaza contenido no reconocido.
+Cubren permisos, catálogo, cinco tipos de orden, folios, importes, cierre, reapertura, conflictos de versión, idempotencia, historial sin imágenes, vencimientos por unidad, evidencias, autorizaciones, fechas y conservación de un expediente V1 durante la migración.
 
-`preview.cjs` levanta una demo efímera con datos ficticios. Nunca usar esa demo como servidor de producción.
+Si están disponibles los PDF privados locales, también comprueban la importación por hash y descarga de un original. En un checkout sin esos PDF se verifica que el manual pendiente devuelve 404 y que no acepta contenido no reconocido.
+
+`preview.cjs` es una demo local efímera. No utilizarla como servidor de producción.
