@@ -328,15 +328,15 @@
       });
     }
     paragraph(
-      isV3 ? "Qué pasó · Motivo del servicio" : "Motivo y antecedentes",
+      "Recepción y motivo del servicio",
       d.symptoms,
     );
     if (record.deletedAt)
       paragraph("Motivo de eliminación", record.deleteReason);
     paragraph("Códigos observados", d.faultCodes);
-    paragraph("Diagnóstico", d.diagnosis);
+    paragraph("Diagnóstico técnico", d.diagnosis);
     paragraph(
-      isV3 ? "Qué hicimos · Trabajo realizado" : "Trabajo realizado",
+      "Intervención realizada",
       d.workDone,
     );
     paragraph("Alcance y autorización general", d.authorization);
@@ -454,7 +454,7 @@
       );
       y += 9;
     }
-    paragraph(isV3 ? "Cómo quedó · Prueba final" : "Prueba final", d.finalTest);
+    paragraph("Verificación funcional y entrega", d.finalTest);
     paragraph("Condición de entrega", results[d.result]);
     paragraph("Recomendaciones y pendientes", d.recommendations);
     paragraph("Cancelación", d.cancelReason);
