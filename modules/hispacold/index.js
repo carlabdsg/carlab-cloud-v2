@@ -13,6 +13,9 @@ CREATE TABLE IF NOT EXISTS hc_services (
  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE hc_services ADD COLUMN IF NOT EXISTS client_key TEXT;
+ALTER TABLE hc_services ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE hc_services ADD COLUMN IF NOT EXISTS deleted_by TEXT;
+ALTER TABLE hc_services ADD COLUMN IF NOT EXISTS delete_reason TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS hc_services_client_idx ON hc_services(created_by,client_key) WHERE client_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS hc_services_unit_idx ON hc_services(company,unit,service_date DESC);
 CREATE INDEX IF NOT EXISTS hc_services_next_idx ON hc_services(next_date) WHERE status <> 'cancelado';
@@ -68,9 +71,27 @@ function picture(value, max = 1800000) {
     bad("La imagen debe ser PNG o JPEG.");
   return s;
 }
+function brandCatalog(brand) {
+  return typeof catalog.forBrand === "function"
+    ? catalog.forBrand(brand)
+    : catalog;
+}
+function allManuals() {
+  return catalog.allManuals || catalog.manuals;
+}
 function validate(input) {
   if (!input || typeof input !== "object" || Array.isArray(input))
     bad("Formulario inválido.");
+  const isV3 = input.formVersion === 3;
+  if (input.formVersion != null && ![1, 2, 3].includes(input.formVersion))
+    bad("Versión de formulario inválida.");
+  const brand = str(input.brand || "hispacold", 30);
+  if (isV3 && !input.brand) bad("Selecciona la marca del aire acondicionado.");
+  if (!Object.hasOwn(catalog.brands || { hispacold: "Hispacold" }, brand))
+    bad("Marca de aire acondicionado inválida.");
+  if (!isV3 && brand !== "hispacold")
+    bad("Esta marca requiere el formulario actual.");
+  const activeCatalog = brandCatalog(brand);
   const type = str(input.type, 30),
     status = str(input.status, 30);
   if (
@@ -78,6 +99,8 @@ function validate(input) {
     !Object.hasOwn(catalog.statuses, status)
   )
     bad("Tipo o estado inválido.");
+  if (isV3 && type === "express")
+    bad("Selecciona el servicio y usa express como tipo de atención.");
   const d = {
     type,
     status,
@@ -88,7 +111,18 @@ function validate(input) {
     interval: str(input.interval, 20),
   };
   if (!d.company || !d.unit) bad("Empresa y unidad son obligatorias.");
-  if (type === "preventivo" && !Object.hasOwn(catalog.intervals, d.interval))
+  if (isV3) {
+    d.formVersion = 3;
+    d.brand = brand;
+    d.attention = str(input.attention || "normal", 20);
+    if (!["normal", "express"].includes(d.attention))
+      bad("Tipo de atención inválido.");
+  }
+  if (
+    type === "preventivo" &&
+    (!isV3 || d.status === "completado" || d.interval) &&
+    !Object.hasOwn(activeCatalog.intervals, d.interval)
+  )
     bad("Selecciona la periodicidad.");
   if (d.nextDate && d.nextDate < d.serviceDate)
     bad("El próximo servicio no puede ser anterior al actual.");
@@ -122,6 +156,7 @@ function validate(input) {
     "refrigerantNotes",
   ])
     d[key] = str(input[key], 6000);
+  if (isV3 && !d.symptoms) bad("Describe brevemente el motivo del servicio.");
   d.mileage = number(input.mileage);
   d.priority = str(input.priority || "normal", 20);
   if (!["normal", "alta", "urgente"].includes(d.priority))
@@ -136,7 +171,7 @@ function validate(input) {
   d.symptomCode = str(input.symptomCode, 40);
   if (
     d.symptomCode &&
-    !catalog.symptomGuides.some((g) => g.id === d.symptomCode)
+    !activeCatalog.symptomGuides.some((g) => g.id === d.symptomCode)
   )
     bad("Síntoma de diagnóstico inválido.");
   d.eventKind = str(input.eventKind, 30);
@@ -196,7 +231,13 @@ function validate(input) {
     "vacuumMinutes",
   ])
     d[key] = number(input[key]);
-  const template = catalog.templates.find((t) => t.id === type);
+  const template = activeCatalog.templateFor
+    ? activeCatalog.templateFor(type, {
+        formVersion: isV3 ? 3 : undefined,
+        interval: d.interval,
+      })
+    : activeCatalog.templates.find((t) => t.id === type);
+  if (!template) bad("Servicio no disponible para la marca seleccionada.");
   const checks = list(input.checklist, 80);
   const ids = new Set();
   for (const c of checks) {
@@ -230,15 +271,17 @@ function validate(input) {
   const readings = list(input.measurements, 30);
   if (readings.some((x) => !x || typeof x !== "object"))
     bad("Mediciones inválidas.");
-  d.measurements = catalog.measurements.map((t) => {
-    const v = readings.find((x) => x.id === t.id) || {};
-    return {
-      ...t,
-      before: number(v.before, -1000),
-      after: number(v.after, -1000),
-      conditions: str(v.conditions, 500),
-    };
-  });
+  d.measurements = (activeCatalog.measurements || catalog.measurements).map(
+    (t) => {
+      const v = readings.find((x) => x.id === t.id) || {};
+      return {
+        ...t,
+        before: number(v.before, -1000),
+        after: number(v.after, -1000),
+        conditions: str(v.conditions, 500),
+      };
+    },
+  );
   d.parts = list(input.parts, 60).map((p) => {
     if (!p || typeof p !== "object") bad("Concepto inválido.");
     const name = str(p.description, 300);
@@ -286,6 +329,8 @@ function validate(input) {
       (!d.eventKind || !d.eventLocation || !d.symptoms)
     )
       bad("Para cerrar el express registra evento, ubicación y motivo.");
+    if (isV3 && d.attention === "express" && !d.eventKind)
+      bad("Selecciona el tipo de evento express.");
     if (
       d.findings.some(
         (f) =>
@@ -304,15 +349,20 @@ function validate(input) {
       );
     if (
       !d.technician ||
-      !d.diagnosis ||
+      ((!isV3 || ["revision", "mayor"].includes(d.type)) && !d.diagnosis) ||
       !d.workDone ||
       !d.finalTest ||
       !d.result
     )
       bad(
-        "Para completar: técnico, diagnóstico, trabajo realizado, prueba final y resultado son obligatorios.",
+        isV3
+          ? "Para cerrar registra técnico, trabajo realizado, prueba final y resultado; revisión y reparación mayor también requieren diagnóstico."
+          : "Para completar: técnico, diagnóstico, trabajo realizado, prueba final y resultado son obligatorios.",
       );
-    if (d.checklist.some((c) => c.outcome === "pendiente"))
+    if (
+      (!isV3 || ["preventivo", "mayor"].includes(d.type)) &&
+      d.checklist.some((c) => c.outcome === "pendiente")
+    )
       bad("Resuelve todos los puntos del checklist antes de completar.");
     if (
       d.result === "operativo" &&
@@ -358,18 +408,35 @@ function mapRow(row, full = true) {
         : row.next_date.toISOString().slice(0, 10)
       : null,
     version: row.version,
+    brand: row.payload?.brand || row.brand || "hispacold",
+    attention:
+      row.payload?.attention ||
+      row.attention ||
+      (row.type === "express" ? "express" : "normal"),
+    deletedAt: row.deleted_at || null,
+    deletedBy: row.deleted_by || null,
+    deleteReason: row.delete_reason || "",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     ...(full
       ? { data: row.payload }
-      : { technician: row.technician || "", total: Number(row.total || 0) }),
+      : {
+          technician: row.technician || "",
+          total: Number(row.total || 0),
+          symptoms: row.symptoms || "",
+          workDone: row.work_done || "",
+          result: row.result || "",
+          pendingCount: Number(row.pending_count || 0),
+        }),
   };
 }
 const scheduleCTE = `WITH latest AS (
- SELECT DISTINCT ON (LOWER(TRIM(company)),LOWER(TRIM(unit)))
- id,number,type,status,company,unit,service_date,next_date,version,created_at,updated_at,payload->>'technician' AS technician
- FROM hc_services WHERE status='completado' AND (type='preventivo' OR next_date IS NOT NULL)
- ORDER BY LOWER(TRIM(company)),LOWER(TRIM(unit)),service_date DESC,number DESC
+ SELECT DISTINCT ON (LOWER(TRIM(company)),LOWER(TRIM(unit)),COALESCE(payload->>'brand','hispacold'))
+ id,number,type,status,company,unit,service_date,next_date,version,created_at,updated_at,deleted_at,
+ payload->>'technician' AS technician,COALESCE(payload->>'brand','hispacold') AS brand,
+ payload->>'attention' AS attention
+ FROM hc_services WHERE deleted_at IS NULL AND status='completado' AND (type='preventivo' OR next_date IS NOT NULL)
+ ORDER BY LOWER(TRIM(company)),LOWER(TRIM(unit)),COALESCE(payload->>'brand','hispacold'),service_date DESC,number DESC
 ) `;
 function register(
   app,
@@ -415,13 +482,26 @@ function register(
     wrap(async (req, res) => {
       const stored = await pool.query("SELECT id FROM hc_manuals");
       const ids = new Set(stored.rows.map((x) => x.id));
+      const availableManual = (m) => ({
+        ...m,
+        available:
+          ids.has(m.id) || fs.existsSync(path.join(manualDir, `${m.id}.pdf`)),
+      });
       res.json({
         ...catalog,
-        manuals: catalog.manuals.map((m) => ({
-          ...m,
-          available:
-            ids.has(m.id) || fs.existsSync(path.join(manualDir, `${m.id}.pdf`)),
-        })),
+        brands: catalog.brands || { hispacold: "Hispacold" },
+        brandCatalogs: Object.fromEntries(
+          Object.keys(catalog.brands || { hispacold: "Hispacold" }).map(
+            (brand) => {
+              const details = brandCatalog(brand);
+              return [
+                brand,
+                { ...details, manuals: details.manuals.map(availableManual) },
+              ];
+            },
+          ),
+        ),
+        manuals: allManuals().map(availableManual),
         user: req.hcUser,
       });
     }),
@@ -438,7 +518,7 @@ function register(
   router.get(
     "/manuals/:id",
     wrap(async (req, res) => {
-      const m = catalog.manuals.find((m) => m.id === req.params.id);
+      const m = allManuals().find((m) => m.id === req.params.id);
       if (!m) bad("Manual no encontrado.", 404);
       const r = await pool.query("SELECT pdf FROM hc_manuals WHERE id=$1", [
         m.id,
@@ -454,9 +534,32 @@ function register(
     }),
   );
   router.put(
+    "/manuals/:id/raw",
+    express.raw({
+      type: ["application/pdf", "application/octet-stream"],
+      limit: "90mb",
+    }),
+    wrap(async (req, res) => {
+      const m = allManuals().find((m) => m.id === req.params.id);
+      if (!m) bad("Manual no reconocido.", 404);
+      const pdf = req.body;
+      if (
+        !Buffer.isBuffer(pdf) ||
+        pdf.subarray(0, 5).toString() !== "%PDF-" ||
+        crypto.createHash("sha256").update(pdf).digest("hex") !== m.sha256
+      )
+        bad("El archivo no coincide con el manual original catalogado.");
+      await pool.query(
+        "INSERT INTO hc_manuals(id,filename,sha256,pdf,uploaded_by) VALUES($1,$2,$3,$4,$5) ON CONFLICT(id) DO UPDATE SET pdf=EXCLUDED.pdf,uploaded_by=EXCLUDED.uploaded_by,uploaded_at=NOW()",
+        [m.id, m.filename, m.sha256, pdf, req.hcUser.id],
+      );
+      res.json({ ok: true, id: m.id });
+    }),
+  );
+  router.put(
     "/manuals/:id",
     wrap(async (req, res) => {
-      const m = catalog.manuals.find((m) => m.id === req.params.id);
+      const m = allManuals().find((m) => m.id === req.params.id);
       if (!m) bad("Manual no reconocido.", 404);
       const encoded = str(req.body.base64, 12000000);
       if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) bad("PDF inválido.");
@@ -476,7 +579,13 @@ function register(
   router.get(
     "/services",
     wrap(async (req, res) => {
-      const conditions = [],
+      if (req.query.deleted && !["true", "false"].includes(req.query.deleted))
+        bad("Filtro de papelera inválido.");
+      const conditions = [
+          req.query.deleted === "true"
+            ? "deleted_at IS NOT NULL"
+            : "deleted_at IS NULL",
+        ],
         params = [];
       const add = (clause, v) => {
         params.push(v);
@@ -488,6 +597,16 @@ function register(
           `%${str(req.query.q, 180)}%`,
         );
       if (req.query.type) add("type = ?", str(req.query.type, 30));
+      if (req.query.brand)
+        add(
+          "COALESCE(payload->>'brand','hispacold') = ?",
+          str(req.query.brand, 30),
+        );
+      if (req.query.attention)
+        add(
+          "COALESCE(payload->>'attention',CASE WHEN type='express' THEN 'express' ELSE 'normal' END) = ?",
+          str(req.query.attention, 20),
+        );
       if (req.query.status) add("status = ?", str(req.query.status, 30));
       if (req.query.from) add("service_date >= ?", date(req.query.from, true));
       if (req.query.to) add("service_date <= ?", date(req.query.to, true));
@@ -503,11 +622,12 @@ function register(
           "SELECT COUNT(*)::int AS total FROM latest WHERE next_date < $1::date",
         [date(req.query.today) || new Date().toISOString().slice(0, 10)],
       );
-      counts.rows[0].overdue = due.rows[0].total;
+      counts.rows[0].overdue =
+        req.query.deleted === "true" ? 0 : due.rows[0].total;
       const limit = Math.min(500, Math.max(1, Number(req.query.limit) || 100)),
         offset = Math.max(0, Math.min(1000000, Number(req.query.offset) || 0));
       const r = await pool.query(
-        `SELECT id,number,type,status,company,unit,service_date,next_date,version,created_at,updated_at,payload->>'technician' AS technician,payload->>'total' AS total FROM hc_services${where} ORDER BY service_date DESC,number DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        `SELECT id,number,type,status,company,unit,service_date,next_date,version,created_at,updated_at,deleted_at,deleted_by,delete_reason,payload->>'technician' AS technician,payload->>'total' AS total,COALESCE(payload->>'brand','hispacold') AS brand,payload->>'attention' AS attention,payload->>'symptoms' AS symptoms,payload->>'workDone' AS work_done,payload->>'result' AS result,(SELECT COUNT(*) FROM jsonb_array_elements(COALESCE(payload->'findings','[]'::jsonb)) f WHERE f->>'decision' NOT IN ('realizado','descartado')) AS pending_count FROM hc_services${where} ORDER BY service_date DESC,number DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
         [...params, Math.trunc(limit), Math.trunc(offset)],
       );
       res.json({
@@ -529,7 +649,7 @@ function register(
         Math.min(1000000, Math.trunc(Number(req.query.offset) || 0)),
       );
       const where =
-        "LOWER(TRIM(company))=LOWER(TRIM($1)) AND LOWER(TRIM(unit))=LOWER(TRIM($2))";
+        "deleted_at IS NULL AND LOWER(TRIM(company))=LOWER(TRIM($1)) AND LOWER(TRIM(unit))=LOWER(TRIM($2))";
       const summary = await pool.query(
         `SELECT COUNT(*)::int AS total,COUNT(*) FILTER(WHERE status='completado')::int AS completed,COALESCE(SUM((payload->>'total')::numeric) FILTER(WHERE status='completado'),0) AS total_cost FROM hc_services WHERE ${where}`,
         [company, unit],
@@ -539,7 +659,7 @@ function register(
         [company, unit, offset],
       );
       const faults = await pool.query(
-        `SELECT payload->>'symptomCode' AS code,COUNT(*)::int AS total FROM hc_services WHERE ${where} AND status<>'cancelado' AND COALESCE(payload->>'symptomCode','') NOT IN ('','otro') GROUP BY payload->>'symptomCode' HAVING COUNT(*)>1 ORDER BY COUNT(*) DESC`,
+        `SELECT payload->>'symptomCode' AS code,COALESCE(payload->>'brand','hispacold') AS brand,COUNT(*)::int AS total FROM hc_services WHERE ${where} AND status<>'cancelado' AND COALESCE(payload->>'symptomCode','') NOT IN ('','otro') GROUP BY payload->>'symptomCode',COALESCE(payload->>'brand','hispacold') HAVING COUNT(*)>1 ORDER BY COUNT(*) DESC`,
         [company, unit],
       );
       const parts = await pool.query(
@@ -642,6 +762,23 @@ function register(
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
+      // Replays refer to the existing order, not a new clone. Its source or
+      // fleet record may have changed after the original successful request.
+      if (!isUpdate && clientKey) {
+        const replay = await client.query(
+          "SELECT * FROM hc_services WHERE created_by=$1 AND client_key=$2 FOR UPDATE",
+          [req.hcUser.id, clientKey],
+        );
+        if (replay.rows[0]) {
+          if (replay.rows[0].deleted_at)
+            bad(
+              "Esta orden está en la papelera; restáurala antes de recuperarla.",
+              409,
+            );
+          await client.query("COMMIT");
+          return res.json({ ...mapRow(replay.rows[0]), replayed: true });
+        }
+      }
       let old;
       const id = isUpdate ? req.params.id : crypto.randomUUID();
       if (isUpdate) {
@@ -651,6 +788,8 @@ function register(
         );
         old = r.rows[0];
         if (!old) bad("Servicio no encontrado.", 404);
+        if (old.deleted_at)
+          bad("Restaura la orden de la papelera antes de modificarla.", 409);
         if (old.version !== req.body.version)
           bad(
             "Otra sesión actualizó el servicio. Recarga antes de guardar.",
@@ -663,6 +802,10 @@ function register(
           bad("Para modificar un servicio cerrado, reábrelo con un motivo.");
         if (old.type !== d.type)
           bad("El tipo de un servicio guardado no puede cambiar.");
+        if ((old.payload.brand || "hispacold") !== (d.brand || "hispacold"))
+          bad("La marca de una orden guardada no puede cambiar.");
+        if ((old.payload.formVersion === 3) !== (d.formVersion === 3))
+          bad("Conserva la versión del formulario de la orden guardada.");
       }
       if (d.fleetUnitId) {
         const u = await client.query(
@@ -677,8 +820,11 @@ function register(
           bad("La unidad seleccionada no coincide con la empresa y económico.");
       }
       if (d.sourceOrderId) {
+        const unchangedSource =
+          isUpdate && old.payload.sourceOrderId === d.sourceOrderId;
         const source = await client.query(
-          "SELECT id FROM hc_services WHERE id=$1",
+          "SELECT id FROM hc_services WHERE id=$1" +
+            (unchangedSource ? "" : " AND deleted_at IS NULL"),
           [d.sourceOrderId],
         );
         if (!source.rows[0]) bad("La orden de origen no existe.");
@@ -710,6 +856,11 @@ function register(
           "SELECT * FROM hc_services WHERE created_by=$1 AND client_key=$2",
           [req.hcUser.id, clientKey],
         );
+        if (existing.rows[0]?.deleted_at)
+          bad(
+            "Esta orden está en la papelera; restáurala antes de recuperarla.",
+            409,
+          );
         await client.query("ROLLBACK");
         return res.json({ ...mapRow(existing.rows[0]), replayed: true });
       }
@@ -750,6 +901,67 @@ function register(
   router.put(
     "/services/:id",
     wrap((req, res) => save(req, res, true)),
+  );
+  async function trash(req, res, restore) {
+    const version = req.body?.version;
+    if (!Number.isInteger(version) || version < 1)
+      bad("Recarga la orden antes de cambiar su estado en la papelera.");
+    const reason = restore ? "" : str(req.body?.reason, 1000);
+    if (!restore && !reason) bad("Indica el motivo de eliminación.");
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const current = await client.query(
+        "SELECT * FROM hc_services WHERE id=$1 FOR UPDATE",
+        [req.params.id],
+      );
+      const old = current.rows[0];
+      if (!old) bad("Servicio no encontrado.", 404);
+      if (old.version !== version)
+        bad("Otra sesión actualizó la orden. Recarga antes de continuar.", 409);
+      if (restore ? !old.deleted_at : !!old.deleted_at)
+        bad(
+          restore
+            ? "La orden ya está fuera de la papelera."
+            : "La orden ya está en la papelera.",
+          409,
+        );
+      const updated = await client.query(
+        restore
+          ? "UPDATE hc_services SET deleted_at=NULL,deleted_by=NULL,delete_reason=NULL,updated_by=$2,updated_at=NOW(),version=version+1 WHERE id=$1 RETURNING *"
+          : "UPDATE hc_services SET deleted_at=NOW(),deleted_by=$2,delete_reason=$3,updated_by=$2,updated_at=NOW(),version=version+1 WHERE id=$1 RETURNING *",
+        restore ? [old.id, req.hcUser.id] : [old.id, req.hcUser.id, reason],
+      );
+      await client.query(
+        "INSERT INTO hc_events(service_id,actor_id,actor_name,action,details) VALUES($1,$2,$3,$4,$5)",
+        [
+          old.id,
+          req.hcUser.id,
+          req.hcUser.nombre,
+          restore ? "restauracion" : "eliminacion",
+          JSON.stringify({
+            version: updated.rows[0].version,
+            reason: restore ? old.delete_reason : reason,
+            preservedStatus: old.status,
+          }),
+        ],
+      );
+      await client.query("COMMIT");
+      res.json(mapRow(updated.rows[0]));
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+  router.delete(
+    "/services/:id",
+    wrap((req, res) => trash(req, res, false)),
+  );
+  router.post(
+    "/services/:id/restore",
+    wrap((req, res) => trash(req, res, true)),
   );
   router.use((req, res) =>
     res.status(404).json({ error: "Ruta Hispacold no encontrada." }),

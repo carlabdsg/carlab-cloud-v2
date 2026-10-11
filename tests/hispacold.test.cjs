@@ -70,7 +70,7 @@ test("Hispacold: integración PostgreSQL y permisos", async (t) => {
   await t.test("Catálogo completo y unidades existentes", async () => {
     const r = await req("/catalog");
     assert.equal(r.status, 200);
-    assert.equal(r.body.manuals.length, 34);
+    assert.equal(r.body.manuals.filter(m => m.brand === "hispacold").length, 34);
     assert.equal(r.body.templates.length, 5);
     assert.equal(
       r.body.templates.find((t) => t.id === "preventivo").checklist.length,

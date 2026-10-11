@@ -346,7 +346,58 @@ const eventKinds = {
   extraordinario: "Evento extraordinario",
   asistencia: "Asistencia en ruta",
 };
+const brands = { hispacold: "Hispacold", eberspaecher: "Eberspächer" };
+const eberspaecher = require("./eberspaecher");
+const hispacoldManuals = manuals.map((manual) => ({
+  ...manual,
+  brand: "hispacold",
+}));
+const brandData = {
+  hispacold: {
+    brand: "hispacold",
+    label: brands.hispacold,
+    planName: "B2",
+    templates,
+    intervals,
+    intervalDays: {},
+    intervalLabels: {
+      mensual: "Mensual",
+      trimestral: "Trimestral",
+      semestral: "Semestral",
+      anual: "Anual",
+      bianual: "Bianual",
+    },
+    symptomGuides,
+    codes,
+    notices,
+    manuals: hispacoldManuals,
+    measurements,
+  },
+  eberspaecher: { ...eberspaecher, measurements },
+};
+for (const data of Object.values(brandData)) {
+  data.templateFor = (type, options = {}) => {
+    const template = data.templates.find((entry) => entry.id === type);
+    if (!template) return undefined;
+    if (
+      options.formVersion !== 3 || type !== "preventivo" ||
+      !Object.hasOwn(data.intervals, options.interval)
+    ) return template;
+    return {
+      ...template,
+      checklist: template.checklist.filter((item) => item.actions?.[options.interval] !== "-"),
+    };
+  };
+}
+function forBrand(brand = "hispacold") {
+  if (!Object.hasOwn(brandData, brand)) throw new RangeError("Marca de aire acondicionado inválida.");
+  return brandData[brand];
+}
+const allManuals = [...hispacoldManuals, ...eberspaecher.manuals];
 module.exports = {
+  brands,
+  forBrand,
+  allManuals,
   symptomGuides,
   eventKinds,
   manuals,

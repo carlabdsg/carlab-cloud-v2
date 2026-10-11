@@ -43,3 +43,16 @@ Retira las cinco líneas anteriores para ocultar/desconectar el módulo. Conserv
 - `hispacold-pdf.js` y `public/vendor/hc-*`: jsPDF y AutoTable empaquetados con licencias MIT. No se agrega dependencia de producción a npm ni se usa un servicio externo de PDF.
 - Evidencia con `phase`, `component`, `checkId`; trabajos detectados en `findings`; `sourceOrderId` para nueva intervención vinculada. Los documentos anteriores admiten las propiedades nuevas ausentes.
 - Las tablas y comprobaciones de permisos se mantienen separadas de los módulos anteriores.
+
+## Versión 3 · dos marcas y captura adaptable
+
+- `brand` (`hispacold`/`eberspaecher`), `attention` (`normal`/`express`) y `formVersion:3` para órdenes nuevas. El `type:express` histórico permanece compatible; V3 separa servicio de atención.
+- `eberspaecher.js` y `eberspaecher-manuals.json` añaden plantilla AC-188DD/KL2 y tres fuentes. `catalog.forBrand()` conserva datos separados y `templateFor()` filtra el preventivo por intervalo. Los exports legacy se conservan.
+- `GET /catalog` expone `brands`, `brandCatalogs` y los 37 manuales con disponibilidad; los PDF requieren autenticación y administrador activo.
+- `PUT /manuals/:id/raw` admite PDF binario de hasta 90 MB, con hash original verificado. El importador usa esta ruta para evitar expansión Base64. La ruta JSON anterior sigue disponible.
+- Columnas aditivas `deleted_at`, `deleted_by`, `delete_reason`. `DELETE /services/:id` acepta `{version,reason}` y `POST /services/:id/restore` acepta `{version}`. Ambas operaciones son transaccionales y auditadas. `GET /services?deleted=true` consulta papelera; GET detalle conserva acceso al historial eliminado. No se eliminan filas ni se reutilizan folios.
+- Historial y calendario omiten registros en papelera. El calendario mantiene fechas independientes por empresa/unidad/marca. Los reintentos de creación no reviven órdenes eliminadas. Las copias existentes conservan su referencia aunque el origen pase a papelera.
+- Formulario y reportes adaptables para nuevas órdenes; las órdenes anteriores conservan sus validaciones originales. No se admite convertir la versión de un registro para saltar controles de cierre.
+- Cámara: captura nativa móvil mediante `capture=environment`, y `getUserMedia` en computadora con parada de pistas al cerrar/cancelar. La evidencia se convierte a JPEG y sigue en el payload protegido.
+
+Guía de instalación y uso: `CLIMATIZACION-ACTUALIZACION-V3.md` en la raíz.

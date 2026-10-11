@@ -118,7 +118,7 @@
   let step = 0,
     page = 0,
     listResult,
-    filters = { q: "", type: "", status: "", from: "", to: "" },
+    filters = { q: "", brand: "", type: "", status: "", from: "", to: "" },
     signatures = {},
     toastTimer;
   let localId = "",
@@ -137,6 +137,32 @@
     calendarOffset = 0,
     calendarDay = "";
   let bootToken = "";
+  let knowledgeBrand = "hispacold",
+    trashPage = 0,
+    cameraStream = null;
+  const brandName = (brand) =>
+    catalog.brands?.[brand || "hispacold"] || "Hispacold";
+  const brandCatalog = (brand = draft?.brand || "hispacold") =>
+    catalog.brandCatalogs?.[brand] || catalog;
+  const isV3 = () => Number(draft?.formVersion) === 3;
+  const isExpress = (d = draft) =>
+    d?.attention === "express" || d?.type === "express";
+  const intervalNames = () =>
+    brandCatalog().intervalLabels ||
+    Object.fromEntries(
+      Object.keys(brandCatalog().intervals).map((k) => [
+        k,
+        {
+          mensual: "Mensual",
+          trimestral: "Trimestral",
+          semestral: "Semestral",
+          anual: "Anual",
+          bianual: "Cada 2 años",
+          diario: "Diario",
+          semanal: "Semanal",
+        }[k] || k,
+      ]),
+    );
   const editorSession = crypto.randomUUID();
   const btn = (text, action, cls = "", attr = "") =>
     `<button type="button" class="hc-btn ${cls}" data-action="${action}" ${attr}>${text}</button>`;
@@ -300,6 +326,7 @@
       else if (name === "calendar") await calendar();
       else if (name === "history") await history();
       else if (name === "library") library();
+      else if (name === "trash") await trash();
       else codes();
     } catch (e) {
       $("#hc-main").innerHTML = heading(
@@ -336,7 +363,7 @@
     const s = listResult.summary;
     $("#hc-main").innerHTML =
       heading(
-        "HISPACOLD / CONTROL DE SERVICIO",
+        "CARLAB / CLIMATIZACIÓN",
         "Aire acondicionado",
         "Del evento express al mantenimiento completo. Cada unidad, con su historial.",
         btn("⚡ Express", "express", "hc-express") +
@@ -346,12 +373,38 @@
       (await draftCards()) +
       `<section class="hc-metrics"><article class="hc-metric accent"><span>ÓRDENES REGISTRADAS</span><strong>${s.total}</strong><small>Según tus filtros</small></article><article class="hc-metric"><span>EN SEGUIMIENTO</span><strong>${s.open}</strong><small>Borradores, taller y refacciones</small></article><article class="hc-metric"><span>SERVICIOS COMPLETADOS</span><strong>${s.completed}</strong><small>Prueba y entrega documentadas</small></article><article class="hc-metric"><span>SEGUIMIENTOS VENCIDOS</span><strong>${s.overdue}</strong><small>Todas las unidades · fecha vigente</small></article></section>
       <section class="hc-panel hc-orders"><div class="hc-panel-head"><div><h2>Órdenes de servicio</h2><p>Empresa, unidad, folio o técnico.</p></div><span class="hc-badge">${s.total} registros</span></div>
-      <form id="hc-filters" class="hc-filters"><input aria-label="Buscar servicios" type="search" name="q" placeholder="Buscar empresa, unidad o folio…" value="${esc(filters.q)}"><select aria-label="Tipo de servicio" name="type">${opts(catalog.types, filters.type, "Todos los servicios")}</select><select aria-label="Estado" name="status">${opts(catalog.statuses, filters.status, "Todos los estados")}</select><label>Desde<input type="date" name="from" value="${esc(filters.from)}"></label><label>Hasta<input type="date" name="to" value="${esc(filters.to)}"></label><button class="hc-btn" type="submit">Filtrar</button>${btn("Limpiar", "clear-filters")}</form>
+      <form id="hc-filters" class="hc-filters"><input aria-label="Buscar servicios" type="search" name="q" placeholder="Buscar empresa, unidad o folio…" value="${esc(filters.q)}"><select aria-label="Marca del aire acondicionado" name="brand">${opts(catalog.brands, filters.brand, "Todas las marcas")}</select><select aria-label="Tipo de servicio" name="type">${opts(catalog.types, filters.type, "Todos los servicios")}</select><select aria-label="Estado" name="status">${opts(catalog.statuses, filters.status, "Todos los estados")}</select><label>Desde<input type="date" name="from" value="${esc(filters.from)}"></label><label>Hasta<input type="date" name="to" value="${esc(filters.to)}"></label><button class="hc-btn" type="submit">Filtrar</button>${btn("Limpiar", "clear-filters")}</form>
       ${listResult.items.length ? ordersTable(listResult.items) : '<div class="hc-empty"><strong>Sin órdenes para mostrar</strong>Crea una orden o ajusta los filtros.</div>'}
       <div class="hc-pager"><span>${s.total ? `${page * 25 + 1}–${page * 25 + listResult.items.length} de ${s.total}` : "Sin órdenes"}</span><div class="hc-actions">${btn("← Anterior", "prev", "", page === 0 ? "disabled" : "")}${btn("Siguiente →", "next", "", (page + 1) * 25 >= s.total ? "disabled" : "")}</div></div></section>`;
   }
   function ordersTable(rows) {
-    return `<div class="hc-table-wrap"><table><thead><tr><th>Folio / fecha</th><th>Unidad / empresa</th><th>Servicio</th><th>Estado</th><th>Próximo servicio</th><th></th></tr></thead><tbody>${rows.map((r) => `<tr><td><button class="hc-link" data-action="open" data-id="${esc(r.id)}">${esc(r.folio)}</button><small>${fmt(r.serviceDate)}</small></td><td><strong>${esc(r.unit)}</strong><small>${esc(r.company)}</small></td><td>${esc(catalog.types[r.type])}<small>${esc(r.technician || r.data?.technician || "Técnico por asignar")}</small></td><td>${badge(r.status)}</td><td>${fmt(r.nextDate)}</td><td>${btn("Ver →", "open", "", `data-id="${esc(r.id)}"`)}</td></tr>`).join("")}</tbody></table></div>`;
+    return `<div class="hc-order-cards">${rows.map((r) => `<article class="hc-order-card"><div class="hc-order-top"><button class="hc-link" data-action="open" data-id="${esc(r.id)}">${esc(r.folio)}</button>${r.deletedAt ? '<span class="hc-badge cancelado">En papelera</span>' : badge(r.status)}</div><h3>${esc(r.company)} <span>· ${esc(r.unit)}</span></h3><div class="hc-chips"><span>${esc(brandName(r.brand || r.data?.brand))}</span>${isExpress(r.data || r) ? '<span class="hc-chip-express">⚡ Express</span>' : ""}</div><b>${esc(catalog.types[r.type])}</b><p>${esc(r.symptoms || r.data?.symptoms || r.technician || "Servicio registrado")}</p><div class="hc-card-next">${r.deletedAt ? "Eliminada el " + fmt(r.deletedAt) : r.nextDate ? "Próximo servicio: " + fmt(r.nextDate) : r.status === "completado" ? "Servicio cerrado · " + fmt(r.serviceDate) : r.status === "cancelado" ? "Orden cancelada · " + fmt(r.serviceDate) : r.pendingCount ? `${r.pendingCount} trabajos pendientes` : r.status === "espera_refaccion" ? "Pendiente: recibir refacción" : "Pendiente: continuar atención"}</div><div class="hc-actions">${btn(r.deletedAt ? "Ver / recuperar" : ["completado", "cancelado"].includes(r.status) ? "Ver reporte" : "Continuar", r.deletedAt || ["completado", "cancelado"].includes(r.status) ? "open" : "continue-order", "", `data-id="${esc(r.id)}"`)}</div></article>`).join("")}</div>`;
+  }
+  async function trash() {
+    const r = await api(
+      "/services?" +
+        new URLSearchParams({
+          deleted: "true",
+          offset: trashPage * 25,
+          limit: 25,
+        }),
+    );
+    $("#hc-main").innerHTML =
+      heading(
+        "ÓRDENES ELIMINADAS",
+        "Papelera",
+        "Las órdenes aquí no aparecen en la operación ni en los próximos servicios. Puedes recuperarlas con su historial intacto.",
+        btn("← Órdenes", "back"),
+      ) +
+      (r.items.length
+        ? ordersTable(r.items)
+        : '<div class="hc-empty">La papelera está vacía.</div>') +
+      `<div class="hc-pager"><span>${r.summary.total} órdenes</span><div class="hc-actions">${btn("Anterior", "trash-prev", "", trashPage === 0 ? "disabled" : "")}${btn("Siguiente", "trash-next", "", (trashPage + 1) * 25 >= r.summary.total ? "disabled" : "")}</div></div>`;
+  }
+  function deleteDialog() {
+    $("#hc-dialog").innerHTML =
+      `<div class="hc-kicker">ELIMINAR ORDEN</div><h2>¿Enviar ${esc(record.folio)} a la papelera?</h2><p>Se retirará de las órdenes activas, el expediente y los próximos servicios. Podrás recuperarla desde Papelera.</p><form id="hc-delete-form"><label class="hc-field"><b>Motivo</b><input name="reason" required maxlength="1000" placeholder="Duplicada, captura incorrecta…"></label><div class="hc-actions">${btn("Conservar orden", "close-dialog")}<button class="hc-btn hc-danger" type="submit">Eliminar orden</button></div><p id="hc-delete-error" role="alert"></p></form>`;
+    $("#hc-dialog").showModal();
   }
   async function calendar() {
     const [year, month] = calendarMonth.split("-").map(Number),
@@ -385,7 +438,7 @@
       : r.items;
     $("#hc-main").innerHTML =
       heading(
-        "PLANIFICACIÓN / HISPACOLD",
+        "PLANIFICACIÓN / CLIMATIZACIÓN",
         "Próximos servicios",
         "Fechas vigentes por unidad, sin duplicar mantenimientos ya sustituidos.",
       ) +
@@ -413,7 +466,7 @@
       const r = await api("/history?" + new URLSearchParams(historyQuery));
       const latest = r.items[0];
       body = `<div class="hc-metrics"><article class="hc-metric accent"><span>INTERVENCIONES</span><strong>${r.summary.total}</strong><small>${esc(r.company)} · ${esc(r.unit)}</small></article><article class="hc-metric"><span>COMPLETADAS</span><strong>${r.summary.completed}</strong><small>Servicios cerrados</small></article><article class="hc-metric"><span>IMPORTE REGISTRADO</span><strong class="hc-small-number">${money(r.summary.total_cost)}</strong><small>Solo servicios completados</small></article><article class="hc-metric"><span>PRÓXIMO SERVICIO</span><strong class="hc-small-number">${fmt(r.next[0]?.nextDate)}</strong><small>Fecha vigente de la unidad</small></article></div>
-      ${r.recurring.length ? `<div class="hc-note"><strong>Síntomas registrados más de una vez</strong><div class="hc-chips">${r.recurring.map((f) => `<span>${esc(catalog.symptomGuides.find((g) => g.id === f.code)?.label || f.code)} · ${f.total} reportes</span>`).join("")}</div></div>` : ""}
+      ${r.recurring.length ? `<div class="hc-note"><strong>Síntomas registrados más de una vez</strong><div class="hc-chips">${r.recurring.map((f) => `<span>${esc(brandCatalog(f.brand || "hispacold").symptomGuides.find((g) => g.id === f.code)?.label || f.code)} · ${f.total} reportes</span>`).join("")}</div></div>` : ""}
       <section class="hc-panel"><div class="hc-panel-head"><h2>Últimas refacciones y materiales registrados</h2></div><div class="hc-history-parts">${r.parts.map((p) => `<div><b>${esc(p.item.description)}</b><span>${esc(p.item.reference || "Sin referencia")} · ${esc(p.item.quantity)} unidades</span><small>HC-${String(p.number).padStart(6, "0")} · ${fmt(p.service_date)}</small></div>`).join("") || '<p class="hc-subtle">Sin conceptos registrados en órdenes completadas.</p>'}</div></section>
       <section class="hc-panel hc-orders"><div class="hc-panel-head"><h2>Historial de intervenciones</h2>${latest ? btn("Nuevo servicio para esta unidad", "new-from-id", "primary", `data-id="${esc(latest.id)}"`) : ""}</div>${ordersTable(r.items)}<div class="hc-pager"><span>${r.summary.total} intervenciones</span><div class="hc-actions">${btn("Anterior", "history-prev", "", historyQuery.offset === 0 ? "disabled" : "")}${btn("Siguiente", "history-next", "", historyQuery.offset + 25 >= r.summary.total ? "disabled" : "")}</div></div></section>`;
     }
@@ -426,31 +479,35 @@
       `<form id="hc-history-form" class="hc-panel hc-section"><div class="hc-grid"><label class="hc-field wide"><b>Unidad de Flotas</b><select id="hc-history-unit">${opts(Object.fromEntries(units.map((u) => [u.id, `${u.empresa} · ${u.numero_economico}`])), "", "Seleccionar unidad")}</select></label><label class="hc-field"><b>Empresa</b><input name="company" value="${esc(historyQuery.company)}" required maxlength="180"></label><label class="hc-field"><b>Económico</b><input name="unit" value="${esc(historyQuery.unit)}" required maxlength="80"></label><button class="hc-btn primary" type="submit">Consultar expediente</button></div></form>` +
       body;
   }
-  async function choose(source = null) {
+  async function choose(source = null, attention = "normal") {
     if (!(await leave())) return;
     cloneSource = source;
-    const descriptions = {
-      express:
-        "Urgencia o evento extraordinario. Tres pasos: evento, atención y entrega.",
-      revision: "Inspección, diagnóstico y prueba. Cuatro pasos.",
-      preventivo: "Rutina por periodicidad, checklist y entrega. Cuatro pasos.",
-      menor: "Intervención puntual y entrega. Tres pasos.",
-      mayor:
-        "Procedimiento, mediciones, autorización y reparación. Cinco pasos.",
-    };
+    const brand = source?.data?.brand || (source ? "hispacold" : "");
     $("#hc-dialog").innerHTML =
-      `<div class="hc-kicker">${source ? "NUEVO SERVICIO DE LA UNIDAD" : "NUEVA ORDEN"}</div><h2>¿Qué servicio vas a realizar?</h2><p>${source ? `Se reutilizarán los datos de ${esc(source.company)} · ${esc(source.unit)}. Las lecturas, resultados, fotos y firmas empiezan vacíos.` : "Los pasos y puntos de revisión se adaptan a tu servicio."}</p><div class="hc-type-grid">${["express", "revision", "preventivo", "menor", "mayor"].map((id) => `<button class="hc-type ${id === "express" ? "hc-express-card" : ""}" data-action="create" data-type="${id}"><strong>${id === "express" ? "⚡ " : ""}${esc(catalog.types[id])}</strong><span>${descriptions[id]}</span></button>`).join("")}</div><br>${btn("Cancelar", "close-dialog")}`;
+      `<div class="hc-kicker">NUEVA ORDEN</div><h2>Empecemos por lo esencial</h2><p>${source ? `Nuevo servicio para ${esc(source.company)} · ${esc(source.unit)}. La intervención empieza vacía.` : "Elige el equipo y el trabajo. La hoja se adaptará a lo que necesitas."}</p><form id="hc-create-form"><div class="hc-create-grid"><label class="hc-field"><b><span class="hc-number">1</span> Marca del aire acondicionado</b><select id="hc-create-brand" name="brand" required>${opts(catalog.brands, brand, "Seleccionar marca")}</select></label><label class="hc-field"><b><span class="hc-number">2</span> Servicio</b><select id="hc-create-type" name="type" required ${brand ? "" : "disabled"}>${opts(Object.fromEntries(Object.entries(catalog.types).filter(([k]) => k !== "express")), "", "Seleccionar servicio")}</select></label><fieldset id="hc-create-attention" disabled><legend><span class="hc-number">3</span> Tipo de atención</legend><div class="hc-attention-options"><label><input type="radio" name="attention" value="normal" ${attention === "normal" ? "checked" : ""}><span><b>Normal</b><small>Trabajo de taller o programado</small></span></label><label><input type="radio" name="attention" value="express" ${attention === "express" ? "checked" : ""}><span><b>⚡ Servicio express</b><small>Urgencia, asistencia o evento extraordinario</small></span></label></div></fieldset></div><p class="hc-subtle" id="hc-create-help">La marca corresponde al equipo de aire acondicionado, no a la del autobús.</p><div class="hc-actions">${btn("Cancelar", "close-dialog")}<button class="hc-btn primary" type="submit" id="hc-start-order" disabled>Crear orden →</button></div></form>`;
     $("#hc-dialog").showModal();
   }
   function normalizeData(data) {
     const d = structuredClone(data),
-      t = catalog.templates.find((t) => t.id === d.type);
-    d.checklist = t.checklist.map((c) => ({
-      ...c,
-      ...(d.checklist || []).find((v) => v.id === c.id),
-      outcome:
-        (d.checklist || []).find((v) => v.id === c.id)?.outcome || "pendiente",
-    }));
+      t = brandCatalog(d.brand || "hispacold").templates.find(
+        (t) => t.id === d.type,
+      );
+    d.checklist = t.checklist
+      .filter(
+        (c) =>
+          !(
+            Number(d.formVersion) === 3 &&
+            d.type === "preventivo" &&
+            c.actions?.[d.interval] === "-"
+          ),
+      )
+      .map((c) => ({
+        ...c,
+        ...(d.checklist || []).find((v) => v.id === c.id),
+        outcome:
+          (d.checklist || []).find((v) => v.id === c.id)?.outcome ||
+          "pendiente",
+      }));
     d.measurements = catalog.measurements.map((m) => ({
       ...m,
       ...(d.measurements || []).find((v) => v.id === m.id),
@@ -466,19 +523,27 @@
     }));
     return d;
   }
-  async function create(type, source = cloneSource) {
+  async function create(
+    type,
+    source = cloneSource,
+    brand = "hispacold",
+    attention = "normal",
+  ) {
     if (!(await leave())) return;
     $("#hc-dialog").close();
     await resetEditor();
     draft = normalizeData({
+      formVersion: 3,
+      brand,
+      attention,
       type,
       status: "borrador",
       serviceDate: localDate(),
-      interval: "mensual",
+      interval: Object.keys(brandCatalog(brand).intervals)[0] || "mensual",
       company: "",
       unit: "",
-      priority: type === "express" ? "urgente" : "normal",
-      eventKind: type === "express" ? "urgencia" : "",
+      priority: attention === "express" ? "urgente" : "normal",
+      eventKind: attention === "express" ? "urgencia" : "",
       technician: catalog.user.nombre,
     });
     if (source) {
@@ -496,12 +561,23 @@
         "planReference",
         "interval",
       ])
-        draft[k] = s[k] || draft[k] || "";
+        if (
+          ![
+            "equipment",
+            "control",
+            "compressorSerial",
+            "planReference",
+            "interval",
+          ].includes(k) ||
+          (s.brand || "hispacold") === brand
+        )
+          draft[k] = s[k] || draft[k] || "";
       draft.fleetUnitId = units.some((u) => u.id === s.fleetUnitId)
         ? s.fleetUnitId
         : "";
       draft.sourceOrderId = source.id;
     }
+    draft = normalizeData(draft);
     cloneSource = null;
     localId = crypto.randomUUID();
     change = 0;
@@ -572,6 +648,7 @@
     }
   }
   function editor() {
+    if (isV3()) return editorSimple();
     nav("services");
     signatures = {};
     const steps = stepSets[draft.type];
@@ -584,13 +661,167 @@
       ) +
       `<div id="hc-form-error" class="hc-error" role="alert"></div><form id="hc-form" novalidate><div class="hc-wizard-progress"><div><b id="hc-progress-label"></b><span id="hc-check-progress"></span></div><progress id="hc-progress" max="100" value="0" aria-label="Avance de captura"></progress></div><div class="hc-panel"><div class="hc-steps" role="tablist">${steps.map(([id, label], i) => `<button type="button" role="tab" aria-controls="hc-section-${id}" aria-selected="${step === i}" data-step="${i}" class="${step === i ? "active" : ""}">${i + 1}. ${label}<span class="hc-step-state" data-state="${id}"></span></button>`).join("")}</div>
       ${steps.map(([id], i) => `<section class="hc-section hc-step" id="hc-section-${id}" data-section="${i}" ${step !== i ? "hidden" : ""}>${{ reception: receptionHTML, inspection: inspectionHTML, measurements: measurementsHTML, work: workHTML, delivery: deliveryHTML }[id]()}</section>`).join("")}</div>
-      <input id="hc-check-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+      <input id="hc-camera-input" type="file" accept="image/*" capture="environment" hidden><input id="hc-check-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
       <div class="hc-savebar"><span id="hc-save-state" role="status"></span><div class="hc-actions">${btn("Anterior", "step-prev", "", step === 0 ? "disabled" : "")}${btn("Siguiente", "step-next", "", step === steps.length - 1 ? "disabled" : "")}<button type="submit" class="hc-btn primary" id="hc-save">Guardar orden</button></div></div></form>`;
     initSignatures();
     updateProgress();
     storeStatus();
     if (draft.company && draft.unit) loadUnitContext();
   }
+  function extraBlock(title, body, open = false, id = "") {
+    return `<details class="hc-extra-fields hc-simple-extra" ${open ? "open" : ""} ${id ? `id="${id}"` : ""}><summary>${title}</summary><div class="hc-extra-content">${body}</div></details>`;
+  }
+  function editorSimple() {
+    nav("services");
+    signatures = {};
+    const requiredChecks = ["preventivo", "mayor"].includes(draft.type);
+    const hasReadings = draft.measurements.some(
+      (m) =>
+        (m.before != null && m.before !== "") ||
+        (m.after != null && m.after !== "") ||
+        m.conditions,
+    );
+    $("#hc-main").innerHTML =
+      heading(
+        `${brandName(draft.brand).toUpperCase()} / ${record?.folio || "NUEVA ORDEN"}`,
+        catalog.types[draft.type],
+        `${isExpress() ? "⚡ Servicio express" : "Atención normal"} · Guarda ahora y completa el trabajo cuando termines.`,
+        btn("← Órdenes", "back"),
+      ) +
+      `<div id="hc-form-error" class="hc-error" role="alert"></div><form id="hc-form" class="hc-simple-form" novalidate><section class="hc-panel hc-section"><div class="hc-simple-title"><span class="hc-number">1</span><div><h2>¿Qué pasó?</h2><p>Unidad y motivo: lo necesario para abrir la orden.</p></div></div><div class="hc-grid"><label class="hc-field wide"><b>Unidad</b><select name="fleetUnitId" id="hc-unit">${opts(Object.fromEntries(units.map((u) => [u.id, `${u.empresa} · ${u.numero_economico}`])), draft.fleetUnitId, "Unidad externa / captura manual")}</select></label>${draft.fleetUnitId ? `<div class="hc-unit-summary wide"><b>${esc(draft.company)} · ${esc(draft.unit)}</b><span>${esc(draft.model)}</span></div>` : ""}${draft.fleetUnitId ? extraBlock("Editar empresa y económico", `<div class="hc-grid">${field("Empresa / cliente *", "company", "text", 'maxlength="180"')}${field("Número económico *", "unit", "text", 'maxlength="80"')}</div>`) : field("Empresa / cliente *", "company", "text", 'maxlength="180"') + field("Número económico *", "unit", "text", 'maxlength="80"')}${field("Motivo del servicio *", "symptoms", "textarea", 'placeholder="¿Qué reporta el operador o qué trabajo se solicita?" rows="2"')}</div><div class="hc-symptom-chips" aria-label="Motivos frecuentes">${brandCatalog()
+        .symptomGuides.filter((g) => g.id !== "otro")
+        .map((g) =>
+          btn(
+            esc(g.label),
+            "symptom-chip",
+            draft.symptomCode === g.id ? "selected" : "",
+            `data-code="${esc(g.id)}"`,
+          ),
+        )
+        .join(
+          "",
+        )}</div><input type="hidden" name="symptomCode" value="${esc(draft.symptomCode)}"><div id="hc-unit-context" class="hc-unit-context"></div>
+      ${draft.type === "preventivo" ? `<div class="hc-grid hc-plan-row">${select("Plan de mantenimiento", "interval", intervalNames())}${field("Plan acordado con la flota", "planReference")}</div>` : ""}
+      ${extraBlock("Fecha, responsable y datos del equipo", `<div class="hc-grid">${field("Fecha del servicio *", "serviceDate", "date")}${field("Técnico responsable *", "technician")}${field("Modelo de unidad", "model")}${field("Equipo de aire acondicionado", "equipment")}${field("Control / display", "control")}${field("Serie del compresor", "compressorSerial")}${field("Chasis", "chassis")}${field("Kilometraje", "mileage", "number")}${field("Base / ubicación", "base")}${field("Número de obra", "workNumber")}${select("Prioridad", "priority", { normal: "Normal", alta: "Alta", urgente: "Urgente" })}</div>`)}
+      ${isExpress() ? extraBlock("Datos del evento express", `<div class="hc-grid">${select("Tipo de evento", "eventKind", catalog.eventKinds)}${field("Ubicación de la atención", "eventLocation")}${field("Contacto", "eventContact")}${field("Aviso", "reportedAt", "datetime-local")}${field("Llegada", "arrivalAt", "datetime-local")}${field("Resolución", "resolvedAt", "datetime-local")}</div>`) : ""}</section>
+      <section class="hc-panel hc-section"><div class="hc-simple-title"><span class="hc-number">2</span><div><h2>¿Qué hicimos?</h2><p>Completa esta parte durante la atención.</p></div></div><div class="hc-grid">${["revision", "mayor"].includes(draft.type) ? field("Diagnóstico / causa encontrada *", "diagnosis", "textarea", 'rows="2"') : ""}${field("Trabajo realizado", "workDone", "textarea", 'rows="3" placeholder="Describe la intervención o la revisión realizada."')}</div>
+      ${extraBlock(requiredChecks ? 'Lista de mantenimiento y verificación <span id="hc-check-progress"></span>' : 'Agregar revisión de componentes (opcional) <span id="hc-check-progress"></span>', inspectionHTML(), requiredChecks, "hc-review-details")}
+      ${extraBlock("Diagnóstico y referencia técnica", `<div class="hc-grid">${!["revision", "mayor"].includes(draft.type) ? field("Diagnóstico / causa", "diagnosis", "textarea") : ""}${field("Códigos observados", "faultCodes")}${field("Referencia técnica / procedimiento / página", "technicalReference")}${field("Alcance y autorización general", "authorization")}</div><div id="hc-symptom-guide">${guideHTML()}</div>`, draft.type === "mayor", "hc-diagnostic-details")}
+      ${extraBlock("Mediciones / intervine el circuito", measurementsHTML(), draft.circuitOpened || hasReadings, "hc-measurement-details")}
+      ${extraBlock("Usé refacciones o materiales", `<div id="hc-parts">${partsHTML()}</div>${btn("+ Agregar concepto", "add-part")}<p class="hc-subtle">Importes en MXN. Registro de la orden, sin movimientos automáticos de almacén.</p>`, draft.parts.length > 0, "hc-parts-details")}
+      ${extraBlock("Hay trabajos por autorizar o pendientes", `<div id="hc-findings">${findingsHTML()}</div>${btn("+ Agregar trabajo detectado", "add-finding")}`, draft.findings.length > 0, "hc-findings-details")}
+      <div class="hc-photo-section"><div><h3>Fotos del trabajo</h3><p class="hc-subtle">Hasta 8 fotos · antes, durante o después</p></div><div class="hc-actions">${btn("◉ Tomar foto", "take-photo")}${btn("↑ Elegir fotos", "choose-photos")}</div><div id="hc-evidence" class="hc-evidence">${evidenceHTML()}</div></div></section>
+      <section class="hc-panel hc-section"><div class="hc-simple-title"><span class="hc-number">3</span><div><h2>¿Cómo quedó?</h2><p>La prueba y el resultado se requieren al cerrar.</p></div></div><div id="hc-delivery-pending"></div><div class="hc-grid">${field("Prueba realizada y resultado", "finalTest", "textarea", 'rows="2" placeholder="¿Qué comprobaste después de la atención?"')}${select("Condición de entrega", "result", results, "Seleccionar al terminar")}${select("Estado de la orden", "status", Object.fromEntries(Object.entries(catalog.statuses).filter(([k]) => k !== "completado")))}</div><div id="hc-result-followup" ${(draft.result && draft.result !== "operativo") || draft.recommendations ? "" : "hidden"}>${field("Pendientes y recomendaciones *", "recommendations", "textarea", 'rows="2"')}</div>
+      <div id="hc-cancel-field" ${draft.status === "cancelado" ? "" : "hidden"}>${field("Motivo de cancelación *", "cancelReason")}</div>${extraBlock("Próxima visita y constancia de entrega", `<div class="hc-grid">${field("Próximo servicio", "nextDate", "date")}${field("Representante del cliente", "clientName")}</div>${draft.type === "preventivo" ? btn("Sugerir próxima fecha por periodicidad", "suggest-date") : ""}<div class="hc-grid">${["technicianSignature", "clientSignature"].map((key, i) => `<div class="hc-signature"><label>${i ? "Firma del cliente (opcional)" : "Firma del técnico (opcional)"}</label><canvas data-signature="${key}" aria-label="${i ? "Firma del cliente" : "Firma del técnico"}"></canvas>${btn("Limpiar firma", "clear-signature", "", `data-key="${key}"`)}</div>`).join("")}</div>`, !!(draft.nextDate || draft.clientName || draft.technicianSignature || draft.clientSignature))}<div class="hc-close-readiness" id="hc-close-readiness"></div></section>
+      <input id="hc-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden><input id="hc-camera-input" type="file" accept="image/*" capture="environment" hidden><input id="hc-check-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+      <div class="hc-savebar"><span id="hc-save-state" role="status"></span><div class="hc-actions"><button type="submit" class="hc-btn" id="hc-save">Guardar avance</button>${btn("Completar orden", "complete-order", "primary")}</div></div></form>`;
+    if ($("[name=interval]"))
+      $("[name=interval]").dataset.previous = draft.interval;
+    initSignatures();
+    updateProgress();
+    storeStatus();
+    if (draft.company && draft.unit) loadUnitContext();
+  }
+  function updateSimpleProgress() {
+    const resolved = draft.checklist.filter(
+      (c) => c.outcome !== "pendiente",
+    ).length;
+    if ($("#hc-check-progress"))
+      $("#hc-check-progress").textContent = resolved
+        ? `${resolved} registrados`
+        : "";
+    if ($("#hc-check-count"))
+      $("#hc-check-count").textContent =
+        `${resolved} de ${draft.checklist.length} revisados`;
+    const missing = closeMissing();
+    $("#hc-close-readiness").innerHTML = missing.length
+      ? `<b>Puedes guardar el avance en cualquier momento.</b><p>Para cerrar: ${missing.map(esc).join(" · ")}.</p>`
+      : "<b>Lista para completar.</b><p>Revisa la información y pulsa Completar orden.</p>";
+    const pending = draft.findings.filter(
+      (f) => !["realizado", "descartado"].includes(f.decision),
+    );
+    $("#hc-delivery-pending").innerHTML = pending.length
+      ? `<div class="hc-note"><b>${pending.length} trabajos pendientes</b><ul>${pending.map((f) => `<li>${esc(f.description || "Trabajo por describir")} · ${esc(decisions[f.decision])}</li>`).join("")}</ul></div>`
+      : "";
+    $$(".hc-check[data-check]").forEach((el) => {
+      const c = draft.checklist.find((c) => c.id === el.dataset.check);
+      el.hidden = checkFilter !== "all" && c.outcome !== checkFilter;
+      el.classList.toggle("has-finding", c.outcome === "hallazgo");
+    });
+  }
+  function photoDialog(checkId = "") {
+    pendingPhotoCheck = checkId;
+    $("#hc-dialog").innerHTML =
+      `<h2>Agregar evidencia</h2><p>${checkId ? esc(draft.checklist.find((c) => c.id === checkId)?.label || "") : "Elige cómo agregar la foto."}</p><div class="hc-actions">${btn("◉ Tomar foto", "camera-context")}${btn("↑ Elegir fotos", "gallery-context")}${btn("Cancelar", "close-dialog")}</div>`;
+    $("#hc-dialog").showModal();
+  }
+  function stopCamera() {
+    if (cameraStream) cameraStream.getTracks().forEach((t) => t.stop());
+    cameraStream = null;
+  }
+  async function startCamera() {
+    if (
+      /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+      (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent))
+    ) {
+      $("#hc-dialog").close();
+      $("#hc-camera-input").click();
+      return;
+    }
+    $("#hc-dialog").innerHTML =
+      `<h2>Tomar foto</h2><p id="hc-camera-status">Solicitando acceso a la cámara…</p><video id="hc-camera-video" autoplay playsinline muted></video><div class="hc-actions">${btn("Capturar foto", "capture-photo", "primary", "disabled")}${btn("Elegir archivo", "gallery-context")}${btn("Cancelar", "close-dialog")}</div>`;
+    if (!$("#hc-dialog").open) $("#hc-dialog").showModal();
+    try {
+      if (!navigator.mediaDevices?.getUserMedia)
+        throw new Error(
+          "La cámara necesita una conexión segura (HTTPS). Puedes elegir una foto del dispositivo.",
+        );
+      const video = $("#hc-camera-video");
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false,
+      });
+      if (!video.isConnected || !$("#hc-dialog").open) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      cameraStream = stream;
+      video.srcObject = stream;
+      await video.play();
+      $("#hc-camera-status").textContent =
+        "Encuadra el componente y captura la evidencia.";
+      $("[data-action=capture-photo]").disabled = false;
+    } catch (e) {
+      stopCamera();
+      if ($("#hc-camera-status"))
+        $("#hc-camera-status").textContent =
+          e.name === "NotAllowedError"
+            ? "No se autorizó la cámara. Puedes permitirla en tu navegador o elegir una foto."
+            : e.name === "NotFoundError"
+              ? "No se encontró una cámara. Puedes elegir una foto del dispositivo."
+              : e.message;
+    }
+  }
+  async function capturePhoto() {
+    const video = $("#hc-camera-video");
+    if (!video?.videoWidth) return toast("Espera a que la cámara esté lista.");
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0);
+    const blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", 0.9),
+    );
+    if (!blob)
+      throw new Error("No se pudo capturar la foto. Intenta de nuevo.");
+    stopCamera();
+    $("#hc-dialog").close();
+    await photos(
+      [new File([blob], `Foto-${Date.now()}.jpg`, { type: "image/jpeg" })],
+      pendingPhotoCheck,
+    );
+  }
+
   function receptionHTML() {
     const express = draft.type === "express";
     return `<h2>${express ? "¿Qué ocurrió y dónde?" : "Recepción de la unidad"}</h2><div class="hc-grid">
@@ -605,7 +836,9 @@
     ${express ? `<details class="hc-extra-fields"><summary>Tiempos de atención (hora local, opcional)</summary><div class="hc-grid">${field("Aviso", "reportedAt", "datetime-local")}${field("Llegada", "arrivalAt", "datetime-local")}${field("Resolución", "resolvedAt", "datetime-local")}</div></details>` : ""}`;
   }
   function guideHTML() {
-    const guide = catalog.symptomGuides.find((g) => g.id === draft.symptomCode);
+    const guide = brandCatalog().symptomGuides.find(
+      (g) => g.id === draft.symptomCode,
+    );
     if (!guide) return "";
     return `<div class="hc-guide"><div><b>Apoyo al diagnóstico · ${esc(guide.label)}</b>${sourceButton(guide.source)}</div><ol>${guide.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol><small>Puntos de inspección; confirma valores y procedimiento según el equipo.</small></div>`;
   }
@@ -624,7 +857,7 @@
         !target.isConnected
       )
         return;
-      target.innerHTML = `<div><b>${r.summary.total} servicios registrados para esta unidad</b><span>Última intervención: ${r.items[0] ? fmt(r.items[0].serviceDate) + " · " + catalog.types[r.items[0].type] : "Sin historial"} · Próximo: ${fmt(r.next[0]?.nextDate)}</span>${r.recurring.length ? `<small>Síntomas repetidos: ${r.recurring.map((f) => esc(catalog.symptomGuides.find((g) => g.id === f.code)?.label || f.code) + " (" + f.total + ")").join(", ")}</small>` : ""}</div>${btn("Ver expediente", "unit-history")}`;
+      target.innerHTML = `<div><b>${r.summary.total} servicios registrados para esta unidad</b><span>Última intervención: ${r.items[0] ? fmt(r.items[0].serviceDate) + " · " + catalog.types[r.items[0].type] : "Sin historial"} · Próximo: ${fmt(r.next[0]?.nextDate)}</span>${r.recurring.length ? `<small>Síntomas repetidos: ${r.recurring.map((f) => esc(brandCatalog(f.brand || "hispacold").symptomGuides.find((g) => g.id === f.code)?.label || f.code) + " (" + f.total + ")").join(", ")}</small>` : ""}</div>${btn("Ver expediente", "unit-history")}${isV3() && !record && r.items.find((i) => (i.brand || "hispacold") === draft.brand) ? btn("Reutilizar datos del equipo", "reuse-equipment", "", `data-id="${esc(r.items.find((i) => (i.brand || "hispacold") === draft.brand).id)}"`) : ""}`;
     } catch (e) {
       if (target.isConnected)
         target.textContent =
@@ -642,7 +875,7 @@
             .filter((c) => c.group === group)
             .map(
               (c) =>
-                `<div class="hc-check" data-check="${c.id}" ${checkFilter !== "all" && c.outcome !== checkFilter ? "hidden" : ""}><div><b>${esc(c.label)}</b><small>${draft.type === "preventivo" && c.actions?.[draft.interval] ? `Plan B2: ${esc(c.actions[draft.interval])} · ` : ""}${sourceButton(c.source)}</small><button type="button" class="hc-photo-link" data-action="check-photo" data-check="${c.id}">+ Foto <span data-photo-count="${c.id}">${draft.evidence.filter((p) => p.checkId === c.id).length || ""}</span></button></div><label>Acción<select name="action:${c.id}">${opts(actionNames, c.action)}</select></label><label>Resultado<select name="outcome:${c.id}">${opts(outcomes, c.outcome)}</select></label><label>Observaciones<input name="notes:${c.id}" value="${esc(c.notes)}" maxlength="2000" placeholder="${["hallazgo", "no_aplica"].includes(c.outcome) ? "Escribe el motivo" : "Observación o trabajo realizado"}"></label></div>`,
+                `<div class="hc-check" data-check="${c.id}" ${checkFilter !== "all" && c.outcome !== checkFilter ? "hidden" : ""}><div><b>${esc(c.label)}</b><small>${draft.type === "preventivo" && c.actions?.[draft.interval] ? `${draft.brand === "eberspaecher" ? "Plan AC-188DD" : "Plan B2"}: ${esc(c.actions[draft.interval])} · ` : ""}${sourceButton(c.source)}</small><button type="button" class="hc-photo-link" data-action="check-photo" data-check="${c.id}">+ Foto <span data-photo-count="${c.id}">${draft.evidence.filter((p) => p.checkId === c.id).length || ""}</span></button></div><label>Acción<select name="action:${c.id}">${opts(actionNames, c.action)}</select></label><label>Resultado<select name="outcome:${c.id}">${opts(outcomes, c.outcome)}</select></label><label>Observaciones<input name="notes:${c.id}" value="${esc(c.notes)}" maxlength="2000" placeholder="${["hallazgo", "no_aplica"].includes(c.outcome) ? "Escribe el motivo" : "Observación o trabajo realizado"}"></label></div>`,
             )
             .join("")}</details>`,
       )
@@ -697,21 +930,28 @@
       ["unit", "Unidad"],
       ["serviceDate", "Fecha"],
       ["technician", "Técnico"],
-      ["diagnosis", "Diagnóstico"],
+      ...(!isV3() || ["revision", "mayor"].includes(d.type)
+        ? [["diagnosis", "Diagnóstico"]]
+        : []),
       ["workDone", "Trabajo realizado"],
       ["finalTest", "Prueba final"],
       ["result", "Condición de entrega"],
     ])
       if (!String(d[key] ?? "").trim()) missing.push(label);
-    if (d.type === "express")
+    if (!isV3() && d.type === "express")
       for (const [key, label] of [
         ["eventKind", "Tipo de evento"],
         ["eventLocation", "Ubicación"],
         ["symptoms", "Motivo del evento"],
       ])
         if (!d[key]) missing.push(label);
+    if (isV3() && !d.symptoms?.trim()) missing.push("Motivo del servicio");
+    if (isV3() && isExpress() && !d.eventKind) missing.push("Tipo de evento");
+    if (isV3() && d.type === "preventivo" && !d.interval)
+      missing.push("Periodicidad");
     const pending = d.checklist.filter((c) => c.outcome === "pendiente").length;
-    if (pending) missing.push(`${pending} puntos de revisión pendientes`);
+    if (pending && (!isV3() || ["preventivo", "mayor"].includes(d.type)))
+      missing.push(`${pending} puntos de revisión pendientes`);
     if (
       d.checklist.some(
         (c) =>
@@ -753,6 +993,7 @@
   function updateProgress() {
     if (!draft || !$("#hc-form")) return;
     readForm();
+    if (isV3()) return updateSimpleProgress();
     const steps = stepSets[draft.type],
       resolved = draft.checklist.filter(
         (c) => c.outcome !== "pendiente",
@@ -995,6 +1236,16 @@
   }
   function reportHTML(r) {
     const d = r.data;
+    const displayChecks =
+      Number(d.formVersion) === 3 && !["preventivo", "mayor"].includes(d.type)
+        ? d.checklist.filter(
+            (c) =>
+              c.outcome !== "pendiente" ||
+              c.notes ||
+              c.action ||
+              d.evidence.some((p) => p.checkId === c.id),
+          )
+        : d.checklist;
     const kv = (label, v) =>
       v !== null && v !== undefined && v !== ""
         ? `<div><small>${esc(label)}</small>${esc(v)}</div>`
@@ -1007,7 +1258,7 @@
         (m.after != null && m.after !== "") ||
         m.conditions,
     );
-    return `<article class="hc-report"><div class="hc-print-header"><div><div class="hc-kicker">CARLAB / HISPACOLD</div><h1>${esc(r.folio)}</h1><p>${esc(catalog.types[d.type])} · ${fmt(d.serviceDate)}</p></div><div>${badge(d.status)}<p>Versión ${r.version}</p></div></div><div class="hc-report-result ${esc(d.result)}"><b>${esc(results[d.result] || "Entrega pendiente")}</b><span>${esc(d.company)} · Unidad ${esc(d.unit)}</span></div><h2>Identificación</h2><div class="hc-grid">${[
+    return `<article class="hc-report"><div class="hc-print-header"><div><div class="hc-kicker">CARLAB / ${esc(brandName(d.brand))}</div><h1>${esc(r.folio)}</h1><p>${esc(catalog.types[d.type])} · ${isExpress(d) ? "Express" : "Normal"} · ${fmt(d.serviceDate)}</p></div><div>${badge(d.status)}<p>Versión ${r.version}</p></div></div><div class="hc-report-result ${esc(d.result)}"><b>${esc(results[d.result] || "Entrega pendiente")}</b><span>${esc(d.company)} · Unidad ${esc(d.unit)}</span></div><h2>Identificación</h2><div class="hc-grid">${[
       ["Empresa", d.company],
       ["Unidad", d.unit],
       ["Técnico", d.technician],
@@ -1028,7 +1279,7 @@
       .join("")}</div>
       ${section("Motivo / síntomas", d.symptoms)}${section("Diagnóstico", d.diagnosis)}${section("Trabajo realizado", d.workDone)}${section("Prueba final", d.finalTest)}${section("Recomendaciones y pendientes", d.recommendations)}
       ${(d.findings || []).length ? `<h2>Detectado, autorizado y realizado</h2><div class="hc-table-wrap"><table><thead><tr><th>Trabajo</th><th>Decisión</th><th>Autorizado por</th><th>Observaciones</th></tr></thead><tbody>${d.findings.map((f) => `<tr><td>${esc(f.description)}</td><td>${esc(decisions[f.decision])}</td><td>${esc(f.authorizedBy)}</td><td>${esc(f.notes)}</td></tr>`).join("")}</tbody></table></div>` : ""}
-      <h2>Lista de revisión</h2><div class="hc-table-wrap"><table><thead><tr><th>Punto</th><th>Acción</th><th>Resultado</th><th>Observación / referencia</th></tr></thead><tbody>${d.checklist.map((c) => `<tr><td>${esc(c.group)} · ${esc(c.label)}</td><td>${esc(c.action || "—")}</td><td>${esc(outcomes[c.outcome])}</td><td>${esc(c.notes)}<br>${sourceButton(c.source)}</td></tr>`).join("")}</tbody></table></div>
+      ${displayChecks.length ? `<h2>Lista de revisión</h2><div class="hc-table-wrap"><table><thead><tr><th>Punto</th><th>Acción</th><th>Resultado</th><th>Observación / referencia</th></tr></thead><tbody>${displayChecks.map((c) => `<tr><td>${esc(c.group)} · ${esc(c.label)}</td><td>${esc(c.action || "—")}</td><td>${esc(outcomes[c.outcome])}</td><td>${esc(c.notes)}<br>${sourceButton(c.source)}</td></tr>`).join("")}</tbody></table></div>` : ""}
       ${nonempty.length ? `<h2>Mediciones</h2><div class="hc-table-wrap"><table><thead><tr><th>Lectura</th><th>Antes</th><th>Después</th><th>Condiciones</th></tr></thead><tbody>${nonempty.map((m) => `<tr><td>${esc(m.label)} (${esc(m.unit)})</td><td>${esc(m.before ?? "—")}</td><td>${esc(m.after ?? "—")}</td><td>${esc(m.conditions)}</td></tr>`).join("")}</tbody></table></div>` : ""}
       ${
         d.circuitOpened
@@ -1077,35 +1328,39 @@
           : ""
       }
       ${section("Motivo de cancelación", d.cancelReason)}${section("Motivo de reapertura", d.reopenReason)}
-      <h2>Bitácora de cambios</h2><div class="hc-timeline">${(r.events || []).map((e) => `<div class="hc-event"><b>${esc(e.actor_name)}</b> · ${new Date(e.created_at).toLocaleString("es-MX")}<small>Versión ${e.details.version} · ${esc(catalog.statuses[e.details.to] || e.details.to)}${e.details.reason ? " · " + esc(e.details.reason) : ""}</small></div>`).join("")}</div>${d.sourceOrderId ? `<p class="hc-no-print">${btn("Ver orden de origen", "open", "", `data-id="${esc(d.sourceOrderId)}"`)}</p>` : ""}</article>`;
+      <h2>Bitácora de cambios</h2><div class="hc-timeline">${(r.events || []).map((e) => `<div class="hc-event"><b>${esc(e.actor_name)}</b> · ${new Date(e.created_at).toLocaleString("es-MX")}<small>Versión ${e.details.version} · ${esc({ eliminacion: "Enviada a papelera", restauracion: "Restaurada", eliminar: "Enviada a papelera", restaurar: "Restaurada", delete: "Enviada a papelera", restore: "Restaurada" }[e.action] || catalog.statuses[e.details.to] || e.details.to || e.action)}${e.details.reason ? " · " + esc(e.details.reason) : ""}</small></div>`).join("")}</div>${d.sourceOrderId ? `<p class="hc-no-print">${btn("Ver orden de origen", "open", "", `data-id="${esc(d.sourceOrderId)}"`)}</p>` : ""}</article>`;
   }
   function detail(r) {
     const closed = ["completado", "cancelado"].includes(r.status);
     $("#hc-main").innerHTML =
       heading(
-        "EXPEDIENTE TÉCNICO",
+        "EXPEDIENTE DE CLIMATIZACIÓN",
         r.folio,
-        `${r.company} · Unidad ${r.unit}`,
+        `${r.company} · Unidad ${r.unit} · ${brandName(r.data.brand)}`,
         btn("← Órdenes", "back") +
-          btn("Expediente de unidad", "record-history") +
-          btn("Nuevo servicio de esta unidad", "new-from-record") +
-          btn("↓ JSON", "json") +
           btn("↓ Descargar PDF", "pdf", "primary") +
-          btn(
-            closed ? "Reabrir orden" : "Editar orden",
-            closed ? "reopen" : "edit",
-          ),
-      ) + reportHTML(r);
+          (r.deletedAt
+            ? btn("Recuperar orden", "restore-order")
+            : btn(
+                closed ? "Reabrir orden" : "Continuar atención",
+                closed ? "reopen" : "edit",
+              )),
+      ) +
+      (r.deletedAt
+        ? `<div class="hc-note"><b>Orden en papelera</b><p>${esc(r.deleteReason || "")} · ${fmt(r.deletedAt)}</p></div>`
+        : "") +
+      `<details class="hc-more-actions"><summary>Más opciones</summary><div class="hc-actions">${btn("Expediente de unidad", "record-history")}${!r.deletedAt ? btn("Nuevo servicio de esta unidad", "new-from-record") : ""}${btn("↓ JSON", "json")}${!r.deletedAt ? btn("Eliminar orden", "delete-order", "hc-danger") : ""}</div></details>` +
+      reportHTML(r);
   }
   function library() {
     $("#hc-main").innerHTML =
       heading(
         "DOCUMENTACIÓN / CONSULTA",
-        "Biblioteca Hispacold",
+        "Biblioteca de climatización",
         `${catalog.manuals.length} manuales, diagramas y referencias para el taller.`,
         btn("↑ Importar manuales", "import", "primary"),
       ) +
-      `<input id="hc-manual-input" type="file" accept="application/pdf,.pdf" multiple hidden><div class="hc-note">Selecciona los PDF originales de la carpeta Hispacold para guardarlos en la biblioteca privada. Se identifica cada archivo por su contenido. <span id="hc-import-progress" role="status"></span></div><div class="hc-filters"><input id="hc-manual-search" type="search" aria-label="Buscar manuales" placeholder="Buscar manual, equipo, diagrama…"><select id="hc-manual-category" aria-label="Categoría">${opts(Object.fromEntries([...new Set(catalog.manuals.map((m) => m.category))].map((x) => [x, x])), "", "Todas las categorías")}</select></div><br><div id="hc-manual-list" class="hc-library"></div><br><div class="hc-note">${catalog.notices.map((n) => `<p>${esc(n)}</p>`).join("")}</div>`;
+      `<input id="hc-manual-input" type="file" accept="application/pdf,.pdf" multiple hidden><div class="hc-note">Selecciona los PDF originales de las carpetas Hispacold y VOLVO para guardarlos en la biblioteca privada. Se identifica cada archivo por su contenido. <span id="hc-import-progress" role="status"></span></div><div class="hc-filters"><input id="hc-manual-search" type="search" aria-label="Buscar manuales" placeholder="Buscar manual, equipo, diagrama…"><select id="hc-manual-brand" aria-label="Marca de manual">${opts(catalog.brands, "", "Todas las marcas")}</select><select id="hc-manual-category" aria-label="Categoría">${opts(Object.fromEntries([...new Set(catalog.manuals.map((m) => m.category))].map((x) => [x, x])), "", "Todas las categorías")}</select></div><br><div id="hc-manual-list" class="hc-library"></div><br><div class="hc-note" id="hc-library-notices"></div>`;
     manualCards();
   }
   function manualCards() {
@@ -1114,40 +1369,56 @@
     const rows = catalog.manuals.filter(
       (m) =>
         (!cat || m.category === cat) &&
+        (!$("#hc-manual-brand")?.value ||
+          (m.brand || "hispacold") === $("#hc-manual-brand").value) &&
         `${m.title} ${m.category}`.toLocaleLowerCase().includes(q),
     );
+    const selectedBrand = $("#hc-manual-brand")?.value;
+    if ($("#hc-library-notices"))
+      $("#hc-library-notices").innerHTML = (
+        selectedBrand ? [selectedBrand] : Object.keys(catalog.brands)
+      )
+        .map(
+          (brand) =>
+            `<b>${esc(brandName(brand))}</b>${brandCatalog(brand)
+              .notices.map((n) => `<p>${esc(n)}</p>`)
+              .join("")}`,
+        )
+        .join("");
     $("#hc-manual-list").innerHTML =
       rows
         .map(
           (m) =>
-            `<article class="hc-manual"><div class="hc-kicker">${esc(m.category)}</div><h2>${esc(m.title)}</h2><p>PDF · ${m.pages} ${m.pages === 1 ? "página" : "páginas"} · ${(m.bytes / 1048576).toFixed(1)} MB</p><div class="hc-actions">${m.available ? btn("Consultar PDF ↗", "manual", "", `data-id="${m.id}"`) : '<span class="hc-badge">Pendiente de importar</span>'}</div></article>`,
+            `<article class="hc-manual"><div class="hc-kicker">${esc(brandName(m.brand))} / ${esc(m.category)}</div><h2>${esc(m.title)}</h2><p>PDF · ${m.pages} ${m.pages === 1 ? "página" : "páginas"} · ${(m.bytes / 1048576).toFixed(1)} MB</p><div class="hc-actions">${m.available ? btn("Consultar PDF ↗", "manual", "", `data-id="${m.id}"`) : '<span class="hc-badge">Pendiente de importar</span>'}</div></article>`,
         )
         .join("") ||
       '<div class="hc-empty">No hay manuales con ese filtro.</div>';
   }
   function codes() {
+    const bc = brandCatalog(knowledgeBrand),
+      controls = [...new Set(bc.codes.map((c) => c.control))];
     $("#hc-main").innerHTML =
       heading(
         "APOYO AL DIAGNÓSTICO",
-        "Códigos de control",
-        "Consulta la descripción y registra el código observado en la orden.",
+        "Códigos e indicadores de control",
+        "Selecciona la marca y confirma el control instalado antes de interpretar una indicación.",
       ) +
-      `<div class="hc-note">Basic se identifica por destellos. Ecomaster Clima usa códigos de texto. Comprueba qué control equipa la unidad antes de interpretar el código.</div><section class="hc-panel"><div class="hc-filters"><input id="hc-code-search" type="search" aria-label="Buscar código" placeholder="Buscar código o descripción…"><select id="hc-code-control" aria-label="Control"><option value="">Todos los controles</option><option>Basic</option><option>Ecomaster Clima</option></select></div><div class="hc-table-wrap"><table><thead><tr><th>Control</th><th>Código</th><th>Descripción</th><th>Fuente</th></tr></thead><tbody id="hc-code-list"></tbody></table></div></section>`;
+      `<section class="hc-panel"><div class="hc-filters"><select id="hc-code-brand" aria-label="Marca de códigos">${opts(catalog.brands, knowledgeBrand)}</select><input id="hc-code-search" type="search" aria-label="Buscar código" placeholder="Código, indicador o descripción…"><select id="hc-code-control" aria-label="Control">${opts(Object.fromEntries(controls.map((c) => [c, c])), "", "Todos los controles")}</select></div><div class="hc-table-wrap"><table><thead><tr><th>Control</th><th>Código / indicador</th><th>Descripción</th><th>Fuente</th></tr></thead><tbody id="hc-code-list"></tbody></table></div></section><div class="hc-note">Las referencias corresponden a ${esc(brandName(knowledgeBrand))}. Confirma modelo, versión del control y procedimiento aplicable a la unidad.</div>`;
     codeRows();
   }
   function codeRows() {
     const q = $("#hc-code-search").value.toLowerCase(),
       control = $("#hc-code-control").value;
     $("#hc-code-list").innerHTML =
-      catalog.codes
-        .filter(
+      brandCatalog(knowledgeBrand)
+        .codes.filter(
           (c) =>
             (!control || c.control === control) &&
             `${c.code} ${c.description}`.toLowerCase().includes(q),
         )
         .map(
           (c) =>
-            `<tr><td>${esc(c.control)}</td><td><strong>${esc(c.code)}</strong></td><td>${esc(c.description)}</td><td>${btn("Manual · pág. " + c.source.page, "manual", "", `data-id="${c.source.manualId}" data-page="${c.source.page}"`)}</td></tr>`,
+            `<tr><td>${esc(c.control)}</td><td><strong>${esc(c.code)}</strong></td><td>${esc(c.description)}</td><td>${sourceButton(c.source)}</td></tr>`,
         )
         .join("") || '<tr><td colspan="4">Sin coincidencias.</td></tr>';
   }
@@ -1189,15 +1460,10 @@
           skipped++;
           continue;
         }
-        const base64 = await new Promise((resolve, reject) => {
-          const r = new FileReader();
-          r.onload = () => resolve(r.result.split(",")[1]);
-          r.onerror = reject;
-          r.readAsDataURL(file);
-        });
-        await api("/manuals/" + m.id, {
+        await api("/manuals/" + m.id + "/raw", {
           method: "PUT",
-          body: JSON.stringify({ base64 }),
+          headers: { "Content-Type": "application/pdf" },
+          body: file,
         });
         m.available = true;
         count++;
@@ -1241,7 +1507,9 @@
         "Fecha",
         "Empresa",
         "Unidad",
+        "Marca",
         "Servicio",
+        "Atención",
         "Estado",
         "Técnico",
         "Próximo servicio",
@@ -1252,7 +1520,9 @@
         r.serviceDate,
         r.company,
         r.unit,
+        brandName(r.brand),
         catalog.types[r.type],
+        isExpress(r) ? "Express" : "Normal",
         catalog.statuses[r.status],
         r.technician,
         r.nextDate,
@@ -1262,7 +1532,7 @@
     download(
       "\uFEFF" + lines.map((row) => row.map(safe).join(",")).join("\r\n"),
       "text/csv;charset=utf-8",
-      "Hispacold-servicios.csv",
+      "Carlab-climatizacion-servicios.csv",
     );
   }
   async function photos(files, checkId = "") {
@@ -1300,11 +1570,11 @@
           );
         draft.evidence.push({
           id: crypto.randomUUID(),
-          name: file.name.slice(0, 150),
+          name: (file.name || "Foto de cámara.jpg").slice(0, 150),
           caption: "",
           phase: "sin_clasificar",
           component: "",
-          checkId,
+          checkId: draft.checklist.some((c) => c.id === checkId) ? checkId : "",
           data,
         });
       }
@@ -1322,6 +1592,8 @@
         await persistDraft();
       }
       if ($("#hc-photo-input")) $("#hc-photo-input").value = "";
+      if ($("#hc-camera-input")) $("#hc-camera-input").value = "";
+      pendingPhotoCheck = "";
       if ($("#hc-check-photo-input")) $("#hc-check-photo-input").value = "";
     }
   }
@@ -1366,22 +1638,61 @@
   }
   function suggestDate() {
     readForm();
-    const months = catalog.intervals[draft.interval];
-    if (!months || !draft.serviceDate)
+    const months = brandCatalog().intervals[draft.interval];
+    const days = brandCatalog().intervalDays?.[draft.interval];
+    if ((!months && !days) || !draft.serviceDate)
       return error("Selecciona fecha y periodicidad.");
     const d = new Date(draft.serviceDate + "T12:00:00"),
       day = d.getDate();
-    d.setDate(1);
-    d.setMonth(d.getMonth() + months);
-    d.setDate(
-      Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()),
-    );
+    if (days) d.setDate(d.getDate() + days);
+    else {
+      d.setDate(1);
+      d.setMonth(d.getMonth() + months);
+      d.setDate(
+        Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()),
+      );
+    }
     $("[name=nextDate]").value = dateOf(d);
     markDirty();
     toast("Fecha sugerida; puedes ajustarla.");
   }
   document.addEventListener("submit", async (e) => {
     try {
+      if (e.target.id === "hc-create-form") {
+        e.preventDefault();
+        if (!e.target.reportValidity()) return;
+        const f = Object.fromEntries(new FormData(e.target));
+        await create(f.type, cloneSource, f.brand, f.attention);
+      }
+      if (e.target.id === "hc-delete-form") {
+        e.preventDefault();
+        if (!e.target.reportValidity()) return;
+        const button = e.target.querySelector("[type=submit]");
+        button.disabled = true;
+        try {
+          record = await api("/services/" + record.id, {
+            method: "DELETE",
+            body: JSON.stringify({
+              version: record.version,
+              reason: new FormData(e.target).get("reason"),
+            }),
+          });
+          try {
+            const saved = await HCDrafts.list(catalog.user.id);
+            for (const d of saved.filter((d) => d.record?.id === record.id))
+              await HCDrafts.remove(catalog.user.id, d.id);
+          } catch (_) {
+            /* The server deletion already succeeded; a local draft cannot restore it. */
+          }
+          record = await api("/services/" + record.id).catch(() => record);
+          $("#hc-dialog").close();
+          detail(record);
+          toast("Orden enviada a la papelera. Puedes recuperarla.");
+        } catch (err) {
+          $("#hc-delete-error").textContent = err.message;
+          button.disabled = false;
+        }
+      }
       if (e.target.id === "hc-form") {
         e.preventDefault();
         await save();
@@ -1421,10 +1732,36 @@
   });
   document.addEventListener("change", async (e) => {
     try {
+      if (["hc-create-brand", "hc-create-type"].includes(e.target.id)) {
+        const brand = $("#hc-create-brand").value,
+          type = $("#hc-create-type").value;
+        $("#hc-create-type").disabled = !brand;
+        $("#hc-create-attention").disabled = !(brand && type);
+        $("#hc-start-order").disabled = !(brand && type);
+      }
+      if (e.target.id === "hc-code-brand") {
+        knowledgeBrand = e.target.value;
+        codes();
+      }
       if (e.target.closest("#hc-form")) markDirty();
       if (e.target.id === "hc-unit") {
         readForm();
         const u = units.find((u) => u.id === e.target.value);
+        if (
+          u &&
+          (draft.company !== u.empresa || draft.unit !== u.numero_economico)
+        ) {
+          for (const key of [
+            "equipment",
+            "control",
+            "compressorSerial",
+            "chassis",
+            "base",
+            "planReference",
+          ])
+            draft[key] = "";
+          draft.sourceOrderId = "";
+        }
         if (u)
           Object.assign(draft, {
             company: u.empresa,
@@ -1441,6 +1778,35 @@
         $("#hc-symptom-guide").innerHTML = guideHTML();
       if (e.target.name === "interval") {
         readForm();
+        if (isV3()) {
+          const activeIds = new Set(
+            brandCatalog()
+              .templates.find((t) => t.id === draft.type)
+              .checklist.filter((c) => c.actions?.[draft.interval] !== "-")
+              .map((c) => c.id),
+          );
+          const removed = draft.checklist.filter(
+            (c) =>
+              !activeIds.has(c.id) &&
+              (c.outcome !== "pendiente" ||
+                c.notes ||
+                c.action ||
+                draft.evidence.some((p) => p.checkId === c.id)),
+          );
+          if (removed.length) {
+            error(
+              "Este plan tiene revisiones ya capturadas. Conserva la periodicidad anterior o registra el nuevo alcance en una orden nueva.",
+            );
+            draft.interval = e.target.dataset.previous || draft.interval;
+            e.target.value = draft.interval;
+            return;
+          }
+          draft = normalizeData(draft);
+          draft.evidence.forEach((p) => {
+            if (p.checkId && !activeIds.has(p.checkId)) p.checkId = "";
+          });
+        }
+        e.target.dataset.previous = draft.interval;
         $("#hc-checks").innerHTML = checksHTML();
         updateProgress();
       }
@@ -1449,11 +1815,19 @@
         checkFilter = e.target.value;
         updateProgress();
       }
-      if (e.target.name === "circuitOpened")
+      if (e.target.name === "circuitOpened") {
         $(".hc-circuit-fields").hidden = !e.target.checked;
+        if (isV3() && e.target.checked) $("#hc-diagnostic-details").open = true;
+      }
+      if (e.target.name === "result" && isV3())
+        $("#hc-result-followup").hidden = !(
+          (e.target.value && e.target.value !== "operativo") ||
+          draft.recommendations
+        );
       if (e.target.name === "status")
         $("#hc-cancel-field").hidden = e.target.value !== "cancelado";
-      if (e.target.id === "hc-photo-input") await photos([...e.target.files]);
+      if (["hc-photo-input", "hc-camera-input"].includes(e.target.id))
+        await photos([...e.target.files], pendingPhotoCheck);
       if (e.target.id === "hc-check-photo-input")
         await photos([...e.target.files], pendingPhotoCheck);
       if (e.target.id === "hc-manual-input") {
@@ -1464,7 +1838,8 @@
           importing = false;
         }
       }
-      if (e.target.id === "hc-manual-category") manualCards();
+      if (["hc-manual-category", "hc-manual-brand"].includes(e.target.id))
+        manualCards();
       if (e.target.id === "hc-code-control") codeRows();
       if (e.target.id === "hc-history-unit") {
         const u = units.find((u) => u.id === e.target.value);
@@ -1524,14 +1899,118 @@
     if ((saving || photoProcessing) && !["manual"].includes(a)) return;
     try {
       if (a === "new") await choose();
-      if (a === "express") await create("express", null);
+      if (a === "express") await choose(null, "express");
       if (a === "create") await create(b.dataset.type);
-      if (a === "close-dialog") $("#hc-dialog").close();
+      if (a === "close-dialog") {
+        stopCamera();
+        $("#hc-dialog").close();
+      }
+      if (a === "continue-order") {
+        await open(b.dataset.id);
+        if (
+          !record.deletedAt &&
+          !["completado", "cancelado"].includes(record.status)
+        )
+          await editRecord();
+      }
+      if (a === "delete-order") deleteDialog();
+      if (a === "restore-order") {
+        b.disabled = true;
+        try {
+          record = await api("/services/" + record.id + "/restore", {
+            method: "POST",
+            body: JSON.stringify({ version: record.version }),
+          });
+          record = await api("/services/" + record.id).catch(() => record);
+          detail(record);
+          toast("Orden recuperada con su historial.");
+        } finally {
+          b.disabled = false;
+        }
+      }
+      if (a === "trash-prev") {
+        trashPage--;
+        await trash();
+      }
+      if (a === "trash-next") {
+        trashPage++;
+        await trash();
+      }
+      if (a === "symptom-chip") {
+        readForm();
+        const guide = brandCatalog().symptomGuides.find(
+          (g) => g.id === b.dataset.code,
+        );
+        draft.symptomCode = b.dataset.code;
+        $("[name=symptomCode]").value = draft.symptomCode;
+        if (!draft.symptoms?.trim()) {
+          $("[name=symptoms]").value = guide.label;
+          draft.symptoms = guide.label;
+        }
+        $$(".hc-symptom-chips button").forEach((el) =>
+          el.classList.toggle(
+            "selected",
+            el.dataset.code === draft.symptomCode,
+          ),
+        );
+        $("#hc-symptom-guide").innerHTML = guideHTML();
+        markDirty();
+      }
+      if (a === "complete-order") {
+        readForm();
+        const missing = closeMissing();
+        if (missing.length) {
+          if (draft.circuitOpened || draft.type === "mayor")
+            $("#hc-diagnostic-details").open = true;
+          error("Para completar: " + missing.join(" · "));
+          $("#hc-close-readiness").scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+          return;
+        }
+        const oldStatus = draft.status;
+        draft.status = "completado";
+        const statusInput = $("[name=status]");
+        const option = new Option("Completado", "completado", true, true);
+        statusInput.add(option);
+        statusInput.value = "completado";
+        markDirty();
+        await save();
+        if (
+          draft &&
+          $("#hc-form") &&
+          !["completado", "cancelado"].includes(record?.status)
+        ) {
+          draft.status = oldStatus;
+          const input = $("[name=status]");
+          input.value = oldStatus;
+          [...input.options]
+            .filter((o) => o.value === "completado")
+            .forEach((o) => o.remove());
+          markDirty();
+        }
+      }
+      if (a === "choose-photos") {
+        pendingPhotoCheck = "";
+        $("#hc-photo-input").click();
+      }
+      if (a === "take-photo") {
+        pendingPhotoCheck = "";
+        await startCamera();
+      }
+      if (a === "camera-context") await startCamera();
+      if (a === "gallery-context") {
+        stopCamera();
+        $("#hc-dialog").close();
+        $("#hc-photo-input").click();
+      }
+      if (a === "capture-photo") await capturePhoto();
       if (a === "back") await show("services");
       if (a === "refresh") await show(view);
       if (a === "open") await open(b.dataset.id);
       if (a === "clear-filters") {
-        filters = { q: "", type: "", status: "", from: "", to: "" };
+        filters = { q: "", brand: "", type: "", status: "", from: "", to: "" };
         page = 0;
         await services();
       }
@@ -1569,6 +2048,32 @@
         await choose(await api("/services/" + b.dataset.id));
       if (a === "record-history")
         await unitHistory(record.company, record.unit);
+      if (a === "reuse-equipment") {
+        readForm();
+        const currentDraft = draft,
+          company = draft.company,
+          unit = draft.unit,
+          source = await api("/services/" + b.dataset.id);
+        if (
+          draft !== currentDraft ||
+          company !== draft.company ||
+          unit !== draft.unit
+        )
+          return;
+        if ((source.data.brand || "hispacold") !== draft.brand)
+          throw new Error("El equipo pertenece a otra marca.");
+        for (const key of [
+          "equipment",
+          "control",
+          "compressorSerial",
+          "chassis",
+          "base",
+        ])
+          if (!draft[key]) draft[key] = source.data[key] || "";
+        editor();
+        markDirty();
+        toast("Datos del equipo recuperados. Puedes corregirlos.");
+      }
       if (a === "unit-history") {
         readForm();
         await unitHistory(draft.company, draft.unit);
@@ -1612,10 +2117,7 @@
         $("#hc-findings").innerHTML = findingsHTML();
         markDirty();
       }
-      if (a === "check-photo") {
-        pendingPhotoCheck = b.dataset.check;
-        $("#hc-check-photo-input").click();
-      }
+      if (a === "check-photo") photoDialog(b.dataset.check);
       if (a === "remove-photo") {
         readForm();
         draft.evidence.splice(Number(b.dataset.index), 1);
@@ -1730,12 +2232,18 @@
     } catch (e) {
       $("#hc-user").textContent = "Acceso no disponible";
       $("#hc-main").innerHTML = heading(
-        "CARLAB / HISPACOLD",
+        "CARLAB / CLIMATIZACIÓN",
         "Acceso de administrador",
         e.message,
         '<a class="hc-btn primary" href="/">Ir a Carlab Cloud</a>',
       );
     }
   }
+  $("#hc-dialog").addEventListener("close", stopCamera);
+  $("#hc-dialog").addEventListener("cancel", stopCamera);
+  document.addEventListener("focusin", (e) => {
+    if (e.target.name === "interval")
+      e.target.dataset.previous = e.target.value;
+  });
   boot();
 })();

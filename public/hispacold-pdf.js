@@ -64,15 +64,39 @@
       compress: true,
     });
     const d = record.data;
+    const isV3 = Number(d.formVersion) >= 3;
+    const brand = d.brand || "hispacold";
+    const brandLabel =
+      { hispacold: "Hispacold", eberspaecher: "Eberspächer" }[brand] ||
+      "Climatización";
+    const serviceLabel = catalog.types?.[d.type] || "Servicio de climatización";
+    const attentionLabel =
+      d.attention === "express" || d.type === "express"
+        ? "Servicio express"
+        : "Atención normal";
+    const statusLabel =
+      (record.deletedAt ? "En papelera · " : "") +
+      (catalog.statuses?.[d.status] || d.status || "Borrador");
+    const evidence = Array.isArray(d.evidence) ? d.evidence : [];
+    const optionalChecklist = isV3 && ["revision", "menor"].includes(d.type);
+    const checklist = (Array.isArray(d.checklist) ? d.checklist : []).filter(
+      (check) =>
+        !optionalChecklist ||
+        (check.outcome && check.outcome !== "pendiente") ||
+        String(check.notes || "").trim() ||
+        check.action ||
+        evidence.some((photo) => photo.checkId === check.id),
+    );
+    const parts = Array.isArray(d.parts) ? d.parts : [];
     let y = 32;
     const ink = [20, 44, 62],
       teal = [8, 127, 130],
       muted = [101, 119, 129];
     doc.setProperties({
-      title: record.folio + " · " + catalog.types[d.type],
+      title: record.folio + " · " + brandLabel + " · " + serviceLabel,
       subject: "Reporte técnico de climatización",
       author: "CARLAB",
-      creator: "CARLAB Cloud · Hispacold",
+      creator: "CARLAB Cloud · " + brandLabel,
     });
     function newPage() {
       doc.addPage();
@@ -82,10 +106,16 @@
       if (y + height > 274) newPage();
     }
     let pendingTitle = "";
-    function title(text) { pendingTitle = text; }
+    function title(text) {
+      pendingTitle = text;
+    }
     function flushTitle(contentHeight = 12) {
-      if (!pendingTitle) { room(Math.min(contentHeight, 220)); return; }
-      const text = pendingTitle; pendingTitle = "";
+      if (!pendingTitle) {
+        room(Math.min(contentHeight, 220));
+        return;
+      }
+      const text = pendingTitle;
+      pendingTitle = "";
       room(12 + Math.min(contentHeight, 220));
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
@@ -97,8 +127,20 @@
     }
     function table(head, rows, widths) {
       if (!rows.length) return;
-      doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
-      const rowHeight = Math.max(...rows[0].map((v,i) => doc.splitTextToSize(clean(v), (widths?.[i]?.cellWidth || 182/rows[0].length) - 6).length)) * 3.5 + 6;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      const rowHeight =
+        Math.max(
+          ...rows[0].map(
+            (v, i) =>
+              doc.splitTextToSize(
+                clean(v),
+                (widths?.[i]?.cellWidth || 182 / rows[0].length) - 6,
+              ).length,
+          ),
+        ) *
+          3.5 +
+        6;
       flushTitle(rowHeight + (head ? 10 : 0) + 2);
       doc.autoTable({
         startY: y,
@@ -145,7 +187,7 @@
         ? [...lines.slice(0, max - 1), lines[max - 1].slice(0, -5) + "…"]
         : lines;
     }
-    // Page one is a fixed executive summary. Full text follows in the technical record.
+    // V3 grows from a compact report; legacy records keep their executive summary.
     doc.setFillColor(...ink);
     doc.rect(0, 0, 210, 40, "F");
     doc.setTextColor(255);
@@ -154,7 +196,7 @@
     doc.text("CARLAB", 14, 19);
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text("CLIMATIZACIÓN / HISPACOLD", 14, 29);
+    doc.text(clean("CLIMATIZACIÓN / " + brandLabel.toUpperCase()), 14, 29);
     doc.setFontSize(13);
     doc.setFont("helvetica", "bold");
     doc.text(record.folio, 196, 18, { align: "right" });
@@ -166,41 +208,43 @@
     doc.setTextColor(...teal);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
-    doc.text(clean(catalog.types[d.type]), 20, 56);
+    doc.text(clean(serviceLabel), 20, 56);
     doc.setFontSize(9);
     doc.text(
       clean(
         (results[d.result] || "Entrega pendiente") +
           " · " +
-          catalog.statuses[d.status],
+          statusLabel +
+          (isV3 ? " · " + attentionLabel : ""),
       ),
       20,
       63,
     );
     y = 77;
-    table(
-      null,
-      [
+    if (!isV3)
+      table(
+        null,
         [
-          "Cliente",
-          clean(d.company).slice(0, 100),
-          "Unidad",
-          clean(d.unit).slice(0, 70),
+          [
+            "Cliente",
+            clean(d.company).slice(0, 100),
+            "Unidad",
+            clean(d.unit).slice(0, 70),
+          ],
+          [
+            "Equipo",
+            clean(d.equipment || d.model || "No registrado").slice(0, 100),
+            "Técnico",
+            clean(d.technician || "Por asignar").slice(0, 80),
+          ],
         ],
-        [
-          "Equipo",
-          clean(d.equipment || d.model || "No registrado").slice(0, 100),
-          "Técnico",
-          clean(d.technician || "Por asignar").slice(0, 80),
-        ],
-      ],
-      {
-        0: { cellWidth: 20, fontStyle: "bold" },
-        1: { cellWidth: 71 },
-        2: { cellWidth: 20, fontStyle: "bold" },
-        3: { cellWidth: 71 },
-      },
-    );
+        {
+          0: { cellWidth: 20, fontStyle: "bold" },
+          1: { cellWidth: 71 },
+          2: { cellWidth: 20, fontStyle: "bold" },
+          3: { cellWidth: 71 },
+        },
+      );
     function summary(label, value) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(9);
@@ -213,63 +257,88 @@
       doc.text(lines, 14, y + 10);
       y += 15 + lines.length * 4;
     }
-    summary("DIAGNÓSTICO", d.diagnosis || d.symptoms);
-    summary("TRABAJO REALIZADO", d.workDone);
-    summary("VALIDACIÓN Y ENTREGA", d.finalTest);
-    doc.setFillColor(245, 248, 250);
-    doc.roundedRect(14, y + 2, 182, 21, 2, 2, "F");
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...ink);
-    doc.text(
-      "Próximo servicio: " + (date(d.nextDate) || "No programado"),
-      19,
-      y + 10,
+    if (!isV3) {
+      summary("DIAGNÓSTICO", d.diagnosis || d.symptoms);
+      summary("TRABAJO REALIZADO", d.workDone);
+      summary("VALIDACIÓN Y ENTREGA", d.finalTest);
+      doc.setFillColor(245, 248, 250);
+      doc.roundedRect(14, y + 2, 182, 21, 2, 2, "F");
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...ink);
+      doc.text(
+        "Próximo servicio: " + (date(d.nextDate) || "No programado"),
+        19,
+        y + 10,
+      );
+      doc.text("Importe registrado: " + cash(d.total), 19, y + 17);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.text(
+        "Resumen de entrega. El expediente completo continúa en las siguientes páginas.",
+        14,
+        267,
+      );
+      newPage();
+      title("Expediente técnico · " + record.folio);
+    }
+    const metadata = pairRows([
+      ["Cliente", d.company],
+      ["Unidad", d.unit],
+      ["Fecha", isV3 ? "" : date(d.serviceDate)],
+      ["Marca del A/C", isV3 ? "" : brandLabel],
+      ["Tipo de servicio", isV3 ? "" : serviceLabel],
+      ["Tipo de atención", !isV3 && d.attention ? attentionLabel : ""],
+      ["Estado", isV3 ? "" : statusLabel],
+      ["En papelera desde", date(record.deletedAt)],
+      ["Técnico", d.technician],
+      ["Cliente / representante", d.clientName],
+      ["Modelo", d.model],
+      ["Chasis", d.chassis],
+      ["Equipo", d.equipment],
+      ["Control", d.control],
+      ["Serie compresor", d.compressorSerial],
+      ["Número de obra", d.workNumber],
+      ["Kilometraje", d.mileage],
+      ["Base", d.base],
+      ["Periodicidad", d.type === "preventivo" ? d.interval : ""],
+      ["Prioridad", d.priority],
+      ["Próximo servicio", date(d.nextDate)],
+      ["Evento", catalog.eventKinds?.[d.eventKind]],
+      ["Ubicación del evento", d.eventLocation],
+      ["Contacto", d.eventContact],
+      ["Aviso (hora local)", d.reportedAt],
+      ["Llegada (hora local)", d.arrivalAt],
+      ["Resolución (hora local)", d.resolvedAt],
+    ]);
+    if (isV3) {
+      const paired = [];
+      for (let i = 0; i < metadata.length; i += 2)
+        paired.push([...metadata[i], ...(metadata[i + 1] || ["", ""])]);
+      table(null, paired, {
+        0: { cellWidth: 30, fontStyle: "bold" },
+        1: { cellWidth: 61 },
+        2: { cellWidth: 30, fontStyle: "bold" },
+        3: { cellWidth: 61 },
+      });
+    } else {
+      table(null, metadata, {
+        0: { cellWidth: 47, fontStyle: "bold" },
+        1: { cellWidth: 135 },
+      });
+    }
+    paragraph(
+      isV3 ? "Qué pasó · Motivo del servicio" : "Motivo y antecedentes",
+      d.symptoms,
     );
-    doc.text("Importe registrado: " + cash(d.total), 19, y + 17);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.text(
-      "Resumen de entrega. El expediente completo continúa en las siguientes páginas.",
-      14,
-      267,
-    );
-    newPage();
-    title("Expediente técnico · " + record.folio);
-    table(
-      null,
-      pairRows([
-        ["Cliente", d.company],
-        ["Unidad", d.unit],
-        ["Fecha", date(d.serviceDate)],
-        ["Tipo de servicio", catalog.types[d.type]],
-        ["Estado", catalog.statuses[d.status]],
-        ["Técnico", d.technician],
-        ["Cliente / representante", d.clientName],
-        ["Modelo", d.model],
-        ["Chasis", d.chassis],
-        ["Equipo", d.equipment],
-        ["Control", d.control],
-        ["Serie compresor", d.compressorSerial],
-        ["Número de obra", d.workNumber],
-        ["Kilometraje", d.mileage],
-        ["Base", d.base],
-        ["Periodicidad", d.type === "preventivo" ? d.interval : ""],
-        ["Prioridad", d.priority],
-        ["Próximo servicio", date(d.nextDate)],
-        ["Evento", catalog.eventKinds[d.eventKind]],
-        ["Ubicación del evento", d.eventLocation],
-        ["Contacto", d.eventContact],
-        ["Aviso (hora local)", d.reportedAt],
-        ["Llegada (hora local)", d.arrivalAt],
-        ["Resolución (hora local)", d.resolvedAt],
-      ]),
-      { 0: { cellWidth: 47, fontStyle: "bold" }, 1: { cellWidth: 135 } },
-    );
-    paragraph("Motivo y antecedentes", d.symptoms);
+    if (record.deletedAt)
+      paragraph("Motivo de eliminación", record.deleteReason);
     paragraph("Códigos observados", d.faultCodes);
     paragraph("Diagnóstico", d.diagnosis);
-    paragraph("Trabajo realizado", d.workDone);
+    paragraph(
+      isV3 ? "Qué hicimos · Trabajo realizado" : "Trabajo realizado",
+      d.workDone,
+    );
     paragraph("Alcance y autorización general", d.authorization);
     if ((d.findings || []).length) {
       title("Trabajos detectados y autorización");
@@ -289,26 +358,28 @@
         },
       );
     }
-    title("Lista de revisión");
-    table(
-      ["Sistema / punto", "Acción", "Resultado", "Observaciones"],
-      d.checklist.map((c) => [
-        c.group + " / " + c.label,
-        c.action || "—",
-        statuses[c.outcome],
-        (c.notes || "") +
-          (d.evidence.some((p) => p.checkId === c.id)
-            ? " · Ver evidencia fotográfica"
-            : ""),
-      ]),
-      {
-        0: { cellWidth: 71 },
-        1: { cellWidth: 16 },
-        2: { cellWidth: 27 },
-        3: { cellWidth: 68 },
-      },
-    );
-    const measurements = d.measurements.filter(
+    if (checklist.length) {
+      title("Lista de revisión");
+      table(
+        ["Sistema / punto", "Acción", "Resultado", "Observaciones"],
+        checklist.map((c) => [
+          c.group + " / " + c.label,
+          c.action || "—",
+          statuses[c.outcome],
+          (c.notes || "") +
+            (evidence.some((p) => p.checkId === c.id)
+              ? " · Ver evidencia fotográfica"
+              : ""),
+        ]),
+        {
+          0: { cellWidth: 71 },
+          1: { cellWidth: 16 },
+          2: { cellWidth: 27 },
+          3: { cellWidth: 68 },
+        },
+      );
+    }
+    const measurements = (d.measurements || []).filter(
       (m) =>
         (m.before != null && m.before !== "") ||
         (m.after != null && m.after !== "") ||
@@ -350,11 +421,11 @@
     }
     paragraph("Referencia técnica / procedimiento", d.technicalReference);
     paragraph("Plan acordado con la flota", d.planReference);
-    if (d.parts.length) {
+    if (parts.length) {
       title("Refacciones, materiales y mano de obra");
       table(
         ["Concepto / referencia", "Cantidad", "Precio unitario", "Importe"],
-        d.parts.map((p) => [
+        parts.map((p) => [
           p.description + (p.reference ? " / " + p.reference : ""),
           p.quantity,
           cash(p.unitPrice),
@@ -383,18 +454,21 @@
       );
       y += 9;
     }
-    paragraph("Prueba final", d.finalTest);
+    paragraph(isV3 ? "Cómo quedó · Prueba final" : "Prueba final", d.finalTest);
     paragraph("Condición de entrega", results[d.result]);
     paragraph("Recomendaciones y pendientes", d.recommendations);
     paragraph("Cancelación", d.cancelReason);
     paragraph("Reapertura", d.reopenReason);
     let firstEvidence = true;
     for (const [phase, label] of Object.entries(phases)) {
-      const images = d.evidence.filter(
+      const images = evidence.filter(
         (p) => (p.phase || "sin_clasificar") === phase,
       );
       if (!images.length) continue;
-      if(firstEvidence) { newPage(); firstEvidence = false; }
+      if (firstEvidence) {
+        if (!isV3) newPage();
+        firstEvidence = false;
+      }
       title("Evidencia · " + label);
       for (const photo of images) {
         const props = doc.getImageProperties(photo.data),
@@ -404,12 +478,13 @@
           components[photo.component] || "",
           photo.caption || photo.name,
           photo.checkId
-            ? d.checklist.find((c) => c.id === photo.checkId)?.label
+            ? checklist.find((c) => c.id === photo.checkId)?.label
             : "",
         ]
           .filter(Boolean)
           .join(" · ");
-        doc.setFont("helvetica", "normal"); doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
         const lines = doc.splitTextToSize(clean(caption), 176);
         flushTitle(height + lines.length * 4 + 14);
         doc.addImage(
@@ -433,7 +508,7 @@
     const signers = [
       ["Técnico", d.technician, d.technicianSignature],
       ["Representante del cliente", d.clientName, d.clientSignature],
-    ].filter(([, name, image]) => name || image);
+    ].filter(([, name, image]) => image || (!isV3 && name));
     if (signers.length) {
       title("Constancia de entrega");
       flushTitle(50);
@@ -470,14 +545,14 @@
       y += 50;
     }
     const refs = new Map();
-    d.checklist.forEach((c) => {
+    checklist.forEach((c) => {
       if (c.source) refs.set(c.source.manualId + ":" + c.source.page, c.source);
     });
     title("Referencias del formato");
     table(
       null,
       [...refs.values()].map((s) => [
-        catalog.manuals.find((m) => m.id === s.manualId)?.title ||
+        catalog.manuals?.find((m) => m.id === s.manualId)?.title ||
           "Documento técnico",
         "Pág. " + s.page,
       ]),
@@ -487,15 +562,25 @@
       title("Trazabilidad");
       table(
         ["Fecha", "Responsable", "Versión / estado"],
-        record.events.map((e) => [
-          new Date(e.created_at).toLocaleString("es-MX"),
-          e.actor_name,
-          "V" +
-            e.details.version +
-            " · " +
-            (catalog.statuses[e.details.to] || e.details.to) +
-            (e.details.reason ? " · " + e.details.reason : ""),
-        ]),
+        record.events.map((e) => {
+          const details = e.details || {};
+          const eventLabel =
+            {
+              eliminacion: "Enviada a papelera",
+              restauracion: "Recuperada de papelera",
+            }[e.action] ||
+            catalog.statuses?.[details.to] ||
+            details.to ||
+            e.action ||
+            "Actualización";
+          return [
+            new Date(e.created_at).toLocaleString("es-MX"),
+            e.actor_name,
+            (details.version ? "V" + details.version + " · " : "") +
+              eventLabel +
+              (details.reason ? " · " + details.reason : ""),
+          ];
+        }),
         { 0: { cellWidth: 38 }, 1: { cellWidth: 49 }, 2: { cellWidth: 95 } },
       );
     }
@@ -511,9 +596,14 @@
         doc.text("CARLAB", 14, 13);
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8);
-        doc.text(clean(record.folio + " / " + catalog.types[d.type]), 196, 13, {
-          align: "right",
-        });
+        doc.text(
+          clean(record.folio + " / " + brandLabel + " / " + serviceLabel),
+          196,
+          13,
+          {
+            align: "right",
+          },
+        );
       }
       doc.setDrawColor(211, 224, 230);
       doc.line(14, 281, 196, 281);
@@ -530,7 +620,7 @@
       );
       doc.text(`Página ${i} de ${pages}`, 196, 287, { align: "right" });
     }
-    doc.save(record.folio + "-Hispacold.pdf");
+    doc.save(record.folio + "-" + brandLabel + ".pdf");
   }
   window.HispacoldPDF = { export: exportPDF };
 })();
