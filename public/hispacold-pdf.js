@@ -65,6 +65,7 @@
     });
     const d = record.data;
     const isV3 = Number(d.formVersion) >= 3;
+    const showCosts = record.permissions?.costs !== false;
     const brand = d.brand || "hispacold";
     const brandLabel =
       { hispacold: "Hispacold", eberspaecher: "Eberspächer" }[brand] ||
@@ -271,7 +272,8 @@
         19,
         y + 10,
       );
-      doc.text("Importe registrado: " + cash(d.total), 19, y + 17);
+      if (showCosts)
+        doc.text("Importe registrado: " + cash(d.total), 19, y + 17);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       doc.text(
@@ -327,18 +329,12 @@
         1: { cellWidth: 135 },
       });
     }
-    paragraph(
-      "Recepción y motivo del servicio",
-      d.symptoms,
-    );
+    paragraph("Recepción y motivo del servicio", d.symptoms);
     if (record.deletedAt)
       paragraph("Motivo de eliminación", record.deleteReason);
     paragraph("Códigos observados", d.faultCodes);
     paragraph("Diagnóstico técnico", d.diagnosis);
-    paragraph(
-      "Intervención realizada",
-      d.workDone,
-    );
+    paragraph("Intervención realizada", d.workDone);
     paragraph("Alcance y autorización general", d.authorization);
     if ((d.findings || []).length) {
       title("Trabajos detectados y autorización");
@@ -421,7 +417,17 @@
     }
     paragraph("Referencia técnica / procedimiento", d.technicalReference);
     paragraph("Plan acordado con la flota", d.planReference);
-    if (parts.length) {
+    if (parts.length && !showCosts) {
+      title("Refacciones y materiales");
+      table(
+        ["Concepto / referencia", "Cantidad"],
+        parts.map((p) => [
+          p.description + (p.reference ? " / " + p.reference : ""),
+          p.quantity,
+        ]),
+        { 0: { cellWidth: 152 }, 1: { cellWidth: 30 } },
+      );
+    } else if (parts.length) {
       title("Refacciones, materiales y mano de obra");
       table(
         ["Concepto / referencia", "Cantidad", "Precio unitario", "Importe"],

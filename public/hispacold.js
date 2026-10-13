@@ -318,7 +318,8 @@
     storageError = "";
   }
   async function show(name) {
-    if (!(await leave())) return;
+    if (!(await leave())) return false;
+    window.ACOperations?.deactivate();
     await resetEditor();
     nav(name);
     try {
@@ -327,6 +328,8 @@
       else if (name === "history") await history();
       else if (name === "library") library();
       else if (name === "trash") await trash();
+      else if (["requests", "parts", "access", "notifications"].includes(name))
+        await window.ACOperations.show(name);
       else codes();
     } catch (e) {
       $("#hc-main").innerHTML = heading(
@@ -648,6 +651,7 @@
     }
   }
   function editor() {
+    window.ACOperations?.deactivate();
     if (isV3()) return editorSimple();
     nav("services");
     signatures = {};
@@ -1228,6 +1232,7 @@
   }
   async function open(id) {
     if (!(await leave())) return;
+    window.ACOperations?.deactivate();
     const r = await api("/services/" + id);
     await resetEditor();
     record = r;
@@ -1344,7 +1349,10 @@
             : btn(
                 closed ? "Reabrir orden" : "Continuar atención",
                 closed ? "reopen" : "edit",
-              )) + (!r.deletedAt ? btn("Eliminar orden", "delete-order", "hc-danger") : ""),
+              )) +
+          (!r.deletedAt
+            ? btn("Eliminar orden", "delete-order", "hc-danger")
+            : ""),
       ) +
       (r.deletedAt
         ? `<div class="hc-note"><b>Orden en papelera</b><p>${esc(r.deleteReason || "")} · ${fmt(r.deletedAt)}</p></div>`
@@ -1824,7 +1832,7 @@
           (e.target.value && e.target.value !== "operativo") ||
           draft.recommendations
         );
-      if (e.target.name === "status")
+      if (e.target.name === "status" && e.target.closest("#hc-form"))
         $("#hc-cancel-field").hidden = e.target.value !== "cancelado";
       if (["hc-photo-input", "hc-camera-input"].includes(e.target.id))
         await photos([...e.target.files], pendingPhotoCheck);
@@ -2245,5 +2253,15 @@
     if (e.target.name === "interval")
       e.target.dataset.previous = e.target.value;
   });
+  window.CarlabACNav = {
+    open,
+    operations: async (name, id) => {
+      if (!(await leave())) return false;
+      await resetEditor();
+      nav(name);
+      await window.ACOperations.show(name, id);
+      return true;
+    },
+  };
   boot();
 })();

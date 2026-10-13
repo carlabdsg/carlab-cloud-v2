@@ -4,12 +4,14 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Aire acondicionado · CARLAB Cloud</title>
-    <link rel="stylesheet" href="/hispacold.css?v=3.1" />
+    <link rel="stylesheet" href="/hispacold.css?v=4" />
+    <link rel="stylesheet" href="/ac-operations.css?v=4" />
     <script src="/vendor/hc-jspdf.umd.min.js" defer></script>
     <script src="/vendor/hc-autotable.min.js" defer></script>
-    <script src="/hispacold-pdf.js?v=3.1" defer></script>
-    <script src="/hispacold-drafts.js?v=3.1" defer></script>
-    <script src="/hispacold.js?v=3.1" defer></script>
+    <script src="/hispacold-pdf.js?v=4" defer></script>
+    <script src="/hispacold-drafts.js?v=4" defer></script>
+    <script src="/hispacold.js?v=4" defer></script>
+    <script src="/ac-operations.js?v=4" defer></script>
   </head>
   <body class="hc-app">
     <aside class="hc-sidebar">
@@ -20,6 +22,9 @@
       <nav aria-label="Climatización">
         <button data-view="services" class="selected">
           ◈ &nbsp; Órdenes de servicio</button
+        ><button data-view="requests">✉ &nbsp; Solicitudes AC</button
+        ><button data-view="parts">▣ &nbsp; Refacciones AC</button
+        ><button data-view="access">♙ &nbsp; Accesos Supervisor AC</button
         ><button data-view="calendar">▦ &nbsp; Próximos servicios</button
         ><button data-view="history">◎ &nbsp; Expediente por unidad</button
         ><button data-view="library">▤ &nbsp; Biblioteca técnica</button

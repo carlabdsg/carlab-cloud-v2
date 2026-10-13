@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const catalog = require("./catalog");
+const operations = require("./operations");
 const schema = `
 CREATE TABLE IF NOT EXISTS hc_services (
  id TEXT PRIMARY KEY, number BIGSERIAL UNIQUE, type TEXT NOT NULL, status TEXT NOT NULL,
@@ -27,7 +28,7 @@ CREATE TABLE IF NOT EXISTS hc_events (
 CREATE TABLE IF NOT EXISTS hc_manuals (
  id TEXT PRIMARY KEY, filename TEXT NOT NULL, sha256 TEXT NOT NULL, pdf BYTEA NOT NULL,
  uploaded_by TEXT NOT NULL, uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);`;
+);` + operations.notificationSchema;
 function bad(message, status = 400) {
   const e = new Error(message);
   e.status = status;
@@ -885,6 +886,7 @@ function register(
           }),
         ],
       );
+      await operations.orderNotice(client, r.rows[0], old);
       await client.query("COMMIT");
       res.status(isUpdate ? 200 : 201).json(mapRow(r.rows[0]));
     } catch (e) {
@@ -976,6 +978,7 @@ function register(
     });
   });
   app.use("/api/hispacold", router);
+  operations.register(app, {pool,authRequired,ensureServices:init,validate,mapRow,scheduleCTE});
   return { init };
 }
 module.exports = { register, validate, schema, mapRow };

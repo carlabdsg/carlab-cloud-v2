@@ -780,6 +780,12 @@ function authRequired(req, res, next) {
   if (!token) return res.status(401).json({ error: 'No autorizado.' });
   try {
     req.user = jwt.verify(token, JWT_SECRET);
+    if (req.user.role === 'supervisor_ac') {
+      const accessPath = req.originalUrl.split('?')[0];
+      if (!accessPath.startsWith('/api/ac/') && accessPath !== '/api/auth/me') {
+        return res.status(403).json({ error: 'Este usuario tiene acceso únicamente al portal de aire acondicionado.' });
+      }
+    }
     next();
   } catch {
     return res.status(401).json({ error: 'Sesión inválida o vencida.' });
@@ -925,7 +931,7 @@ async function ensureUsersRoleConstraint() {
   await pool.query(`
     ALTER TABLE users
     ADD CONSTRAINT users_role_check
-    CHECK (role IN ('admin','operador','operativo','supervisor','supervisor_flotas'))
+    CHECK (role IN ('admin','operador','operativo','supervisor','supervisor_flotas','supervisor_ac'))
   `).catch(() => {});
 }
 
@@ -948,7 +954,7 @@ async function initDb() {
       nombre TEXT NOT NULL,
       email TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('admin','operador','operativo','supervisor','supervisor_flotas')),
+      role TEXT NOT NULL CHECK (role IN ('admin','operador','operativo','supervisor','supervisor_flotas','supervisor_ac')),
       empresa TEXT,
       telefono TEXT,
       activo BOOLEAN NOT NULL DEFAULT TRUE,
