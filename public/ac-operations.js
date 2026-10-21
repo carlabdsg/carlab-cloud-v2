@@ -206,6 +206,12 @@
   }
   async function show(view, id) {
     if (!info) await ready;
+    if (view === "library" && !info.permissions.viewLibrary) {
+      toast(
+        "La biblioteca técnica está disponible únicamente para el administrador.",
+      );
+      return;
+    }
     currentView = view;
     document
       .querySelectorAll("[data-ac-view]")
@@ -721,6 +727,10 @@
         }
       }
       if (a === "manual") {
+        if (!info.permissions.viewLibrary)
+          throw new Error(
+            "La biblioteca técnica está disponible únicamente para el administrador.",
+          );
         const tab = window.open("about:blank", "_blank");
         if (!tab)
           throw new Error("Permite abrir pestañas para consultar manuales.");

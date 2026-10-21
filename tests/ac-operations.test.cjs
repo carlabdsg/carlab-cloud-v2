@@ -305,21 +305,40 @@ test("Supervisor AC, solicitudes, inventario compartido y notificaciones", async
           ).body.items.every((x) => x.brand === "hispacold"),
           true,
         );
-        const cat = await call("/catalog", { user: hispa.body.id });
-        assert.deepEqual(Object.keys(cat.body.brands), ["hispacold"]);
-        assert.equal(
-          cat.body.manuals.every((m) => m.brand === "hispacold"),
-          true,
+        for (const user of [hispa.body.id, eber.body.id]) {
+          const cat = await call("/catalog", { user });
+          assert.equal(cat.status, 200);
+          assert.deepEqual(Object.keys(cat.body.brands), [
+            user === hispa.body.id ? "hispacold" : "eberspaecher",
+          ]);
+          assert.deepEqual(cat.body.manuals, []);
+          assert.deepEqual(cat.body.brandCatalogs, {});
+          assert.ok(cat.body.types.menor);
+          assert.ok(cat.body.statuses.completado);
+          assert.equal(
+            (await call("/me", { user })).body.permissions.viewLibrary,
+            false,
+          );
+          for (const b of ["hispacold", "eberspaecher"]) {
+            const id = catalog.forBrand(b).manuals[0].id;
+            assert.equal((await call("/manuals/" + id, { user })).status, 403);
+            assert.equal(
+              (
+                await h.request("/manuals/" + id, {
+                  user,
+                  role: "supervisor_ac",
+                })
+              ).status,
+              403,
+            );
+          }
+        }
+        const adminCatalog = await call("/catalog");
+        assert(adminCatalog.body.manuals.some((m) => m.brand === "hispacold"));
+        assert(
+          adminCatalog.body.manuals.some((m) => m.brand === "eberspaecher"),
         );
-        assert.equal(
-          (
-            await call(
-              "/manuals/" + catalog.forBrand("eberspaecher").manuals[0].id,
-              { user: hispa.body.id },
-            )
-          ).status,
-          404,
-        );
+        assert.equal((await call("/me")).body.permissions.viewLibrary, true);
         const us = await call("/units", { user: hispa.body.id });
         assert.equal(
           us.body.some((u) => u.company === "Transportes de prueba"),

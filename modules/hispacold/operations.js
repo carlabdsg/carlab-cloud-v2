@@ -350,6 +350,7 @@ function register(
           manageOrders: req.acAdmin,
           manageInventory: req.acAdmin,
           manageUsers: req.acAdmin,
+          viewLibrary: req.acAdmin,
         },
       }),
     ),
@@ -357,6 +358,15 @@ function register(
   router.get(
     "/catalog",
     wrap(async (req, res) => {
+      // The external portal needs labels for orders/PDFs, not the technical library.
+      if (!req.acAdmin)
+        return res.json({
+          brands: { [req.acBrand]: catalog.brands[req.acBrand] },
+          types: catalog.types,
+          statuses: catalog.statuses,
+          brandCatalogs: {},
+          manuals: [],
+        });
       const selected = req.acAdmin
         ? Object.keys(catalog.brands)
         : [req.acBrand];
@@ -389,6 +399,7 @@ function register(
   );
   router.get(
     "/manuals/:id",
+    admin,
     wrap(async (req, res) => {
       const m = catalog.allManuals.find((m) => m.id === req.params.id);
       if (!m) fail("Manual no encontrado.", 404);
