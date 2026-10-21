@@ -85,7 +85,10 @@
         if (working) e.preventDefault();
       });
     }
-    d.innerHTML = html + '<p id="acf-error" class="hc-error" role="alert"></p>';
+    d.innerHTML =
+      '<div class="acf-dialog-bar"><span>Flotas AC</span><button type="button" class="acf-dialog-close" data-af="close" aria-label="Cerrar ventana de Flotas AC" title="Cerrar" autofocus>×</button></div><div class="acf-dialog-content">' +
+      html +
+      '<p id="acf-error" class="hc-error" role="alert"></p></div>';
     if (!d.open) d.showModal();
   }
   const close = () => {

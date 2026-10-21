@@ -293,10 +293,14 @@
         );
       }
       form.elements.location.value = seed.base || "";
-      form.insertAdjacentHTML(
-        "beforeend",
-        `<input type="hidden" name="fleetUnitId" value="${esc(seed.id)}">`,
-      );
+      if (seed.id)
+        form.insertAdjacentHTML(
+          "beforeend",
+          `<input type="hidden" name="fleetUnitId" value="${esc(seed.id)}">`,
+        );
+      if (seed.preferredDate)
+        form.elements.preferredDate.value = seed.preferredDate;
+      if (seed.description) form.elements.description.value = seed.description;
     }
   }
   async function compress(file) {
@@ -486,13 +490,15 @@
         )}${d.parts.length ? `<h2>Refacciones y materiales</h2><div class="hc-table-wrap"><table><thead><tr><th>Concepto</th><th>Referencia</th><th>Cantidad</th></tr></thead><tbody>${d.parts.map((p) => `<tr><td>${esc(p.description)}</td><td>${esc(p.reference)}</td><td>${esc(p.quantity)}</td></tr>`).join("")}</tbody></table></div>` : ""}${d.evidence.length ? `<h2>Evidencia fotográfica</h2><div class="hc-report-photos">${d.evidence.map((p) => `<figure><img src="${esc(p.data)}" alt="Evidencia"><figcaption>${esc(p.caption || p.name)}</figcaption></figure>`).join("")}</div>` : ""}</article>`;
   }
   async function showUpcoming() {
-    const r = await api("/upcoming?today=" + today());
-    $("#hc-main").innerHTML =
-      heading(
-        "Próximos servicios",
-        `${name(info.user.brand)} · Fechas vigentes de mantenimiento.`,
-      ) +
-      `<div class="hc-order-cards">${r.items.map((o) => `<article class="hc-order-card"><h3>${esc(o.company)} · ${esc(o.unit)}</h3><span class="hc-badge ${o.overdue ? "cancelado" : ""}">${o.overdue ? "Vencido · " : ""}${fmt(o.nextDate)}</span>${button("Consultar antecedente", "order-detail", `data-id="${o.id}"`)}${button("Solicitar servicio", "new-service")}</article>`).join("") || '<div class="hc-empty">Sin servicios programados.</div>'}</div>`;
+    await window.ACCalendar.show({
+      api,
+      info,
+      external,
+      toast,
+      navigate,
+      newRequest,
+      active: () => currentView === "upcoming",
+    });
   }
   function showLibrary() {
     $("#hc-main").innerHTML =

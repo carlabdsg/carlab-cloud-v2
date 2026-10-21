@@ -328,7 +328,9 @@
       else if (name === "history") await history();
       else if (name === "library") library();
       else if (name === "trash") await trash();
-      else if (["fleet", "requests", "parts", "access", "notifications"].includes(name))
+      else if (
+        ["fleet", "requests", "parts", "access", "notifications"].includes(name)
+      )
         await window.ACOperations.show(name);
       else codes();
     } catch (e) {
@@ -410,57 +412,7 @@
     $("#hc-dialog").showModal();
   }
   async function calendar() {
-    const [year, month] = calendarMonth.split("-").map(Number),
-      first = new Date(year, month - 1, 1),
-      last = new Date(year, month, 0);
-    const from = dateOf(first),
-      to = dateOf(last);
-    const r = await api(
-      "/calendar?" +
-        new URLSearchParams({
-          today: localDate(),
-          from,
-          to,
-          bucket: calendarBucket,
-          offset: calendarOffset,
-          day: calendarDay,
-        }),
-    );
-    const countByDay = Object.fromEntries(
-      r.days.map((x) => [String(x.next_date).slice(0, 10), x.total]),
-    );
-    let cells = "";
-    for (let n = 0; n < (first.getDay() + 6) % 7; n++)
-      cells += '<span class="hc-calendar-blank"></span>';
-    for (let n = 1; n <= last.getDate(); n++) {
-      const day = dateOf(new Date(year, month - 1, n));
-      cells += `<button class="hc-calendar-day ${day === localDate() ? "today" : ""} ${calendarDay === day ? "selected" : ""}" data-action="calendar-day" data-date="${day}"><b>${n}</b><span>${countByDay[day] ? `${countByDay[day]} ${countByDay[day] === 1 ? "unidad" : "unidades"}` : ""}</span></button>`;
-    }
-    const visible = calendarDay
-      ? r.items.filter((i) => i.nextDate === calendarDay)
-      : r.items;
-    $("#hc-main").innerHTML =
-      heading(
-        "PLANIFICACIÓN / CLIMATIZACIÓN",
-        "Próximos servicios",
-        "Fechas vigentes por unidad, sin duplicar mantenimientos ya sustituidos.",
-      ) +
-      `<div class="hc-calendar-filters">${[
-        ["overdue", "Vencidos", r.summary.overdue],
-        ["week", "Próximos 7 días", r.summary.week],
-        ["month", "En el mes", r.summary.month],
-      ]
-        .map(([id, label, n]) =>
-          btn(
-            `${label} <strong>${n}</strong>`,
-            "calendar-bucket",
-            calendarBucket === id ? "primary" : "",
-            `data-bucket="${id}"`,
-          ),
-        )
-        .join("")}</div>
-    <section class="hc-panel"><div class="hc-panel-head"><h2>${first.toLocaleDateString("es-MX", { month: "long", year: "numeric" })}</h2><div class="hc-actions">${btn("←", "month-prev", "", 'aria-label="Mes anterior"')}<input aria-label="Mes del calendario" id="hc-calendar-month" type="month" value="${calendarMonth}">${btn("→", "month-next", "", 'aria-label="Mes siguiente"')}</div></div><div class="hc-calendar-grid"><div class="hc-calendar-weekdays">${["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((d) => `<span>${d}</span>`).join("")}</div><div class="hc-calendar-days">${cells}</div></div></section>
-    <section class="hc-panel hc-orders"><div class="hc-panel-head"><h2>${calendarDay ? "Servicios del " + fmt(calendarDay) : "Unidades por atender"}</h2>${calendarDay ? btn("Ver periodo", "calendar-clear") : ""}</div>${visible.length ? ordersTable(visible) : '<div class="hc-empty">Sin servicios programados para este filtro.</div>'}<div class="hc-pager"><span>Fechas tomadas de órdenes completadas</span><div class="hc-actions">${btn("Anterior", "calendar-prev", "", calendarOffset === 0 ? "disabled" : "")}${btn("Siguiente", "calendar-next", "", r.items.length < r.limit ? "disabled" : "")}</div></div></section><div class="hc-note">Un preventivo completado sustituye la fecha anterior de esa unidad. Una atención express sin fecha nueva conserva el mantenimiento pendiente. Este seguimiento no modifica Agenda.</div>`;
+    await window.ACOperations.show("upcoming");
   }
   async function history() {
     let body =
@@ -2255,6 +2207,10 @@
   });
   window.CarlabACNav = {
     open,
+    newFrom: async (id) => {
+      const source = await api("/services/" + encodeURIComponent(id));
+      await choose(source);
+    },
     operations: async (name, id) => {
       if (!(await leave())) return false;
       await resetEditor();

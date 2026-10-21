@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const catalog = require("./catalog");
 const fleet = require("./fleet");
+const maintenanceCalendar = require("./calendar");
 const notificationSchema = `
 CREATE TABLE IF NOT EXISTS ac_notifications (
  id BIGSERIAL PRIMARY KEY, event_key TEXT NOT NULL UNIQUE, brand TEXT NOT NULL,
@@ -334,6 +335,16 @@ function register(
     day,
     page,
     notice,
+  });
+  maintenanceCalendar.register(router, {
+    pool,
+    wrap,
+    fail,
+    text,
+    brand,
+    day,
+    page,
+    scheduleCTE,
   });
   router.get(
     "/me",
