@@ -212,7 +212,19 @@
       .forEach((el) =>
         el.classList.toggle("selected", el.dataset.acView === view),
       );
-    if (view === "requests") {
+    if (view === "fleet") {
+      await window.ACFleet.show({
+        api,
+        info,
+        library,
+        external,
+        toast,
+        navigate,
+        newRequest,
+        active: () => currentView === "fleet",
+      });
+      if (id) await window.ACFleet.openDetail(id);
+    } else if (view === "requests") {
       await showRequests();
       if (id) await requestDetail(id);
     } else if (view === "parts") await showParts();
@@ -243,13 +255,15 @@
       ) +
       `<form id="ac-request-filters" class="hc-filters">${external ? "" : select("Marca", "brand", info.brands, filters.brand, "Todas las marcas")}${select("Solicitud", "kind", { service: "Servicio", part: "Refacción" }, filters.kind, "Todos los tipos")}${select("Estado", "status", info.stages, filters.status, "Todos los estados")}<button class="hc-btn" type="submit">Filtrar</button>${button("Actualizar", "refresh")}</form><section class="hc-panel"><div class="hc-order-cards">${r.items.map((x) => `<article class="hc-order-card"><div class="hc-order-top"><b>${esc(x.folio)}</b><span class="hc-badge">${esc(info.stages[x.status])}</span></div><h3>${esc(x.company)} · ${esc(x.unit)}</h3><div class="hc-chips"><span>${esc(name(x.brand))}</span><span>${x.kind === "service" ? "Servicio" : "Refacción"}</span>${x.data.priority === "urgente" ? '<span class="hc-chip-express">Urgente</span>' : ""}</div><p>${esc(x.kind === "part" ? `${x.data.quantity} × ${x.data.partName}` : x.data.description)}</p><small>${fmt(x.createdAt)}${x.serviceStatus ? " · Orden: " + esc(library?.statuses?.[x.serviceStatus] || x.serviceStatus) : ""}</small>${button("Consultar solicitud", "request-detail", `data-id="${x.id}"`)}</article>`).join("") || '<div class="hc-empty">Sin solicitudes para este filtro.</div>'}</div><div class="hc-pager"><span>${r.total} solicitudes</span><div class="hc-actions">${button("Anterior", "request-prev", "" + (offset === 0 ? "disabled" : ""))}${button("Siguiente", "request-next", offset + 25 >= r.total ? "disabled" : "")}</div></div></section>`;
   }
-  async function newRequest(kind, partId = "") {
+  async function newRequest(kind, partId = "", seed = null) {
     requestPhotos = [];
     requestKey = crypto.randomUUID();
     const available = await api("/parts");
     parts = available;
     const chosen = parts.find((p) => p.id === partId);
-    const b = external ? info.user.brand : chosen?.brands[0] || "";
+    const b = external
+      ? info.user.brand
+      : seed?.brand || chosen?.brands[0] || "";
     const units = await api("/units");
     const unitOptions = Object.fromEntries(
       units.map((u, i) => [String(i), `${u.company} · ${u.unit}`]),
@@ -258,6 +272,26 @@
     dialog(
       `<div class="hc-kicker">NUEVA SOLICITUD</div><h2>${kind === "service" ? "Solicitar servicio AC" : "Solicitar refacción AC"}</h2><p>La solicitud será revisada por Carlab. ${kind === "part" ? "La existencia se confirma al entregar." : "Carlab programará el servicio y abrirá la orden."}</p><form id="ac-new-request"><input name="kind" type="hidden" value="${kind}"><div class="hc-grid">${external ? `<div class="hc-field"><b>Empresa / marca</b><span class="hc-badge">${esc(name(b))}</span><input name="brand" type="hidden" value="${b}"></div>` : select("Marca *", "brand", info.brands, b, "Seleccionar marca")}${select("Unidad conocida (opcional)", "knownUnit", unitOptions, "", "Captura manual")}${field("Empresa operadora *", "company", "", "text", 'required maxlength="180"')}${field("Número económico *", "unit", "", "text", 'required maxlength="80"')}${kind === "part" ? select("Refacción de catálogo", "partId", Object.fromEntries(parts.filter((p) => !b || p.brands.includes(b)).map((p) => [p.id, p.name + (p.reference ? " · " + p.reference : "")])), partId, "Pieza fuera de catálogo") + `<div id="ac-custom-part" ${partId ? "hidden" : ""}>${field("Refacción solicitada *", "partName", "", "text")}${field("Número de parte / referencia", "reference")}</div>` + field("Cantidad *", "quantity", "1", "number", 'min="0.01" step="0.01" required') : ""}${field(kind === "service" ? "Falla o servicio solicitado *" : "Motivo de la solicitud *", "description", "", "textarea", 'required rows="3"')}${select("Prioridad", "priority", { normal: "Normal", alta: "Alta", urgente: "Urgente" }, "normal")}${field("Ubicación de atención", "location")}${field("Contacto / teléfono", "contact")}${field("Fecha preferida (opcional)", "preferredDate", "", "date")}</div><label class="hc-field"><b>Evidencia fotográfica (hasta 4)</b><input id="ac-request-photo" type="file" accept="image/jpeg,image/png,image/webp" multiple></label><div id="ac-request-photos" class="ac-photos"></div><div class="hc-actions">${button("Cancelar", "dialog-close")}<button type="submit" class="hc-btn primary">Enviar solicitud</button></div></form>`,
     );
+    if (seed) {
+      const form = $("#ac-new-request");
+      for (const key of ["company", "unit"]) {
+        form.elements[key].value = seed[key];
+        form.elements[key].readOnly = true;
+      }
+      form.elements.knownUnit.disabled = true;
+      if (form.elements.brand.tagName === "SELECT") {
+        form.elements.brand.disabled = true;
+        form.insertAdjacentHTML(
+          "beforeend",
+          `<input type="hidden" name="brand" value="${esc(seed.brand)}">`,
+        );
+      }
+      form.elements.location.value = seed.base || "";
+      form.insertAdjacentHTML(
+        "beforeend",
+        `<input type="hidden" name="fleetUnitId" value="${esc(seed.id)}">`,
+      );
+    }
   }
   async function compress(file) {
     if (
@@ -730,7 +764,9 @@
           panel().hidden = true;
           if (external) await navigate("order", n.targetId);
           else await window.CarlabACNav.open(n.targetId);
-        } else await navigate("requests", n.targetId);
+        } else if (n.targetType === "fleet")
+          await navigate("fleet", n.targetId);
+        else await navigate("requests", n.targetId);
       }
       if (a === "logout") {
         localStorage.removeItem("carlabToken");
@@ -770,7 +806,7 @@
         $("#hc-user").textContent = info.user.nombre + " · Supervisor AC";
         $(".hc-space-label").textContent =
           name(info.user.brand).toUpperCase() + " / PORTAL EXTERNO";
-        await show("requests");
+        await show("fleet");
       }
       await refreshNotifications();
       refreshTimer = setInterval(() => refreshNotifications(), 30000);

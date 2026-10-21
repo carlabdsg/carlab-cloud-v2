@@ -69,3 +69,18 @@ Guía de instalación y uso: `CLIMATIZACION-ACTUALIZACION-V3.md` en la raíz.
 - `server.js` restringe los JWT del nuevo rol a `/api/ac/*` y `/api/auth/me`; no agrega Supervisor AC a permisos de Flotas, Stock, Cobranza o Garantías. Los scripts principales redirigen ese rol antes de montar el tablero existente.
 
 Instalación y uso: `CLIMATIZACION-ACTUALIZACION-V4.md`.
+
+## V5 · Flotas de climatización
+
+`fleet.js` registra las rutas `/api/ac/fleet/*` dentro del router autenticado de operaciones. Su esquema se inicializa después de `hc_services` y `ac_requests`. Usa `ac_fleet_companies`, `ac_fleet_units` y `ac_fleet_events`, e índices de consulta por empresa/unidad/marca sobre las órdenes y solicitudes. No escribe en `fleet_units` ni modifica el estado mecánico de los autobuses.
+
+- `/fleet/options` y `/fleet/companies`: catálogo de empresas, regiones y bases filtrado por marca para el supervisor. Solo admin puede crear/editar empresas.
+- `/fleet/units`: lista paginada (60), indicadores y comparación por empresa. POST admite una unidad o lote atómico de hasta 100.
+- `/fleet/units/:id`: expediente limitado a campos operativos, sin costos internos; PATCH administrativo con control de versión. Marca/empresa/económico inmutables para preservar el vínculo histórico.
+- `/fleet/import-candidates`: consulta administrativa de datos identificativos de las flotas actuales; no transfiere el estado del chasis al AC.
+- `/fleet/export`: CSV de todos los resultados filtrados, con el mismo aislamiento y escape de fórmulas.
+- `unitRow` explica el semáforo a partir de evaluación, órdenes, solicitudes y calendario; no persiste colores que pudieran quedar desactualizados. La vigencia de evaluación predeterminada de 90 días es una política administrativa configurable.
+- Las solicitudes iniciadas desde la ficha validan `fleetUnitId`, empresa, económico y marca. Las evaluaciones manuales críticas crean eventos de campanita por marca.
+- `public/ac-fleet.js` comparte el portal admin/externo, conserva los SVG actuales de autobuses y pausa las actualizaciones automáticas durante la captura. Las pantallas de V5 usan una nueva versión de caché.
+
+Consultar `CLIMATIZACION-ACTUALIZACION-V5.md` para instalación y reglas de seguimiento. El registro de un equipo no genera una orden de servicio ni mueve inventario.

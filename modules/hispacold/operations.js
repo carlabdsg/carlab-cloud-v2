@@ -3,6 +3,7 @@ const express = require("express");
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const catalog = require("./catalog");
+const fleet = require("./fleet");
 const notificationSchema = `
 CREATE TABLE IF NOT EXISTS ac_notifications (
  id BIGSERIAL PRIMARY KEY, event_key TEXT NOT NULL UNIQUE, brand TEXT NOT NULL,
@@ -208,6 +209,7 @@ function register(
     ready ||
     (ready = ensureServices()
       .then(() => pool.query(schema))
+      .then(() => pool.query(fleet.schema))
       .catch((e) => {
         ready = null;
         throw e;
@@ -320,6 +322,19 @@ function register(
     );
     return { ...requestRow(r.rows[0]), events: ev.rows };
   }
+  fleet.register(router, {
+    pool,
+    wrap,
+    admin,
+    allowed,
+    transaction,
+    fail,
+    text,
+    brand,
+    day,
+    page,
+    notice,
+  });
   router.get(
     "/me",
     wrap(async (req, res) =>
@@ -465,12 +480,12 @@ function register(
     wrap(async (req, res) => {
       if (req.acAdmin) {
         const r = await pool.query(
-          "SELECT empresa AS company,numero_economico AS unit,modelo AS model FROM fleet_units ORDER BY empresa,numero_economico",
+          "SELECT empresa AS company,numero_economico AS unit,modelo AS model FROM fleet_units UNION SELECT c.name AS company,u.unit,u.model FROM ac_fleet_units u JOIN ac_fleet_companies c ON c.id=u.company_id WHERE u.active=TRUE ORDER BY company,unit",
         );
         return res.json(r.rows);
       }
       const r = await pool.query(
-        `SELECT DISTINCT company,unit FROM (SELECT company,unit FROM hc_services WHERE deleted_at IS NULL AND COALESCE(payload->>'brand','hispacold')=$1 UNION SELECT operator_company AS company,unit FROM ac_requests WHERE brand=$1) x ORDER BY company,unit LIMIT 1000`,
+        `SELECT DISTINCT company,unit FROM (SELECT c.name AS company,u.unit FROM ac_fleet_units u JOIN ac_fleet_companies c ON c.id=u.company_id WHERE u.brand=$1 AND u.active=TRUE UNION SELECT company,unit FROM hc_services WHERE deleted_at IS NULL AND COALESCE(payload->>'brand','hispacold')=$1 UNION SELECT operator_company AS company,unit FROM ac_requests WHERE brand=$1) x ORDER BY company,unit LIMIT 1000`,
         [req.acBrand],
       );
       res.json(r.rows);
@@ -645,6 +660,23 @@ function register(
         fail("Selecciona tipo, empresa operadora y unidad.");
       if (!req.acAdmin && req.body.brand && req.body.brand !== req.acBrand)
         fail("Solo puedes solicitar servicios de tu marca.", 403);
+      if (req.body.fleetUnitId) {
+        const fleetUnit = await pool.query(
+          "SELECT u.brand,u.unit,c.name AS company FROM ac_fleet_units u JOIN ac_fleet_companies c ON c.id=u.company_id WHERE u.id=$1 AND u.active=TRUE",
+          [text(req.body.fleetUnitId, 100)],
+        );
+        const target = fleetUnit.rows[0];
+        if (
+          !target ||
+          target.brand !== b ||
+          target.company !== company ||
+          target.unit !== unit
+        )
+          fail(
+            "La unidad seleccionada no está disponible para esta solicitud.",
+            404,
+          );
+      }
       const description = text(req.body.description, 4000),
         priority = text(req.body.priority || "normal", 20);
       if (!description || !["normal", "alta", "urgente"].includes(priority))
@@ -1203,7 +1235,7 @@ function register(
   );
   const visibility = (req) =>
     req.acAdmin ? "TRUE" : "n.brand=$1 AND n.audience='all'";
-  const relevant = `(n.target_type<>'order' OR EXISTS(SELECT 1 FROM hc_services s WHERE s.id=n.target_id AND s.deleted_at IS NULL AND (n.kind<>'closure_reminder' OR s.status IN ('borrador','en_proceso')) AND (n.kind<>'maintenance_due' OR (s.next_date IS NOT NULL AND n.event_key='maintenance:'||s.id||':'||s.next_date::text AND s.id IN (SELECT id FROM hc_services s2 WHERE s2.deleted_at IS NULL AND s2.status='completado' AND (s2.type='preventivo' OR s2.next_date IS NOT NULL) AND LOWER(TRIM(s2.company))=LOWER(TRIM(s.company)) AND LOWER(TRIM(s2.unit))=LOWER(TRIM(s.unit)) AND COALESCE(s2.payload->>'brand','hispacold')=COALESCE(s.payload->>'brand','hispacold') ORDER BY s2.service_date DESC,s2.number DESC LIMIT 1)))))`;
+  const relevant = `(n.target_type<>'fleet' OR EXISTS(SELECT 1 FROM ac_fleet_units fu WHERE fu.id=n.target_id AND fu.active=TRUE AND fu.brand=n.brand AND fu.condition='no_operativo')) AND (n.target_type<>'order' OR EXISTS(SELECT 1 FROM hc_services s WHERE s.id=n.target_id AND s.deleted_at IS NULL AND (n.kind<>'closure_reminder' OR s.status IN ('borrador','en_proceso')) AND (n.kind<>'maintenance_due' OR (s.next_date IS NOT NULL AND n.event_key='maintenance:'||s.id||':'||s.next_date::text AND s.id IN (SELECT id FROM hc_services s2 WHERE s2.deleted_at IS NULL AND s2.status='completado' AND (s2.type='preventivo' OR s2.next_date IS NOT NULL) AND LOWER(TRIM(s2.company))=LOWER(TRIM(s.company)) AND LOWER(TRIM(s2.unit))=LOWER(TRIM(s.unit)) AND COALESCE(s2.payload->>'brand','hispacold')=COALESCE(s.payload->>'brand','hispacold') ORDER BY s2.service_date DESC,s2.number DESC LIMIT 1)))))`;
   async function reminders(req, today) {
     const p = [today];
     let b = "";

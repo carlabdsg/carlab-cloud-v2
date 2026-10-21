@@ -328,7 +328,7 @@
       else if (name === "history") await history();
       else if (name === "library") library();
       else if (name === "trash") await trash();
-      else if (["requests", "parts", "access", "notifications"].includes(name))
+      else if (["fleet", "requests", "parts", "access", "notifications"].includes(name))
         await window.ACOperations.show(name);
       else codes();
     } catch (e) {
