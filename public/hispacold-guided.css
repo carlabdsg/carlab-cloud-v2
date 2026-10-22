@@ -1,0 +1,145 @@
+.hc-guided-form [hidden] {
+  display: none !important;
+}
+.hc-guided-navigation {
+  margin-bottom: 20px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+}
+.hc-guided-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.hc-guided-heading span,
+#hc-guided-context {
+  color: var(--muted);
+  font-size: 12px;
+}
+.hc-guided-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.hc-guided-steps button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f5f8fa;
+  color: #354f5b;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+.hc-guided-steps button span {
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.hc-guided-steps button.active {
+  background: #087f82;
+  color: white;
+  border-color: #087f82;
+  font-weight: 700;
+}
+#hc-guided-context {
+  margin-top: 16px;
+  overflow-wrap: anywhere;
+}
+.hc-guided-section {
+  scroll-margin-top: 20px;
+}
+.hc-guided-section h2:focus {
+  outline: none;
+}
+.hc-guided-issues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+.hc-guided-issues .hc-btn {
+  text-align: left;
+  white-space: normal;
+}
+.hc-guided-review {
+  max-width: 680px;
+}
+.hc-guided-review-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  position: sticky;
+  top: -1px;
+  background: white;
+  padding: 8px 0;
+  z-index: 1;
+}
+.hc-guided-review-heading h2 {
+  margin: 0;
+}
+.hc-guided-review-heading .hc-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+.hc-guided-review dl > div {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.hc-guided-review dt {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+.hc-guided-review dd {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.hc-guided-review > .hc-actions {
+  margin-top: 20px;
+}
+.hc-guided-form .hc-savebar {
+  flex-wrap: wrap;
+}
+.hc-guided-form .hc-savebar > .hc-actions {
+  margin-left: auto;
+}
+@media (max-width: 700px) {
+  .hc-guided-navigation {
+    padding: 14px;
+  }
+  .hc-guided-heading {
+    flex-direction: column;
+    gap: 5px;
+  }
+  .hc-guided-steps {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .hc-guided-steps button {
+    padding: 10px 8px;
+    font-size: 12px;
+    min-height: 44px;
+  }
+  .hc-guided-form .hc-savebar > .hc-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+  .hc-guided-form .hc-savebar [data-action="step-next"],
+  .hc-guided-form .hc-savebar [data-action="review-order"] {
+    grid-column: 1 / -1;
+  }
+  .hc-guided-review > .hc-actions {
+    display: grid;
+  }
+}

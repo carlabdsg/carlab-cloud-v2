@@ -550,7 +550,10 @@
     localId = id;
     record = saved.record;
     draft = normalizeData(saved.data);
-    step = Math.min(saved.step || 0, stepSets[draft.type].length - 1);
+    step = Math.min(
+      saved.step || 0,
+      isV3() ? 3 : stepSets[draft.type].length - 1,
+    );
     dirty = true;
     change = storedChange = 1;
     editor();
@@ -627,9 +630,151 @@
   function extraBlock(title, body, open = false, id = "") {
     return `<details class="hc-extra-fields hc-simple-extra" ${open ? "open" : ""} ${id ? `id="${id}"` : ""}><summary>${title}</summary><div class="hc-extra-content">${body}</div></details>`;
   }
+  const guidedLabels = ["Recepción", "Diagnóstico", "Intervención", "Entrega"];
+  function guidedNavigation() {
+    return `<div class="hc-guided-navigation"><div class="hc-guided-heading"><b id="hc-guided-position"></b><span>Guarda el avance en cualquier etapa</span></div><nav class="hc-guided-steps" aria-label="Etapas de la orden">${guidedLabels.map((label, i) => `<button type="button" data-step="${i}" aria-controls="hc-guided-${i}"><span>${i + 1}</span>${label}</button>`).join("")}</nav><div id="hc-guided-context"></div></div>`;
+  }
+  function guidedWorkHint() {
+    return (
+      {
+        revision:
+          "Describe los componentes inspeccionados y los procedimientos de revisión realizados.",
+        preventivo:
+          "Describe las tareas de mantenimiento ejecutadas, los componentes atendidos y los ajustes efectuados.",
+        menor:
+          "Indica el componente intervenido y la reparación o ajuste efectuado.",
+        mayor:
+          "Describe el desmontaje, la reparación o sustitución y el procedimiento de montaje realizado.",
+      }[draft.type] || "Describe las actividades ejecutadas."
+    );
+  }
+  function renderGuidedStep() {
+    $$("[data-guided-section]").forEach((el) => {
+      el.hidden = Number(el.dataset.guidedSection) !== step;
+      el.id = "hc-guided-" + el.dataset.guidedSection;
+      el.querySelector("h2").tabIndex = -1;
+    });
+    $$(".hc-guided-steps [data-step]").forEach((el) => {
+      const current = Number(el.dataset.step) === step;
+      el.classList.toggle("active", current);
+      if (current) el.setAttribute("aria-current", "step");
+      else el.removeAttribute("aria-current");
+    });
+    $("#hc-guided-position").textContent =
+      `Paso ${step + 1} de 4 · ${guidedLabels[step]}`;
+    $("[data-action=step-prev]").disabled = step === 0;
+    const next = $("[data-action=step-next]");
+    next.hidden = step === 3;
+    next.textContent = `Continuar a ${guidedLabels[step + 1] || "entrega"} →`;
+    $("[data-action=review-order]").hidden = step !== 3;
+  }
+  function guidedReadiness(missing) {
+    return missing.length
+      ? `<b>${missing.length} ${missing.length === 1 ? "pendiente para el cierre" : "pendientes para el cierre"}</b><p>Puedes guardar el avance. Selecciona un pendiente para ir al campo correspondiente.</p><div class="hc-guided-issues">${missing.map((label) => btn(esc(label) + " →", "guided-issue", "", `data-issue="${esc(label)}"`)).join("")}</div>`
+      : "<b>Información requerida completa.</b><p>Revisa el resumen técnico antes de confirmar el cierre.</p>";
+  }
+  function focusGuidedIssue(label) {
+    readForm();
+    const fields = {
+      Empresa: "company",
+      Unidad: "unit",
+      Fecha: "serviceDate",
+      Técnico: "technician",
+      Diagnóstico: "diagnosis",
+      "Trabajo realizado": "workDone",
+      "Prueba final": "finalTest",
+      "Condición de entrega": "result",
+      "Motivo del servicio": "symptoms",
+      "Tipo de evento": "eventKind",
+      Periodicidad: "interval",
+      "Recomendaciones de entrega": "recommendations",
+      "Resolver pendientes o entregar con observaciones": "result",
+      "Autorización y referencia técnica": !draft.authorization
+        ? "authorization"
+        : "technicalReference",
+      "Datos de intervención del circuito": !draft.technicalReference
+        ? "technicalReference"
+        : !draft.refrigerant
+          ? "refrigerant"
+          : draft.chargedKg == null || draft.chargedKg === ""
+            ? "chargedKg"
+            : "refrigerantNotes",
+    };
+    let target = fields[label] ? $(`[name="${fields[label]}"]`) : null;
+    if (
+      label.includes("puntos de revisión") ||
+      label === "Motivo de hallazgos / no aplica"
+    ) {
+      const c = draft.checklist.find((c) =>
+        label.includes("puntos de revisión")
+          ? c.outcome === "pendiente"
+          : ["hallazgo", "no_aplica"].includes(c.outcome) && !c.notes?.trim(),
+      );
+      checkFilter = "all";
+      $("#hc-check-filter").value = "all";
+      if (c)
+        target = document.getElementsByName(
+          `${label.includes("puntos de revisión") ? "outcome" : "notes"}:${c.id}`,
+        )[0];
+    }
+    if (label === "Persona que autorizó los trabajos") {
+      const i = draft.findings.findIndex(
+        (f) =>
+          ["autorizado", "realizado"].includes(f.decision) &&
+          !f.authorizedBy?.trim(),
+      );
+      target = document.getElementsByName(`finding-authorizedBy:${i}`)[0];
+    }
+    if (!target) return;
+    setStep(
+      Number(target.closest("[data-guided-section]").dataset.guidedSection),
+    );
+    for (
+      let parent = target.parentElement;
+      parent;
+      parent = parent.parentElement
+    ) {
+      if (parent.tagName === "DETAILS") parent.open = true;
+    }
+    if (target.name === "recommendations")
+      $("#hc-result-followup").hidden = false;
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+  function showGuidedReview() {
+    const missing = closeMissing();
+    const summary = [
+      [
+        "Identificación",
+        `${draft.company} · Unidad ${draft.unit} · ${brandName(draft.brand)}`,
+      ],
+      [
+        "Servicio",
+        `${catalog.types[draft.type]} · ${isExpress() ? "Express" : "Normal"}`,
+      ],
+      [
+        "Responsable y fecha",
+        `${draft.technician} · ${fmt(draft.serviceDate)}`,
+      ],
+      ["Motivo del servicio", draft.symptoms],
+      ["Diagnóstico técnico", draft.diagnosis],
+      ["Intervención realizada", draft.workDone],
+      ["Verificación funcional", draft.finalTest],
+      ["Condición de entrega", results[draft.result]],
+      ["Recomendaciones", draft.recommendations],
+      [
+        "Registros adicionales",
+        `${draft.parts.length} conceptos de refacciones · ${draft.evidence.length} fotografías · ${draft.findings.length} trabajos detectados`,
+      ],
+    ];
+    $("#hc-dialog").innerHTML =
+      `<div class="hc-guided-review"><div class="hc-guided-review-heading"><h2>Revisión de la orden</h2>${btn("✕", "close-dialog", "", 'aria-label="Cerrar revisión"')}</div><p>Verifica que la información refleje el servicio realizado. El reporte conservará su formato técnico.</p><dl>${summary.map(([label, value]) => `<div><dt>${esc(label)}</dt><dd>${esc(value || "Sin registro")}</dd></div>`).join("")}</dl>${guidedReadiness(missing)}<div class="hc-actions">${btn("Volver a editar", "close-dialog")}${!missing.length && draft.status !== "cancelado" ? btn("Confirmar cierre de orden", "complete-order", "primary") : ""}</div></div>`;
+    $("#hc-dialog").showModal();
+  }
   function editorSimple() {
     nav("services");
     signatures = {};
+    step = Math.max(0, Math.min(3, step));
     const requiredChecks = ["preventivo", "mayor"].includes(draft.type);
     const hasReadings = draft.measurements.some(
       (m) =>
@@ -644,7 +789,7 @@
         `${isExpress() ? "⚡ Servicio express" : "Atención normal"} · Guarda ahora y completa el trabajo cuando termines.`,
         btn("← Órdenes", "back"),
       ) +
-      `<div id="hc-form-error" class="hc-error" role="alert"></div><form id="hc-form" class="hc-simple-form" novalidate><section class="hc-panel hc-section"><div class="hc-simple-title"><span class="hc-number">1</span><div><h2>Recepción y motivo del servicio</h2><p>Identificación de la unidad y descripción de la solicitud.</p></div></div><div class="hc-grid"><label class="hc-field wide"><b>Unidad</b><select name="fleetUnitId" id="hc-unit">${opts(Object.fromEntries(units.map((u) => [u.id, `${u.empresa} · ${u.numero_economico}`])), draft.fleetUnitId, "Unidad externa / captura manual")}</select></label>${draft.fleetUnitId ? `<div class="hc-unit-summary wide"><b>${esc(draft.company)} · ${esc(draft.unit)}</b><span>${esc(draft.model)}</span></div>` : ""}${draft.fleetUnitId ? extraBlock("Editar empresa y económico", `<div class="hc-grid">${field("Empresa / cliente *", "company", "text", 'maxlength="180"')}${field("Número económico *", "unit", "text", 'maxlength="80"')}</div>`) : field("Empresa / cliente *", "company", "text", 'maxlength="180"') + field("Número económico *", "unit", "text", 'maxlength="80"')}${field("Motivo del servicio *", "symptoms", "textarea", 'placeholder="Describe la falla reportada o el servicio solicitado." rows="2"')}</div><div class="hc-symptom-chips" aria-label="Motivos frecuentes">${brandCatalog()
+      `<div id="hc-form-error" class="hc-error" role="alert"></div><form id="hc-form" class="hc-simple-form hc-guided-form" novalidate>${guidedNavigation()}<section class="hc-panel hc-section hc-guided-section" data-guided-section="0" aria-label="Recepción"><div class="hc-simple-title"><span class="hc-number">1</span><div><h2>Recepción y motivo del servicio</h2><p>Identificación de la unidad y descripción de la solicitud.</p></div></div><div class="hc-grid"><label class="hc-field wide"><b>Unidad</b><select name="fleetUnitId" id="hc-unit">${opts(Object.fromEntries(units.map((u) => [u.id, `${u.empresa} · ${u.numero_economico}`])), draft.fleetUnitId, "Unidad externa / captura manual")}</select></label>${draft.fleetUnitId ? `<div class="hc-unit-summary wide"><b>${esc(draft.company)} · ${esc(draft.unit)}</b><span>${esc(draft.model)}</span></div>` : ""}${draft.fleetUnitId ? extraBlock("Editar empresa y económico", `<div class="hc-grid">${field("Empresa / cliente *", "company", "text", 'maxlength="180"')}${field("Número económico *", "unit", "text", 'maxlength="80"')}</div>`) : field("Empresa / cliente *", "company", "text", 'maxlength="180"') + field("Número económico *", "unit", "text", 'maxlength="80"')}${field("Motivo del servicio *", "symptoms", "textarea", 'placeholder="Describe la falla reportada o el servicio solicitado." rows="2"')}</div><div class="hc-symptom-chips" aria-label="Motivos frecuentes">${brandCatalog()
         .symptomGuides.filter((g) => g.id !== "otro")
         .map((g) =>
           btn(
@@ -659,20 +804,22 @@
         )}</div><input type="hidden" name="symptomCode" value="${esc(draft.symptomCode)}"><div id="hc-unit-context" class="hc-unit-context"></div>
       ${draft.type === "preventivo" ? `<div class="hc-grid hc-plan-row">${select("Plan de mantenimiento", "interval", intervalNames())}${field("Plan acordado con la flota", "planReference")}</div>` : ""}
       ${extraBlock("Fecha, responsable y datos del equipo", `<div class="hc-grid">${field("Fecha del servicio *", "serviceDate", "date")}${field("Técnico responsable *", "technician")}${field("Modelo de unidad", "model")}${field("Equipo de aire acondicionado", "equipment")}${field("Control / display", "control")}${field("Serie del compresor", "compressorSerial")}${field("Chasis", "chassis")}${field("Kilometraje", "mileage", "number")}${field("Base / ubicación", "base")}${field("Número de obra", "workNumber")}${select("Prioridad", "priority", { normal: "Normal", alta: "Alta", urgente: "Urgente" })}</div>`)}
-      ${isExpress() ? extraBlock("Datos del evento express", `<div class="hc-grid">${select("Tipo de evento", "eventKind", catalog.eventKinds)}${field("Ubicación de la atención", "eventLocation")}${field("Contacto", "eventContact")}${field("Aviso", "reportedAt", "datetime-local")}${field("Llegada", "arrivalAt", "datetime-local")}${field("Resolución", "resolvedAt", "datetime-local")}</div>`) : ""}</section>
-      <section class="hc-panel hc-section"><div class="hc-simple-title"><span class="hc-number">2</span><div><h2>Diagnóstico e intervención</h2><p>Registro del diagnóstico y de las actividades ejecutadas.</p></div></div><div class="hc-grid">${["revision", "mayor"].includes(draft.type) ? field("Diagnóstico / causa encontrada *", "diagnosis", "textarea", 'rows="2"') : ""}${field("Trabajo realizado", "workDone", "textarea", 'rows="3" placeholder="Describe la intervención o la revisión realizada."')}</div>
+      ${isExpress() ? `<div class="hc-grid hc-plan-row">${select("Tipo de evento express *", "eventKind", catalog.eventKinds)}${field("Ubicación de la atención", "eventLocation")}</div>${extraBlock("Contacto y tiempos del evento (opcional)", `<div class="hc-grid">${field("Contacto", "eventContact")}${field("Aviso", "reportedAt", "datetime-local")}${field("Llegada", "arrivalAt", "datetime-local")}${field("Resolución", "resolvedAt", "datetime-local")}</div>`, !!(draft.eventContact || draft.reportedAt || draft.arrivalAt || draft.resolvedAt))}` : ""}</section>
+      <section class="hc-panel hc-section hc-guided-section" data-guided-section="1" aria-label="Diagnóstico"><div class="hc-simple-title"><span class="hc-number">2</span><div><h2>Diagnóstico y revisión</h2><p>${requiredChecks ? "Registra cada punto del alcance de este servicio. Puedes guardar y continuar después." : "Registra los hallazgos. La revisión detallada de componentes es opcional para este servicio."}</p></div></div><div class="hc-grid">${field(["revision", "mayor"].includes(draft.type) ? "Diagnóstico / causa encontrada *" : "Diagnóstico / causa encontrada (opcional)", "diagnosis", "textarea", 'rows="3" placeholder="Indica el componente evaluado, el hallazgo y la causa identificada, si se confirmó."')}</div>
       ${extraBlock(requiredChecks ? 'Lista de mantenimiento y verificación <span id="hc-check-progress"></span>' : 'Agregar revisión de componentes (opcional) <span id="hc-check-progress"></span>', inspectionHTML(), requiredChecks, "hc-review-details")}
-      ${extraBlock("Diagnóstico y referencia técnica", `<div class="hc-grid">${!["revision", "mayor"].includes(draft.type) ? field("Diagnóstico / causa", "diagnosis", "textarea") : ""}${field("Códigos observados", "faultCodes")}${field("Referencia técnica / procedimiento / página", "technicalReference")}${field("Alcance y autorización general", "authorization")}</div><div id="hc-symptom-guide">${guideHTML()}</div>`, draft.type === "mayor", "hc-diagnostic-details")}
-      ${extraBlock("Mediciones e intervención del circuito", measurementsHTML(), draft.circuitOpened || hasReadings, "hc-measurement-details")}
-      ${extraBlock("Refacciones y materiales utilizados", `<div id="hc-parts">${partsHTML()}</div>${btn("+ Agregar concepto", "add-part")}<p class="hc-subtle">Importes en MXN. Registro de la orden, sin movimientos automáticos de almacén.</p>`, draft.parts.length > 0, "hc-parts-details")}
-      ${extraBlock("Trabajos pendientes y autorizaciones", `<div id="hc-findings">${findingsHTML()}</div>${btn("+ Agregar trabajo detectado", "add-finding")}`, draft.findings.length > 0, "hc-findings-details")}
+      ${extraBlock("Diagnóstico y referencia técnica", `<div class="hc-grid">${field("Códigos observados", "faultCodes")}${field("Referencia técnica / procedimiento / página", "technicalReference")}${field("Alcance y autorización general", "authorization")}</div><div id="hc-symptom-guide">${guideHTML()}</div>`, !!(draft.type === "mayor" || draft.faultCodes || draft.technicalReference || draft.authorization), "hc-diagnostic-details")}
+      </section><section class="hc-panel hc-section hc-guided-section" data-guided-section="2" aria-label="Intervención"><div class="hc-simple-title"><span class="hc-number">3</span><div><h2>Intervención técnica</h2><p>Describe las actividades ejecutadas y despliega los registros que correspondan a este trabajo.</p></div></div>${field("Trabajo realizado *", "workDone", "textarea", `rows="4" placeholder="${esc(guidedWorkHint())}"`)}
+      ${extraBlock("¿Se realizaron mediciones o se intervino el circuito?", measurementsHTML(), draft.circuitOpened || hasReadings, "hc-measurement-details")}
+      ${extraBlock("¿Se utilizaron refacciones o materiales?", `<div id="hc-parts">${partsHTML()}</div>${btn("+ Agregar concepto", "add-part")}<p class="hc-subtle">Importes en MXN. Registro de la orden, sin movimientos automáticos de almacén.</p>`, draft.parts.length > 0, "hc-parts-details")}
+      ${extraBlock("¿Se detectaron trabajos adicionales o pendientes?", `<div id="hc-findings">${findingsHTML()}</div>${btn("+ Agregar trabajo detectado", "add-finding")}`, draft.findings.length > 0, "hc-findings-details")}
       <div class="hc-photo-section"><div><h3>Evidencia fotográfica</h3><p class="hc-subtle">Hasta 8 fotos · antes, durante o después</p></div><div class="hc-actions">${btn("◉ Tomar foto", "take-photo")}${btn("↑ Elegir fotos", "choose-photos")}</div><div id="hc-evidence" class="hc-evidence">${evidenceHTML()}</div></div></section>
-      <section class="hc-panel hc-section"><div class="hc-simple-title"><span class="hc-number">3</span><div><h2>Verificación y entrega</h2><p>Pruebas funcionales y condición de entrega de la unidad.</p></div></div><div id="hc-delivery-pending"></div><div class="hc-grid">${field("Prueba realizada y resultado", "finalTest", "textarea", 'rows="2" placeholder="Describe las pruebas realizadas y los resultados obtenidos."')}${select("Condición de entrega", "result", results, "Seleccionar al terminar")}${select("Estado de la orden", "status", Object.fromEntries(Object.entries(catalog.statuses).filter(([k]) => k !== "completado")))}</div><div id="hc-result-followup" ${(draft.result && draft.result !== "operativo") || draft.recommendations ? "" : "hidden"}>${field("Pendientes y recomendaciones *", "recommendations", "textarea", 'rows="2"')}</div>
+      <section class="hc-panel hc-section hc-guided-section" data-guided-section="3" aria-label="Entrega"><div class="hc-simple-title"><span class="hc-number">4</span><div><h2>Verificación y entrega</h2><p>Pruebas funcionales y condición de entrega de la unidad.</p></div></div><div id="hc-delivery-pending"></div><div class="hc-grid">${field("Prueba realizada y resultado *", "finalTest", "textarea", 'rows="2" placeholder="Describe las pruebas realizadas y los resultados obtenidos."')}${select("Condición de entrega *", "result", results, "Seleccionar al terminar")}${select("Estado de la orden", "status", Object.fromEntries(Object.entries(catalog.statuses).filter(([k]) => k !== "completado")))}</div><div id="hc-result-followup" ${(draft.result && draft.result !== "operativo") || draft.recommendations ? "" : "hidden"}>${field("Pendientes y recomendaciones *", "recommendations", "textarea", 'rows="2"')}</div>
       <div id="hc-cancel-field" ${draft.status === "cancelado" ? "" : "hidden"}>${field("Motivo de cancelación *", "cancelReason")}</div>${extraBlock("Próxima visita y constancia de entrega", `<div class="hc-grid">${field("Próximo servicio", "nextDate", "date")}${field("Representante del cliente", "clientName")}</div>${draft.type === "preventivo" ? btn("Sugerir próxima fecha por periodicidad", "suggest-date") : ""}<div class="hc-grid">${["technicianSignature", "clientSignature"].map((key, i) => `<div class="hc-signature"><label>${i ? "Firma del cliente (opcional)" : "Firma del técnico (opcional)"}</label><canvas data-signature="${key}" aria-label="${i ? "Firma del cliente" : "Firma del técnico"}"></canvas>${btn("Limpiar firma", "clear-signature", "", `data-key="${key}"`)}</div>`).join("")}</div>`, !!(draft.nextDate || draft.clientName || draft.technicianSignature || draft.clientSignature))}<div class="hc-close-readiness" id="hc-close-readiness"></div></section>
       <input id="hc-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden><input id="hc-camera-input" type="file" accept="image/*" capture="environment" hidden><input id="hc-check-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
-      <div class="hc-savebar"><span id="hc-save-state" role="status"></span><div class="hc-actions"><button type="submit" class="hc-btn" id="hc-save">Guardar avance</button>${btn("Completar orden", "complete-order", "primary")}</div></div></form>`;
+      <div class="hc-savebar"><span id="hc-save-state" role="status"></span><div class="hc-actions">${btn("← Anterior", "step-prev")}<button type="submit" class="hc-btn" id="hc-save">Guardar avance</button>${btn("Continuar →", "step-next", "primary")}${btn("Revisar y cerrar", "review-order", "primary")}</div></div></form>`;
     if ($("[name=interval]"))
       $("[name=interval]").dataset.previous = draft.interval;
+    renderGuidedStep();
     initSignatures();
     updateProgress();
     storeStatus();
@@ -690,9 +837,9 @@
       $("#hc-check-count").textContent =
         `${resolved} de ${draft.checklist.length} revisados`;
     const missing = closeMissing();
-    $("#hc-close-readiness").innerHTML = missing.length
-      ? `<b>Puedes guardar el avance en cualquier momento.</b><p>Para cerrar: ${missing.map(esc).join(" · ")}.</p>`
-      : "<b>Lista para completar.</b><p>Revisa la información y pulsa Completar orden.</p>";
+    $("#hc-close-readiness").innerHTML = guidedReadiness(missing);
+    $("#hc-guided-context").textContent =
+      `${draft.company || "Empresa por seleccionar"} · Unidad ${draft.unit || "por identificar"}`;
     const pending = draft.findings.filter(
       (f) => !["realizado", "descartado"].includes(f.decision),
     );
@@ -1005,6 +1152,18 @@
       });
   }
   function setStep(n) {
+    if (isV3()) {
+      readForm();
+      step = Math.max(0, Math.min(3, n));
+      renderGuidedStep();
+      initSignatures();
+      updateProgress();
+      markDirty();
+      const section = $(`[data-guided-section="${step}"]`);
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+      section.querySelector("h2").focus({ preventScroll: true });
+      return;
+    }
     readForm();
     step = Math.max(0, Math.min(stepSets[draft.type].length - 1, n));
     $$(".hc-step").forEach(
@@ -1090,6 +1249,16 @@
   async function save() {
     if (saving || photoProcessing) return;
     readForm();
+    if (isV3()) {
+      const required = ["Empresa", "Unidad", "Fecha"].find((label) =>
+        closeMissing().includes(label),
+      );
+      if (required) {
+        focusGuidedIssue(required);
+        error("Para guardar el avance, completa: " + required + ".");
+        return;
+      }
+    }
     if (draft.status === "completado") {
       const missing = closeMissing();
       if (missing.length) {
@@ -1176,6 +1345,10 @@
     }
   }
   function setNavigationDisabled() {
+    if (isV3()) {
+      renderGuidedStep();
+      return;
+    }
     if ($("[data-action=step-prev]"))
       $("[data-action=step-prev]").disabled = step === 0;
     if ($("[data-action=step-next]"))
@@ -1916,7 +2089,18 @@
         $("#hc-symptom-guide").innerHTML = guideHTML();
         markDirty();
       }
+      if (a === "guided-issue") {
+        $("#hc-dialog").close();
+        focusGuidedIssue(b.dataset.issue);
+        return;
+      }
+      if (a === "review-order") {
+        readForm();
+        showGuidedReview();
+        return;
+      }
       if (a === "complete-order") {
+        $("#hc-dialog").close();
         readForm();
         const missing = closeMissing();
         if (missing.length) {
