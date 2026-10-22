@@ -971,6 +971,10 @@ function register(
           brand: row.brand,
           attention: text(req.body.attention || "normal", 20),
           type: text(req.body.type, 30),
+          maintenancePlan:
+            req.body.type === "preventivo"
+              ? catalog.forBrand(row.brand).periodicPlan.id
+              : undefined,
           status: "borrador",
           company: row.operator_company,
           unit: row.unit,

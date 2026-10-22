@@ -5,7 +5,8 @@ const fs = require("fs");
 const path = require("path");
 const catalog = require("./catalog");
 const operations = require("./operations");
-const schema = `
+const schema =
+  `
 CREATE TABLE IF NOT EXISTS hc_services (
  id TEXT PRIMARY KEY, number BIGSERIAL UNIQUE, type TEXT NOT NULL, status TEXT NOT NULL,
  company TEXT NOT NULL, unit TEXT NOT NULL, service_date DATE NOT NULL, next_date DATE,
@@ -116,6 +117,14 @@ function validate(input) {
     d.formVersion = 3;
     d.brand = brand;
     d.attention = str(input.attention || "normal", 20);
+    if (input.maintenancePlan) {
+      if (
+        type !== "preventivo" ||
+        input.maintenancePlan !== activeCatalog.periodicPlan.id
+      )
+        bad("Plan de mantenimiento inválido para esta marca.");
+      d.maintenancePlan = input.maintenancePlan;
+    }
     if (!["normal", "express"].includes(d.attention))
       bad("Tipo de atención inválido.");
   }
@@ -236,6 +245,7 @@ function validate(input) {
     ? activeCatalog.templateFor(type, {
         formVersion: isV3 ? 3 : undefined,
         interval: d.interval,
+        maintenancePlan: d.maintenancePlan,
       })
     : activeCatalog.templates.find((t) => t.id === type);
   if (!template) bad("Servicio no disponible para la marca seleccionada.");
@@ -807,6 +817,22 @@ function register(
           bad("La marca de una orden guardada no puede cambiar.");
         if ((old.payload.formVersion === 3) !== (d.formVersion === 3))
           bad("Conserva la versión del formulario de la orden guardada.");
+        if (
+          old.payload.maintenancePlan &&
+          old.payload.maintenancePlan !== d.maintenancePlan
+        )
+          bad("Conserva el plan de mantenimiento de la orden guardada.");
+        if (
+          !old.payload.maintenancePlan &&
+          d.maintenancePlan &&
+          ((old.payload.checklist || []).some(
+            (c) => c.outcome !== "pendiente" || c.action || c.notes,
+          ) ||
+            (old.payload.evidence || []).some((p) => p.checkId))
+        )
+          bad(
+            "La orden tiene revisiones del plan anterior registradas. Conserva su alcance o abre una orden nueva.",
+          );
       }
       if (d.fleetUnitId) {
         const u = await client.query(
@@ -978,7 +1004,14 @@ function register(
     });
   });
   app.use("/api/hispacold", router);
-  operations.register(app, {pool,authRequired,ensureServices:init,validate,mapRow,scheduleCTE});
+  operations.register(app, {
+    pool,
+    authRequired,
+    ensureServices: init,
+    validate,
+    mapRow,
+    scheduleCTE,
+  });
   return { init };
 }
 module.exports = { register, validate, schema, mapRow };

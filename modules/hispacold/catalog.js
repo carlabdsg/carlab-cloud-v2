@@ -1,5 +1,6 @@
 "use strict";
 const manuals = require("./manuals.json");
+const periodicPlans = require("./periodic-plans");
 const source = (prefix, page) => ({
   manualId: manuals.find((m) => m.filename.startsWith(prefix)).id,
   page,
@@ -376,21 +377,38 @@ const brandData = {
   eberspaecher: { ...eberspaecher, measurements },
 };
 for (const data of Object.values(brandData)) {
+  data.periodicPlan = periodicPlans[data.brand];
   data.templateFor = (type, options = {}) => {
     const template = data.templates.find((entry) => entry.id === type);
     if (!template) return undefined;
     if (
-      options.formVersion !== 3 || type !== "preventivo" ||
+      options.formVersion === 3 &&
+      type === "preventivo" &&
+      options.maintenancePlan === data.periodicPlan.id
+    ) {
+      return {
+        ...template,
+        version: 2,
+        checklist: data.periodicPlan.periods[options.interval]?.checklist || [],
+      };
+    }
+    if (
+      options.formVersion !== 3 ||
+      type !== "preventivo" ||
       !Object.hasOwn(data.intervals, options.interval)
-    ) return template;
+    )
+      return template;
     return {
       ...template,
-      checklist: template.checklist.filter((item) => item.actions?.[options.interval] !== "-"),
+      checklist: template.checklist.filter(
+        (item) => item.actions?.[options.interval] !== "-",
+      ),
     };
   };
 }
 function forBrand(brand = "hispacold") {
-  if (!Object.hasOwn(brandData, brand)) throw new RangeError("Marca de aire acondicionado inválida.");
+  if (!Object.hasOwn(brandData, brand))
+    throw new RangeError("Marca de aire acondicionado inválida.");
   return brandData[brand];
 }
 const allManuals = [...hispacoldManuals, ...eberspaecher.manuals];

@@ -442,27 +442,45 @@
       `<div class="hc-kicker">NUEVA ORDEN</div><h2>Empecemos por lo esencial</h2><p>${source ? `Nuevo servicio para ${esc(source.company)} · ${esc(source.unit)}. La intervención empieza vacía.` : "Elige el equipo y el trabajo. La hoja se adaptará a lo que necesitas."}</p><form id="hc-create-form"><div class="hc-create-grid"><label class="hc-field"><b><span class="hc-number">1</span> Marca del aire acondicionado</b><select id="hc-create-brand" name="brand" required>${opts(catalog.brands, brand, "Seleccionar marca")}</select></label><label class="hc-field"><b><span class="hc-number">2</span> Servicio</b><select id="hc-create-type" name="type" required ${brand ? "" : "disabled"}>${opts(Object.fromEntries(Object.entries(catalog.types).filter(([k]) => k !== "express")), "", "Seleccionar servicio")}</select></label><fieldset id="hc-create-attention" disabled><legend><span class="hc-number">3</span> Tipo de atención</legend><div class="hc-attention-options"><label><input type="radio" name="attention" value="normal" ${attention === "normal" ? "checked" : ""}><span><b>Normal</b><small>Trabajo de taller o programado</small></span></label><label><input type="radio" name="attention" value="express" ${attention === "express" ? "checked" : ""}><span><b>⚡ Servicio express</b><small>Urgencia, asistencia o evento extraordinario</small></span></label></div></fieldset></div><p class="hc-subtle" id="hc-create-help">La marca corresponde al equipo de aire acondicionado, no a la del autobús.</p><div class="hc-actions">${btn("Cancelar", "close-dialog")}<button class="hc-btn primary" type="submit" id="hc-start-order" disabled>Crear orden →</button></div></form>`;
     $("#hc-dialog").showModal();
   }
-  function normalizeData(data) {
-    const d = structuredClone(data),
-      t = brandCatalog(d.brand || "hispacold").templates.find(
-        (t) => t.id === d.type,
-      );
-    d.checklist = t.checklist
-      .filter(
+  function checklistForData(d) {
+    const cat = brandCatalog(d.brand || "hispacold");
+    if (
+      Number(d.formVersion) === 3 &&
+      d.type === "preventivo" &&
+      d.maintenancePlan === cat.periodicPlan?.id
+    )
+      return cat.periodicPlan.periods[d.interval]?.checklist || [];
+    return cat.templates
+      .find((t) => t.id === d.type)
+      .checklist.filter(
         (c) =>
           !(
             Number(d.formVersion) === 3 &&
             d.type === "preventivo" &&
             c.actions?.[d.interval] === "-"
           ),
-      )
-      .map((c) => ({
-        ...c,
-        ...(d.checklist || []).find((v) => v.id === c.id),
-        outcome:
-          (d.checklist || []).find((v) => v.id === c.id)?.outcome ||
-          "pendiente",
-      }));
+      );
+  }
+  function normalizeData(data) {
+    const d = structuredClone(data);
+    if (
+      Number(d.formVersion) === 3 &&
+      d.type === "preventivo" &&
+      !d.maintenancePlan &&
+      !(d.checklist || []).some(
+        (c) => (c.outcome && c.outcome !== "pendiente") || c.action || c.notes,
+      ) &&
+      !(d.evidence || []).some((p) => p.checkId)
+    )
+      d.maintenancePlan = brandCatalog(d.brand || "hispacold").periodicPlan?.id;
+    d.checklist = checklistForData(d).map((c) => ({
+      ...c,
+      action: (d.checklist || []).find((v) => v.id === c.id)?.action || "",
+      notes: (d.checklist || []).find((v) => v.id === c.id)?.notes || "",
+      suggested: c.actions?.[d.interval] || "",
+      outcome:
+        (d.checklist || []).find((v) => v.id === c.id)?.outcome || "pendiente",
+    }));
     d.measurements = catalog.measurements.map((m) => ({
       ...m,
       ...(d.measurements || []).find((v) => v.id === m.id),
@@ -968,7 +986,17 @@
     }
   }
   function inspectionHTML() {
-    return `<h2>${draft.type === "express" ? "Validación express" : "Lista de revisión"}</h2><div class="hc-check-toolbar"><span id="hc-check-count"></span><label>Mostrar <select id="hc-check-filter">${opts({ all: "Todos", pendiente: "Pendientes", hallazgo: "Hallazgos" }, checkFilter)}</select></label></div><div id="hc-checks">${checksHTML()}</div>`;
+    return `<h2>${draft.type === "express" ? "Validación express" : "Lista de revisión"}</h2><div id="hc-period-scope">${periodScopeHTML()}</div><div class="hc-check-toolbar"><span id="hc-check-count"></span><label>Mostrar <select id="hc-check-filter">${opts({ all: "Todos", pendiente: "Pendientes", hallazgo: "Hallazgos" }, checkFilter)}</select></label></div><div id="hc-checks">${checksHTML()}</div>`;
+  }
+  function periodScopeHTML() {
+    if (!isV3() || draft.type !== "preventivo") return "";
+    const plan = brandCatalog().periodicPlan;
+    if (draft.maintenancePlan !== plan?.id)
+      return '<p class="hc-note">Esta orden conserva el plan anterior porque ya tiene revisiones registradas. Las órdenes nuevas usan las listas específicas por periodo.</p>';
+    const period = plan.periods[draft.interval];
+    return period
+      ? `<div class="hc-note"><b>${esc(intervalNames()[draft.interval])} · ${draft.checklist.length} actividades del periodo</b><p>${esc(period.name)} · ${sourceButton(period.source)}</p><details><summary>Alcance y referencia del plan</summary><p>${esc(period.note)}</p></details></div>`
+      : '<p class="hc-note">Selecciona el periodo para cargar sus actividades.</p>';
   }
   function checksHTML() {
     return [...new Set(draft.checklist.map((c) => c.group))]
@@ -978,7 +1006,7 @@
             .filter((c) => c.group === group)
             .map(
               (c) =>
-                `<div class="hc-check" data-check="${c.id}" ${checkFilter !== "all" && c.outcome !== checkFilter ? "hidden" : ""}><div><b>${esc(c.label)}</b><small>${draft.type === "preventivo" && c.actions?.[draft.interval] ? `${draft.brand === "eberspaecher" ? "Plan AC-188DD" : "Plan B2"}: ${esc(c.actions[draft.interval])} · ` : ""}${sourceButton(c.source)}</small><button type="button" class="hc-photo-link" data-action="check-photo" data-check="${c.id}">+ Foto <span data-photo-count="${c.id}">${draft.evidence.filter((p) => p.checkId === c.id).length || ""}</span></button></div><label>Acción<select name="action:${c.id}">${opts(actionNames, c.action)}</select></label><label>Resultado<select name="outcome:${c.id}">${opts(outcomes, c.outcome)}</select></label><label>Observaciones<input name="notes:${c.id}" value="${esc(c.notes)}" maxlength="2000" placeholder="${["hallazgo", "no_aplica"].includes(c.outcome) ? "Escribe el motivo" : "Observación o trabajo realizado"}"></label></div>`,
+                `<div class="hc-check" data-check="${c.id}" ${checkFilter !== "all" && c.outcome !== checkFilter ? "hidden" : ""}><div><b>${esc(c.label)}</b><small>${draft.type === "preventivo" && c.actions?.[draft.interval] ? `${draft.maintenancePlan ? "Actividad prevista" : draft.brand === "eberspaecher" ? "Plan AC-188DD" : "Plan B2"}: ${esc(c.actions[draft.interval])} · ` : ""}${sourceButton(c.source)}</small><button type="button" class="hc-photo-link" data-action="check-photo" data-check="${c.id}">+ Foto <span data-photo-count="${c.id}">${draft.evidence.filter((p) => p.checkId === c.id).length || ""}</span></button></div><label>Acción<select name="action:${c.id}">${opts(actionNames, c.action)}</select></label><label>Resultado<select name="outcome:${c.id}">${opts(outcomes, c.outcome)}</select></label><label>Observaciones<input name="notes:${c.id}" value="${esc(c.notes)}" maxlength="2000" placeholder="${["hallazgo", "no_aplica"].includes(c.outcome) ? "Escribe el motivo" : "Observación o trabajo realizado"}"></label></div>`,
             )
             .join("")}</details>`,
       )
@@ -1912,12 +1940,7 @@
       if (e.target.name === "interval") {
         readForm();
         if (isV3()) {
-          const activeIds = new Set(
-            brandCatalog()
-              .templates.find((t) => t.id === draft.type)
-              .checklist.filter((c) => c.actions?.[draft.interval] !== "-")
-              .map((c) => c.id),
-          );
+          const activeIds = new Set(checklistForData(draft).map((c) => c.id));
           const removed = draft.checklist.filter(
             (c) =>
               !activeIds.has(c.id) &&
@@ -1941,6 +1964,8 @@
         }
         e.target.dataset.previous = draft.interval;
         $("#hc-checks").innerHTML = checksHTML();
+        $("#hc-period-scope").innerHTML = periodScopeHTML();
+        if ($("#hc-evidence")) $("#hc-evidence").innerHTML = evidenceHTML();
         updateProgress();
       }
       if (e.target.id === "hc-check-filter") {
