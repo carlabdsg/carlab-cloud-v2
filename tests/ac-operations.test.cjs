@@ -6,7 +6,7 @@ const crypto = require("node:crypto"),
   jwt = require("jsonwebtoken");
 const { harness } = require("./harness.cjs");
 const catalog = require("../modules/hispacold/catalog");
-test("Supervisor AC, solicitudes, inventario compartido y notificaciones", async (t) => {
+test("Supervisor AC, solicitudes, inventario independiente y notificaciones", async (t) => {
   const h = await harness();
   const call = async (
     route,
@@ -384,7 +384,7 @@ test("Supervisor AC, solicitudes, inventario compartido y notificaciones", async
       },
     );
     await t.test(
-      "Refacciones comparten una sola existencia con Stock",
+      "Refacciones AC no se vinculan ni escriben en Stock general",
       async () => {
         await h.db.query(
           `INSERT INTO stock_parts(id,nombre,sku,stock_actual) VALUES('legacy-part','Pieza ya existente','EX-01',5)`,
@@ -397,7 +397,7 @@ test("Supervisor AC, solicitudes, inventario compartido y notificaciones", async
             models: "B2",
           },
         });
-        assert.equal(attach.status, 201);
+        assert.equal(attach.status, 400);
         assert.equal(
           (
             await h.db.query(
@@ -442,7 +442,7 @@ test("Supervisor AC, solicitudes, inventario compartido y notificaciones", async
         assert.equal(
           (
             await h.db.query(
-              "SELECT stock_actual FROM stock_parts WHERE id=$1",
+              "SELECT stock_actual FROM ac_stock_parts WHERE id=$1",
               [part.body.id],
             )
           ).rows[0].stock_actual,
@@ -523,7 +523,7 @@ test("Supervisor AC, solicitudes, inventario compartido y notificaciones", async
         assert.equal(
           (
             await h.db.query(
-              "SELECT stock_actual FROM stock_parts WHERE id=$1",
+              "SELECT stock_actual FROM ac_stock_parts WHERE id=$1",
               [part.body.id],
             )
           ).rows[0].stock_actual,
@@ -552,7 +552,7 @@ test("Supervisor AC, solicitudes, inventario compartido y notificaciones", async
         assert.equal(
           (
             await h.db.query(
-              "SELECT stock_actual FROM stock_parts WHERE id=$1",
+              "SELECT stock_actual FROM ac_stock_parts WHERE id=$1",
               [part.body.id],
             )
           ).rows[0].stock_actual,
@@ -596,7 +596,7 @@ test("Supervisor AC, solicitudes, inventario compartido y notificaciones", async
         assert.equal(
           (
             await h.db.query(
-              "SELECT stock_actual FROM stock_parts WHERE id=$1",
+              "SELECT stock_actual FROM ac_stock_parts WHERE id=$1",
               [part.body.id],
             )
           ).rows[0].stock_actual,

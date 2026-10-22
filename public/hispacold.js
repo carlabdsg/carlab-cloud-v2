@@ -329,7 +329,14 @@
       else if (name === "library") library();
       else if (name === "trash") await trash();
       else if (
-        ["fleet", "requests", "parts", "access", "notifications"].includes(name)
+        [
+          "fleet",
+          "requests",
+          "parts",
+          "access",
+          "notifications",
+          "reports",
+        ].includes(name)
       )
         await window.ACOperations.show(name);
       else codes();

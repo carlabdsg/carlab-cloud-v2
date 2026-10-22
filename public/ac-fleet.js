@@ -99,7 +99,7 @@
     else ctx.toast(e.message);
   }
   const toolbar = () =>
-    `<form id="acf-filters" class="acf-filters">${field("Buscar unidad, empresa o equipo", "q", filters.q, "search", 'placeholder="Ej. 306, i8, serie AC…" maxlength="180"')}${select("Empresa", "company", Object.fromEntries(config.companies.map((c) => [c.id, c.name])), filters.company, "Todas las empresas")}${ctx.external ? "" : select("Marca AC", "brand", ctx.info.brands, filters.brand, "Ambas marcas")}${select("Región", "region", Object.fromEntries(config.regions.map((v) => [v, v])), filters.region, "Todas las regiones")}${select("Base", "base", Object.fromEntries(config.bases.map((v) => [v, v])), filters.base, "Todas las bases")}${select("Prioridad", "focus", { overdue: "Mantenimiento vencido", recurring: "Reparaciones recurrentes", pending: "Con órdenes o solicitudes" }, filters.focus, "Todas las prioridades")}${config.canManage ? select("Registros", "archived", { "": "Activos", true: "Archivados" }, filters.archived) : ""}<div class="hc-actions"><button type="submit" class="hc-btn primary">Aplicar filtros</button>${btn("Limpiar", "clear")}</div></form>`;
+    `<form id="acf-filters" class="acf-filters">${field("Buscar unidad, empresa o equipo", "q", filters.q, "search", 'placeholder="Ej. 306, i8, serie AC…" maxlength="180"')}${select("Empresa", "company", Object.fromEntries(config.companies.map((c) => [c.id, c.name])), filters.company, "Todas las empresas")}${ctx.external ? "" : select("Marca AC", "brand", ctx.info.brands, filters.brand, "Ambas marcas")}${select("Región", "region", Object.fromEntries(config.regions.map((v) => [v, v])), filters.region, "Todas las regiones")}${select("Base", "base", Object.fromEntries(config.bases.map((v) => [v, v])), filters.base, "Todas las bases")}${select("Prioridad", "focus", { overdue: "Mantenimiento vencido", recurring: "Reparaciones recurrentes", pending: "Con órdenes o solicitudes" }, filters.focus, "Todas las prioridades")}${config.canManage ? select("Registros", "archived", { "": "Activos", true: "Eliminadas / archivadas" }, filters.archived) : ""}<div class="hc-actions"><button type="submit" class="hc-btn primary">Aplicar filtros</button>${btn("Limpiar", "clear")}</div></form>`;
   function bus(u) {
     const asset = u.busBrand.toLowerCase().includes("volvo")
       ? "bus-volvo.svg"
@@ -246,7 +246,7 @@
     detail = r.unit;
     const u = detail;
     dialog(`<div class="acf-detail-heading"><div><div class="hc-kicker">EXPEDIENTE DE CLIMATIZACIÓN</div><h2>Unidad ${esc(u.unit)}</h2><p>${esc(u.company)} · ${esc(brandName(u.brand))}</p></div><span class="acf-badge ${u.signal}">${esc(u.signalLabel)}</span></div>
-      <div class="hc-actions">${btn("Cerrar", "close")}${config.canManage ? btn("Editar ficha / evaluación", "edit-unit") + (u.active ? btn("Etiqueta QR", "qr-label") + btn("Crear orden", "new-order") : "") : ""}${u.active ? btn("Solicitar servicio", "request-service", "", true) + btn("Solicitar refacción", "request-part") : ""}</div>
+      <div class="hc-actions">${btn("Cerrar", "close")}${config.canManage ? btn("Editar ficha / evaluación", "edit-unit") + (u.active ? btn("Etiqueta QR", "qr-label") + btn("Crear orden", "new-order") + btn("Eliminar unidad", "delete-unit") : btn("Restaurar unidad", "restore-unit")) : ""}${u.active ? btn("Solicitar servicio", "request-service", "", true) + btn("Solicitar refacción", "request-part") : ""}</div>
       <section class="acf-reasons"><h3>Qué requiere atención</h3>${u.reasons.map((r) => `<div class="acf-reason ${r.color}"><i></i><div><b>${esc(r.text)}</b><p>${esc(r.detail)}</p></div></div>`).join("")}</section>
       <dl class="acf-detail-facts">${[
         ["Región / base", [u.region, u.base].filter(Boolean).join(" · ")],
@@ -273,6 +273,11 @@
       <section data-af-panel="requests" hidden><p class="acf-muted">Últimas 30 solicitudes de servicio y refacciones.</p>${r.requests.map((r) => `<article class="acf-history"><div><b>${esc(r.folio)} · ${esc(ctx.info.stages[r.status] || r.status)}</b><small>${fmt(r.created_at)} · ${r.kind === "service" ? "Servicio" : "Refacciones"}</small><p>${esc(r.kind === "part" ? `${r.quantity} × ${r.part_name}` : r.description)}</p></div>${btn("Ver solicitud", "request", `data-id="${esc(r.id)}"`)}</article>`).join("") || '<div class="hc-empty">Sin solicitudes registradas.</div>'}</section>
       <section data-af-panel="events" hidden><p class="acf-muted">Últimos 30 cambios del registro de flota.</p>${r.events.map((e) => `<article class="acf-history"><div><b>${esc(e.action)}</b><small>${fmt(e.created_at)} · ${esc(e.actor_name)}</small><p>${esc(e.notes)}</p></div></article>`).join("")}</section>`);
   }
+  function removalForm(restore = false) {
+    dialog(
+      `<h2>${restore ? "Restaurar" : "Eliminar"} unidad ${esc(detail.unit)}</h2><p>${esc(detail.company)} · ${esc(brandName(detail.brand))}</p><p>${restore ? "La unidad volverá a mostrarse en la flota y su QR estará disponible." : "Se retirará de la flota activa y dejará de estar disponible para el supervisor y mediante QR. Las órdenes, solicitudes e historial se conservan. Podrás recuperarla en Eliminadas / archivadas."}</p><form id="acf-removal-form" data-restore="${restore}">${field("Motivo *", "reason", "", "text", 'required minlength="3" maxlength="1000"')}<div class="hc-actions">${btn("Cancelar", "qr-back")}<button type="submit" class="hc-btn ${restore ? "primary" : "acf-danger"}">${restore ? "Restaurar unidad" : "Confirmar eliminación"}</button></div></form>`,
+    );
+  }
   document.addEventListener("submit", async (e) => {
     const form = e.target;
     if (!form.id.startsWith("acf-")) return;
@@ -294,6 +299,23 @@
     working = true;
     form.querySelectorAll("button").forEach((b) => (b.disabled = true));
     try {
+      if (form.id === "acf-removal-form") {
+        const restore = form.dataset.restore === "true";
+        await ctx.api(
+          "/fleet/units/" + detail.id + (restore ? "/restore" : ""),
+          {
+            method: restore ? "POST" : "DELETE",
+            body: JSON.stringify({ version: detail.version, reason: b.reason }),
+          },
+        );
+        $("#acf-dialog").close();
+        await load();
+        ctx.toast(
+          restore
+            ? "Unidad restaurada."
+            : "Unidad eliminada de la flota activa. Su historial se conserva.",
+        );
+      }
       if (form.id === "acf-company-form") {
         if (editingCompany) b.version = editingCompany.version;
         await ctx.api(
@@ -351,6 +373,8 @@
     if (!b || working) return;
     try {
       const a = b.dataset.af;
+      if (a === "delete-unit") removalForm();
+      if (a === "restore-unit") removalForm(true);
       if (a === "qr-label") await qrLabel();
       if (a === "qr-back") await openDetail(detail.id);
       if (a === "qr-download")

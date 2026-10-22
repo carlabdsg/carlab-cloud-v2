@@ -5,6 +5,8 @@ const bcrypt = require("bcryptjs");
 const catalog = require("./catalog");
 const fleet = require("./fleet");
 const maintenanceCalendar = require("./calendar");
+const inventory = require("./inventory");
+const reports = require("./reports");
 const notificationSchema = `
 CREATE TABLE IF NOT EXISTS ac_notifications (
  id BIGSERIAL PRIMARY KEY, event_key TEXT NOT NULL UNIQUE, brand TEXT NOT NULL,
@@ -17,10 +19,6 @@ CREATE TABLE IF NOT EXISTS ac_notification_reads (
  user_id TEXT NOT NULL, read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY(notification_id,user_id)
 );`;
 const schema = `
-CREATE TABLE IF NOT EXISTS ac_part_profiles (
- stock_part_id TEXT PRIMARY KEY REFERENCES stock_parts(id) ON DELETE CASCADE,
- brands JSONB NOT NULL, models TEXT NOT NULL DEFAULT '', image TEXT NOT NULL DEFAULT '', updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
 CREATE TABLE IF NOT EXISTS ac_requests (
  id TEXT PRIMARY KEY, number BIGSERIAL UNIQUE, client_key TEXT NOT NULL,
  kind TEXT NOT NULL, brand TEXT NOT NULL, operator_company TEXT NOT NULL, unit TEXT NOT NULL,
@@ -210,6 +208,7 @@ function register(
     ready ||
     (ready = ensureServices()
       .then(() => pool.query(schema))
+      .then(() => inventory.init(pool))
       .then(() => pool.query(fleet.schema))
       .catch((e) => {
         ready = null;
@@ -336,6 +335,7 @@ function register(
     page,
     notice,
   });
+  reports.register(router, { pool, wrap, fail, text, brand, day, transaction });
   maintenanceCalendar.register(router, {
     pool,
     wrap,
@@ -749,7 +749,7 @@ function register(
         payload.partId = text(req.body.partId, 100);
         if (payload.partId) {
           const r = await pool.query(
-            `SELECT s.id,s.nombre,s.sku,p.brands FROM stock_parts s JOIN ac_part_profiles p ON p.stock_part_id=s.id WHERE s.id=$1`,
+            `SELECT s.id,s.nombre,s.sku,p.brands FROM ac_stock_parts s JOIN ac_stock_profiles p ON p.stock_part_id=s.id WHERE s.id=$1`,
             [payload.partId],
           );
           if (!r.rows[0] || !r.rows[0].brands.includes(b))
@@ -843,7 +843,7 @@ function register(
           fail("Selecciona la fecha propuesta.");
         if (row.kind === "part" && req.body.partId) {
           const p = await client.query(
-            "SELECT s.nombre,s.sku,p.brands FROM stock_parts s JOIN ac_part_profiles p ON p.stock_part_id=s.id WHERE s.id=$1",
+            "SELECT s.nombre,s.sku,p.brands FROM ac_stock_parts s JOIN ac_stock_profiles p ON p.stock_part_id=s.id WHERE s.id=$1",
             [text(req.body.partId, 100)],
           );
           if (!p.rows[0]?.brands.includes(row.brand))
@@ -858,13 +858,13 @@ function register(
           if (!partId)
             fail("Vincula la refacción al inventario antes de entregar.");
           const profile = await client.query(
-            "SELECT brands FROM ac_part_profiles WHERE stock_part_id=$1",
+            "SELECT brands FROM ac_stock_profiles WHERE stock_part_id=$1",
             [partId],
           );
           if (!profile.rows[0]?.brands.includes(row.brand))
             fail("La pieza no está habilitada para esta marca.");
           const stock = await client.query(
-            "SELECT * FROM stock_parts WHERE id=$1 FOR UPDATE",
+            "SELECT * FROM ac_stock_parts WHERE id=$1 FOR UPDATE",
             [partId],
           );
           if (!stock.rows[0]) fail("La pieza ya no existe.", 404);
@@ -875,11 +875,11 @@ function register(
             );
           const movId = crypto.randomUUID();
           await client.query(
-            "UPDATE stock_parts SET stock_actual=stock_actual-$2,updated_at=NOW() WHERE id=$1",
+            "UPDATE ac_stock_parts SET stock_actual=stock_actual-$2,updated_at=NOW() WHERE id=$1",
             [partId, qty],
           );
           await client.query(
-            `INSERT INTO stock_movements(id,stock_part_id,tipo,cantidad,empresa,unidad,garantia_folio,notas,created_by) VALUES($1,$2,'salida_unidad',$3,$4,$5,$6,$7,$8)`,
+            `INSERT INTO ac_stock_movements(id,stock_part_id,tipo,cantidad,empresa,unidad,garantia_folio,notas,created_by) VALUES($1,$2,'salida_unidad',$3,$4,$5,$6,$7,$8)`,
             [
               movId,
               partId,
@@ -1047,16 +1047,6 @@ function register(
     }),
   );
   router.get(
-    "/stock-candidates",
-    admin,
-    wrap(async (req, res) => {
-      const r = await pool.query(
-        "SELECT s.id,s.nombre,s.sku,s.stock_actual FROM stock_parts s LEFT JOIN ac_part_profiles p ON p.stock_part_id=s.id WHERE p.stock_part_id IS NULL ORDER BY s.nombre LIMIT 500",
-      );
-      res.json(r.rows);
-    }),
-  );
-  router.get(
     "/parts",
     wrap(async (req, res) => {
       const p = [],
@@ -1078,7 +1068,7 @@ function register(
       }
       const where = w.length ? "WHERE " + w.join(" AND ") : "",
         r = await pool.query(
-          `SELECT s.*,p.brands,p.models,p.image FROM stock_parts s JOIN ac_part_profiles p ON p.stock_part_id=s.id ${where} ORDER BY s.nombre LIMIT 500`,
+          `SELECT s.*,p.brands,p.models,p.image FROM ac_stock_parts s JOIN ac_stock_profiles p ON p.stock_part_id=s.id ${where} ORDER BY s.nombre LIMIT 500`,
           p,
         );
       res.json(
@@ -1119,23 +1109,24 @@ function register(
     brands.forEach(brand);
     const models = text(req.body.models, 1000),
       photo = image(req.body.image);
-    if (!id && !req.body.stockPartId && !name)
-      fail("Nombre de la refacción obligatorio.");
+    if (req.body.stockPartId)
+      fail("El almacén AC es independiente. Registra una nueva refacción AC.");
+    if (!name) fail("Nombre de la refacción obligatorio.");
     const minimum = amount(req.body.minimum),
       cost = amount(req.body.cost),
       price = amount(req.body.price);
     return transaction(async (client) => {
-      let actualId = id || text(req.body.stockPartId, 100);
+      let actualId = id;
       if (actualId) {
         const r = await client.query(
-          "SELECT id FROM stock_parts WHERE id=$1 FOR UPDATE",
+          "SELECT id FROM ac_stock_parts WHERE id=$1 FOR UPDATE",
           [actualId],
         );
         if (!r.rows.length) fail("Refacción no encontrada.", 404);
         if (id) {
           if (!name) fail("Nombre obligatorio.");
           await client.query(
-            `UPDATE stock_parts SET nombre=$2,sku=$3,stock_minimo=$4,costo_unitario=$5,precio_venta=$6,ubicacion=$7,proveedor=$8,notas=$9,updated_at=NOW() WHERE id=$1`,
+            `UPDATE ac_stock_parts SET nombre=$2,sku=$3,stock_minimo=$4,costo_unitario=$5,precio_venta=$6,ubicacion=$7,proveedor=$8,notas=$9,updated_at=NOW() WHERE id=$1`,
             [
               actualId,
               name,
@@ -1152,7 +1143,7 @@ function register(
       } else {
         actualId = crypto.randomUUID();
         await client.query(
-          `INSERT INTO stock_parts(id,nombre,sku,stock_actual,stock_minimo,costo_unitario,precio_venta,ubicacion,proveedor,notas,created_by) VALUES($1,$2,$3,0,$4,$5,$6,$7,$8,$9,$10)`,
+          `INSERT INTO ac_stock_parts(id,nombre,sku,stock_actual,stock_minimo,costo_unitario,precio_venta,ubicacion,proveedor,notas,created_by) VALUES($1,$2,$3,0,$4,$5,$6,$7,$8,$9,$10)`,
           [
             actualId,
             name,
@@ -1168,7 +1159,7 @@ function register(
         );
       }
       await client.query(
-        `INSERT INTO ac_part_profiles(stock_part_id,brands,models,image) VALUES($1,$2,$3,$4) ON CONFLICT(stock_part_id) DO UPDATE SET brands=EXCLUDED.brands,models=EXCLUDED.models,image=EXCLUDED.image,updated_at=NOW()`,
+        `INSERT INTO ac_stock_profiles(stock_part_id,brands,models,image) VALUES($1,$2,$3,$4) ON CONFLICT(stock_part_id) DO UPDATE SET brands=EXCLUDED.brands,models=EXCLUDED.models,image=EXCLUDED.image,updated_at=NOW()`,
         [actualId, JSON.stringify(brands), models, photo],
       );
       return { id: actualId };
@@ -1189,7 +1180,7 @@ function register(
     admin,
     wrap(async (req, res) => {
       const r = await pool.query(
-        `SELECT m.*,u.nombre AS actor FROM stock_movements m LEFT JOIN users u ON u.id=m.created_by WHERE m.stock_part_id=$1 ORDER BY m.created_at DESC LIMIT 100`,
+        `SELECT m.*,u.nombre AS actor FROM ac_stock_movements m LEFT JOIN users u ON u.id=m.created_by WHERE m.stock_part_id=$1 ORDER BY m.created_at DESC LIMIT 100`,
         [req.params.id],
       );
       res.json(r.rows);
@@ -1207,7 +1198,7 @@ function register(
         fail("Selecciona entrada o devolución y registra el motivo.");
       const result = await transaction(async (client) => {
         const part = await client.query(
-          "SELECT s.* FROM stock_parts s JOIN ac_part_profiles p ON p.stock_part_id=s.id WHERE s.id=$1 FOR UPDATE OF s",
+          "SELECT s.* FROM ac_stock_parts s JOIN ac_stock_profiles p ON p.stock_part_id=s.id WHERE s.id=$1 FOR UPDATE OF s",
           [req.params.id],
         );
         if (!part.rows.length) fail("Refacción AC no encontrada.", 404);
@@ -1227,17 +1218,18 @@ function register(
         }
         const id = crypto.randomUUID();
         await client.query(
-          "UPDATE stock_parts SET stock_actual=stock_actual+$2,updated_at=NOW() WHERE id=$1",
+          "UPDATE ac_stock_parts SET stock_actual=stock_actual+$2,updated_at=NOW() WHERE id=$1",
           [req.params.id, qty],
         );
         await client.query(
-          `INSERT INTO stock_movements(id,stock_part_id,tipo,cantidad,notas,created_by) VALUES($1,$2,'entrada',$3,$4,$5)`,
+          `INSERT INTO ac_stock_movements(id,stock_part_id,tipo,cantidad,notas,created_by) VALUES($1,$2,$6,$3,$4,$5)`,
           [
             id,
             req.params.id,
             qty,
             `${kind === "devolucion" ? "Devolución" : "Entrada"} AC · ${notes}`,
             req.acUser.id,
+            kind,
           ],
         );
         await client.query(

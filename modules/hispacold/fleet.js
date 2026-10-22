@@ -651,6 +651,41 @@ function register(
       res.json({ ok: true });
     }),
   );
+  async function setUnitActive(req, active) {
+    const reason = text(req.body?.reason, 1000);
+    if (reason.length < 3) fail("Registra el motivo (mínimo 3 caracteres).");
+    return transaction(async (db) => {
+      const old = await getUnit(req, req.params.id, db, true);
+      checkVersion(req.body, old);
+      if (old.active === active)
+        fail(
+          active ? "La unidad ya está activa." : "La unidad ya fue eliminada.",
+          409,
+        );
+      await db.query(
+        "UPDATE ac_fleet_units SET active=$2,version=version+1,updated_at=NOW() WHERE id=$1",
+        [old.id, active],
+      );
+      await audit(
+        db,
+        old.id,
+        req,
+        active ? "Unidad restaurada" : "Unidad eliminada de la flota",
+        reason,
+      );
+      return { ok: true, active };
+    });
+  }
+  router.delete(
+    "/fleet/units/:id",
+    admin,
+    wrap(async (req, res) => res.json(await setUnitActive(req, false))),
+  );
+  router.post(
+    "/fleet/units/:id/restore",
+    admin,
+    wrap(async (req, res) => res.json(await setUnitActive(req, true))),
+  );
   router.get(
     "/fleet/units",
     wrap(async (req, res) => {
@@ -766,4 +801,4 @@ function register(
     }),
   );
 }
-module.exports = { schema: schema + qr.schema, register, unitRow };
+module.exports = { schema: schema + qr.schema, register, unitRow, fleetSQL };

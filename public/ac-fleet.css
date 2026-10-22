@@ -729,3 +729,10 @@
 .acf-qr-replace .hc-field {
   margin-bottom: 12px;
 }
+
+.hc-btn.acf-danger,
+.hc-btn[data-af="delete-unit"] {
+  color: #a42b35;
+  border-color: #e4a8ae;
+  background: #fff3f4;
+}

@@ -234,6 +234,15 @@
       await showRequests();
       if (id) await requestDetail(id);
     } else if (view === "parts") await showParts();
+    else if (view === "reports")
+      await window.ACReports.show({
+        api,
+        info,
+        library,
+        external,
+        toast,
+        active: () => currentView === "reports",
+      });
     else if (view === "access") await showUsers();
     else if (view === "notifications") {
       await refreshNotifications();
@@ -369,10 +378,9 @@
         "Refacciones AC",
         external
           ? "Consulta piezas de tu marca y solicita su suministro."
-          : "Catálogo técnico conectado al Stock de Carlab. Las solicitudes no descuentan inventario.",
+          : "Almacén exclusivo de aire acondicionado. Las existencias y movimientos son independientes del almacén general.",
         info.permissions.manageInventory
-          ? button("+ Nueva refacción", "new-inventory", "", "primary") +
-              button("Vincular pieza de Stock", "link-inventory")
+          ? button("+ Nueva refacción", "new-inventory", "", "primary")
           : button("+ Solicitar refacción", "new-part", "", "primary"),
       ) +
       `<form id="ac-parts-filter" class="hc-filters">${external ? "" : select("Marca", "brand", info.brands, "", "Todas las marcas")}${field("Buscar pieza o referencia", "q", "", "search")}<button class="hc-btn" type="submit">Buscar</button>${button("Actualizar", "refresh")}</form><div id="ac-parts-list" class="ac-parts-grid">${partCards(parts)}</div>`;
@@ -398,17 +406,10 @@
       )
       .join("")}</fieldset>`;
   }
-  async function partForm(p = null, link = false) {
+  async function partForm(p = null) {
     currentPart = p;
-    if (link) {
-      const choices = await api("/stock-candidates");
-      dialog(
-        `<h2>Vincular pieza de Stock</h2><p>La pieza conserva su existencia y sus movimientos actuales.</p><form id="ac-part-form"><div class="hc-grid">${select("Pieza existente *", "stockPartId", Object.fromEntries(choices.map((p) => [p.id, `${p.nombre} · ${p.sku || "sin referencia"} · ${p.stock_actual} disponibles`])), "", "Seleccionar pieza")}${field("Modelos / equipos compatibles", "models")}</div>${brandChecks()}<div class="hc-actions">${button("Cancelar", "dialog-close")}<button class="hc-btn primary" type="submit">Vincular</button></div></form>`,
-      );
-      return;
-    }
     dialog(
-      `<h2>${p ? "Ficha de refacción" : "Nueva refacción AC"}</h2><p>${p ? "Compatibilidad y datos del inventario." : "Se creará en Stock con existencia cero. Registra después la entrada recibida."}</p><form id="ac-part-form"><div class="hc-grid">${field("Nombre *", "name", p?.name || "", "text", 'required maxlength="300"')}${field("Referencia / número de parte", "reference", p?.reference || "")}${field("Modelos / equipos compatibles", "models", p?.models || "")}${field("Ubicación", "location", p?.location || "")}${field("Proveedor", "supplier", p?.supplier || "")}${field("Existencia mínima", "minimum", p?.minimum || 0, "number", 'min="0" step="0.01"')}${field("Costo unitario MXN", "cost", p?.cost || 0, "number", 'min="0" step="0.01"')}${field("Precio de referencia MXN", "price", p?.price || 0, "number", 'min="0" step="0.01"')}${field("Notas", "notes", p?.notes || "", "textarea")}</div>${brandChecks(p?.brands || [])}<label class="hc-field"><b>Fotografía de la pieza</b><input id="ac-part-image" type="file" accept="image/jpeg,image/png,image/webp"></label><input name="image" type="hidden" value="${esc(p?.image || "")}"><div id="ac-part-preview">${p?.image ? `<img src="${esc(p.image)}" class="ac-part-image" alt="Pieza">` : ""}</div><div class="hc-actions">${button("Cancelar", "dialog-close")}<button class="hc-btn primary" type="submit">Guardar ficha</button></div></form>`,
+      `<h2>${p ? "Ficha de refacción" : "Nueva refacción AC"}</h2><p>${p ? "Compatibilidad y datos del inventario." : "Se creará en el almacén AC con existencia cero. Registra después la entrada recibida."}</p><form id="ac-part-form"><div class="hc-grid">${field("Nombre *", "name", p?.name || "", "text", 'required maxlength="300"')}${field("Referencia / número de parte", "reference", p?.reference || "")}${field("Modelos / equipos compatibles", "models", p?.models || "")}${field("Ubicación", "location", p?.location || "")}${field("Proveedor", "supplier", p?.supplier || "")}${field("Existencia mínima", "minimum", p?.minimum || 0, "number", 'min="0" step="0.01"')}${field("Costo unitario MXN", "cost", p?.cost || 0, "number", 'min="0" step="0.01"')}${field("Precio de referencia MXN", "price", p?.price || 0, "number", 'min="0" step="0.01"')}${field("Notas", "notes", p?.notes || "", "textarea")}</div>${brandChecks(p?.brands || [])}<label class="hc-field"><b>Fotografía de la pieza</b><input id="ac-part-image" type="file" accept="image/jpeg,image/png,image/webp"></label><input name="image" type="hidden" value="${esc(p?.image || "")}"><div id="ac-part-preview">${p?.image ? `<img src="${esc(p.image)}" class="ac-part-image" alt="Pieza">` : ""}</div><div class="hc-actions">${button("Cancelar", "dialog-close")}<button class="hc-btn primary" type="submit">Guardar ficha</button></div></form>`,
     );
   }
   function movementForm(p) {
@@ -558,7 +559,7 @@
         await api("/parts/" + currentPart.id + "/movements", post(body));
         $("#ac-dialog").close();
         await showParts();
-        toast("Movimiento registrado en Stock.");
+        toast("Movimiento registrado en el almacén AC.");
       }
       if (form.id === "ac-user-form") {
         body.activo = body.activo === "true";
@@ -696,7 +697,6 @@
           .join("");
       }
       if (a === "new-inventory") await partForm();
-      if (a === "link-inventory") await partForm(null, true);
       if (a === "edit-part")
         await partForm(parts.find((p) => p.id === b.dataset.id));
       if (a === "movement")
