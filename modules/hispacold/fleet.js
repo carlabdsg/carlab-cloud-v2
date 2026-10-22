@@ -1,5 +1,6 @@
 "use strict";
 const crypto = require("crypto");
+const qr = require("./qr");
 const conditions = {
   sin_evaluar: "Sin evaluación",
   operativo: "Operativo",
@@ -280,6 +281,16 @@ function register(
     allowed(req, r.rows[0].brand);
     return r.rows[0];
   }
+  qr.register(router, {
+    pool,
+    admin,
+    wrap,
+    fail,
+    allowed,
+    transaction,
+    getUnit,
+    audit,
+  });
   async function overview(req) {
     const today = todayOf(req),
       p = [today],
@@ -543,6 +554,7 @@ function register(
       `INSERT INTO ac_fleet_units(${columns.join(",")}) VALUES(${values.map((_, i) => "$" + (i + 1)).join(",")})`,
       values,
     );
+    await qr.ensure(db, id);
     await audit(
       db,
       id,
@@ -754,4 +766,4 @@ function register(
     }),
   );
 }
-module.exports = { schema, register, unitRow };
+module.exports = { schema: schema + qr.schema, register, unitRow };

@@ -229,6 +229,16 @@
       `<h2>Copiar datos desde Flotas</h2><p>Selecciona un autobús. Después asigna su marca de AC y verifica los datos; el registro original de Flotas se conserva.</p><form id="acf-import-form" class="hc-actions"><label class="hc-field"><b>Empresa o unidad</b><input name="q" value="${esc(importSearch)}" maxlength="180"></label><button type="submit" class="hc-btn primary">Buscar</button></form><div class="acf-company-list">${r.items.map((u, i) => `<article><div><b>${esc(u.company)} · ${esc(u.unit)}</b><span>${esc([u.busBrand, u.model].filter(Boolean).join(" · "))}</span></div>${btn("Seleccionar", "import-select", `data-index="${i}"`)}</article>`).join("") || "<p>Sin unidades para esta búsqueda.</p>"}</div><div class="hc-actions">${btn("Volver", "new-unit")}${btn("Anterior", "import-prev", importOffset === 0 ? "disabled" : "")}${btn("Siguiente", "import-next", r.hasMore ? "" : "disabled")}</div>`,
     );
   }
+  let qrData;
+  async function qrLabel() {
+    qrData = await ctx.api(
+      "/fleet/units/" + encodeURIComponent(detail.id) + "/qr",
+    );
+    const url = window.ACQR.url(qrData);
+    dialog(
+      `<h2>Etiqueta QR · Unidad ${esc(detail.unit)}</h2><p>${esc(detail.company)} · ${esc(brandName(detail.brand))}</p><img class="acf-qr-image" src="${window.ACQR.png(url)}" alt="QR del expediente de esta unidad"><p>Escanea para consultar el expediente o solicitar atención. Requiere iniciar sesión.</p><div class="hc-actions">${btn("Descargar etiqueta PDF", "qr-download", "", true)}<a class="hc-btn" href="${esc(url)}" target="_blank" rel="noopener">Probar acceso</a>${btn("Volver a la ficha", "qr-back")}</div><details class="acf-qr-replace"><summary>Reemplazar un código perdido o comprometido</summary><p>El QR anterior dejará de funcionar, incluso en etiquetas y reportes ya impresos. Para reimprimir el mismo código, descarga la etiqueta.</p><label class="hc-field"><b>Motivo del reemplazo</b><input id="acf-qr-reason" maxlength="500"></label>${btn("Invalidar anterior y generar nuevo", "qr-replace")}</details>`,
+    );
+  }
   async function openDetail(id) {
     const r = await ctx.api(
       "/fleet/units/" + encodeURIComponent(id) + "?today=" + today(),
@@ -236,7 +246,7 @@
     detail = r.unit;
     const u = detail;
     dialog(`<div class="acf-detail-heading"><div><div class="hc-kicker">EXPEDIENTE DE CLIMATIZACIÓN</div><h2>Unidad ${esc(u.unit)}</h2><p>${esc(u.company)} · ${esc(brandName(u.brand))}</p></div><span class="acf-badge ${u.signal}">${esc(u.signalLabel)}</span></div>
-      <div class="hc-actions">${btn("Cerrar", "close")}${config.canManage ? btn("Editar ficha / evaluación", "edit-unit") : ""}${u.active ? btn("Solicitar servicio", "request-service", "", true) + btn("Solicitar refacción", "request-part") : ""}</div>
+      <div class="hc-actions">${btn("Cerrar", "close")}${config.canManage ? btn("Editar ficha / evaluación", "edit-unit") + (u.active ? btn("Etiqueta QR", "qr-label") + btn("Crear orden", "new-order") : "") : ""}${u.active ? btn("Solicitar servicio", "request-service", "", true) + btn("Solicitar refacción", "request-part") : ""}</div>
       <section class="acf-reasons"><h3>Qué requiere atención</h3>${u.reasons.map((r) => `<div class="acf-reason ${r.color}"><i></i><div><b>${esc(r.text)}</b><p>${esc(r.detail)}</p></div></div>`).join("")}</section>
       <dl class="acf-detail-facts">${[
         ["Región / base", [u.region, u.base].filter(Boolean).join(" · ")],
@@ -341,6 +351,32 @@
     if (!b || working) return;
     try {
       const a = b.dataset.af;
+      if (a === "qr-label") await qrLabel();
+      if (a === "qr-back") await openDetail(detail.id);
+      if (a === "qr-download")
+        window.ACQR.label(detail, qrData, brandName(detail.brand));
+      if (a === "qr-replace") {
+        const reason = $("#acf-qr-reason").value.trim();
+        if (reason.length < 3)
+          throw new Error("Escribe el motivo del reemplazo.");
+        working = true;
+        b.disabled = true;
+        try {
+          await ctx.api(
+            "/fleet/units/" + encodeURIComponent(detail.id) + "/qr/replace",
+            post({ generation: qrData.generation, reason }),
+          );
+          await qrLabel();
+          ctx.toast("Código reemplazado. Imprime la nueva etiqueta.");
+        } finally {
+          working = false;
+          b.disabled = false;
+        }
+      }
+      if (a === "new-order") {
+        close();
+        await window.CarlabACNav.newFromFleet(detail);
+      }
       if (a === "close") close();
       if (a === "refresh") await load();
       if (a === "clear") {

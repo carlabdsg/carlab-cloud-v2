@@ -710,3 +710,22 @@
     transform: none;
   }
 }
+.acf-qr-image {
+  display: block;
+  width: min(100%, 320px);
+  height: auto;
+  margin: 16px auto;
+  border: 1px solid #dce6ea;
+  background: white;
+}
+.acf-qr-replace {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #dce6ea;
+}
+.acf-qr-replace summary {
+  cursor: pointer;
+}
+.acf-qr-replace .hc-field {
+  margin-bottom: 12px;
+}

@@ -2398,6 +2398,11 @@
       units = await api("/units");
       $("#hc-user").textContent = catalog.user.nombre + " · Administrador";
       await services();
+      const unitId = new URLSearchParams(location.search).get("unit");
+      if (unitId) {
+        await window.ACOperations.ready;
+        await window.CarlabACNav.operations("fleet", unitId);
+      }
     } catch (e) {
       $("#hc-user").textContent = "Acceso no disponible";
       $("#hc-main").innerHTML = heading(
@@ -2416,6 +2421,21 @@
   });
   window.CarlabACNav = {
     open,
+    newFromFleet: async (u) => {
+      await choose({
+        company: u.company,
+        unit: u.unit,
+        data: {
+          company: u.company,
+          unit: u.unit,
+          brand: u.brand,
+          model: u.model,
+          base: u.base,
+          equipment: u.acModel,
+          workNumber: u.workNumber,
+        },
+      });
+    },
     newFrom: async (id) => {
       const source = await api("/services/" + encodeURIComponent(id));
       await choose(source);

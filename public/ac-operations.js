@@ -822,7 +822,7 @@
         $("#hc-user").textContent = info.user.nombre + " · Supervisor AC";
         $(".hc-space-label").textContent =
           name(info.user.brand).toUpperCase() + " / PORTAL EXTERNO";
-        await show("fleet");
+        await show("fleet", new URLSearchParams(location.search).get("unit"));
       }
       await refreshNotifications();
       refreshTimer = setInterval(() => refreshNotifications(), 30000);

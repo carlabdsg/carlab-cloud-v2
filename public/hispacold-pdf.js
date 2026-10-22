@@ -63,6 +63,10 @@
       format: "a4",
       compress: true,
     });
+    const unitQR =
+      window.ACQR && !record.deletedAt
+        ? await window.ACQR.order(record.id)
+        : null;
     const d = record.data;
     const isV3 = Number(d.formVersion) >= 3;
     const showCosts = record.permissions?.costs !== false;
@@ -200,10 +204,16 @@
     doc.text(clean("CLIMATIZACIÓN / " + brandLabel.toUpperCase()), 14, 29);
     doc.setFontSize(13);
     doc.setFont("helvetica", "bold");
-    doc.text(record.folio, 196, 18, { align: "right" });
+    doc.text(record.folio, unitQR ? 168 : 196, 18, { align: "right" });
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.text(date(d.serviceDate), 196, 27, { align: "right" });
+    doc.text(date(d.serviceDate), unitQR ? 168 : 196, 27, { align: "right" });
+    if (unitQR) {
+      doc.addImage(unitQR.image, "PNG", 174, 3, 32, 32);
+      doc.link(174, 3, 32, 32, { url: unitQR.url });
+      doc.setFontSize(7);
+      doc.text("Expediente · acceso con cuenta", 190, 38, { align: "center" });
+    }
     doc.setFillColor(233, 246, 242);
     doc.roundedRect(14, 47, 182, 22, 2, 2, "F");
     doc.setTextColor(...teal);
