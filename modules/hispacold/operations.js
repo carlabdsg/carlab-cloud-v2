@@ -6,6 +6,7 @@ const catalog = require("./catalog");
 const fleet = require("./fleet");
 const maintenanceCalendar = require("./calendar");
 const inventory = require("./inventory");
+const officialParts = require("./official-parts");
 const reports = require("./reports");
 const notificationSchema = `
 CREATE TABLE IF NOT EXISTS ac_notifications (
@@ -209,6 +210,7 @@ function register(
     (ready = ensureServices()
       .then(() => pool.query(schema))
       .then(() => inventory.init(pool))
+      .then(() => officialParts.init(pool))
       .then(() => pool.query(fleet.schema))
       .catch((e) => {
         ready = null;
@@ -335,6 +337,7 @@ function register(
     page,
     notice,
   });
+  officialParts.register(router, { pool, wrap, admin, fail, text, brand });
   reports.register(router, { pool, wrap, fail, text, brand, day, transaction });
   maintenanceCalendar.register(router, {
     pool,
@@ -1066,9 +1069,25 @@ function register(
           `(s.nombre||' '||COALESCE(s.sku,'')||' '||p.models) ILIKE $${p.length}`,
         );
       }
+      if (req.query.family) {
+        const family = text(req.query.family, 30);
+        if (
+          !["efficient", "recambios", "cotizaciones", "custom"].includes(family)
+        )
+          fail("Origen inválido.");
+        if (family === "custom") w.push("o.reference IS NULL");
+        else {
+          p.push(
+            officialParts.data.parts
+              .filter((v) => v.families.includes(family))
+              .map((v) => v.key),
+          );
+          w.push(`o.reference=ANY($${p.length}::text[])`);
+        }
+      }
       const where = w.length ? "WHERE " + w.join(" AND ") : "",
         r = await pool.query(
-          `SELECT s.*,p.brands,p.models,p.image FROM ac_stock_parts s JOIN ac_stock_profiles p ON p.stock_part_id=s.id ${where} ORDER BY s.nombre LIMIT 500`,
+          `SELECT s.*,p.brands,p.models,p.image,o.reference AS official_key FROM ac_stock_parts s JOIN ac_stock_profiles p ON p.stock_part_id=s.id LEFT JOIN ac_official_parts o ON o.stock_part_id=s.id AND o.reference=UPPER(TRIM(s.sku)) ${where} ORDER BY s.nombre LIMIT 500`,
           p,
         );
       res.json(
@@ -1080,6 +1099,11 @@ function register(
           models: x.models,
           image: x.image,
           available: Number(x.stock_actual) > 0,
+          official:
+            x.brands.includes("hispacold") &&
+            (req.acAdmin || req.acBrand === "hispacold")
+              ? officialParts.metadata(x.official_key)
+              : null,
           ...(req.acAdmin
             ? {
                 stock: Number(x.stock_actual),

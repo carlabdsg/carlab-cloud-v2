@@ -5,6 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const catalog = require("./catalog");
 const operations = require("./operations");
+const officialParts = require("./official-parts");
 const schema =
   `
 CREATE TABLE IF NOT EXISTS hc_services (
@@ -305,6 +306,7 @@ function validate(input) {
       bad("Tipo de concepto inválido.");
     return {
       kind,
+      ...officialParts.provenance(p, brand),
       description: name,
       reference: str(p.reference, 120),
       quantity: qty,

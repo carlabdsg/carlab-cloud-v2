@@ -179,7 +179,7 @@ function register(router, { pool, wrap, fail, text, brand, day, transaction }) {
         if (req.acAdmin && !company)
           lowStock = (
             await db.query(
-              `SELECT s.nombre,s.sku,s.stock_actual,s.stock_minimo,p.brands FROM ac_stock_parts s JOIN ac_stock_profiles p ON p.stock_part_id=s.id WHERE s.stock_actual<=s.stock_minimo AND ($1::text IS NULL OR p.brands @> jsonb_build_array($1::text)) ORDER BY s.nombre`,
+              `SELECT s.nombre,s.sku,s.stock_actual,s.stock_minimo,p.brands FROM ac_stock_parts s JOIN ac_stock_profiles p ON p.stock_part_id=s.id WHERE s.stock_minimo>0 AND s.stock_actual<=s.stock_minimo AND ($1::text IS NULL OR p.brands @> jsonb_build_array($1::text)) ORDER BY s.nombre`,
               [b],
             )
           ).rows;

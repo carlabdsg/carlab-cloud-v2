@@ -1,0 +1,4161 @@
+{
+  "version": "hispacold-repuestos-2026-v1",
+  "documents": [
+    {
+      "id": "hispacold-efficient",
+      "title": "CATALOGO EQUIPO EFFICIENT",
+      "filename": "hispacold-efficient.pdf",
+      "kind": "catalog",
+      "brand": "hispacold",
+      "pages": 23,
+      "sha256": "1baa63b50deed508ee382b933e7d6dd4fae77f3808774f3110276ce8be106201"
+    },
+    {
+      "id": "hispacold-repuestos-2025",
+      "title": "CATALOGO HISPACOLD 2025 RECAMBIOS",
+      "filename": "hispacold-repuestos-2025.pdf",
+      "kind": "catalog",
+      "brand": "hispacold",
+      "pages": 19,
+      "sha256": "c5e7b40260a4d91b4975946cb3745c90aba319d20cce8838f4dcb5084e77f101"
+    },
+    {
+      "id": "cot-anual-man-2026",
+      "title": "COTIZACION DE MTTO ANUAL CHASIS MAN 2026",
+      "filename": "cot-anual-man-2026.pdf",
+      "kind": "quotation",
+      "brand": "hispacold",
+      "pages": 1,
+      "sha256": "c601862f416a34da54143a4d3f96a7d318c6ce438a1acc3f98749a3f8309688b"
+    },
+    {
+      "id": "cot-anual-mb-2026",
+      "title": "COTIZACION DE MTTO ANUAL CHASIS MB 2026",
+      "filename": "cot-anual-mb-2026.pdf",
+      "kind": "quotation",
+      "brand": "hispacold",
+      "pages": 1,
+      "sha256": "bf254d369220f0d0a26877c7480c48458045eb3abb844f9398ae9edb337b1c53"
+    },
+    {
+      "id": "cot-anual-scania-2026",
+      "title": "COTIZACION DE MTTO ANUAL CHASIS SCANIA 2026",
+      "filename": "cot-anual-scania-2026.pdf",
+      "kind": "quotation",
+      "brand": "hispacold",
+      "pages": 1,
+      "sha256": "9af578d736d4d9e85c557dff43e91439add0fbe874ee419b554a82e39ffd1ee9"
+    },
+    {
+      "id": "cot-anual-volvo-2026",
+      "title": "COTIZACION DE MTTO ANUAL CHASIS VOLVO 2026",
+      "filename": "cot-anual-volvo-2026.pdf",
+      "kind": "quotation",
+      "brand": "hispacold",
+      "pages": 1,
+      "sha256": "5a6411fac3fc16d2fdbfc5e7a3d4414d9db9b04b07086192c548285d27584c3d"
+    },
+    {
+      "id": "cot-semestral-man-2026",
+      "title": "COTIZACION DE MTTO SEMESTRAL CHAIS MAN 2026",
+      "filename": "cot-semestral-man-2026.pdf",
+      "kind": "quotation",
+      "brand": "hispacold",
+      "pages": 1,
+      "sha256": "2acb7323593e812ed156e7941ae2c4efd2585e83c3e65e9c0a055a62e339e121"
+    },
+    {
+      "id": "cot-semestral-mb-2026",
+      "title": "COTIZACION DE MTTO SEMESTRAL CHAIS MB 2026",
+      "filename": "cot-semestral-mb-2026.pdf",
+      "kind": "quotation",
+      "brand": "hispacold",
+      "pages": 1,
+      "sha256": "22c1ccf2a497e113405834d6dd76d05a0f8b19e066545a93bb77d17c617e6fdc"
+    },
+    {
+      "id": "cot-semestral-scania-2026",
+      "title": "COTIZACION DE MTTO SEMESTRAL CHASIS SCANIA 2026",
+      "filename": "cot-semestral-scania-2026.pdf",
+      "kind": "quotation",
+      "brand": "hispacold",
+      "pages": 1,
+      "sha256": "aa851f8a11cf72b5e70c1f63d4b7ba5b666f35e50c7756f6f811d29e384e6858"
+    },
+    {
+      "id": "cot-semestral-volvo-2026",
+      "title": "COTIZACION DE MTTO SEMESTRAL CHASIS VOLVO 2026",
+      "filename": "cot-semestral-volvo-2026.pdf",
+      "kind": "quotation",
+      "brand": "hispacold",
+      "pages": 1,
+      "sha256": "1037583215d9ea5d72523648692d4acb82c4d13507d510beb82beb1a2a9be43d"
+    },
+    {
+      "id": "cot-trimestral-2026",
+      "title": "COTIZACION DE MTTO TRIMESTRAL 2026",
+      "filename": "cot-trimestral-2026.pdf",
+      "kind": "quotation",
+      "brand": "hispacold",
+      "pages": 1,
+      "sha256": "b04d6c1f09fdeab31145e94d151c378f77b700fe9dbdc781510fcc5c6a5042d0"
+    }
+  ],
+  "parts": [
+    {
+      "key": "3010390",
+      "reference": "3010390",
+      "name": "BATERIA CALEFACCION (DEFROSTER)",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 12,
+          "description": "BATERIA CALEFACCION (DEFROSTER)"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 13,
+          "description": "BATERIA CALEFACCION (DEFROSTER)"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3010396",
+      "reference": "3010396",
+      "name": "BATERIA EVAPORADOR DEFROSTER (PB,i5,i6)",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 10,
+          "description": "BATERIA EVAPORADOR DEFROSTER (PB,i5,i6)"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 10,
+          "description": "BATERIA EVAPORADOR DEFROSTER (PB,i5,i6)"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3010667",
+      "reference": "3010667",
+      "name": "BATERIA EVAPORADOR DEFROSTER (i8)",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 11,
+          "description": "BATERIA EVAPORADOR DEFROSTER (i8)"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 11,
+          "description": "BATERIA EVAPORADOR DEFROSTER (I8)"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3010773",
+      "reference": "3010773",
+      "name": "BATERIA EVAPORADOR LADO OPERADOR",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 17,
+          "description": "BATERIA EVAPORADOR LADO OPERADOR"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3010774",
+      "reference": "3010774",
+      "name": "BATERIA EVAPORADOR LADO PUERTA",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 17,
+          "description": "BATERIA EVAPORADOR LADO PUERTA"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3010805",
+      "reference": "3010805",
+      "name": "BATERIA CONDENSADOR 93T 10CH 912 O-RING",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 19,
+          "description": "BATERIA CONDENSADOR 93T 10CH 912 O-RING"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3050169",
+      "reference": "3050169",
+      "name": "MOTOR TRAMPILLA BOSCH JOST",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 2,
+          "description": "MOTOR TRAMPILLA BOSCH JOST"
+        },
+        {
+          "documentId": "hispacold-efficient",
+          "page": 21,
+          "description": "MOTOR TRAMPILLA BUSCH JOST"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3050214",
+      "reference": "3050214",
+      "name": "MOTOR CONDENSADOR",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 2,
+          "description": "MOTOR CONDENSADOR"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 3,
+          "description": "MOTOR CONDENSADOR"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3100009",
+      "reference": "3100009",
+      "name": "VALVULA DE EXPANSION DANFOS",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 15,
+          "description": "VALVULA DE EXPANSION DANFOS"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 17,
+          "description": "VALVULA DE EXPANSION DANFOS"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3100015",
+      "reference": "3100015",
+      "name": "FILTRO DESHIDRATADOR",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 2,
+          "description": "FILTRO DESHIDRATADOR"
+        },
+        {
+          "documentId": "hispacold-efficient",
+          "page": 19,
+          "description": "FILTRO DESHIDRATADOR DML 304 O-RING"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3100015-N",
+      "reference": "3100015-N",
+      "name": "FILTRO DESHIDRATADOR",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 5,
+          "description": "FILTRO DESHIDRATADOR"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3100031",
+      "reference": "3100031",
+      "name": "ORIFICIO No.2",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 15,
+          "description": "ORIFICIO No.2"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 17,
+          "description": "ORIFICIO No.2"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3100099",
+      "reference": "3100099",
+      "name": "VALVULA DE EXPANSION TOEX 4.5",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 7,
+          "description": "VALVULA DE EXPANSION TOEX 4.5"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 7,
+          "description": "VALVULA DE EXPANSION TOEX 4.5"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3100109",
+      "reference": "3100109",
+      "name": "VALVULA DE EXPANSION TCD 1.5 DEFROSTER (PB,i5, i6)",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 10,
+          "description": "VALVULA DE EXPANSION TCD 1.5 DEFROSTER (PB,i5, i6)"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 10,
+          "description": "VALVULA DE EXPANSION TCD 1.5 DEFROSTER (PB,i5, i6)"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3100115",
+      "reference": "3100115",
+      "name": "CTO VALVULA CENTRA CALEFACCION BURKERT",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 8,
+          "description": "CTO VALVULA CENTRA CALEFACCION BURKERT"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 5,
+          "description": "CTO VALVULA CENTRAL CALEFACCION BURKERT"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3100160",
+      "reference": "3100160",
+      "name": "VALVULA DE EXPANSION TBF 1.5 DEFROSTER (i8)",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 11,
+          "description": "VALVULA DE EXPANSION TBF 1.5 DEFROSTER (i8)"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 11,
+          "description": "VALVULA DE EXPANSION TBF 1.5 DEFROSTER (i8)"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3150423-N",
+      "reference": "3150423-N",
+      "name": "BANDA COMPRESOR CHASIS MAN",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 14,
+          "description": "BANDA COMPRESOR CHASIS MAN"
+        },
+        {
+          "documentId": "cot-anual-man-2026",
+          "page": 1,
+          "description": "BANDA COMPRESOR (10PK2420 ó 10PK2415)"
+        },
+        {
+          "documentId": "cot-semestral-man-2026",
+          "page": 1,
+          "description": "BANDA COMPRESOR (10PK2420 ó 10PK2415)"
+        }
+      ],
+      "families": [
+        "recambios",
+        "cotizaciones"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3200211",
+      "reference": "3200211",
+      "name": "CUERPO VALVULA",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 15,
+          "description": "CUERPO VALVULA"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 17,
+          "description": "CUERPO VALVULA"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3200627",
+      "reference": "3200627",
+      "name": "ELECTRONICA MOTOR EVAPORADOR",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 5,
+          "description": "ELECTRONICA MOTOR EVAPORADOR"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3200662",
+      "reference": "3200662",
+      "name": "ELECTRONICA MOTOR CONDENSADOR",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 5,
+          "description": "ELECTRONICA MOTOR CONDENSADOR"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3200935",
+      "reference": "3200935",
+      "name": "NODO CONDUCTOR ECOMASTER COMFORT",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 8,
+          "description": "NODO CONDUCTOR ECOMASTER COMFORT"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3200936",
+      "reference": "3200936",
+      "name": "NODO PASAJERO ECOMASTER COMFORT",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 8,
+          "description": "NODO PASAJERO ECOMASTER COMFORT"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3200950",
+      "reference": "3200950",
+      "name": "IRICONFORT II NODO TECLADO",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 12,
+          "description": "IRICONFORT II NODO TECLADO"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3200951",
+      "reference": "3200951",
+      "name": "IRICONFORT II NODO PASAJERO",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 12,
+          "description": "IRICONFORT II NODO PASAJERO"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3200952",
+      "reference": "3200952",
+      "name": "IRICONFORT II DISPLAY",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 12,
+          "description": "IRICONFORT II DISPLAY"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3200953",
+      "reference": "3200953",
+      "name": "SONDA EXTERIOR CABLE HF 4MM C/CON EST",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 3,
+          "description": "SONDA EXTERIOR CABLE HF 4MM C/CON EST"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3200954",
+      "reference": "3200954",
+      "name": "SONDA NTC10K CABLE HF 400MM C/CON",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 3,
+          "description": "SONDA NTC10K CABLE HF 400MM C/CON"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3200955",
+      "reference": "3200955",
+      "name": "SONDA AGUA NTC 10K CABLE HF CONEC 2V EST",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 3,
+          "description": "SONDA AGUA NTC 10K CABLE HF CONEC 2V EST"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3201059",
+      "reference": "3201059",
+      "name": "NETIOS i20 MASTER 24V",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 6,
+          "description": "NETIOS i20 MASTER 24V"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3220009",
+      "reference": "3220009",
+      "name": "CAPUCHÓN VÁLVULA DE ALTA",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 3,
+          "description": "CAPUCHÓN VÁLVULA DE ALTA"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3250012",
+      "reference": "3250012",
+      "name": "BOBINA 24V EVR-6",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 15,
+          "description": "BOBINA 24V EVR-6"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 17,
+          "description": "BOBINA 24V EVR-6"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3270085-N",
+      "reference": "3270085-N",
+      "name": "ASPA METALICA",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 2,
+          "description": "ASPA METALICA"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3271695",
+      "reference": "3271695",
+      "name": "VENTILADOR AXIAL EBM W3G385-BV44-01",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 2,
+          "description": "VENTILADOR AXIAL EBM W3G385-BV44-01"
+        },
+        {
+          "documentId": "hispacold-efficient",
+          "page": 19,
+          "description": "VENTILADOR AXIAL EBM W3G385-BV44-01"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3300085",
+      "reference": "3300085",
+      "name": "ARANDELA DE COBRE",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 3,
+          "description": "ARANDELA DE COBRE"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3300398",
+      "reference": "3300398",
+      "name": "CUÑA BOMBA COMPRESOR (CHAVETA)",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 10,
+          "description": "CUÑA BOMBA COMPRESOR (CHAVETA)"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 10,
+          "description": "CUÑA BOMBA COMPRESOR (CHAVETA)"
+        },
+        {
+          "documentId": "cot-anual-man-2026",
+          "page": 1,
+          "description": "CHAVETA COMPRESOR ECOICE"
+        },
+        {
+          "documentId": "cot-anual-mb-2026",
+          "page": 1,
+          "description": "CHAVETA COMPRESOR ECOICE"
+        },
+        {
+          "documentId": "cot-anual-scania-2026",
+          "page": 1,
+          "description": "CHAVETA COMPRESOR ECOICE"
+        },
+        {
+          "documentId": "cot-anual-volvo-2026",
+          "page": 1,
+          "description": "CHAVETA COMPRESOR ECOICE"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios",
+        "cotizaciones"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3300579",
+      "reference": "3300579",
+      "name": "ABRAZADERA 70-90/12 SIN FIN WS",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 19,
+          "description": "ABRAZADERA 70-90/12 SIN FIN WS"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3300601",
+      "reference": "3300601",
+      "name": "ABRAZADERA PA6 M6 120 BLANCA SIMPLE",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 2,
+          "description": "ABRAZADERA PA6 M6 120 BLANCA SIMPLE"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3350216-N",
+      "reference": "3350216-N",
+      "name": "REJILLA CUBRE MOTOR CONDENSADOR",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 2,
+          "description": "REJILLA CUBRE MOTOR CONDENSADOR"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3450017-NACHI",
+      "reference": "3450017-NACHI",
+      "name": "BALERO 6305SKF",
+      "kind": "refaccion",
+      "unit": "piezas",
+      "sources": [
+        {
+          "documentId": "cot-anual-mb-2026",
+          "page": 1,
+          "description": "BALERO 6305SKF"
+        },
+        {
+          "documentId": "cot-anual-volvo-2026",
+          "page": 1,
+          "description": "BALERO 6305SKF"
+        },
+        {
+          "documentId": "cot-semestral-mb-2026",
+          "page": 1,
+          "description": "BALERO 6305SKF"
+        },
+        {
+          "documentId": "cot-semestral-volvo-2026",
+          "page": 1,
+          "description": "BALERO 6305SKF"
+        }
+      ],
+      "families": [
+        "cotizaciones"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3450040-NACHI",
+      "reference": "3450040-NACHI",
+      "name": "BALERO 3210A-2RS1TN9",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "cot-anual-man-2026",
+          "page": 1,
+          "description": "BALERO 3210A-2RS1TN9"
+        },
+        {
+          "documentId": "cot-anual-mb-2026",
+          "page": 1,
+          "description": "BALERO 3210A-2RS1TN9"
+        },
+        {
+          "documentId": "cot-anual-scania-2026",
+          "page": 1,
+          "description": "BALERO 3210A-2RS1TN9"
+        },
+        {
+          "documentId": "cot-anual-volvo-2026",
+          "page": 1,
+          "description": "BALERO 3210A-2RS1TN9"
+        },
+        {
+          "documentId": "cot-semestral-man-2026",
+          "page": 1,
+          "description": "BALERO 3210A-2RS1TN9"
+        },
+        {
+          "documentId": "cot-semestral-mb-2026",
+          "page": 1,
+          "description": "BALERO 3210A-2RS1TN9"
+        },
+        {
+          "documentId": "cot-semestral-scania-2026",
+          "page": 1,
+          "description": "BALERO 3210A-2RS1TN9"
+        },
+        {
+          "documentId": "cot-semestral-volvo-2026",
+          "page": 1,
+          "description": "BALERO 3210A-2RS1TN9"
+        }
+      ],
+      "families": [
+        "cotizaciones"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3500003",
+      "reference": "3500003",
+      "name": "TUBERIA NYLAFLOW 6/10",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 16,
+          "description": "TUBERIA NYLAFLOW 6/10"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 18,
+          "description": "TUBERIA NYLAFLOW 6/10"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3500006",
+      "reference": "3500006",
+      "name": "TUBERIA NYLAFLOW G/6",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 16,
+          "description": "TUBERIA NYLAFLOW G/6"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 18,
+          "description": "TUBERIA NYLAFLOW G/6"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3500094",
+      "reference": "3500094",
+      "name": "TUBERIA NYLAFLOW G/12",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 16,
+          "description": "TUBERIA NYLAFLOW G/12"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 18,
+          "description": "TUBERIA NYLAFLOW G/12"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3500097",
+      "reference": "3500097",
+      "name": "TUBERIA GOMA G/22",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 16,
+          "description": "TUBERIA GOMA G/22"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 18,
+          "description": "TUBERIA GOMA G/22"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3550308",
+      "reference": "3550308",
+      "name": "TENSOR AUTOMATICO GATES",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 9,
+          "description": "TENSOR AUTOMATICO GATES"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 9,
+          "description": "TENSOR AUTOMATICO GATES"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3600017",
+      "reference": "3600017",
+      "name": "JUNTA COLECTOR DE BAJA",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 11,
+          "description": "JUNTA COLECTOR DE BAJA"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 11,
+          "description": "JUNTA COLECTOR DE BAJA"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3600057",
+      "reference": "3600057",
+      "name": "JUNTA TÓRICA G/10",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 11,
+          "description": "JUNTA TÓRICA G/10"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 11,
+          "description": "JUNTA TÓRICA G/10"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3600085",
+      "reference": "3600085",
+      "name": "JUNTA TÓRICA G/6",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 11,
+          "description": "JUNTA TÓRICA G/6"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 11,
+          "description": "JUNTA TÓRICA G/6"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3600107",
+      "reference": "3600107",
+      "name": "JUNTA TÓRICA G/16",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 11,
+          "description": "JUNTA TÓRICA G/16"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 11,
+          "description": "JUNTA TÓRICA G/16"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3600122",
+      "reference": "3600122",
+      "name": "JUNTA TÓRICA COMPENSADOR",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 11,
+          "description": "JUNTA TÓRICA COMPENSADOR"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 11,
+          "description": "JUNTA TÓRICA COMPENSADOR"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3600128",
+      "reference": "3600128",
+      "name": "JUNTA TAPA BOMBA COMPRESOR ECOICE",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "cot-anual-man-2026",
+          "page": 1,
+          "description": "JUNTA TAPA BOMBA COMPRESOR ECOICE"
+        },
+        {
+          "documentId": "cot-anual-mb-2026",
+          "page": 1,
+          "description": "JUNTA TAPA BOMBA COMPRESOR ECOICE"
+        },
+        {
+          "documentId": "cot-anual-scania-2026",
+          "page": 1,
+          "description": "JUNTA TAPA BOMBA COMPRESOR ECOICE"
+        },
+        {
+          "documentId": "cot-anual-volvo-2026",
+          "page": 1,
+          "description": "JUNTA TAPA BOMBA COMPRESOR ECOICE"
+        }
+      ],
+      "families": [
+        "cotizaciones"
+      ],
+      "notes": "Los documentos distinguen 3600128 y 3600128-N. Se conservan como referencias diferentes; confirmar equivalencia con proveedor."
+    },
+    {
+      "key": "3600128-N",
+      "reference": "3600128-N",
+      "name": "JUNTA TAPA BOMBA ACEITE COMPRESOR",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 10,
+          "description": "JUNTA TAPA BOMBA ACEITE COMPRESOR"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 10,
+          "description": "JUNTA TAPA BOMBA ACEITE COMPRESOR"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": "Los documentos distinguen 3600128 y 3600128-N. Se conservan como referencias diferentes; confirmar equivalencia con proveedor."
+    },
+    {
+      "key": "3600133",
+      "reference": "3600133",
+      "name": "JUNTA TÓRICA VISOR",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 11,
+          "description": "JUNTA TÓRICA VISOR"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 11,
+          "description": "JUNTA TÓRICA VISOR"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3600139",
+      "reference": "3600139",
+      "name": "JUNTA TÓRICA G/12",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 11,
+          "description": "JUNTA TÓRICA G/12"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 11,
+          "description": "JUNTA TÓRICA G/12"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3600161",
+      "reference": "3600161",
+      "name": "JUNTA TÓRICA G/22",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 11,
+          "description": "JUNTA TÓRICA G/22"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 11,
+          "description": "JUNTA TÓRICA G/22"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "3600178-N",
+      "reference": "3600178-N",
+      "name": "KIT DE TÓRICAS",
+      "kind": "refaccion",
+      "unit": "kit",
+      "sources": [
+        {
+          "documentId": "cot-anual-man-2026",
+          "page": 1,
+          "description": "KIT DE TÓRICAS"
+        },
+        {
+          "documentId": "cot-anual-mb-2026",
+          "page": 1,
+          "description": "KIT DE TÓRICAS"
+        },
+        {
+          "documentId": "cot-anual-scania-2026",
+          "page": 1,
+          "description": "KIT DE TÓRICAS"
+        },
+        {
+          "documentId": "cot-anual-volvo-2026",
+          "page": 1,
+          "description": "KIT DE TÓRICAS"
+        }
+      ],
+      "families": [
+        "cotizaciones"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "40501669",
+      "reference": "40501669",
+      "name": "TUBO ALTA – EVAP AL EF 100 - 200",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 20,
+          "description": "TUBO ALTA – EVAP AL EF 100 - 200"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": "Referencia de ocho dígitos transcrita tal como aparece en Efficient, página 20. Confirmar con proveedor; no se corrige ni se supone equivalencia."
+    },
+    {
+      "key": "4050297",
+      "reference": "4050297",
+      "name": "EMBRAGUE COMPRESOR CHASIS VOLVO",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 13,
+          "description": "EMBRAGUE COMPRESOR CHASIS VOLVO"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 15,
+          "description": "EMBRAGUE COMPRESOR CHASIS VOLVO"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4050328",
+      "reference": "4050328",
+      "name": "EMBRAGUE COMPRESOR CHASIS MAN",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 13,
+          "description": "EMBRAGUE COMPRESOR CHASIS MAN"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 15,
+          "description": "EMBRAGUE COMPRESOR CHASIS MAN"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4050339",
+      "reference": "4050339",
+      "name": "EMBRAGUE COMPRESOR CHASIS MB",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 13,
+          "description": "EMBRAGUE COMPRESOR CHASIS MB"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 15,
+          "description": "EMBRAGUE COMPRESOR CHASIS MB"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4050344",
+      "reference": "4050344",
+      "name": "EMBRAGUE COMPRESOR CHASIS SCANIA",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 13,
+          "description": "EMBRAGUE COMPRESOR CHASIS SCANIA"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 15,
+          "description": "EMBRAGUE COMPRESOR CHASIS SCANIA"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4150179",
+      "reference": "4150179",
+      "name": "PRESOSTATO DE ALTA",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 7,
+          "description": "PRESOSTATO DE ALTA"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 7,
+          "description": "PRESOSTATO DE ALTA"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4150261",
+      "reference": "4150261",
+      "name": "SENSOR EXTERIOR",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 8,
+          "description": "SENSOR EXTERIOR"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4150262",
+      "reference": "4150262",
+      "name": "SENSOR AGUA WTR",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 6,
+          "description": "SENSOR AGUA WTR"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4150267",
+      "reference": "4150267",
+      "name": "SENSOR VERDE PT1000",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 6,
+          "description": "SENSOR VERDE PT1000"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4150709",
+      "reference": "4150709",
+      "name": "PRESOSTARO DE BAJA",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 7,
+          "description": "PRESOSTARO DE BAJA"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 7,
+          "description": "PRESOSTARO DE BAJA"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4150786",
+      "reference": "4150786",
+      "name": "KIT ECOMASTER COMFORT II",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 8,
+          "description": "KIT ECOMASTER COMFORT II"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4150795",
+      "reference": "4150795",
+      "name": "KIT IRICONFORT II",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 12,
+          "description": "KIT IRICONFORT II"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4150842",
+      "reference": "4150842",
+      "name": "CTO BOBINA ECOICE C/ADAPTADOR",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 7,
+          "description": "CTO BOBINA ECOICE C/ADAPTADOR"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 6,
+          "description": "CTO. BOBINA ECOICE C/ADAPTADOR"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4151011",
+      "reference": "4151011",
+      "name": "SESOR NTC 10K AMARILLO SIL EST",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 3,
+          "description": "SESOR NTC 10K AMARILLO SIL EST"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4151012",
+      "reference": "4151012",
+      "name": "SENSOR NTC10K AMARILLO SIL FASTON",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 3,
+          "description": "SENSOR NTC10K AMARILLO SIL FASTON"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4151052",
+      "reference": "4151052",
+      "name": "NETIOS i20 SLAVE 24V",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 6,
+          "description": "NETIOS i20 SLAVE 24V"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4151053",
+      "reference": "4151053",
+      "name": "NETIOS i20 HMI 24V",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 6,
+          "description": "NETIOS i20 HMI 24V"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4200075",
+      "reference": "4200075",
+      "name": "VALVULA ALTA",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 9,
+          "description": "VALVULA ALTA"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 9,
+          "description": "VALVULA ALTA"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4200077",
+      "reference": "4200077",
+      "name": "CTO VALVULA ALTA C/ACOPLAMIENTO + JUNTA + TORNILLO",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 9,
+          "description": "CTO VALVULA ALTA C/ACOPLAMIENTO + JUNTA + TORNILLO"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 9,
+          "description": "CTO VALVULA ALTA C/ACOPLAMIENTO + JUNTA + TORNILLO"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4200097",
+      "reference": "4200097",
+      "name": "DISCOFRICCION EXTERIOR",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 10,
+          "description": "DISCOFRICCION EXTERIOR"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 10,
+          "description": "DISCOFRICCION EXTERIOR"
+        },
+        {
+          "documentId": "cot-anual-man-2026",
+          "page": 1,
+          "description": "DISCO FRICCION EXTERIOR"
+        },
+        {
+          "documentId": "cot-anual-mb-2026",
+          "page": 1,
+          "description": "DISCO FRICCION EXTERIOR"
+        },
+        {
+          "documentId": "cot-anual-scania-2026",
+          "page": 1,
+          "description": "DISCO FRICCION EXTERIOR"
+        },
+        {
+          "documentId": "cot-anual-volvo-2026",
+          "page": 1,
+          "description": "DISCO FRICCION EXTERIOR"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios",
+        "cotizaciones"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4200367",
+      "reference": "4200367",
+      "name": "DIODO",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 7,
+          "description": "DIODO"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4200532",
+      "reference": "4200532",
+      "name": "TAPA SELLO MECANICO",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 8,
+          "description": "TAPA SELLO MECANICO"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4200536",
+      "reference": "4200536",
+      "name": "CTO RETEN ECOICE + ARILLO",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 8,
+          "description": "CTO RETEN ECOICE + ARILLO"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4220828",
+      "reference": "4220828",
+      "name": "ANTIVAHO (DEFROSTER)",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 18,
+          "description": "ANTIVAHO (DEFROSTER)"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4230444",
+      "reference": "4230444",
+      "name": "KIT MOTOR TRAMPILLA",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 6,
+          "description": "KIT MOTOR TRAMPILLA"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4231519",
+      "reference": "4231519",
+      "name": "FILTRO RETORNO DE AIRE ANTIVAHO (IMPORTADO)",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 12,
+          "description": "FILTRO RETORNO DE AIRE ANTIVAHO (IMPORTADO)"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 13,
+          "description": "FILTRO RETORNO DE AIRE ANTIVAHO (IMPORTADO)"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4231519-N",
+      "reference": "4231519-N",
+      "name": "FILTRO RETORNO DE AIRE ANTIVAHO (NACIONAL)",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 12,
+          "description": "FILTRO RETORNO DE AIRE ANTIVAHO (NACIONAL)"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 13,
+          "description": "FILTRO RETORNO DE AIRE ANTIVAHO (NACIONAL)"
+        },
+        {
+          "documentId": "cot-anual-man-2026",
+          "page": 1,
+          "description": "FILTRO AIRE VCC"
+        },
+        {
+          "documentId": "cot-anual-mb-2026",
+          "page": 1,
+          "description": "FILTRO AIRE VCC"
+        },
+        {
+          "documentId": "cot-anual-scania-2026",
+          "page": 1,
+          "description": "FILTRO AIRE VCC"
+        },
+        {
+          "documentId": "cot-anual-volvo-2026",
+          "page": 1,
+          "description": "FILTRO AIRE VCC"
+        },
+        {
+          "documentId": "cot-semestral-man-2026",
+          "page": 1,
+          "description": "FILTRO AIRE VCC"
+        },
+        {
+          "documentId": "cot-semestral-mb-2026",
+          "page": 1,
+          "description": "FILTRO AIRE VCC"
+        },
+        {
+          "documentId": "cot-semestral-scania-2026",
+          "page": 1,
+          "description": "FILTRO AIRE VCC"
+        },
+        {
+          "documentId": "cot-semestral-volvo-2026",
+          "page": 1,
+          "description": "FILTRO AIRE VCC"
+        },
+        {
+          "documentId": "cot-trimestral-2026",
+          "page": 1,
+          "description": "FILTRO AIRE VCC"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios",
+        "cotizaciones"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4231534",
+      "reference": "4231534",
+      "name": "MOTOR KIT SUSTITUCION",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 4,
+          "description": "MOTOR KIT SUSTITUCION"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4232250",
+      "reference": "4232250",
+      "name": "ASPA PLASTICA",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 2,
+          "description": "ASPA PLASTICA"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4232314",
+      "reference": "4232314",
+      "name": "CTO VALVULA MOTOR BUSCH JOST",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 8,
+          "description": "CTO VALVULA MOTOR BUSCH JOST"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 4,
+          "description": "CTO VALVULA MOTOR BUSCH JOST"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4232772",
+      "reference": "4232772",
+      "name": "CTO SUSTITUCION VALVULA WOCO",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 12,
+          "description": "CTO SUSTITUCION VALVULA WOCO"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 13,
+          "description": "CTO SUSTITUCION VALVULA WOCO"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4300303",
+      "reference": "4300303",
+      "name": "ENCHUFE RÁPIDO DE BAJA",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 3,
+          "description": "ENCHUFE RÁPIDO DE BAJA"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4300305",
+      "reference": "4300305",
+      "name": "ENCHUFE RÁPIDO DE ALTA",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 3,
+          "description": "ENCHUFE RÁPIDO DE ALTA"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4300374",
+      "reference": "4300374",
+      "name": "RACOR 45° G/10",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 14,
+          "description": "RACOR 45° G/10"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 16,
+          "description": "RACOR 45° G/10"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4300382",
+      "reference": "4300382",
+      "name": "RACOR 45° G/6",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 14,
+          "description": "RACOR 45° G/6"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 16,
+          "description": "RACOR 45° G/6"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4300421",
+      "reference": "4300421",
+      "name": "RACOR 90° G/10",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 14,
+          "description": "RACOR 90° G/10"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 16,
+          "description": "RACOR 90° G/10"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4300430",
+      "reference": "4300430",
+      "name": "RACOR 90° G/6",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 14,
+          "description": "RACOR 90° G/6"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 16,
+          "description": "RACOR 90° G/6"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4300435",
+      "reference": "4300435",
+      "name": "RACOR ADAPTADOR 5/8",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 15,
+          "description": "RACOR ADAPTADOR 5/8"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 17,
+          "description": "RACOR ADAPTADOR 5/8"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4300469",
+      "reference": "4300469",
+      "name": "RACOR RECTO G/6",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 14,
+          "description": "RACOR RECTO G/6"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 16,
+          "description": "RACOR RECTO G/6"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4300476",
+      "reference": "4300476",
+      "name": "RACOR UNIÓN G/12",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 14,
+          "description": "RACOR UNIÓN G/12"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 16,
+          "description": "RACOR UNIÓN G/12"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4300485",
+      "reference": "4300485",
+      "name": "RACOR UNIÓN G/6",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 14,
+          "description": "RACOR UNIÓN G/6"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 16,
+          "description": "RACOR UNIÓN G/6"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4300489",
+      "reference": "4300489",
+      "name": "RACOR UNIÓN 7/8 G/10",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 14,
+          "description": "RACOR UNIÓN 7/8 G/10"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 16,
+          "description": "RACOR UNIÓN 7/8 G/10"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4300670",
+      "reference": "4300670",
+      "name": "RACOR RECTO G/12",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 14,
+          "description": "RACOR RECTO G/12"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 16,
+          "description": "RACOR RECTO G/12"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4300671",
+      "reference": "4300671",
+      "name": "RACOR 90° G/12",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 14,
+          "description": "RACOR 90° G/12"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 16,
+          "description": "RACOR 90° G/12"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4300672",
+      "reference": "4300672",
+      "name": "RACOR 45° G/12",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 14,
+          "description": "RACOR 45° G/12"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 16,
+          "description": "RACOR 45° G/12"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4300809",
+      "reference": "4300809",
+      "name": "RACOR 90º G22 C/BRIDA",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 9,
+          "description": "RACOR 90º G22 C/BRIDA"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 9,
+          "description": "RACOR 90º G22 C/BRIDA"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4300813",
+      "reference": "4300813",
+      "name": "CTO. BRIDA UNION NYLAFLEX-CU G/22",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 9,
+          "description": "CTO. BRIDA UNION NYLAFLEX-CU G/22"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 9,
+          "description": "CTO. BRIDA UNION NYLAFLEX-CU G/22"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4300821",
+      "reference": "4300821",
+      "name": "CTO BRIDA UNION G/22",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 9,
+          "description": "CTO BRIDA UNION G/22"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 9,
+          "description": "CTO BRIDA UNION G/22"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4301406",
+      "reference": "4301406",
+      "name": "RACOR RECTO G/10",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 14,
+          "description": "RACOR RECTO G/10"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 16,
+          "description": "RACOR RECTO G/10"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4303021-3350174",
+      "reference": "4303021-3350174",
+      "name": "TAPÓN DE SUCCIÓN BAJA",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 3,
+          "description": "TAPÓN DE SUCCIÓN BAJA"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4303031-3350175",
+      "reference": "4303031-3350175",
+      "name": "TAPÓN DE DESCARGA",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 3,
+          "description": "TAPÓN DE DESCARGA"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4501096",
+      "reference": "4501096",
+      "name": "KIT INSTALACION COBRE",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 5,
+          "description": "KIT INSTALACION COBRE"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4501668",
+      "reference": "4501668",
+      "name": "TUBO EVAP – BAJA AL EF100 - 200",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 20,
+          "description": "TUBO EVAP – BAJA AL EF100 - 200"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4501670",
+      "reference": "4501670",
+      "name": "TUBO COND – FILTRO AL EF200",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 4,
+          "description": "TUBO COND – FILTRO AL EF200"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4501671",
+      "reference": "4501671",
+      "name": "TUBO FILTRO – EVAP AL EF200",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 4,
+          "description": "TUBO FILTRO – EVAP AL EF200"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4501783",
+      "reference": "4501783",
+      "name": "TUBO VALVULA",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 5,
+          "description": "TUBO VALVULA"
+        },
+        {
+          "documentId": "hispacold-efficient",
+          "page": 19,
+          "description": "TUBO VALVULA"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4501785",
+      "reference": "4501785",
+      "name": "TUBO FILTRO – VISOR EVAP EF200 AL",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 5,
+          "description": "TUBO FILTRO – VISOR EVAP EF200 AL"
+        },
+        {
+          "documentId": "hispacold-efficient",
+          "page": 19,
+          "description": "TUBO FILTRO – VISOR EVAP EF200 AL"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "4910149",
+      "reference": "4910149",
+      "name": "CTO ELECTRICO NETIOS CONDUCTOR",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 6,
+          "description": "CTO ELECTRICO NETIOS CONDUCTOR"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "5101485",
+      "reference": "5101485",
+      "name": "CONDENSADOR i8 EFFICIENT",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 22,
+          "description": "CONDENSADOR i8 EFFICIENT"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "5101512",
+      "reference": "5101512",
+      "name": "EVAPORADOR NETIOS i8 EFFICIENT",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 22,
+          "description": "EVAPORADOR NETIOS i8 EFFICIENT"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "5150341",
+      "reference": "5150341",
+      "name": "EQUIPO DE CAMAROTE",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 15,
+          "description": "EQUIPO DE CAMAROTE"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 17,
+          "description": "EQUIPO DE CAMAROTE"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "5300065",
+      "reference": "5300065",
+      "name": "MOTOR GIRO DERECHO C/CARCASA Y ELECTRONICA",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 4,
+          "description": "MOTOR GIRO DERECHO C/CARCASA Y ELECTRONICA"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 4,
+          "description": "MOTOR GIRO DERECHO C/CARCASA Y ELECTRONICA"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "5300066",
+      "reference": "5300066",
+      "name": "MOTOR GIRO IZQUIERDO C/CARCASA Y ELECTRONICA",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 4,
+          "description": "MOTOR GIRO IZQUIERDO C/CARCASA Y ELECTRONICA"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 4,
+          "description": "MOTOR GIRO IZQUIERDO C/CARCASA Y ELECTRONICA"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "5300078",
+      "reference": "5300078",
+      "name": "MOTOR GIRO DERECHO",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 5,
+          "description": "MOTOR GIRO DERECHO"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 4,
+          "description": "MOTOR GIRO DERECHO"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "5300079",
+      "reference": "5300079",
+      "name": "MOTOR GIRO IZQUIERDO",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 5,
+          "description": "MOTOR GIRO IZQUIERDO"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 4,
+          "description": "MOTOR GIRO IZQUIERDO"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "5300114",
+      "reference": "5300114",
+      "name": "TURBINA DOBLE C/ELECTRONICA",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 2,
+          "description": "TURBINA DOBLE C/ELECTRONICA"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "5300115",
+      "reference": "5300115",
+      "name": "TURBINA DOBLE S/ELECTRONICA",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 3,
+          "description": "TURBINA DOBLE S/ELECTRONICA"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "5300118",
+      "reference": "5300118",
+      "name": "TURBINA 24VDC EBM K3G097 – AK28 - 20",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 4,
+          "description": "TURBINA 24VDC EBM K3G097 – AK28 - 20"
+        }
+      ],
+      "families": [
+        "efficient"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "6PK1080",
+      "reference": "6PK1080",
+      "name": "BANDA ALTERNADOR CHASIS MB",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 14,
+          "description": "BANDA ALTERNADOR CHASIS MB"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "9000061-R",
+      "reference": "9000061-R",
+      "name": "JGO. FILTRO D/RET. AIRE P/IRIZAR PB (6 PZ)",
+      "kind": "refaccion",
+      "unit": "juego de 6 piezas",
+      "sources": [
+        {
+          "documentId": "hispacold-efficient",
+          "page": 10,
+          "description": "FILTRO RENOVACION DE AIRE (MALLA)"
+        },
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 8,
+          "description": "FILTRO RENOVACION DE AIRE (MALLA)"
+        },
+        {
+          "documentId": "cot-anual-man-2026",
+          "page": 1,
+          "description": "JGO. FILTRO D/RET. AIRE P/IRIZAR PB (6 PZ)"
+        },
+        {
+          "documentId": "cot-anual-mb-2026",
+          "page": 1,
+          "description": "JGO. FILTRO D/RET. AIRE P/IRIZAR PB (6 PZ)"
+        },
+        {
+          "documentId": "cot-anual-scania-2026",
+          "page": 1,
+          "description": "JGO. FILTRO D/RET. AIRE P/IRIZAR PB (6 PZ)"
+        },
+        {
+          "documentId": "cot-anual-volvo-2026",
+          "page": 1,
+          "description": "JGO. FILTRO D/RET. AIRE P/IRIZAR PB (6 PZ)"
+        },
+        {
+          "documentId": "cot-semestral-man-2026",
+          "page": 1,
+          "description": "JGO. FILTRO D/RET. AIRE P/IRIZAR PB (6 PZ)"
+        },
+        {
+          "documentId": "cot-semestral-mb-2026",
+          "page": 1,
+          "description": "JGO. FILTRO D/RET. AIRE P/IRIZAR PB (6 PZ)"
+        },
+        {
+          "documentId": "cot-semestral-scania-2026",
+          "page": 1,
+          "description": "JGO. FILTRO D/RET. AIRE P/IRIZAR PB (6 PZ)"
+        },
+        {
+          "documentId": "cot-semestral-volvo-2026",
+          "page": 1,
+          "description": "JGO. FILTRO D/RET. AIRE P/IRIZAR PB (6 PZ)"
+        },
+        {
+          "documentId": "cot-trimestral-2026",
+          "page": 1,
+          "description": "JGO. FILTRO D/RET. AIRE P/IRIZAR PB (6 PZ)"
+        }
+      ],
+      "families": [
+        "efficient",
+        "recambios",
+        "cotizaciones"
+      ],
+      "notes": "Cotizaciones: un juego de seis filtros para Irizar PB. El catálogo también lo describe como malla de renovación de aire. Confirmar presentación y aplicación."
+    },
+    {
+      "key": "9000238",
+      "reference": "9000238",
+      "name": "FILTRO DN 304 f-134A",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "cot-anual-man-2026",
+          "page": 1,
+          "description": "FILTRO DN 304 f-134A"
+        },
+        {
+          "documentId": "cot-anual-mb-2026",
+          "page": 1,
+          "description": "FILTRO DN 304 f-134A"
+        },
+        {
+          "documentId": "cot-anual-scania-2026",
+          "page": 1,
+          "description": "FILTRO DN 304 f-134A"
+        },
+        {
+          "documentId": "cot-anual-volvo-2026",
+          "page": 1,
+          "description": "FILTRO DN 304 f-134A"
+        }
+      ],
+      "families": [
+        "cotizaciones"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "9050033",
+      "reference": "9050033",
+      "name": "CTO RETEN (SELLO MECANICO)",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 8,
+          "description": "CTO RETEN (SELLO MECANICO)"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "9PK2000",
+      "reference": "9PK2000",
+      "name": "BANDA COMPRESOR CHASIS MB",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "hispacold-repuestos-2025",
+          "page": 14,
+          "description": "BANDA COMPRESOR CHASIS MB"
+        }
+      ],
+      "families": [
+        "recambios"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "ACEITE-SW68L",
+      "reference": "ACEITE-SW68L",
+      "name": "ACEITE SW68 (LITRO)",
+      "kind": "material",
+      "unit": "litros",
+      "sources": [
+        {
+          "documentId": "cot-anual-man-2026",
+          "page": 1,
+          "description": "ACEITE SW68 (LITRO)"
+        },
+        {
+          "documentId": "cot-anual-mb-2026",
+          "page": 1,
+          "description": "ACEITE SW68 (LITRO)"
+        },
+        {
+          "documentId": "cot-anual-scania-2026",
+          "page": 1,
+          "description": "ACEITE SW68 (LITRO)"
+        },
+        {
+          "documentId": "cot-anual-volvo-2026",
+          "page": 1,
+          "description": "ACEITE SW68 (LITRO)"
+        }
+      ],
+      "families": [
+        "cotizaciones"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "BX83",
+      "reference": "BX83",
+      "name": "BANDA COMPRESOR BX83",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "cot-anual-scania-2026",
+          "page": 1,
+          "description": "BANDA COMPRESOR BX83"
+        },
+        {
+          "documentId": "cot-semestral-scania-2026",
+          "page": 1,
+          "description": "BANDA COMPRESOR BX83"
+        }
+      ],
+      "families": [
+        "cotizaciones"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "BX88",
+      "reference": "BX88",
+      "name": "BANDA COMPRESOR BX88",
+      "kind": "refaccion",
+      "unit": "pieza",
+      "sources": [
+        {
+          "documentId": "cot-anual-volvo-2026",
+          "page": 1,
+          "description": "BANDA COMPRESOR BX88"
+        },
+        {
+          "documentId": "cot-semestral-volvo-2026",
+          "page": 1,
+          "description": "BANDA COMPRESOR BX88"
+        }
+      ],
+      "families": [
+        "cotizaciones"
+      ],
+      "notes": ""
+    },
+    {
+      "key": "GAS R-134A",
+      "reference": "Gas R-134a",
+      "name": "GAS REFRIGERANTE R-134a",
+      "kind": "material",
+      "unit": "unidad no indicada",
+      "sources": [
+        {
+          "documentId": "cot-anual-man-2026",
+          "page": 1,
+          "description": "GAS REFRIGERANTE R-134a"
+        },
+        {
+          "documentId": "cot-anual-mb-2026",
+          "page": 1,
+          "description": "GAS REFRIGERANTE R-134a"
+        },
+        {
+          "documentId": "cot-anual-scania-2026",
+          "page": 1,
+          "description": "GAS REFRIGERANTE R-134a"
+        },
+        {
+          "documentId": "cot-anual-volvo-2026",
+          "page": 1,
+          "description": "GAS REFRIGERANTE R-134a"
+        }
+      ],
+      "families": [
+        "cotizaciones"
+      ],
+      "notes": "Unidad de medida no indicada en cotización. Confirmar antes de registrar entradas o consumo."
+    }
+  ],
+  "packages": [
+    {
+      "id": "cot-anual-man-2026",
+      "brand": "hispacold",
+      "interval": "anual",
+      "chassis": "man",
+      "source": {
+        "documentId": "cot-anual-man-2026",
+        "page": 1
+      },
+      "lines": [
+        {
+          "key": "3450040-NACHI",
+          "reference": "3450040-NACHI",
+          "description": "BALERO 3210A-2RS1TN9",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 96.16,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "9000061-R",
+          "reference": "9000061-R",
+          "description": "JGO. FILTRO D/RET. AIRE P/IRIZAR PB (6 PZ)",
+          "quantity": 1,
+          "unit": "juego de 6 piezas",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 46.17,
+          "note": "La cantidad 1 corresponde a un juego de 6 filtros para Irizar PB; confirma la aplicación. No son 6 juegos.",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "4231519-N",
+          "reference": "4231519-N",
+          "description": "FILTRO AIRE VCC",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 9.84,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "ACEITE-SW68L",
+          "reference": "ACEITE-SW68L",
+          "description": "ACEITE SW68 (LITRO)",
+          "quantity": 2,
+          "unit": "litros",
+          "kind": "material",
+          "quoteUnitPriceUSD": 50.52,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "3300398",
+          "reference": "3300398",
+          "description": "CHAVETA COMPRESOR ECOICE",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 1.29,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "3600128",
+          "reference": "3600128",
+          "description": "JUNTA TAPA BOMBA COMPRESOR ECOICE",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 10.14,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "4200097",
+          "reference": "4200097",
+          "description": "DISCO FRICCION EXTERIOR",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 19.99,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "9000238",
+          "reference": "9000238",
+          "description": "FILTRO DN 304 f-134A",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 107.24,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "GAS R-134A",
+          "reference": "Gas R-134a",
+          "description": "GAS REFRIGERANTE R-134a",
+          "quantity": 2,
+          "unit": "unidad no indicada",
+          "kind": "material",
+          "quoteUnitPriceUSD": 16.69,
+          "note": "La cotización indica cantidad 2 sin unidad de medida. No se interpreta como carga total ni kg; confirma cantidad y unidad según el equipo.",
+          "selectableAsPackage": false
+        },
+        {
+          "key": "3600178-N",
+          "reference": "3600178-N",
+          "description": "KIT DE TÓRICAS",
+          "quantity": 1,
+          "unit": "kit",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 51.01,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "3150423-N",
+          "reference": "3150423-N",
+          "description": "BANDA COMPRESOR (10PK2420 ó 10PK2415)",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 204.81,
+          "note": "El documento indica 10PK2420 o 10PK2415. Confirma la variante antes de instalar.",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "MISCELANEOS",
+          "reference": "",
+          "description": "Misceláneos",
+          "quantity": 1,
+          "unit": "concepto",
+          "kind": "material",
+          "quoteUnitPriceUSD": 50,
+          "note": "Concepto global de cotización; detalla los materiales realmente utilizados.",
+          "selectableAsPackage": false
+        },
+        {
+          "key": "MANO-OBRA",
+          "reference": "",
+          "description": "Mano de obra de mantenimiento anual",
+          "quantity": 9,
+          "unit": "horas",
+          "kind": "mano_obra",
+          "quoteUnitPriceUSD": 25.95,
+          "note": "Horas cotizadas de referencia; ajustar a la intervención realizada.",
+          "selectableAsPackage": false
+        }
+      ]
+    },
+    {
+      "id": "cot-anual-mb-2026",
+      "brand": "hispacold",
+      "interval": "anual",
+      "chassis": "mb",
+      "source": {
+        "documentId": "cot-anual-mb-2026",
+        "page": 1
+      },
+      "lines": [
+        {
+          "key": "3450040-NACHI",
+          "reference": "3450040-NACHI",
+          "description": "BALERO 3210A-2RS1TN9",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 96.16,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "3450017-NACHI",
+          "reference": "3450017-NACHI",
+          "description": "BALERO 6305SKF",
+          "quantity": 4,
+          "unit": "piezas",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 13.53,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "9000061-R",
+          "reference": "9000061-R",
+          "description": "JGO. FILTRO D/RET. AIRE P/IRIZAR PB (6 PZ)",
+          "quantity": 1,
+          "unit": "juego de 6 piezas",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 46.17,
+          "note": "La cantidad 1 corresponde a un juego de 6 filtros para Irizar PB; confirma la aplicación. No son 6 juegos.",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "4231519-N",
+          "reference": "4231519-N",
+          "description": "FILTRO AIRE VCC",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 9.84,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "ACEITE-SW68L",
+          "reference": "ACEITE-SW68L",
+          "description": "ACEITE SW68 (LITRO)",
+          "quantity": 2,
+          "unit": "litros",
+          "kind": "material",
+          "quoteUnitPriceUSD": 50.52,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "3300398",
+          "reference": "3300398",
+          "description": "CHAVETA COMPRESOR ECOICE",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 1.29,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "3600128",
+          "reference": "3600128",
+          "description": "JUNTA TAPA BOMBA COMPRESOR ECOICE",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 10.14,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "4200097",
+          "reference": "4200097",
+          "description": "DISCO FRICCION EXTERIOR",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 19.99,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "9000238",
+          "reference": "9000238",
+          "description": "FILTRO DN 304 f-134A",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 107.24,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "GAS R-134A",
+          "reference": "Gas R-134a",
+          "description": "GAS REFRIGERANTE R-134a",
+          "quantity": 2,
+          "unit": "unidad no indicada",
+          "kind": "material",
+          "quoteUnitPriceUSD": 16.69,
+          "note": "La cotización indica cantidad 2 sin unidad de medida. No se interpreta como carga total ni kg; confirma cantidad y unidad según el equipo.",
+          "selectableAsPackage": false
+        },
+        {
+          "key": "3600178-N",
+          "reference": "3600178-N",
+          "description": "KIT DE TÓRICAS",
+          "quantity": 1,
+          "unit": "kit",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 51.01,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "MB-BANDA-POR-CONFIRMAR",
+          "reference": "",
+          "description": "BANDA COMPRESOR · referencia por confirmar",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": null,
+          "note": "La cotización no indica referencia ni precio de la banda. El catálogo muestra 9PK2000 para MB, pero no confirma que corresponda a esta unidad. Captura la referencia verificada manualmente.",
+          "selectableAsPackage": false
+        },
+        {
+          "key": "MISCELANEOS",
+          "reference": "",
+          "description": "Misceláneos",
+          "quantity": 1,
+          "unit": "concepto",
+          "kind": "material",
+          "quoteUnitPriceUSD": 50,
+          "note": "Concepto global de cotización; detalla los materiales realmente utilizados.",
+          "selectableAsPackage": false
+        },
+        {
+          "key": "MANO-OBRA",
+          "reference": "",
+          "description": "Mano de obra de mantenimiento anual",
+          "quantity": 9,
+          "unit": "horas",
+          "kind": "mano_obra",
+          "quoteUnitPriceUSD": 25.95,
+          "note": "Horas cotizadas de referencia; ajustar a la intervención realizada.",
+          "selectableAsPackage": false
+        }
+      ]
+    },
+    {
+      "id": "cot-anual-scania-2026",
+      "brand": "hispacold",
+      "interval": "anual",
+      "chassis": "scania",
+      "source": {
+        "documentId": "cot-anual-scania-2026",
+        "page": 1
+      },
+      "lines": [
+        {
+          "key": "3450040-NACHI",
+          "reference": "3450040-NACHI",
+          "description": "BALERO 3210A-2RS1TN9",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 96.16,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "9000061-R",
+          "reference": "9000061-R",
+          "description": "JGO. FILTRO D/RET. AIRE P/IRIZAR PB (6 PZ)",
+          "quantity": 1,
+          "unit": "juego de 6 piezas",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 46.17,
+          "note": "La cantidad 1 corresponde a un juego de 6 filtros para Irizar PB; confirma la aplicación. No son 6 juegos.",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "4231519-N",
+          "reference": "4231519-N",
+          "description": "FILTRO AIRE VCC",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 9.84,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "ACEITE-SW68L",
+          "reference": "ACEITE-SW68L",
+          "description": "ACEITE SW68 (LITRO)",
+          "quantity": 2,
+          "unit": "litros",
+          "kind": "material",
+          "quoteUnitPriceUSD": 50.52,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "3300398",
+          "reference": "3300398",
+          "description": "CHAVETA COMPRESOR ECOICE",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 1.29,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "3600128",
+          "reference": "3600128",
+          "description": "JUNTA TAPA BOMBA COMPRESOR ECOICE",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 10.14,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "4200097",
+          "reference": "4200097",
+          "description": "DISCO FRICCION EXTERIOR",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 19.99,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "9000238",
+          "reference": "9000238",
+          "description": "FILTRO DN 304 f-134A",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 107.24,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "GAS R-134A",
+          "reference": "Gas R-134a",
+          "description": "GAS REFRIGERANTE R-134a",
+          "quantity": 2,
+          "unit": "unidad no indicada",
+          "kind": "material",
+          "quoteUnitPriceUSD": 16.69,
+          "note": "La cotización indica cantidad 2 sin unidad de medida. No se interpreta como carga total ni kg; confirma cantidad y unidad según el equipo.",
+          "selectableAsPackage": false
+        },
+        {
+          "key": "3600178-N",
+          "reference": "3600178-N",
+          "description": "KIT DE TÓRICAS",
+          "quantity": 1,
+          "unit": "kit",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 51.01,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "BX83",
+          "reference": "BX83",
+          "description": "BANDA COMPRESOR BX83",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 110.76,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "MISCELANEOS",
+          "reference": "",
+          "description": "Misceláneos",
+          "quantity": 1,
+          "unit": "concepto",
+          "kind": "material",
+          "quoteUnitPriceUSD": 50,
+          "note": "Concepto global de cotización; detalla los materiales realmente utilizados.",
+          "selectableAsPackage": false
+        },
+        {
+          "key": "MANO-OBRA",
+          "reference": "",
+          "description": "Mano de obra de mantenimiento anual",
+          "quantity": 9,
+          "unit": "horas",
+          "kind": "mano_obra",
+          "quoteUnitPriceUSD": 25.95,
+          "note": "Horas cotizadas de referencia; ajustar a la intervención realizada.",
+          "selectableAsPackage": false
+        }
+      ]
+    },
+    {
+      "id": "cot-anual-volvo-2026",
+      "brand": "hispacold",
+      "interval": "anual",
+      "chassis": "volvo",
+      "source": {
+        "documentId": "cot-anual-volvo-2026",
+        "page": 1
+      },
+      "lines": [
+        {
+          "key": "3450040-NACHI",
+          "reference": "3450040-NACHI",
+          "description": "BALERO 3210A-2RS1TN9",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 96.16,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "3450017-NACHI",
+          "reference": "3450017-NACHI",
+          "description": "BALERO 6305SKF",
+          "quantity": 4,
+          "unit": "piezas",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 13.53,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "9000061-R",
+          "reference": "9000061-R",
+          "description": "JGO. FILTRO D/RET. AIRE P/IRIZAR PB (6 PZ)",
+          "quantity": 1,
+          "unit": "juego de 6 piezas",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 46.17,
+          "note": "La cantidad 1 corresponde a un juego de 6 filtros para Irizar PB; confirma la aplicación. No son 6 juegos.",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "4231519-N",
+          "reference": "4231519-N",
+          "description": "FILTRO AIRE VCC",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 9.84,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "ACEITE-SW68L",
+          "reference": "ACEITE-SW68L",
+          "description": "ACEITE SW68 (LITRO)",
+          "quantity": 2,
+          "unit": "litros",
+          "kind": "material",
+          "quoteUnitPriceUSD": 50.52,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "3300398",
+          "reference": "3300398",
+          "description": "CHAVETA COMPRESOR ECOICE",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 1.29,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "3600128",
+          "reference": "3600128",
+          "description": "JUNTA TAPA BOMBA COMPRESOR ECOICE",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 10.14,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "4200097",
+          "reference": "4200097",
+          "description": "DISCO FRICCION EXTERIOR",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 19.99,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "9000238",
+          "reference": "9000238",
+          "description": "FILTRO DN 304 f-134A",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 107.24,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "GAS R-134A",
+          "reference": "Gas R-134a",
+          "description": "GAS REFRIGERANTE R-134a",
+          "quantity": 2,
+          "unit": "unidad no indicada",
+          "kind": "material",
+          "quoteUnitPriceUSD": 16.69,
+          "note": "La cotización indica cantidad 2 sin unidad de medida. No se interpreta como carga total ni kg; confirma cantidad y unidad según el equipo.",
+          "selectableAsPackage": false
+        },
+        {
+          "key": "3600178-N",
+          "reference": "3600178-N",
+          "description": "KIT DE TÓRICAS",
+          "quantity": 1,
+          "unit": "kit",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 51.01,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "BX88",
+          "reference": "BX88",
+          "description": "BANDA COMPRESOR BX88",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 91.05,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "MISCELANEOS",
+          "reference": "",
+          "description": "Misceláneos",
+          "quantity": 1,
+          "unit": "concepto",
+          "kind": "material",
+          "quoteUnitPriceUSD": 50,
+          "note": "Concepto global de cotización; detalla los materiales realmente utilizados.",
+          "selectableAsPackage": false
+        },
+        {
+          "key": "MANO-OBRA",
+          "reference": "",
+          "description": "Mano de obra de mantenimiento anual",
+          "quantity": 9,
+          "unit": "horas",
+          "kind": "mano_obra",
+          "quoteUnitPriceUSD": 25.95,
+          "note": "Horas cotizadas de referencia; ajustar a la intervención realizada.",
+          "selectableAsPackage": false
+        }
+      ]
+    },
+    {
+      "id": "cot-semestral-man-2026",
+      "brand": "hispacold",
+      "interval": "semestral",
+      "chassis": "man",
+      "source": {
+        "documentId": "cot-semestral-man-2026",
+        "page": 1
+      },
+      "lines": [
+        {
+          "key": "3450040-NACHI",
+          "reference": "3450040-NACHI",
+          "description": "BALERO 3210A-2RS1TN9",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 96.16,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "9000061-R",
+          "reference": "9000061-R",
+          "description": "JGO. FILTRO D/RET. AIRE P/IRIZAR PB (6 PZ)",
+          "quantity": 1,
+          "unit": "juego de 6 piezas",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 44.52,
+          "note": "La cantidad 1 corresponde a un juego de 6 filtros para Irizar PB; confirma la aplicación. No son 6 juegos.",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "4231519-N",
+          "reference": "4231519-N",
+          "description": "FILTRO AIRE VCC",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 9.48,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "3150423-N",
+          "reference": "3150423-N",
+          "description": "BANDA COMPRESOR (10PK2420 ó 10PK2415)",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 204.81,
+          "note": "El documento indica 10PK2420 o 10PK2415. Confirma la variante antes de instalar.",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "MANO-OBRA",
+          "reference": "",
+          "description": "Mano de obra de mantenimiento semestral",
+          "quantity": 6,
+          "unit": "horas",
+          "kind": "mano_obra",
+          "quoteUnitPriceUSD": 25.95,
+          "note": "Horas cotizadas de referencia; ajustar a la intervención realizada.",
+          "selectableAsPackage": false
+        }
+      ]
+    },
+    {
+      "id": "cot-semestral-mb-2026",
+      "brand": "hispacold",
+      "interval": "semestral",
+      "chassis": "mb",
+      "source": {
+        "documentId": "cot-semestral-mb-2026",
+        "page": 1
+      },
+      "lines": [
+        {
+          "key": "3450040-NACHI",
+          "reference": "3450040-NACHI",
+          "description": "BALERO 3210A-2RS1TN9",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 96.16,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "3450017-NACHI",
+          "reference": "3450017-NACHI",
+          "description": "BALERO 6305SKF",
+          "quantity": 4,
+          "unit": "piezas",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 13.53,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "9000061-R",
+          "reference": "9000061-R",
+          "description": "JGO. FILTRO D/RET. AIRE P/IRIZAR PB (6 PZ)",
+          "quantity": 1,
+          "unit": "juego de 6 piezas",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 44.52,
+          "note": "La cantidad 1 corresponde a un juego de 6 filtros para Irizar PB; confirma la aplicación. No son 6 juegos.",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "4231519-N",
+          "reference": "4231519-N",
+          "description": "FILTRO AIRE VCC",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 9.48,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "MB-BANDA-POR-CONFIRMAR",
+          "reference": "",
+          "description": "BANDA COMPRESOR · referencia por confirmar",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": null,
+          "note": "La cotización no indica referencia ni precio de la banda. El catálogo muestra 9PK2000 para MB, pero no confirma que corresponda a esta unidad. Captura la referencia verificada manualmente.",
+          "selectableAsPackage": false
+        },
+        {
+          "key": "MANO-OBRA",
+          "reference": "",
+          "description": "Mano de obra de mantenimiento semestral",
+          "quantity": 6,
+          "unit": "horas",
+          "kind": "mano_obra",
+          "quoteUnitPriceUSD": 25.95,
+          "note": "Horas cotizadas de referencia; ajustar a la intervención realizada.",
+          "selectableAsPackage": false
+        }
+      ]
+    },
+    {
+      "id": "cot-semestral-scania-2026",
+      "brand": "hispacold",
+      "interval": "semestral",
+      "chassis": "scania",
+      "source": {
+        "documentId": "cot-semestral-scania-2026",
+        "page": 1
+      },
+      "lines": [
+        {
+          "key": "3450040-NACHI",
+          "reference": "3450040-NACHI",
+          "description": "BALERO 3210A-2RS1TN9",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 96.16,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "9000061-R",
+          "reference": "9000061-R",
+          "description": "JGO. FILTRO D/RET. AIRE P/IRIZAR PB (6 PZ)",
+          "quantity": 1,
+          "unit": "juego de 6 piezas",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 44.52,
+          "note": "La cantidad 1 corresponde a un juego de 6 filtros para Irizar PB; confirma la aplicación. No son 6 juegos.",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "4231519-N",
+          "reference": "4231519-N",
+          "description": "FILTRO AIRE VCC",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 9.48,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "BX83",
+          "reference": "BX83",
+          "description": "BANDA COMPRESOR BX83",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 110.76,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "MANO-OBRA",
+          "reference": "",
+          "description": "Mano de obra de mantenimiento semestral",
+          "quantity": 6,
+          "unit": "horas",
+          "kind": "mano_obra",
+          "quoteUnitPriceUSD": 25.95,
+          "note": "Horas cotizadas de referencia; ajustar a la intervención realizada.",
+          "selectableAsPackage": false
+        }
+      ]
+    },
+    {
+      "id": "cot-semestral-volvo-2026",
+      "brand": "hispacold",
+      "interval": "semestral",
+      "chassis": "volvo",
+      "source": {
+        "documentId": "cot-semestral-volvo-2026",
+        "page": 1
+      },
+      "lines": [
+        {
+          "key": "3450040-NACHI",
+          "reference": "3450040-NACHI",
+          "description": "BALERO 3210A-2RS1TN9",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 96.16,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "3450017-NACHI",
+          "reference": "3450017-NACHI",
+          "description": "BALERO 6305SKF",
+          "quantity": 4,
+          "unit": "piezas",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 13.53,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "9000061-R",
+          "reference": "9000061-R",
+          "description": "JGO. FILTRO D/RET. AIRE P/IRIZAR PB (6 PZ)",
+          "quantity": 1,
+          "unit": "juego de 6 piezas",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 44.52,
+          "note": "La cantidad 1 corresponde a un juego de 6 filtros para Irizar PB; confirma la aplicación. No son 6 juegos.",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "4231519-N",
+          "reference": "4231519-N",
+          "description": "FILTRO AIRE VCC",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 9.48,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "BX88",
+          "reference": "BX88",
+          "description": "BANDA COMPRESOR BX88",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 91.05,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "MANO-OBRA",
+          "reference": "",
+          "description": "Mano de obra de mantenimiento semestral",
+          "quantity": 6,
+          "unit": "horas",
+          "kind": "mano_obra",
+          "quoteUnitPriceUSD": 25.95,
+          "note": "Horas cotizadas de referencia; ajustar a la intervención realizada.",
+          "selectableAsPackage": false
+        }
+      ]
+    },
+    {
+      "id": "cot-trimestral-2026",
+      "brand": "hispacold",
+      "interval": "trimestral",
+      "chassis": "",
+      "source": {
+        "documentId": "cot-trimestral-2026",
+        "page": 1
+      },
+      "lines": [
+        {
+          "key": "9000061-R",
+          "reference": "9000061-R",
+          "description": "JGO. FILTRO D/RET. AIRE P/IRIZAR PB (6 PZ)",
+          "quantity": 1,
+          "unit": "juego de 6 piezas",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 44.52,
+          "note": "La cantidad 1 corresponde a un juego de 6 filtros para Irizar PB; confirma la aplicación. No son 6 juegos.",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "4231519-N",
+          "reference": "4231519-N",
+          "description": "FILTRO AIRE VCC",
+          "quantity": 1,
+          "unit": "pieza",
+          "kind": "refaccion",
+          "quoteUnitPriceUSD": 9.48,
+          "note": "",
+          "selectableAsPackage": true
+        },
+        {
+          "key": "MANO-OBRA",
+          "reference": "",
+          "description": "Mano de obra de mantenimiento trimestral",
+          "quantity": 3,
+          "unit": "horas",
+          "kind": "mano_obra",
+          "quoteUnitPriceUSD": 25.95,
+          "note": "Horas cotizadas de referencia; ajustar a la intervención realizada.",
+          "selectableAsPackage": false
+        }
+      ]
+    }
+  ]
+}

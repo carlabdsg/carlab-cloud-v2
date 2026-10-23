@@ -835,7 +835,7 @@
       ${extraBlock("Diagnóstico y referencia técnica", `<div class="hc-grid">${field("Códigos observados", "faultCodes")}${field("Referencia técnica / procedimiento / página", "technicalReference")}${field("Alcance y autorización general", "authorization")}</div><div id="hc-symptom-guide">${guideHTML()}</div>`, !!(draft.type === "mayor" || draft.faultCodes || draft.technicalReference || draft.authorization), "hc-diagnostic-details")}
       </section><section class="hc-panel hc-section hc-guided-section" data-guided-section="2" aria-label="Intervención"><div class="hc-simple-title"><span class="hc-number">3</span><div><h2>Intervención técnica</h2><p>Describe las actividades ejecutadas y despliega los registros que correspondan a este trabajo.</p></div></div>${field("Trabajo realizado *", "workDone", "textarea", `rows="4" placeholder="${esc(guidedWorkHint())}"`)}
       ${extraBlock("¿Se realizaron mediciones o se intervino el circuito?", measurementsHTML(), draft.circuitOpened || hasReadings, "hc-measurement-details")}
-      ${extraBlock("¿Se utilizaron refacciones o materiales?", `<div id="hc-parts">${partsHTML()}</div>${btn("+ Agregar concepto", "add-part")}<p class="hc-subtle">Importes en MXN. Registro de la orden, sin movimientos automáticos de almacén.</p>`, draft.parts.length > 0, "hc-parts-details")}
+      ${extraBlock("¿Se utilizaron refacciones o materiales?", `<div id="hc-parts">${partsHTML()}</div>${btn("Buscar refacciones / sugerencias", "pick-parts", "primary")}${btn("+ Concepto manual", "add-part")}<p class="hc-subtle">Importes en MXN. Registro de la orden, sin movimientos automáticos de almacén.</p>`, draft.parts.length > 0, "hc-parts-details")}
       ${extraBlock("¿Se detectaron trabajos adicionales o pendientes?", `<div id="hc-findings">${findingsHTML()}</div>${btn("+ Agregar trabajo detectado", "add-finding")}`, draft.findings.length > 0, "hc-findings-details")}
       <div class="hc-photo-section"><div><h3>Evidencia fotográfica</h3><p class="hc-subtle">Hasta 8 fotos · antes, durante o después</p></div><div class="hc-actions">${btn("◉ Tomar foto", "take-photo")}${btn("↑ Elegir fotos", "choose-photos")}</div><div id="hc-evidence" class="hc-evidence">${evidenceHTML()}</div></div></section>
       <section class="hc-panel hc-section hc-guided-section" data-guided-section="3" aria-label="Entrega"><div class="hc-simple-title"><span class="hc-number">4</span><div><h2>Verificación y entrega</h2><p>Pruebas funcionales y condición de entrega de la unidad.</p></div></div><div id="hc-delivery-pending"></div><div class="hc-grid">${field("Prueba realizada y resultado *", "finalTest", "textarea", 'rows="2" placeholder="Describe las pruebas realizadas y los resultados obtenidos."')}${select("Condición de entrega *", "result", results, "Seleccionar al terminar")}${select("Estado de la orden", "status", Object.fromEntries(Object.entries(catalog.statuses).filter(([k]) => k !== "completado")))}</div><div id="hc-result-followup" ${(draft.result && draft.result !== "operativo") || draft.recommendations ? "" : "hidden"}>${field("Pendientes y recomendaciones *", "recommendations", "textarea", 'rows="2"')}</div>
@@ -1027,7 +1027,7 @@
     ${["express", "menor"].includes(draft.type) ? `<div class="hc-inline-inspection">${inspectionHTML()}</div>` : ""}
     <h3>Detectado · autorizado · realizado</h3><p class="hc-subtle">Registra cada trabajo adicional y su decisión. Los pendientes se muestran en la entrega.</p><div id="hc-findings">${findingsHTML()}</div>${btn("+ Agregar trabajo detectado", "add-finding")}
     ${draft.type !== "mayor" ? `<details class="hc-extra-fields" ${draft.circuitOpened ? "open" : ""}><summary>Mediciones e intervención en circuito (cuando aplique)</summary>${measurementsHTML()}</details>` : ""}
-    <details class="hc-extra-fields" ${draft.parts.length ? "open" : ""}><summary>Refacciones, materiales y mano de obra</summary><p class="hc-subtle">Registro en MXN, sin cálculo fiscal ni movimientos automáticos en Stock o Cobranza.</p><div id="hc-parts">${partsHTML()}</div>${btn("+ Agregar concepto", "add-part")}</details>
+    <details class="hc-extra-fields" ${draft.parts.length ? "open" : ""}><summary>Refacciones, materiales y mano de obra</summary><p class="hc-subtle">Registro en MXN, sin cálculo fiscal ni movimientos automáticos en Stock o Cobranza.</p><div id="hc-parts">${partsHTML()}</div>${btn("Buscar refacciones / sugerencias", "pick-parts", "primary")}${btn("+ Concepto manual", "add-part")}</details>
     <h3>Fotos antes, durante y después</h3><label class="hc-field"><b>Agregar fotografías (hasta 8)</b><input id="hc-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple></label><div id="hc-evidence" class="hc-evidence">${evidenceHTML()}</div>`;
   }
   function findingsHTML() {
@@ -1042,7 +1042,7 @@
     );
   }
   function partsHTML() {
-    return `<div class="hc-table-wrap"><table><thead><tr><th>Tipo / concepto</th><th>Referencia</th><th>Cantidad</th><th>Precio unitario</th><th></th></tr></thead><tbody>${draft.parts.map((p, i) => `<tr><td><select aria-label="Tipo de concepto ${i + 1}" name="kind:${i}">${opts({ refaccion: "Refacción", material: "Material", mano_obra: "Mano de obra" }, p.kind || "refaccion")}</select><input aria-label="Concepto ${i + 1}" name="description:${i}" value="${esc(p.description)}" maxlength="300"></td><td><input aria-label="Referencia ${i + 1}" name="reference:${i}" value="${esc(p.reference)}" maxlength="120"></td><td><input aria-label="Cantidad ${i + 1}" name="quantity:${i}" type="number" min="0.001" step="any" value="${esc(p.quantity)}"></td><td><input aria-label="Precio ${i + 1}" name="unitPrice:${i}" type="number" min="0" step="0.01" value="${esc(p.unitPrice)}"></td><td>${btn("Quitar", "remove-part", "", `data-index="${i}"`)}</td></tr>`).join("")}</tbody></table></div><div id="hc-parts-total" class="hc-money">Total: ${money(draft.parts.reduce((n, p) => n + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0), 0))}</div>`;
+    return `<div class="hc-table-wrap"><table><thead><tr><th>Tipo / concepto</th><th>Referencia</th><th>Cantidad</th><th>Precio unitario</th><th></th></tr></thead><tbody>${draft.parts.map((p, i) => `<tr><td><select aria-label="Tipo de concepto ${i + 1}" name="kind:${i}">${opts({ refaccion: "Refacción", material: "Material", mano_obra: "Mano de obra" }, p.kind || "refaccion")}</select><input aria-label="Concepto ${i + 1}" name="description:${i}" value="${esc(p.description)}" maxlength="300"></td><td><input aria-label="Referencia ${i + 1}" name="reference:${i}" value="${esc(p.reference)}" maxlength="120">${p.officialKey ? '<small class="hc-part-origin">Referencia documental Hispacold</small>' : ""}</td><td><input aria-label="Cantidad ${i + 1}" name="quantity:${i}" type="number" min="0.001" step="any" value="${esc(p.quantity)}"></td><td><input aria-label="Precio ${i + 1}" name="unitPrice:${i}" type="number" min="0" step="0.01" value="${esc(p.unitPrice)}"></td><td>${btn("Quitar", "remove-part", "", `data-index="${i}"`)}</td></tr>`).join("")}</tbody></table></div><div id="hc-parts-total" class="hc-money">Total: ${money(draft.parts.reduce((n, p) => n + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0), 0))}</div>`;
   }
   function evidenceHTML() {
     return draft.evidence
@@ -2257,6 +2257,55 @@
       if (a === "step-prev") setStep(step - 1);
       if (a === "step-next") setStep(step + 1);
       if (a === "suggest-date") suggestDate();
+      if (a === "pick-parts") {
+        readForm();
+        const activeDraft = draft;
+        await window.ACPartsPicker.open({
+          brand: draft.brand || "hispacold",
+          type: draft.type,
+          interval: draft.interval,
+          chassis: draft.chassis,
+          equipment: draft.equipment,
+          currentParts: draft.parts,
+          onAdd: async (items, context) => {
+            if (draft !== activeDraft)
+              throw new Error("La orden cambió. Abre nuevamente el selector.");
+            readForm();
+            const used = new Set(
+              draft.parts
+                .map((p) =>
+                  String(p.reference || "")
+                    .trim()
+                    .toUpperCase(),
+                )
+                .filter(Boolean),
+            );
+            const additions = items.filter(
+              (p) =>
+                !p.reference || !used.has(p.reference.trim().toUpperCase()),
+            );
+            if (draft.parts.length + additions.length > 60)
+              throw new Error("La orden admite hasta 60 conceptos.");
+            draft.parts.push(...additions);
+            if (context.chassis) {
+              draft.chassis = {
+                man: "MAN",
+                mb: "Mercedes-Benz",
+                scania: "Scania",
+                volvo: "Volvo",
+              }[context.chassis];
+              const field = $("#hc-form [name=chassis]");
+              if (field) field.value = draft.chassis;
+            }
+            $("#hc-parts").innerHTML = partsHTML();
+            markDirty();
+            toast(
+              additions.length +
+                " conceptos agregados. Revisa cantidades y precios MXN; no se descuenta almacén.",
+            );
+          },
+        });
+      }
       if (a === "add-part") {
         readForm();
         draft.parts.push({
@@ -2439,6 +2488,7 @@
           model: u.model,
           base: u.base,
           equipment: u.acModel,
+          chassis: u.busBrand,
           workNumber: u.workNumber,
         },
       });

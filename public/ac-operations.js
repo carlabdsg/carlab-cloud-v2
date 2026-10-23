@@ -383,14 +383,14 @@
           ? button("+ Nueva refacción", "new-inventory", "", "primary")
           : button("+ Solicitar refacción", "new-part", "", "primary"),
       ) +
-      `<form id="ac-parts-filter" class="hc-filters">${external ? "" : select("Marca", "brand", info.brands, "", "Todas las marcas")}${field("Buscar pieza o referencia", "q", "", "search")}<button class="hc-btn" type="submit">Buscar</button>${button("Actualizar", "refresh")}</form><div id="ac-parts-list" class="ac-parts-grid">${partCards(parts)}</div>`;
+      `<form id="ac-parts-filter" class="hc-filters">${external ? "" : select("Marca", "brand", info.brands, "", "Todas las marcas")}${select("Origen", "family", { efficient: "Catálogo Efficient", recambios: "Recambios Hispacold 2025", cotizaciones: "Referencias de cotizaciones 2026", custom: "Otras piezas AC" }, "", "Todo el catálogo")}${field("Buscar pieza o referencia", "q", "", "search")}<button class="hc-btn" type="submit">Buscar</button>${button("Actualizar", "refresh")}</form><div id="ac-parts-list" class="ac-parts-grid">${partCards(parts)}</div>`;
   }
   function partCards(rows) {
     return (
       rows
         .map(
           (p) =>
-            `<article class="hc-panel ac-part-card">${p.image ? `<img class="ac-part-image" src="${esc(p.image)}" alt="${esc(p.name)}">` : ""}<div class="hc-kicker">${p.brands.map(name).map(esc).join(" · ")}</div><h2>${esc(p.name)}</h2><p>${esc(p.reference || "Sin referencia registrada")}</p>${p.models ? `<p class="hc-subtle">Compatibilidad: ${esc(p.models)}</p>` : ""}${info.permissions.manageInventory ? `<div class="ac-stock-row"><b>${p.stock} disponibles</b><span class="hc-badge ${p.stock <= p.minimum ? "cancelado" : ""}">Mínimo ${p.minimum}</span></div><p class="hc-subtle">${esc(p.location || "Ubicación por registrar")}</p><div class="hc-actions">${button("Editar ficha", "edit-part", `data-id="${p.id}"`)}${button("Entrada / devolución", "movement", `data-id="${p.id}"`)}${button("Movimientos", "movements", `data-id="${p.id}"`)}</div>` : `<span class="hc-badge">${p.available ? "Disponible para solicitud" : "Consultar suministro"}</span>`}<div class="hc-actions">${button("Solicitar pieza", "request-part", `data-id="${p.id}"`)}</div></article>`,
+            `<article class="hc-panel ac-part-card">${p.image ? `<img class="ac-part-image" src="${esc(p.image)}" alt="${esc(p.name)}">` : ""}<div class="hc-kicker">${p.brands.map(name).map(esc).join(" · ")}</div><h2>${esc(p.name)}</h2>${p.official ? '<span class="acp-official-badge">Referencia documental Hispacold</span>' : ""}<p>${esc(p.reference || "Sin referencia registrada")}</p>${p.official?.notes ? `<p class="hc-subtle">${esc(p.official.notes)}</p>` : ""}${p.models ? `<p class="hc-subtle">Aplicación / equipo: ${esc(p.models)}</p>` : ""}${info.permissions.manageInventory ? `<div class="ac-stock-row"><b>${p.stock} disponibles</b><span class="hc-badge ${p.minimum > 0 && p.stock <= p.minimum ? "cancelado" : ""}">${p.minimum > 0 ? "Mínimo " + p.minimum : "Sin mínimo configurado"}</span></div><p class="hc-subtle">${esc(p.location || "Ubicación por registrar")}</p><div class="hc-actions">${button("Editar ficha", "edit-part", `data-id="${p.id}"`)}${button("Entrada / devolución", "movement", `data-id="${p.id}"`)}${button("Movimientos", "movements", `data-id="${p.id}"`)}${p.official ? button("Documentos de referencia", "official-sources", `data-id="${p.id}"`) : ""}</div>` : `<span class="hc-badge">${p.available ? "Disponible para solicitud" : "Consultar suministro"}</span>`}<div class="hc-actions">${button("Solicitar pieza", "request-part", `data-id="${p.id}"`)}</div></article>`,
         )
         .join("") ||
       '<div class="hc-empty">No hay piezas catalogadas con este filtro.</div>'
@@ -586,12 +586,22 @@
         offset = 0;
         await showRequests();
       } else if (e.target.id === "ac-parts-filter") {
-        const r = await api(
-          "/parts?" +
-            new URLSearchParams(Object.fromEntries(new FormData(e.target))),
-        );
-        parts = r;
-        $("#ac-parts-list").innerHTML = partCards(r);
+        const list = $("#ac-parts-list");
+        list.inert = true;
+        list.setAttribute("aria-busy", "true");
+        try {
+          const r = await api(
+            "/parts?" +
+              new URLSearchParams(Object.fromEntries(new FormData(e.target))),
+          );
+          if (list.isConnected) {
+            parts = r;
+            list.innerHTML = partCards(r);
+          }
+        } finally {
+          list.inert = false;
+          list.removeAttribute("aria-busy");
+        }
       } else await submit(e.target);
     } catch (err) {
       error(err);
@@ -696,6 +706,17 @@
           )
           .join("");
       }
+      if (a === "official-sources") {
+        const p = parts.find((p) => p.id === b.dataset.id);
+        dialog(
+          `<h2>${esc(p.name)}</h2><p>${esc(p.reference)} · Verifica la aplicación en el documento.</p>${p.official.sources.map((s) => `<article class="hc-panel"><b>${esc(s.title)}</b><p>Página ${s.page} · ${esc(s.description)}</p>${button("Abrir documento", "official-document", `data-doc="${esc(s.documentId)}" data-page="${s.page}"`)}</article>`).join("")}${button("Cerrar", "dialog-close")}`,
+        );
+      }
+      if (a === "official-document")
+        await window.ACPartsPicker.documentSource(
+          b.dataset.doc,
+          b.dataset.page,
+        );
       if (a === "new-inventory") await partForm();
       if (a === "edit-part")
         await partForm(parts.find((p) => p.id === b.dataset.id));
