@@ -556,10 +556,50 @@ function register(
     const data = validated(b, null, todayOf(req));
     const columns = ["id", "company_id", "brand", "unit", ...Object.keys(data)],
       values = [id, company.id, br, u, ...Object.values(data)];
-    await db.query(
-      `INSERT INTO ac_fleet_units(${columns.join(",")}) VALUES(${values.map((_, i) => "$" + (i + 1)).join(",")})`,
+    const inserted = await db.query(
+      `INSERT INTO ac_fleet_units(${columns.join(",")}) VALUES(${values.map((_, i) => "$" + (i + 1)).join(",")}) ON CONFLICT (company_id,LOWER(TRIM(unit))) DO NOTHING RETURNING id`,
       values,
     );
+    if (!inserted.rows.length) {
+      // Keep one identity per company, including archived units. Lock the old
+      // record so simultaneous registrations cannot restore it twice.
+      const old = (
+        await db.query(
+          "SELECT * FROM ac_fleet_units WHERE company_id=$1 AND LOWER(TRIM(unit))=LOWER(TRIM($2)) FOR UPDATE",
+          [company.id, u],
+        )
+      ).rows[0];
+      if (!old) fail("El registro cambió. Actualiza y vuelve a intentar.", 409);
+      if (old.active)
+        fail(
+          `La unidad ${old.unit} ya está activa en esta empresa. Puedes actualizarla desde Editar ficha.`,
+          409,
+        );
+      if (old.brand !== br)
+        fail(
+          `La unidad ${old.unit} fue eliminada con marca ${old.brand === "hispacold" ? "Hispacold" : "Eberspächer"}. Selecciona esa marca para reincorporarla con su historial.`,
+          409,
+        );
+      if (!data.active)
+        fail(
+          "La unidad ya está eliminada. Regístrala como activa para reincorporarla.",
+          409,
+        );
+      // Reincorporation preserves the original technical data and QR. The
+      // defaults of a new registration must not erase its evaluation or plan.
+      await db.query(
+        "UPDATE ac_fleet_units SET active=TRUE,version=version+1,updated_at=NOW() WHERE id=$1",
+        [old.id],
+      );
+      await audit(
+        db,
+        old.id,
+        req,
+        "Unidad reincorporada a la flota",
+        "Reincorporación desde Registrar unidades. Se conserva la ficha anterior, su historial y su código QR.",
+      );
+      return { id: old.id, restored: true };
+    }
     await qr.ensure(db, id);
     await audit(
       db,
@@ -578,13 +618,13 @@ function register(
         targetType: "fleet",
         targetId: id,
       });
-    return id;
+    return { id, restored: false };
   }
   router.post(
     "/fleet/units",
     admin,
     wrap(async (req, res) => {
-      const ids = await transaction(async (db) => {
+      const result = await transaction(async (db) => {
         const company = (
           await db.query("SELECT * FROM ac_fleet_companies WHERE id=$1", [
             text(req.body.companyId, 100),
@@ -594,11 +634,17 @@ function register(
         const rows = req.body.units === undefined ? [req.body] : req.body.units;
         if (!Array.isArray(rows) || rows.length < 1 || rows.length > 100)
           fail("Registra de 1 a 100 unidades por lote.");
-        const ids = [];
-        for (const b of rows) ids.push(await createUnit(db, req, b, company));
-        return ids;
+        const units = [];
+        for (const b of rows) units.push(await createUnit(db, req, b, company));
+        const restoredCount = units.filter((u) => u.restored).length;
+        return {
+          ids: units.map((u) => u.id),
+          count: units.length,
+          createdCount: units.length - restoredCount,
+          restoredCount,
+        };
       });
-      res.status(201).json({ ids, count: ids.length });
+      res.status(201).json(result);
     }),
   );
   router.patch(

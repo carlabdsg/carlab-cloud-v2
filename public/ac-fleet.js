@@ -235,7 +235,7 @@
         )?.id ||
         filters.company ||
         config.companies[0].id;
-    dialog(`<div class="hc-kicker">ADMINISTRACIÓN AC</div><h2>${u ? "Ficha de unidad " + esc(u.unit) : "Registrar unidades"}</h2><p>${u ? "Actualiza datos del equipo y documenta su condición. La empresa, el número económico y la marca conservan el vínculo con su historial." : "Asigna la marca del aire acondicionado instalado. Puedes capturar una unidad o un lote con los mismos datos."}</p>${!u ? `<div class="hc-actions">${btn("Copiar desde Flotas existentes", "import")}${btn("+ Nueva empresa", "new-company")}</div>` : ""}<form id="acf-unit-form"><div class="hc-grid">${select("Empresa operadora *", "companyId", Object.fromEntries(config.companies.map((c) => [c.id, c.name])), company)}${select("Marca de aire acondicionado *", "brand", ctx.info.brands, v.brand || filters.brand || "hispacold")}${field("Número económico *", "unit", v.unit || "", "text", 'required maxlength="80"')}${field("Nombre de flota", "fleet", v.fleet || "", "text", 'maxlength="120"')}${field("Base / terminal", "base", v.base || "", "text", 'maxlength="120"')}${field("Marca del autobús", "busBrand", v.busBrand || "", "text", 'maxlength="120" placeholder="Volvo, Irizar…"')}${field("Modelo del autobús", "model", v.model || "", "text", 'maxlength="120"')}${field("Modelo del equipo AC", "acModel", v.acModel || "", "text", 'maxlength="120"')}${field("Serie del equipo AC", "acSerial", v.acSerial || "", "text", 'maxlength="120"')}</div>
+    dialog(`<div class="hc-kicker">ADMINISTRACIÓN AC</div><h2>${u ? "Ficha de unidad " + esc(u.unit) : "Registrar unidades"}</h2><p>${u ? "Actualiza datos del equipo y documenta su condición. La empresa, el número económico y la marca conservan el vínculo con su historial." : "Asigna la marca del aire acondicionado instalado. Puedes capturar una unidad o un lote. Si una unidad fue eliminada, se reincorpora con su ficha anterior, historial y QR al usar la misma empresa, número económico y marca. Después puedes actualizar sus datos en Editar ficha."}</p>${!u ? `<div class="hc-actions">${btn("Copiar desde Flotas existentes", "import")}${btn("+ Nueva empresa", "new-company")}</div>` : ""}<form id="acf-unit-form"><div class="hc-grid">${select("Empresa operadora *", "companyId", Object.fromEntries(config.companies.map((c) => [c.id, c.name])), company)}${select("Marca de aire acondicionado *", "brand", ctx.info.brands, v.brand || filters.brand || "hispacold")}${field("Número económico *", "unit", v.unit || "", "text", 'required maxlength="80"')}${field("Nombre de flota", "fleet", v.fleet || "", "text", 'maxlength="120"')}${field("Base / terminal", "base", v.base || "", "text", 'maxlength="120"')}${field("Marca del autobús", "busBrand", v.busBrand || "", "text", 'maxlength="120" placeholder="Volvo, Irizar…"')}${field("Modelo del autobús", "model", v.model || "", "text", 'maxlength="120"')}${field("Modelo del equipo AC", "acModel", v.acModel || "", "text", 'maxlength="120"')}${field("Serie del equipo AC", "acSerial", v.acSerial || "", "text", 'maxlength="120"')}</div>
       ${!u ? `<details class="acf-form-section"><summary>Registro por lote · hasta 100 unidades</summary><p>Una unidad por línea, o separadas por comas. Todos los registros usarán la misma empresa, marca y datos compartidos. La serie del equipo y las placas se dejan vacías para completarlas por unidad.</p><label class="hc-field"><b>Números económicos</b><textarea name="batch" rows="4" maxlength="8500" placeholder="301&#10;302&#10;303"></textarea></label><small id="acf-batch-count">Sin lote: se registrará el número económico individual.</small></details>` : ""}
       <details class="acf-form-section"><summary>Identificación y planificación</summary><div class="hc-grid">${field("Año", "year", v.year || "", "text", 'inputmode="numeric" pattern="(19|20)[0-9]{2}" maxlength="4"')}${field("Kilometraje", "mileage", v.mileage || "", "text", 'inputmode="numeric" pattern="[0-9]{1,9}" maxlength="9"')}${field("Número de obra", "workNumber", v.workNumber || "", "text", 'maxlength="120"')}${field("Placas", "plate", v.plate || "", "text", 'maxlength="120"')}${field("Vigencia de garantía del AC", "warrantyEnd", v.warrantyEnd || "", "date")}${field("Próximo servicio inicial", "initialNextDate", v.initialNextDate || "", "date")}${field("Vigencia de evaluación (días)", "reviewDays", v.reviewDays || 90, "number", 'min="1" max="365" required')}</div><p>El próximo servicio inicial se usa hasta que una orden de mantenimiento cerrada establezca una nueva programación.</p></details>
       <details class="acf-form-section" ${u ? "open" : ""}><summary>Evaluación del aire acondicionado</summary><p>Registra solo una condición comprobada. Sin evaluación, la unidad comienza en gris.</p><div class="hc-grid">${select("Condición comprobada", "manualCondition", config.conditions, v.manualCondition || "sin_evaluar")}${field("Fecha de evaluación", "checkedOn", v.checkedOn || "", "date", `max="${today()}"`)}</div><label class="hc-field"><b>Sustento de evaluación / observaciones</b><textarea name="conditionNote" rows="3" maxlength="2000">${esc(v.conditionNote || "")}</textarea></label></details>
@@ -366,6 +366,7 @@
         ctx.toast("Empresa guardada. Ya puedes registrar sus unidades.");
       }
       if (form.id === "acf-unit-form") {
+        let registered;
         b.reviewDays = Number(b.reviewDays);
         b.active = editingUnit
           ? form.querySelector("[name=active]").checked
@@ -382,7 +383,7 @@
               new Set(units.map((u) => u.toLowerCase())).size !== units.length
             )
               throw new Error("Hay números económicos repetidos en el lote.");
-            await ctx.api(
+            registered = await ctx.api(
               "/fleet/units",
               post({
                 companyId: b.companyId,
@@ -394,11 +395,34 @@
                 })),
               }),
             );
-          } else await ctx.api("/fleet/units", post(b));
+          } else registered = await ctx.api("/fleet/units", post(b));
+          Object.assign(filters, {
+            company: b.companyId,
+            brand: b.brand,
+            q: "",
+            region: "",
+            base: "",
+            signal: "",
+            focus: "",
+            archived: "",
+            offset: 0,
+          });
         }
         $("#acf-dialog").close();
         await load();
-        ctx.toast(editingUnit ? "Ficha actualizada." : "Unidades registradas.");
+        if (registered?.restoredCount && registered.count === 1) {
+          await openDetail(registered.ids[0]);
+          ctx.toast(
+            "Unidad reincorporada. Conserva su ficha, historial y QR; puedes actualizar sus datos en Editar ficha.",
+          );
+        } else
+          ctx.toast(
+            editingUnit
+              ? "Ficha actualizada."
+              : registered?.restoredCount
+                ? `${registered.createdCount} nuevas · ${registered.restoredCount} reincorporadas con su ficha, historial y QR.`
+                : "Unidades registradas.",
+          );
       }
     } catch (err) {
       error(err);
