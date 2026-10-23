@@ -18,6 +18,11 @@ body[data-ac-portal] #hc-main {
   margin: auto;
   padding: 36px;
 }
+/* Safari can restore dialog focus to this noninteractive page container.
+   Keep focus indicators on the individual controls, not the entire page. */
+body[data-ac-portal] #hc-main:focus {
+  outline: none;
+}
 body[data-ac-portal] .hc-topbar {
   position: sticky;
   top: 0;

@@ -284,6 +284,12 @@
     );
     detail = r.unit;
     const u = detail;
+    // Safari does not focus a button on pointer activation. Give the dialog
+    // a concrete return target, including when opened from a QR or shortcut.
+    if (!$("#acf-dialog")?.open)
+      $(`.acf-unit[data-id="${CSS.escape(u.id)}"]`)?.focus({
+        preventScroll: true,
+      });
     dialog(`<div class="acf-detail-heading"><div><div class="hc-kicker">EXPEDIENTE DE CLIMATIZACIÓN</div><h2>Unidad ${esc(u.unit)}</h2><p>${esc(u.company)} · ${esc(brandName(u.brand))}</p></div><span class="acf-badge ${u.signal}">${esc(u.signalLabel)}</span></div>
       <div class="hc-actions">${btn("Cerrar", "close")}${config.canManage ? btn("Editar ficha / evaluación", "edit-unit") + (u.active ? btn("Etiqueta QR", "qr-label") + btn("Crear orden", "new-order") + btn("Eliminar unidad", "delete-unit") : btn("Restaurar unidad", "restore-unit")) : ""}${u.active ? btn("Solicitar servicio", "request-service", "", true) + btn("Solicitar refacción", "request-part") : ""}</div>
       <section class="acf-reasons"><h3>Qué requiere atención</h3>${u.reasons.map((r) => `<div class="acf-reason ${r.color}"><i></i><div><b>${esc(r.text)}</b><p>${esc(r.detail)}</p></div></div>`).join("")}</section>
@@ -436,6 +442,8 @@
     if (!b || working) return;
     try {
       const a = b.dataset.af;
+      if (!$("#acf-dialog")?.open && ["new-unit", "companies"].includes(a))
+        b.focus({ preventScroll: true });
       if (a === "delete-unit") removalForm();
       if (a === "restore-unit") removalForm(true);
       if (a === "qr-label") await qrLabel();
