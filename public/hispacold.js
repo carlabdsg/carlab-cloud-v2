@@ -452,12 +452,28 @@
       `<form id="hc-history-form" class="hc-panel hc-section"><div class="hc-grid"><label class="hc-field wide"><b>Unidad de Flotas</b><select id="hc-history-unit">${opts(Object.fromEntries(units.map((u) => [u.id, `${u.empresa} · ${u.numero_economico}`])), "", "Seleccionar unidad")}</select></label><label class="hc-field"><b>Empresa</b><input name="company" value="${esc(historyQuery.company)}" required maxlength="180"></label><label class="hc-field"><b>Económico</b><input name="unit" value="${esc(historyQuery.unit)}" required maxlength="80"></label><button class="hc-btn primary" type="submit">Consultar expediente</button></div></form>` +
       body;
   }
+  const orderIcons = {
+    bus: '<rect x="4" y="3" width="16" height="17" rx="3"/><path d="M4 12h16M8 20v2m8-2v2M8 16h1m6 0h1M8 7h8"/>',
+    service:
+      '<path d="m14 6 4 4m-8 5-5 5-3-3 5-5M13 3a6 6 0 0 0-6 8l6 6a6 6 0 0 0 8-6l-4 2-6-6z"/>',
+    camera:
+      '<path d="M3 7h4l2-3h6l2 3h4v14H3z"/><circle cx="12" cy="13" r="4"/>',
+    note: '<rect x="5" y="4" width="14" height="18" rx="2"/><path d="M9 2h6v5H9zm0 9h6m-6 4h6"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/>',
+    check: '<path d="m4 12 5 5L20 6"/>',
+    bolt: '<path d="M13 2 4 14h7l-1 8 10-13h-7z"/>',
+  };
+  const orderIcon = (key) =>
+    `<svg class="hco-icon" viewBox="0 0 24 24" aria-hidden="true">${orderIcons[key] || orderIcons.note}</svg>`;
   async function choose(source = null, attention = "normal") {
     if (!(await leave())) return;
     cloneSource = source;
     const brand = source?.data?.brand || (source ? "hispacold" : "");
     $("#hc-dialog").innerHTML =
-      `<div class="hc-kicker">NUEVA ORDEN</div><h2>Empecemos por lo esencial</h2><p>${source ? `Nuevo servicio para ${esc(source.company)} · ${esc(source.unit)}. La intervención empieza vacía.` : "Elige el equipo y el trabajo. La hoja se adaptará a lo que necesitas."}</p><form id="hc-create-form"><div class="hc-create-grid"><label class="hc-field"><b><span class="hc-number">1</span> Marca del aire acondicionado</b><select id="hc-create-brand" name="brand" required>${opts(catalog.brands, brand, "Seleccionar marca")}</select></label><label class="hc-field"><b><span class="hc-number">2</span> Servicio</b><select id="hc-create-type" name="type" required ${brand ? "" : "disabled"}>${opts(Object.fromEntries(Object.entries(catalog.types).filter(([k]) => k !== "express")), "", "Seleccionar servicio")}</select></label><fieldset id="hc-create-attention" disabled><legend><span class="hc-number">3</span> Tipo de atención</legend><div class="hc-attention-options"><label><input type="radio" name="attention" value="normal" ${attention === "normal" ? "checked" : ""}><span><b>Normal</b><small>Trabajo de taller o programado</small></span></label><label><input type="radio" name="attention" value="express" ${attention === "express" ? "checked" : ""}><span><b>⚡ Servicio express</b><small>Urgencia, asistencia o evento extraordinario</small></span></label></div></fieldset></div><p class="hc-subtle" id="hc-create-help">La marca corresponde al equipo de aire acondicionado, no a la del autobús.</p><div class="hc-actions">${btn("Cancelar", "close-dialog")}<button class="hc-btn primary" type="submit" id="hc-start-order" disabled>Crear orden →</button></div></form>`;
+      `<div class="hco-create"><div class="hco-create-heading"><div><div class="hc-kicker">NUEVA ORDEN / CLIMATIZACIÓN</div><h2>Prepara tu servicio</h2></div>${btn("×", "close-dialog", "hco-close", 'aria-label="Cerrar nueva orden"')}</div><p class="hco-create-intro">${source ? `Atención para ${esc(source.company)} · Unidad ${esc(source.unit)}.` : "Selecciona el equipo, el servicio y la atención. Después te guiamos paso a paso."}</p><form id="hc-create-form"><div class="hc-create-grid">
+      <label class="hc-field hco-create-card"><b><span class="hco-choice-icon">${orderIcon("bus")}</span><span><small>01 · EQUIPO</small>Marca del aire acondicionado</span></b><select id="hc-create-brand" name="brand" required>${opts(catalog.brands, brand, "Seleccionar marca")}</select><small>Elige la marca del equipo AC, no la del autobús.</small></label>
+      <label class="hc-field hco-create-card"><b><span class="hco-choice-icon">${orderIcon("service")}</span><span><small>02 · SERVICIO</small>Trabajo a realizar</span></b><select id="hc-create-type" name="type" required ${brand ? "" : "disabled"}>${opts(Object.fromEntries(Object.entries(catalog.types).filter(([k]) => k !== "express")), "", "Seleccionar servicio")}</select><small>Las revisiones se ajustan al servicio elegido.</small></label>
+      <fieldset id="hc-create-attention" disabled><legend><span class="hco-legend-number">03</span> Tipo de atención</legend><div class="hc-attention-options"><label><input type="radio" name="attention" value="normal" ${attention === "normal" ? "checked" : ""}><span><b>${orderIcon("clock")} Normal</b><small>Trabajo de taller o servicio programado</small></span></label><label><input type="radio" name="attention" value="express" ${attention === "express" ? "checked" : ""}><span><b>${orderIcon("bolt")} Servicio express</b><small>Urgencia, asistencia o evento extraordinario</small></span></label></div></fieldset></div><p class="hc-subtle" id="hc-create-help">Puedes guardar el avance y continuar después.</p><div class="hc-actions hco-create-actions">${btn("Cancelar", "close-dialog")}<button class="hc-btn primary" type="submit" id="hc-start-order" disabled>Empezar orden →</button></div></form></div>`;
     $("#hc-dialog").showModal();
   }
   function checklistForData(d) {
@@ -667,8 +683,14 @@
     return `<details class="hc-extra-fields hc-simple-extra" ${open ? "open" : ""} ${id ? `id="${id}"` : ""}><summary>${title}</summary><div class="hc-extra-content">${body}</div></details>`;
   }
   const guidedLabels = ["Recepción", "Diagnóstico", "Intervención", "Entrega"];
+  const guidedDescriptions = [
+    "Unidad y motivo del servicio",
+    "Hallazgos y puntos de revisión",
+    "Trabajos, refacciones y evidencia",
+    "Pruebas y condición de entrega",
+  ];
   function guidedNavigation() {
-    return `<div class="hc-guided-navigation"><div class="hc-guided-heading"><b id="hc-guided-position"></b><span>Guarda el avance en cualquier etapa</span></div><nav class="hc-guided-steps" aria-label="Etapas de la orden">${guidedLabels.map((label, i) => `<button type="button" data-step="${i}" aria-controls="hc-guided-${i}"><span>${i + 1}</span>${label}</button>`).join("")}</nav><div id="hc-guided-context"></div></div>`;
+    return `<aside class="hc-guided-navigation"><div class="hc-guided-heading"><span class="hco-eyebrow">GUÍA DE CAPTURA</span><b id="hc-guided-position"></b></div><div class="hco-step-track" aria-hidden="true"><i id="hco-step-position"></i></div><nav class="hc-guided-steps" aria-label="Etapas de la orden">${guidedLabels.map((label, i) => `<button type="button" data-step="${i}" aria-controls="hc-guided-${i}"><span class="hco-step-number">${i + 1}</span><span class="hco-step-copy"><b>${label}</b><small>${guidedDescriptions[i]}</small></span></button>`).join("")}</nav><div class="hco-unit-context">${orderIcon("bus")}<div><small>UNIDAD EN ATENCIÓN</small><div id="hc-guided-context"></div></div></div><p class="hco-nav-note">Puedes cambiar de etapa y guardar el avance cuando lo necesites.</p></aside>`;
   }
   function guidedWorkHint() {
     return (
@@ -701,7 +723,8 @@
     $("[data-action=step-prev]").disabled = step === 0;
     const next = $("[data-action=step-next]");
     next.hidden = step === 3;
-    next.textContent = `Continuar a ${guidedLabels[step + 1] || "entrega"} →`;
+    next.innerHTML = `<span class="hco-next-long">Continuar a ${guidedLabels[step + 1] || "entrega"} →</span><span class="hco-next-short">Continuar →</span>`;
+    $("#hco-step-position").style.width = `${(step + 1) * 25}%`;
     $("[data-action=review-order]").hidden = step !== 3;
   }
   function guidedReadiness(missing) {
@@ -804,7 +827,7 @@
       ],
     ];
     $("#hc-dialog").innerHTML =
-      `<div class="hc-guided-review"><div class="hc-guided-review-heading"><h2>Revisión de la orden</h2>${btn("✕", "close-dialog", "", 'aria-label="Cerrar revisión"')}</div><p>Verifica que la información refleje el servicio realizado. El reporte conservará su formato técnico.</p><dl>${summary.map(([label, value]) => `<div><dt>${esc(label)}</dt><dd>${esc(value || "Sin registro")}</dd></div>`).join("")}</dl>${guidedReadiness(missing)}<div class="hc-actions">${btn("Volver a editar", "close-dialog")}${!missing.length && draft.status !== "cancelado" ? btn("Confirmar cierre de orden", "complete-order", "primary") : ""}</div></div>`;
+      `<div class="hc-guided-review"><div class="hc-guided-review-heading"><div><div class="hc-kicker">VERIFICACIÓN FINAL</div><h2>Revisión de la orden</h2></div>${btn("✕", "close-dialog", "", 'aria-label="Cerrar revisión"')}</div><p>Verifica que la información refleje el servicio realizado. El reporte conservará su formato técnico.</p><dl>${summary.map(([label, value]) => `<div><dt>${esc(label)}</dt><dd>${esc(value || "Sin registro")}</dd></div>`).join("")}</dl>${guidedReadiness(missing)}<div class="hc-actions">${btn("Volver a editar", "close-dialog")}${!missing.length && draft.status !== "cancelado" ? btn("Confirmar cierre de orden", "complete-order", "primary") : ""}</div></div>`;
     $("#hc-dialog").showModal();
   }
   function editorSimple() {
@@ -819,20 +842,15 @@
         m.conditions,
     );
     $("#hc-main").innerHTML =
-      heading(
-        `${brandName(draft.brand).toUpperCase()} / ${record?.folio || "NUEVA ORDEN"}`,
-        catalog.types[draft.type],
-        `${isExpress() ? "⚡ Servicio express" : "Atención normal"} · Guarda ahora y completa el trabajo cuando termines.`,
-        btn("← Órdenes", "back"),
-      ) +
-      `<div id="hc-form-error" class="hc-error" role="alert"></div><form id="hc-form" class="hc-simple-form hc-guided-form" novalidate>${guidedNavigation()}<section class="hc-panel hc-section hc-guided-section" data-guided-section="0" aria-label="Recepción"><div class="hc-simple-title"><span class="hc-number">1</span><div><h2>Recepción y motivo del servicio</h2><p>Identificación de la unidad y descripción de la solicitud.</p></div></div><div class="hc-grid"><label class="hc-field wide"><b>Unidad</b><select name="fleetUnitId" id="hc-unit">${opts(Object.fromEntries(units.map((u) => [u.id, `${u.empresa} · ${u.numero_economico}`])), draft.fleetUnitId, "Unidad externa / captura manual")}</select></label>${draft.fleetUnitId ? `<div class="hc-unit-summary wide"><b>${esc(draft.company)} · ${esc(draft.unit)}</b><span>${esc(draft.model)}</span></div>` : ""}${draft.fleetUnitId ? extraBlock("Editar empresa y económico", `<div class="hc-grid">${field("Empresa / cliente *", "company", "text", 'maxlength="180"')}${field("Número económico *", "unit", "text", 'maxlength="80"')}</div>`) : field("Empresa / cliente *", "company", "text", 'maxlength="180"') + field("Número económico *", "unit", "text", 'maxlength="80"')}${field("Motivo del servicio *", "symptoms", "textarea", 'placeholder="Describe la falla reportada o el servicio solicitado." rows="2"')}</div><div class="hc-symptom-chips" aria-label="Motivos frecuentes">${brandCatalog()
+      `<header class="hco-heading"><div><div class="hc-kicker">${esc(record?.folio || "NUEVA ORDEN")} / CLIMATIZACIÓN</div><h1>${esc(catalog.types[draft.type])}</h1><div class="hco-order-tags"><span>${orderIcon("bus")}${esc(brandName(draft.brand))}</span><span class="${isExpress() ? "express" : ""}">${orderIcon(isExpress() ? "bolt" : "clock")}${isExpress() ? "Servicio express" : "Atención normal"}</span><span>${esc(record ? catalog.statuses[record.status] : "Por registrar")}</span></div></div>${btn("← Órdenes", "back")}</header>` +
+      `<div id="hc-form-error" class="hc-error" role="alert"></div><form id="hc-form" class="hc-simple-form hc-guided-form" novalidate>${guidedNavigation()}<section class="hc-panel hc-section hc-guided-section" data-guided-section="0" aria-label="Recepción"><div class="hc-simple-title"><span class="hco-section-icon">${orderIcon("bus")}</span><div><h2>Recepción y motivo del servicio</h2><p>Identificación de la unidad y descripción de la solicitud.</p></div></div><div class="hc-grid"><label class="hc-field wide"><b>Unidad</b><select name="fleetUnitId" id="hc-unit">${opts(Object.fromEntries(units.map((u) => [u.id, `${u.empresa} · ${u.numero_economico}`])), draft.fleetUnitId, "Unidad externa / captura manual")}</select></label>${draft.fleetUnitId ? `<div class="hc-unit-summary wide"><b>${esc(draft.company)} · ${esc(draft.unit)}</b><span>${esc(draft.model)}</span></div>` : ""}${draft.fleetUnitId ? extraBlock("Editar empresa y económico", `<div class="hc-grid">${field("Empresa / cliente *", "company", "text", 'maxlength="180"')}${field("Número económico *", "unit", "text", 'maxlength="80"')}</div>`) : field("Empresa / cliente *", "company", "text", 'maxlength="180"') + field("Número económico *", "unit", "text", 'maxlength="80"')}${field("Motivo del servicio *", "symptoms", "textarea", 'placeholder="Describe la falla reportada o el servicio solicitado." rows="2"')}</div><div class="hco-suggestions-label">Selecciona un motivo frecuente o escribe el tuyo</div><div class="hc-symptom-chips" aria-label="Motivos frecuentes">${brandCatalog()
         .symptomGuides.filter((g) => g.id !== "otro")
         .map((g) =>
           btn(
             esc(g.label),
             "symptom-chip",
             draft.symptomCode === g.id ? "selected" : "",
-            `data-code="${esc(g.id)}"`,
+            `data-code="${esc(g.id)}" aria-pressed="${draft.symptomCode === g.id}"`,
           ),
         )
         .join(
@@ -841,18 +859,18 @@
       ${draft.type === "preventivo" ? `<div class="hc-grid hc-plan-row">${select("Plan de mantenimiento", "interval", intervalNames())}${field("Plan acordado con la flota", "planReference")}</div>` : ""}
       ${extraBlock("Fecha, responsable y datos del equipo", `<div class="hc-grid">${field("Fecha del servicio *", "serviceDate", "date")}${field("Técnico responsable *", "technician")}${field("Modelo de unidad", "model")}${field("Equipo de aire acondicionado", "equipment")}${field("Control / display", "control")}${field("Serie del compresor", "compressorSerial")}${field("Chasis", "chassis")}${field("Kilometraje", "mileage", "number")}${field("Base / ubicación", "base")}${field("Número de obra", "workNumber")}${select("Prioridad", "priority", { normal: "Normal", alta: "Alta", urgente: "Urgente" })}</div>`)}
       ${isExpress() ? `<div class="hc-grid hc-plan-row">${select("Tipo de evento express *", "eventKind", catalog.eventKinds)}${field("Ubicación de la atención", "eventLocation")}</div>${extraBlock("Contacto y tiempos del evento (opcional)", `<div class="hc-grid">${field("Contacto", "eventContact")}${field("Aviso", "reportedAt", "datetime-local")}${field("Llegada", "arrivalAt", "datetime-local")}${field("Resolución", "resolvedAt", "datetime-local")}</div>`, !!(draft.eventContact || draft.reportedAt || draft.arrivalAt || draft.resolvedAt))}` : ""}</section>
-      <section class="hc-panel hc-section hc-guided-section" data-guided-section="1" aria-label="Diagnóstico"><div class="hc-simple-title"><span class="hc-number">2</span><div><h2>Diagnóstico y revisión</h2><p>${requiredChecks ? "Registra cada punto del alcance de este servicio. Puedes guardar y continuar después." : "Registra los hallazgos. La revisión detallada de componentes es opcional para este servicio."}</p></div></div><div class="hc-grid">${field(["revision", "mayor"].includes(draft.type) ? "Diagnóstico / causa encontrada *" : "Diagnóstico / causa encontrada (opcional)", "diagnosis", "textarea", 'rows="3" placeholder="Indica el componente evaluado, el hallazgo y la causa identificada, si se confirmó."')}</div>
+      <section class="hc-panel hc-section hc-guided-section" data-guided-section="1" aria-label="Diagnóstico"><div class="hc-simple-title"><span class="hco-section-icon">${orderIcon("note")}</span><div><h2>Diagnóstico y revisión</h2><p>${requiredChecks ? "Registra cada punto del alcance de este servicio. Puedes guardar y continuar después." : "Registra los hallazgos. La revisión detallada de componentes es opcional para este servicio."}</p></div></div><div class="hc-grid">${field(["revision", "mayor"].includes(draft.type) ? "Diagnóstico / causa encontrada *" : "Diagnóstico / causa encontrada (opcional)", "diagnosis", "textarea", 'rows="3" placeholder="Indica el componente evaluado, el hallazgo y la causa identificada, si se confirmó."')}</div>
       ${extraBlock(requiredChecks ? 'Lista de mantenimiento y verificación <span id="hc-check-progress"></span>' : 'Agregar revisión de componentes (opcional) <span id="hc-check-progress"></span>', inspectionHTML(), requiredChecks, "hc-review-details")}
       ${extraBlock("Diagnóstico y referencia técnica", `<div class="hc-grid">${field("Códigos observados", "faultCodes")}${field("Referencia técnica / procedimiento / página", "technicalReference")}${field("Alcance y autorización general", "authorization")}</div><div id="hc-symptom-guide">${guideHTML()}</div>`, !!(draft.type === "mayor" || draft.faultCodes || draft.technicalReference || draft.authorization), "hc-diagnostic-details")}
-      </section><section class="hc-panel hc-section hc-guided-section" data-guided-section="2" aria-label="Intervención"><div class="hc-simple-title"><span class="hc-number">3</span><div><h2>Intervención técnica</h2><p>Describe las actividades ejecutadas y despliega los registros que correspondan a este trabajo.</p></div></div>${field("Trabajo realizado *", "workDone", "textarea", `rows="4" placeholder="${esc(guidedWorkHint())}"`)}
+      </section><section class="hc-panel hc-section hc-guided-section" data-guided-section="2" aria-label="Intervención"><div class="hc-simple-title"><span class="hco-section-icon">${orderIcon("service")}</span><div><h2>Intervención técnica</h2><p>Describe las actividades ejecutadas y despliega los registros que correspondan a este trabajo.</p></div></div>${field("Trabajo realizado *", "workDone", "textarea", `rows="4" placeholder="${esc(guidedWorkHint())}"`)}
       ${extraBlock("¿Se realizaron mediciones o se intervino el circuito?", measurementsHTML(), draft.circuitOpened || hasReadings, "hc-measurement-details")}
       ${extraBlock("¿Se utilizaron refacciones o materiales?", `<div id="hc-parts">${partsHTML()}</div>${btn("Buscar refacciones / sugerencias", "pick-parts", "primary")}${btn("+ Concepto manual", "add-part")}<p class="hc-subtle">Importes en MXN. Registro de la orden, sin movimientos automáticos de almacén.</p>`, draft.parts.length > 0, "hc-parts-details")}
       ${extraBlock("¿Se detectaron trabajos adicionales o pendientes?", `<div id="hc-findings">${findingsHTML()}</div>${btn("+ Agregar trabajo detectado", "add-finding")}`, draft.findings.length > 0, "hc-findings-details")}
-      <div class="hc-photo-section"><div><h3>Evidencia fotográfica</h3><p class="hc-subtle">Hasta 8 fotos · antes, durante o después</p></div><div class="hc-actions">${btn("◉ Tomar foto", "take-photo")}${btn("↑ Elegir fotos", "choose-photos")}</div><div id="hc-evidence" class="hc-evidence">${evidenceHTML()}</div></div></section>
-      <section class="hc-panel hc-section hc-guided-section" data-guided-section="3" aria-label="Entrega"><div class="hc-simple-title"><span class="hc-number">4</span><div><h2>Verificación y entrega</h2><p>Pruebas funcionales y condición de entrega de la unidad.</p></div></div><div id="hc-delivery-pending"></div><div class="hc-grid">${field("Prueba realizada y resultado *", "finalTest", "textarea", 'rows="2" placeholder="Describe las pruebas realizadas y los resultados obtenidos."')}${select("Condición de entrega *", "result", results, "Seleccionar al terminar")}${select("Estado de la orden", "status", Object.fromEntries(Object.entries(catalog.statuses).filter(([k]) => k !== "completado")))}</div><div id="hc-result-followup" ${(draft.result && draft.result !== "operativo") || draft.recommendations ? "" : "hidden"}>${field("Pendientes y recomendaciones *", "recommendations", "textarea", 'rows="2"')}</div>
+      <div class="hc-photo-section"><div class="hco-photo-heading"><span class="hco-section-icon">${orderIcon("camera")}</span><div><h3>Evidencia fotográfica</h3><p class="hc-subtle">Documenta el antes, durante y después · Hasta 8 fotos</p></div></div><div class="hc-actions">${btn(orderIcon("camera") + " Tomar foto", "take-photo")}${btn("↑ Elegir fotos", "choose-photos")}</div><div id="hc-evidence" class="hc-evidence">${evidenceHTML()}</div></div></section>
+      <section class="hc-panel hc-section hc-guided-section" data-guided-section="3" aria-label="Entrega"><div class="hc-simple-title"><span class="hco-section-icon">${orderIcon("check")}</span><div><h2>Verificación y entrega</h2><p>Pruebas funcionales y condición de entrega de la unidad.</p></div></div><div id="hc-delivery-pending"></div><div class="hc-grid">${field("Prueba realizada y resultado *", "finalTest", "textarea", 'rows="2" placeholder="Describe las pruebas realizadas y los resultados obtenidos."')}${select("Condición de entrega *", "result", results, "Seleccionar al terminar")}${select("Estado de la orden", "status", Object.fromEntries(Object.entries(catalog.statuses).filter(([k]) => k !== "completado")))}</div><div id="hc-result-followup" ${(draft.result && draft.result !== "operativo") || draft.recommendations ? "" : "hidden"}>${field("Pendientes y recomendaciones *", "recommendations", "textarea", 'rows="2"')}</div>
       <div id="hc-cancel-field" ${draft.status === "cancelado" ? "" : "hidden"}>${field("Motivo de cancelación *", "cancelReason")}</div>${extraBlock("Próxima visita y constancia de entrega", `<div class="hc-grid">${field("Próximo servicio", "nextDate", "date")}${field("Representante del cliente", "clientName")}</div>${draft.type === "preventivo" ? btn("Sugerir próxima fecha por periodicidad", "suggest-date") : ""}<div class="hc-grid">${["technicianSignature", "clientSignature"].map((key, i) => `<div class="hc-signature"><label>${i ? "Firma del cliente (opcional)" : "Firma del técnico (opcional)"}</label><canvas data-signature="${key}" aria-label="${i ? "Firma del cliente" : "Firma del técnico"}"></canvas>${btn("Limpiar firma", "clear-signature", "", `data-key="${key}"`)}</div>`).join("")}</div>`, !!(draft.nextDate || draft.clientName || draft.technicianSignature || draft.clientSignature))}<div class="hc-close-readiness" id="hc-close-readiness"></div></section>
       <input id="hc-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden><input id="hc-camera-input" type="file" accept="image/*" capture="environment" hidden><input id="hc-check-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
-      <div class="hc-savebar"><span id="hc-save-state" role="status"></span><div class="hc-actions">${btn("← Anterior", "step-prev")}<button type="submit" class="hc-btn" id="hc-save">Guardar avance</button>${btn("Continuar →", "step-next", "primary")}${btn("Revisar y cerrar", "review-order", "primary")}</div></div></form>`;
+      <div class="hc-savebar"><div class="hco-save-info"><span class="hco-save-dot" aria-hidden="true"></span><span id="hc-save-state" role="status"></span></div><div class="hc-actions">${btn("←", "step-prev", "hco-previous", 'aria-label="Paso anterior" title="Paso anterior"')}<button type="submit" class="hc-btn" id="hc-save">Guardar avance</button>${btn("Continuar →", "step-next", "primary")}${btn("Revisar cierre", "review-order", "primary")}</div></div></form>`;
     if ($("[name=interval]"))
       $("[name=interval]").dataset.previous = draft.interval;
     renderGuidedStep();
@@ -2123,12 +2141,11 @@
           $("[name=symptoms]").value = guide.label;
           draft.symptoms = guide.label;
         }
-        $$(".hc-symptom-chips button").forEach((el) =>
-          el.classList.toggle(
-            "selected",
-            el.dataset.code === draft.symptomCode,
-          ),
-        );
+        $$(".hc-symptom-chips button").forEach((el) => {
+          const selected = el.dataset.code === draft.symptomCode;
+          el.classList.toggle("selected", selected);
+          el.setAttribute("aria-pressed", String(selected));
+        });
         $("#hc-symptom-guide").innerHTML = guideHTML();
         markDirty();
       }

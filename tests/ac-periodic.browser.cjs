@@ -40,6 +40,9 @@ fs.mkdirSync(out, { recursive: true });
         .filter({ hasText: "Guardado en Carlab" })
         .waitFor();
     await page.goto(h.url + "/hispacold.html");
+    await page
+      .getByRole("heading", { name: "El control de tu operación AC" })
+      .waitFor();
     await start("hispacold");
     phase = "Hispacold periods and source pages";
     for (const [period, count, sourcePage] of [
@@ -110,6 +113,10 @@ fs.mkdirSync(out, { recursive: true });
       4,
     );
     await page.reload();
+    await page
+      .getByRole("heading", { name: "El control de tu operación AC" })
+      .waitFor();
+    await page.locator("[data-view=services]").click();
     await page
       .locator(`[data-action=continue-order][data-id="${row.id}"]`)
       .click();

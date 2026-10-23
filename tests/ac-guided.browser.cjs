@@ -81,6 +81,10 @@ async function screenshot(page, name) {
     const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto(h.url + "/hispacold.html");
+    await page.locator(".hco-create").waitFor({ state: "hidden" });
+    await page
+      .getByRole("heading", { name: "El control de tu operación AC" })
+      .waitFor();
     phase = "brand, service and express selection";
     await start(page);
     assert.equal(
@@ -89,7 +93,7 @@ async function screenshot(page, name) {
     );
     assert.match(await page.locator("#hc-main").innerText(), /Express|express/);
     assert.equal(await page.locator("[name=workDone]").isVisible(), false);
-    await screenshot(page, "carlab-ac-v6-recepcion.png");
+    await screenshot(page, "carlab-ac-v6.8-recepcion.png");
     phase = "missing items lead to the precise field";
     await stage(page, 3);
     await page.locator("[data-action=review-order]").click();
@@ -109,6 +113,10 @@ async function screenshot(page, name) {
     await localSaved(page);
     await context.setOffline(false);
     await page.reload();
+    await page
+      .getByRole("heading", { name: "El control de tu operación AC" })
+      .waitFor();
+    await page.locator("[data-view=services]").click();
     await page.locator("[data-action=resume]").first().click();
     await page.locator('[data-guided-section="2"]:visible').waitFor();
     assert.equal(
@@ -202,7 +210,7 @@ async function screenshot(page, name) {
     await page.locator("[name=circuitOpened]").uncheck();
     phase = "review and explicit closure";
     await stage(page, 3);
-    await screenshot(page, "carlab-ac-v6-entrega.png");
+    await screenshot(page, "carlab-ac-v6.8-entrega.png");
     await page.locator("[data-action=review-order]").click();
     assert.match(
       await page.locator("#hc-dialog").innerText(),
@@ -225,10 +233,10 @@ async function screenshot(page, name) {
     const download = page.waitForEvent("download");
     await page.locator("[data-action=pdf]").click();
     const pdf = await download;
-    await pdf.saveAs(path.join(output, "carlab-ac-v6-reporte-prueba.pdf"));
+    await pdf.saveAs(path.join(output, "carlab-ac-v6.8-reporte-prueba.pdf"));
     assert.match(pdf.suggestedFilename(), /Eberspächer\.pdf$/);
     assert.ok(
-      fs.statSync(path.join(output, "carlab-ac-v6-reporte-prueba.pdf")).size >
+      fs.statSync(path.join(output, "carlab-ac-v6.8-reporte-prueba.pdf")).size >
         5000,
     );
     phase = "both manufacturers and every service keep their required scope";
@@ -318,6 +326,9 @@ async function screenshot(page, name) {
     mp.setDefaultTimeout(15000);
     mp.on("pageerror", (e) => errors.push(e.message));
     await mp.goto(h.url + "/hispacold.html");
+    await mp
+      .getByRole("heading", { name: "El control de tu operación AC" })
+      .waitFor();
     await start(mp);
     await mp.locator("[data-action=step-next]").click();
     await mp.locator("[data-action=step-next]").click();
@@ -332,7 +343,9 @@ async function screenshot(page, name) {
     ).setFiles({
       name: "evidencia.png",
       mimeType: "image/png",
-      buffer: fs.readFileSync(path.join(output, "carlab-ac-v6-recepcion.png")),
+      buffer: fs.readFileSync(
+        path.join(output, "carlab-ac-v6.8-recepcion.png"),
+      ),
     });
     await mp.locator(".hc-photo img").waitFor();
     await mp
@@ -344,7 +357,7 @@ async function screenshot(page, name) {
       ),
       true,
     );
-    await screenshot(mp, "carlab-ac-v6-movil.png");
+    await screenshot(mp, "carlab-ac-v6.8-movil.png");
     await mp.locator("#hc-save").click();
     await saved(mp);
     await mp.locator("[data-action=step-next]").click();
