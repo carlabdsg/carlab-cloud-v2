@@ -231,9 +231,17 @@
   }
   function nav(name) {
     view = name;
-    $$("[data-view]").forEach((b) =>
-      b.classList.toggle("selected", b.dataset.view === name),
-    );
+    const key = ["fleet", "companies"].includes(name)
+      ? "companies"
+      : ["home", "services", "requests", "parts", "reports"].includes(name)
+        ? name
+        : "tools";
+    $$(".aca-nav [data-view]").forEach((b) => {
+      const selected = b.dataset.view === key;
+      b.classList.toggle("selected", selected);
+      if (selected) b.setAttribute("aria-current", "page");
+      else b.removeAttribute("aria-current");
+    });
   }
   function storeStatus() {
     const el = $("#hc-save-state");
@@ -330,6 +338,9 @@
       else if (name === "trash") await trash();
       else if (
         [
+          "home",
+          "companies",
+          "tools",
           "fleet",
           "requests",
           "parts",
@@ -376,8 +387,8 @@
     $("#hc-main").innerHTML =
       heading(
         "CARLAB / CLIMATIZACIÓN",
-        "Aire acondicionado",
-        "Del evento express al mantenimiento completo. Cada unidad, con su historial.",
+        "Órdenes de servicio",
+        "Crea una orden o continúa el trabajo de una unidad.",
         btn("⚡ Express", "express", "hc-express") +
           btn("↓ CSV", "csv") +
           btn("+ Nueva orden", "new", "primary"),
@@ -385,7 +396,7 @@
       (await draftCards()) +
       `<section class="hc-metrics"><article class="hc-metric accent"><span>ÓRDENES REGISTRADAS</span><strong>${s.total}</strong><small>Según tus filtros</small></article><article class="hc-metric"><span>EN SEGUIMIENTO</span><strong>${s.open}</strong><small>Borradores, taller y refacciones</small></article><article class="hc-metric"><span>SERVICIOS COMPLETADOS</span><strong>${s.completed}</strong><small>Prueba y entrega documentadas</small></article><article class="hc-metric"><span>SEGUIMIENTOS VENCIDOS</span><strong>${s.overdue}</strong><small>Todas las unidades · fecha vigente</small></article></section>
       <section class="hc-panel hc-orders"><div class="hc-panel-head"><div><h2>Órdenes de servicio</h2><p>Empresa, unidad, folio o técnico.</p></div><span class="hc-badge">${s.total} registros</span></div>
-      <form id="hc-filters" class="hc-filters"><input aria-label="Buscar servicios" type="search" name="q" placeholder="Buscar empresa, unidad o folio…" value="${esc(filters.q)}"><select aria-label="Marca del aire acondicionado" name="brand">${opts(catalog.brands, filters.brand, "Todas las marcas")}</select><select aria-label="Tipo de servicio" name="type">${opts(catalog.types, filters.type, "Todos los servicios")}</select><select aria-label="Estado" name="status">${opts(catalog.statuses, filters.status, "Todos los estados")}</select><label>Desde<input type="date" name="from" value="${esc(filters.from)}"></label><label>Hasta<input type="date" name="to" value="${esc(filters.to)}"></label><button class="hc-btn" type="submit">Filtrar</button>${btn("Limpiar", "clear-filters")}</form>
+      <details class="acp-filter-details" ${Object.values(filters).some(Boolean) ? "open" : ""}><summary>Buscar y filtrar órdenes</summary><form id="hc-filters" class="hc-filters"><input aria-label="Buscar servicios" type="search" name="q" placeholder="Buscar empresa, unidad o folio…" value="${esc(filters.q)}"><select aria-label="Marca del aire acondicionado" name="brand">${opts(catalog.brands, filters.brand, "Todas las marcas")}</select><select aria-label="Tipo de servicio" name="type">${opts(catalog.types, filters.type, "Todos los servicios")}</select><select aria-label="Estado" name="status">${opts(catalog.statuses, filters.status, "Todos los estados")}</select><label>Desde<input type="date" name="from" value="${esc(filters.from)}"></label><label>Hasta<input type="date" name="to" value="${esc(filters.to)}"></label><button class="hc-btn" type="submit">Filtrar</button>${btn("Limpiar", "clear-filters")}</form></details>
       ${listResult.items.length ? ordersTable(listResult.items) : '<div class="hc-empty"><strong>Sin órdenes para mostrar</strong>Crea una orden o ajusta los filtros.</div>'}
       <div class="hc-pager"><span>${s.total ? `${page * 25 + 1}–${page * 25 + listResult.items.length} de ${s.total}` : "Sin órdenes"}</span><div class="hc-actions">${btn("← Anterior", "prev", "", page === 0 ? "disabled" : "")}${btn("Siguiente →", "next", "", (page + 1) * 25 >= s.total ? "disabled" : "")}</div></div></section>`;
   }
@@ -2453,7 +2464,9 @@
       catalog = await api("/catalog");
       units = await api("/units");
       $("#hc-user").textContent = catalog.user.nombre + " · Administrador";
-      await services();
+      window.ACPortal.setupNav();
+      await window.ACOperations.ready;
+      await show("home");
       const unitId = new URLSearchParams(location.search).get("unit");
       if (unitId) {
         await window.ACOperations.ready;
@@ -2477,6 +2490,7 @@
   });
   window.CarlabACNav = {
     open,
+    show,
     newFromFleet: async (u) => {
       await choose({
         company: u.company,
@@ -2505,5 +2519,8 @@
       return true;
     },
   };
-  boot();
+  // The shared portal is loaded by the following deferred scripts.
+  if (document.readyState !== "complete")
+    document.addEventListener("DOMContentLoaded", boot, { once: true });
+  else boot();
 })();

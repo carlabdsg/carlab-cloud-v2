@@ -13,36 +13,63 @@
     <script src="/hispacold-pdf.js?v=6.2" defer></script>
     <script src="/hispacold-drafts.js?v=5" defer></script>
     <link rel="stylesheet" href="/hispacold-guided.css?v=6" />
-    <script src="/hispacold.js?v=6.4" defer></script>
+    <script src="/hispacold.js?v=6.7" defer></script>
     <link rel="stylesheet" href="/ac-fleet.css?v=6.3" />
-    <script src="/ac-fleet.js?v=6.6" defer></script>
+    <script src="/ac-fleet.js?v=6.7" defer></script>
     <link rel="stylesheet" href="/ac-calendar.css?v=5.2" />
     <script src="/ac-calendar.js?v=6.6" defer></script>
     <link rel="stylesheet" href="/ac-reports.css?v=6.3" />
     <script src="/ac-reports.js?v=6.6" defer></script>
     <link rel="stylesheet" href="/ac-parts-picker.css?v=6.4" />
     <script src="/ac-parts-picker.js?v=6.4" defer></script>
-    <script src="/ac-operations.js?v=6.6" defer></script>
+    <link rel="stylesheet" href="/ac-portal.css?v=6.7" />
+    <link rel="stylesheet" href="/ac-admin.css?v=6.7" />
+    <script src="/ac-portal.js?v=6.7" defer></script>
+    <script src="/ac-operations.js?v=6.7" defer></script>
   </head>
-  <body class="hc-app">
+  <body class="hc-app" data-ac-portal="admin">
     <aside class="hc-sidebar">
       <a class="hc-brand" href="/"
         >CARLAB<span>CLOUD / SERVICIO TÉCNICO</span></a
       >
       <div class="hc-space-label">ESPACIO ADMINISTRADOR</div>
-      <nav aria-label="Climatización">
-        <button data-view="fleet">▰ &nbsp; Flotas AC</button>
-        <button data-view="services" class="selected">
-          ◈ &nbsp; Órdenes de servicio</button
-        ><button data-view="requests">✉ &nbsp; Solicitudes AC</button
-        ><button data-view="parts">▣ &nbsp; Refacciones AC</button
-        ><button data-view="reports">▤ &nbsp; Reportes AC</button
-        ><button data-view="access">♙ &nbsp; Accesos Supervisor AC</button
-        ><button data-view="calendar">▦ &nbsp; Próximos servicios</button
-        ><button data-view="history">◎ &nbsp; Expediente por unidad</button
-        ><button data-view="library">▤ &nbsp; Biblioteca técnica</button
-        ><button data-view="codes">⌁ &nbsp; Códigos de diagnóstico</button
-        ><button data-view="trash">▱ &nbsp; Papelera</button>
+      <nav class="acp-nav aca-nav" aria-label="Administración de climatización">
+        <button
+          type="button"
+          data-view="home"
+          data-ac-nav="home"
+          class="selected"
+        >
+          <span>Inicio</span>
+        </button>
+        <button type="button" data-view="companies" data-ac-nav="fleet">
+          <span>Flotas</span>
+        </button>
+        <button type="button" data-view="services" data-ac-nav="order">
+          <span>Órdenes</span>
+        </button>
+        <button type="button" data-view="requests" data-ac-nav="tracking">
+          <span>Solicitudes</span>
+        </button>
+        <button
+          type="button"
+          data-view="parts"
+          data-ac-nav="parts"
+          class="aca-desktop"
+        >
+          <span>Refacciones</span>
+        </button>
+        <button
+          type="button"
+          data-view="reports"
+          data-ac-nav="report"
+          class="aca-desktop"
+        >
+          <span>Reportes</span>
+        </button>
+        <button type="button" data-view="tools" data-ac-nav="more">
+          <span>Más opciones</span>
+        </button>
       </nav>
       <div class="hc-side-note">
         <span class="hc-dot"></span> HISPACOLD · EBERSPÄCHER<span

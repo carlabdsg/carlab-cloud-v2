@@ -28,6 +28,9 @@ CREATE TABLE IF NOT EXISTS ac_requests (
  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
  UNIQUE(created_by,client_key)
 );
+ALTER TABLE ac_requests ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE ac_requests ADD COLUMN IF NOT EXISTS deleted_by TEXT;
+ALTER TABLE ac_requests ADD COLUMN IF NOT EXISTS deletion_reason TEXT;
 CREATE INDEX IF NOT EXISTS ac_requests_brand_idx ON ac_requests(brand,created_at DESC);
 CREATE INDEX IF NOT EXISTS ac_requests_service_idx ON ac_requests(service_id);
 CREATE TABLE IF NOT EXISTS ac_request_events (
@@ -260,7 +263,7 @@ function register(
         fail("La cuenta no tiene una empresa válida asignada.", 403);
       req.acBrand = req.acAdmin || req.acCompany ? null : userBrand(u);
       if (
-        ["POST", "PATCH", "PUT"].includes(req.method) &&
+        ["POST", "PATCH", "PUT", "DELETE"].includes(req.method) &&
         (!req.body || typeof req.body !== "object" || Array.isArray(req.body))
       )
         fail("Formulario inválido.");
@@ -337,6 +340,9 @@ function register(
       createdAt: r.created_at,
       updatedAt: r.updated_at,
       createdBy: r.created_by,
+      deletedAt: r.deleted_at || null,
+      deletedBy: r.deleted_by || null,
+      deletionReason: r.deletion_reason || "",
     };
     return result;
   }
@@ -347,6 +353,8 @@ function register(
     );
     if (!r.rows[0]) fail("Solicitud no encontrada.", 404);
     allowed(req, r.rows[0].brand, r.rows[0].operator_company);
+    if (r.rows[0].deleted_at && !req.acAdmin)
+      fail("Solicitud no encontrada.", 404);
     const ev = await pool.query(
       "SELECT actor_name,action,details,created_at FROM ac_request_events WHERE request_id=$1 ORDER BY id DESC",
       [id],
@@ -551,7 +559,7 @@ function register(
         return res.json(r.rows);
       }
       const r = await pool.query(
-        `SELECT DISTINCT company,unit,brand FROM (SELECT c.name AS company,u.unit,u.brand FROM ac_fleet_units u JOIN ac_fleet_companies c ON c.id=u.company_id WHERE u.active=TRUE UNION SELECT company,unit,COALESCE(payload->>'brand','hispacold') FROM hc_services WHERE deleted_at IS NULL UNION SELECT operator_company AS company,unit,brand FROM ac_requests) x WHERE ($1::text IS NULL OR brand=$1) AND ($2::text IS NULL OR LOWER(TRIM(company))=LOWER(TRIM($2))) ORDER BY company,unit,brand LIMIT 1000`,
+        `SELECT DISTINCT company,unit,brand FROM (SELECT c.name AS company,u.unit,u.brand FROM ac_fleet_units u JOIN ac_fleet_companies c ON c.id=u.company_id WHERE u.active=TRUE UNION SELECT company,unit,COALESCE(payload->>'brand','hispacold') FROM hc_services WHERE deleted_at IS NULL UNION SELECT operator_company AS company,unit,brand FROM ac_requests WHERE deleted_at IS NULL) x WHERE ($1::text IS NULL OR brand=$1) AND ($2::text IS NULL OR LOWER(TRIM(company))=LOWER(TRIM($2))) ORDER BY company,unit,brand LIMIT 1000`,
         [req.acBrand, req.acCompany],
       );
       res.json(r.rows);
@@ -702,8 +710,11 @@ function register(
   router.get(
     "/requests",
     wrap(async (req, res) => {
+      const deleted = req.query.deleted === "true";
+      if (deleted && !req.acAdmin)
+        fail("Solo Carlab puede consultar las solicitudes eliminadas.", 403);
       const p = [],
-        w = [];
+        w = [deleted ? "r.deleted_at IS NOT NULL" : "r.deleted_at IS NULL"];
       if (req.acBrand) {
         p.push(req.acBrand);
         w.push(`r.brand=$${p.length}`);
@@ -873,6 +884,11 @@ function register(
           );
           if (previous.rows[0].brand !== b || previous.rows[0].kind !== kind)
             fail("El identificador pertenece a otra solicitud.", 409);
+          if (previous.rows[0].deleted_at)
+            fail(
+              "La solicitud fue eliminada. Solicita su recuperación al administrador.",
+              409,
+            );
           return { ...requestRow(previous.rows[0]), replayed: true };
         }
         const row = r.rows[0],
@@ -900,6 +916,64 @@ function register(
       res.status(result.replayed ? 200 : 201).json(result);
     }),
   );
+  // A request is a separate record: archiving never modifies its linked order.
+  async function setRequestDeleted(req, res, restore) {
+    const reason = text(req.body.reason, 1000);
+    if (!restore && !reason) fail("Indica el motivo de eliminación.");
+    await transaction(async (client) => {
+      const {
+        rows: [row],
+      } = await client.query(
+        "SELECT * FROM ac_requests WHERE id=$1 FOR UPDATE",
+        [req.params.id],
+      );
+      if (!row || row.kind !== "service")
+        fail("Solicitud de servicio no encontrada.", 404);
+      if (row.version !== req.body.version)
+        fail(
+          "Otra sesión actualizó esta solicitud. Recarga antes de continuar.",
+          409,
+        );
+      if (restore ? !row.deleted_at : !!row.deleted_at)
+        fail(
+          restore
+            ? "La solicitud ya está activa."
+            : "La solicitud ya fue eliminada.",
+          409,
+        );
+      await client.query(
+        restore
+          ? "UPDATE ac_requests SET deleted_at=NULL,deleted_by=NULL,deletion_reason=NULL,version=version+1,updated_by=$2,updated_at=NOW() WHERE id=$1"
+          : "UPDATE ac_requests SET deleted_at=NOW(),deleted_by=$2,deletion_reason=$3,version=version+1,updated_by=$2,updated_at=NOW() WHERE id=$1",
+        restore ? [row.id, req.acUser.id] : [row.id, req.acUser.id, reason],
+      );
+      await client.query(
+        "INSERT INTO ac_request_events(request_id,actor,actor_name,action,details) VALUES($1,$2,$3,$4,$5)",
+        [
+          row.id,
+          req.acUser.id,
+          req.acUser.nombre,
+          restore ? "restauracion" : "eliminacion",
+          JSON.stringify({
+            notes: restore
+              ? "Solicitud recuperada; conserva su estado y orden vinculada."
+              : reason,
+          }),
+        ],
+      );
+    });
+    res.json(await requestDetail(req, req.params.id));
+  }
+  router.delete(
+    "/requests/:id",
+    admin,
+    wrap((req, res) => setRequestDeleted(req, res, false)),
+  );
+  router.post(
+    "/requests/:id/restore",
+    admin,
+    wrap((req, res) => setRequestDeleted(req, res, true)),
+  );
   router.patch(
     "/requests/:id",
     admin,
@@ -911,6 +985,8 @@ function register(
         );
         const row = r.rows[0];
         if (!row) fail("Solicitud no encontrada.", 404);
+        if (row.deleted_at)
+          fail("Recupera la solicitud antes de modificarla.", 409);
         if (row.version !== req.body.version)
           fail("Otra sesión actualizó esta solicitud. Recarga.", 409);
         const status = text(req.body.status, 30),
@@ -1039,6 +1115,8 @@ function register(
         const row = r.rows[0];
         if (!row || row.kind !== "service")
           fail("Solicitud de servicio no encontrada.", 404);
+        if (row.deleted_at)
+          fail("Recupera la solicitud antes de crear una orden.", 409);
         if (row.service_id) {
           const old = await client.query(
             "SELECT * FROM hc_services WHERE id=$1",
@@ -1373,7 +1451,7 @@ function register(
     (n.target_type='fleet' AND EXISTS(SELECT 1 FROM ac_fleet_units u JOIN ac_fleet_companies c ON c.id=u.company_id WHERE u.id=n.target_id AND LOWER(TRIM(c.name))=LOWER(TRIM($1))))
   )`
         : "n.brand=$1 AND n.audience='all'";
-  const relevant = `(n.target_type<>'fleet' OR EXISTS(SELECT 1 FROM ac_fleet_units fu WHERE fu.id=n.target_id AND fu.active=TRUE AND fu.brand=n.brand AND fu.condition='no_operativo')) AND (n.target_type<>'order' OR EXISTS(SELECT 1 FROM hc_services s WHERE s.id=n.target_id AND s.deleted_at IS NULL AND (n.kind<>'closure_reminder' OR s.status IN ('borrador','en_proceso')) AND (n.kind<>'maintenance_due' OR (s.next_date IS NOT NULL AND n.event_key='maintenance:'||s.id||':'||s.next_date::text AND s.id IN (SELECT id FROM hc_services s2 WHERE s2.deleted_at IS NULL AND s2.status='completado' AND (s2.type='preventivo' OR s2.next_date IS NOT NULL) AND LOWER(TRIM(s2.company))=LOWER(TRIM(s.company)) AND LOWER(TRIM(s2.unit))=LOWER(TRIM(s.unit)) AND COALESCE(s2.payload->>'brand','hispacold')=COALESCE(s.payload->>'brand','hispacold') ORDER BY s2.service_date DESC,s2.number DESC LIMIT 1)))))`;
+  const relevant = `(n.target_type<>'request' OR EXISTS(SELECT 1 FROM ac_requests r WHERE r.id=n.target_id AND r.deleted_at IS NULL)) AND (n.target_type<>'fleet' OR EXISTS(SELECT 1 FROM ac_fleet_units fu WHERE fu.id=n.target_id AND fu.active=TRUE AND fu.brand=n.brand AND fu.condition='no_operativo')) AND (n.target_type<>'order' OR EXISTS(SELECT 1 FROM hc_services s WHERE s.id=n.target_id AND s.deleted_at IS NULL AND (n.kind<>'closure_reminder' OR s.status IN ('borrador','en_proceso')) AND (n.kind<>'maintenance_due' OR (s.next_date IS NOT NULL AND n.event_key='maintenance:'||s.id||':'||s.next_date::text AND s.id IN (SELECT id FROM hc_services s2 WHERE s2.deleted_at IS NULL AND s2.status='completado' AND (s2.type='preventivo' OR s2.next_date IS NOT NULL) AND LOWER(TRIM(s2.company))=LOWER(TRIM(s.company)) AND LOWER(TRIM(s2.unit))=LOWER(TRIM(s.unit)) AND COALESCE(s2.payload->>'brand','hispacold')=COALESCE(s.payload->>'brand','hispacold') ORDER BY s2.service_date DESC,s2.number DESC LIMIT 1)))))`;
   async function reminders(req, today) {
     const p = [today];
     let b = "";

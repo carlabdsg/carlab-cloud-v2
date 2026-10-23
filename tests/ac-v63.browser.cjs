@@ -51,6 +51,7 @@ fs.mkdirSync(out, { recursive: true });
       .fill("Retiro de unidad para prueba");
     await page.locator("#acf-removal-form button[type=submit]").click();
     await page.locator("#acf-dialog").waitFor({ state: "hidden" });
+    await page.locator(".acp-filter-details > summary").click();
     await page.locator("#acf-filters [name=archived]").selectOption("true");
     await page.locator("#acf-filters button[type=submit]").click();
     await page.locator('[data-af=detail][data-id="' + ids[0] + '"]').click();
@@ -74,7 +75,11 @@ fs.mkdirSync(out, { recursive: true });
       await page.locator("[data-ac-action=link-inventory]").count(),
       0,
     );
-    await page.locator("[data-ac-action=movement]").click();
+    await page
+      .locator(".ac-part-card")
+      .filter({ hasText: "Filtro AC exclusivo" })
+      .locator("[data-ac-action=movement]")
+      .click();
     await page.locator("#ac-movement-form [name=quantity]").fill("3");
     await page
       .locator("#ac-movement-form [name=notes]")

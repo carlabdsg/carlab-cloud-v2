@@ -49,6 +49,14 @@ fs.mkdirSync(out, { recursive: true });
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto(h.url + "/hispacold.html");
     await page
+      .getByRole("heading", { name: "El control de tu operación AC" })
+      .waitFor()
+      .catch(async (e) => {
+        console.error(await page.locator("#hc-main").innerText(), errors);
+        throw e;
+      });
+    await page.locator("[data-view=services]").click();
+    await page
       .locator('[data-action=continue-order][data-id="' + id + '"]')
       .click();
     await page.locator('.hc-guided-steps [data-step="2"]').click();
@@ -162,7 +170,7 @@ fs.mkdirSync(out, { recursive: true });
     assert(
       (await page.locator("[data-ac-action=official-document]").count()) > 1,
     );
-    await page.locator("[data-ac-action=dialog-close]").click();
+    await page.locator("[data-ac-action=dialog-close]").first().click();
     phase = "mobile picker close, search and selection";
     const mc = await browser.newContext({ ...devices["iPhone 13"] });
     await mc.addInitScript(
@@ -173,6 +181,10 @@ fs.mkdirSync(out, { recursive: true });
     phone.on("pageerror", (e) => errors.push(e.message));
     phone.setDefaultTimeout(20000);
     await phone.goto(h.url + "/hispacold.html");
+    await phone
+      .getByRole("heading", { name: "El control de tu operación AC" })
+      .waitFor();
+    await phone.locator("[data-view=services]").click();
     await phone
       .locator('[data-action=continue-order][data-id="' + id + '"]')
       .click();

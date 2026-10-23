@@ -13,6 +13,10 @@
         })[c],
     );
   const icons = {
+    more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+    parts: '<path d="m3 7 9-4 9 4v10l-9 4-9-4zm0 0 9 5 9-5M12 12v9M7 5l9 5"/>',
+    order:
+      '<rect x="5" y="4" width="14" height="18" rx="2"/><path d="M9 2h6v5H9zm0 9h6m-6 4h6"/>',
     home: '<path d="m3 10 9-7 9 7v10H3zM9 20v-7h6v7"/>',
     fleet:
       '<rect x="4" y="3" width="16" height="17" rx="3"/><path d="M4 12h16M8 20v2m8-2v2M8 16h1m6 0h1M8 7h8"/>',
@@ -57,8 +61,10 @@
     companyData = [],
     companyQuery = "";
   function setupNav() {
-    for (const el of document.querySelectorAll("[data-ac-nav]"))
-      el.insertAdjacentHTML("afterbegin", icon(el.dataset.acNav));
+    for (const el of document.querySelectorAll("[data-ac-nav]")) {
+      if (!el.querySelector("svg"))
+        el.insertAdjacentHTML("afterbegin", icon(el.dataset.acNav));
+    }
   }
   function selectNav(view) {
     const key = ["fleet", "companies", "upcoming"].includes(view)
@@ -110,13 +116,23 @@
         .slice(0, 5);
     document.querySelector("#hc-main").innerHTML =
       header(
-        "Tu operación, de un vistazo",
-        "Elige una prioridad o entra a tu flota para solicitar atención.",
-        action(
-          icon("plus") + " Solicitar atención",
-          'data-aportal="request"',
-          "primary",
-        ),
+        context.info.permissions.manageOrders
+          ? "El control de tu operación AC"
+          : "Tu operación, de un vistazo",
+        context.info.permissions.manageOrders
+          ? "Atiende prioridades, organiza el taller y consulta cada empresa."
+          : "Elige una prioridad o entra a tu flota para solicitar atención.",
+        context.info.permissions.manageOrders
+          ? action(
+              icon("plus") + " Nueva orden",
+              'data-action="new"',
+              "primary",
+            ) + nav("requests", "Ver solicitudes", "tracking")
+          : action(
+              icon("plus") + " Solicitar atención",
+              'data-aportal="request"',
+              "primary",
+            ),
       ) +
       `<section class="acp-kpis" aria-label="Resumen de tu operación">${[
         [
@@ -157,7 +173,7 @@
             `<button type="button" class="acp-kpi ${color}" data-aportal="metric" data-filter="${filter}" data-value="${value}"><span>${label}</span><strong>${count}</strong><small>${help} ${icon("arrow")}</small></button>`,
         )
         .join("")}</section>
-    <div class="acp-home-grid"><section class="acp-panel"><div class="acp-panel-head"><div><h2>Atención prioritaria</h2><p>Primero lo que necesita seguimiento.</p></div><span class="acp-count">${s.red + s.amber}</span></div>${priority.map(priorityRow).join("") || '<div class="acp-empty">Sin alertas en las unidades registradas.<small>Las unidades sin evaluación se muestran en gris en Flotas.</small></div>'}${nav("companies", "Ver mis flotas", "fleet", "acp-wide")}</section>
+    <div class="acp-home-grid"><section class="acp-panel"><div class="acp-panel-head"><div><h2>Atención prioritaria</h2><p>Primero lo que necesita seguimiento.</p></div><span class="acp-count">${s.red + s.amber}</span></div>${priority.map(priorityRow).join("") || '<div class="acp-empty">Sin alertas en las unidades registradas.<small>Las unidades sin evaluación se muestran en gris en Flotas.</small></div>'}${nav("companies", context.info.permissions.manageOrders ? "Ver flotas" : "Ver mis flotas", "fleet", "acp-wide")}</section>
     <section class="acp-panel"><div class="acp-panel-head"><div><h2>Próximos 7 días</h2><p>Servicios con fecha registrada.</p></div>${icon("calendar")}</div>${
       calendar.items
         .slice(0, 5)
@@ -168,7 +184,7 @@
         .join("") ||
       '<div class="acp-empty">Sin servicios programados en estos días.</div>'
     }${nav("upcoming", "Abrir calendario", "calendar", "acp-wide")}</section></div>
-    <div class="acp-section-head"><h2>${ctx.info.user.company ? "Mi empresa" : "Empresas de mi marca"}</h2>${nav("companies", "Ver todas", "arrow")}</div><section class="acp-companies acp-home-companies">${fleet.companies.slice(0, 3).map(companyCard).join("") || '<p class="hc-empty">Carlab aún no ha registrado unidades en tu acceso.</p>'}</section><p class="acp-updated">Información actualizada al abrir esta vista · ${new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })} ${action("Actualizar", 'data-aportal="refresh"')}</p>`;
+    <div class="acp-section-head"><h2>${ctx.info.user.company ? "Mi empresa" : ctx.info.permissions.manageOrders ? "Empresas y flotas" : "Empresas de mi marca"}</h2>${nav("companies", "Ver todas", "arrow")}</div><section class="acp-companies acp-home-companies">${fleet.companies.slice(0, 3).map(companyCard).join("") || '<p class="hc-empty">Aún no hay unidades registradas para este acceso.</p>'}</section><p class="acp-updated">Información actualizada al abrir esta vista · ${new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })} ${action("Actualizar", 'data-aportal="refresh"')}</p>`;
   }
   async function companies(context) {
     ctx = context;
@@ -191,7 +207,9 @@
       header(
         ctx.info.user.company ? "Mi flota AC" : "Elige una empresa",
         "Abre una empresa para consultar sus autobuses y su estado de climatización.",
-        nav("upcoming", "Calendario", "calendar"),
+        (context.info.permissions.manageOrders
+          ? nav("fleet", "Administrar unidades", "plus", "primary")
+          : "") + nav("upcoming", "Calendario", "calendar"),
       ) +
       `<label class="acp-search"><span>Buscar empresa</span><input id="acp-company-search" type="search" placeholder="Escribe el nombre de la empresa" autocomplete="off"></label><section id="acp-company-grid" class="acp-companies"></section>`;
     renderCompanies();
@@ -203,6 +221,93 @@
         .map(companyCard)
         .join("") ||
       '<div class="hc-empty">No hay empresas para esta búsqueda.</div>';
+  }
+  function tools(context) {
+    ctx = context;
+    if (!ctx.info.permissions.manageOrders) return;
+    const groups = [
+      [
+        "Operación",
+        [
+          [
+            "calendar",
+            "calendar",
+            "Calendario",
+            "Servicios próximos y fechas vencidas",
+          ],
+          [
+            "parts",
+            "parts",
+            "Refacciones AC",
+            "Catálogo oficial, existencias y movimientos",
+          ],
+          [
+            "reports",
+            "report",
+            "Reportes",
+            "Resultados por semana, mes, empresa o marca",
+          ],
+        ],
+      ],
+      [
+        "Consulta técnica",
+        [
+          [
+            "history",
+            "fleet",
+            "Expedientes",
+            "Historial técnico de cada unidad",
+          ],
+          [
+            "library",
+            "report",
+            "Biblioteca técnica",
+            "Manuales y documentos de los fabricantes",
+          ],
+          [
+            "codes",
+            "tracking",
+            "Diagnóstico",
+            "Códigos y referencias de fallas",
+          ],
+        ],
+      ],
+      [
+        "Administración",
+        [
+          [
+            "access",
+            "company",
+            "Supervisores AC",
+            "Accesos por marca o empresa de flota",
+          ],
+          [
+            "notifications",
+            "tracking",
+            "Notificaciones",
+            "Solicitudes, órdenes y recordatorios",
+          ],
+          [
+            "trash",
+            "order",
+            "Papelera de órdenes",
+            "Consultar y recuperar órdenes eliminadas",
+          ],
+        ],
+      ],
+    ];
+    document.querySelector("#hc-main").innerHTML =
+      header(
+        "Todo en su lugar",
+        "Elige la herramienta que necesitas para continuar.",
+      ) +
+      groups
+        .map(
+          ([title, items]) =>
+            `<section class="aca-tools-section"><h2>${title}</h2><div class="aca-tool-grid">${items.map(([view, ico, label, desc]) => `<button type="button" class="aca-tool" data-view="${view}"><span class="aca-tool-icon">${icon(ico)}</span><span><b>${label}</b><small>${desc}</small></span>${icon("arrow")}</button>`).join("")}</div></section>`,
+        )
+        .join("") +
+      '<a class="hc-btn aca-cloud-link" href="/">← Volver a Carlab Cloud</a>';
   }
   function trackingTabs(view) {
     return `<div class="acp-tabs" aria-label="Seguimiento">${nav("requests", "Solicitudes", "tracking", view === "requests" ? "primary" : "")}${nav("orders", "Órdenes de servicio", "fleet", view === "orders" ? "primary" : "")}${nav("parts", "Solicitar refacciones", "plus", view === "parts" ? "primary" : "")}</div>`;
@@ -245,7 +350,7 @@
   }
   function requestCard(x, info) {
     ctx = { ...ctx, info };
-    return `<article class="acp-follow-card"><div class="acp-follow-head"><span class="acp-kind">${x.kind === "part" ? "REFACCIÓN" : "SERVICIO"} · ${esc(x.folio)}</span><span class="hc-badge">${esc(info.stages[x.status])}</span></div><h2>Unidad ${esc(x.unit)}</h2><p class="acp-follow-company">${esc(x.company)} · ${esc(info.brands[x.brand])}</p><p class="acp-follow-description">${esc(x.kind === "part" ? `${x.data.quantity} × ${x.data.partName}` : x.data.description)}</p>${progress(x)}${x.serviceStatus ? `<p class="acp-linked-status">Orden vinculada · ${esc({ borrador: "Por iniciar", en_proceso: "En proceso", espera_refaccion: "En espera de refacción", completado: "Completada", cancelado: "Cancelada" }[x.serviceStatus] || x.serviceStatus)}</p>` : ""}${x.data.reply ? `<p class="acp-reply"><b>Respuesta de Carlab:</b> ${esc(x.data.reply)}</p>` : ""}<div class="hc-actions">${action("Ver seguimiento", `data-ac-action="request-detail" data-id="${esc(x.id)}"`)}${x.serviceId ? action("Ver orden", `data-ac-action="order-detail" data-id="${esc(x.serviceId)}"`) : ""}</div></article>`;
+    return `<article class="acp-follow-card"><div class="acp-follow-head"><span class="acp-kind">${x.kind === "part" ? "REFACCIÓN" : "SERVICIO"} · ${esc(x.folio)}</span><span class="hc-badge">${esc(x.deletedAt ? "Eliminada" : info.stages[x.status])}</span></div><h2>Unidad ${esc(x.unit)}</h2><p class="acp-follow-company">${esc(x.company)} · ${esc(info.brands[x.brand])}</p><p class="acp-follow-description">${esc(x.kind === "part" ? `${x.data.quantity} × ${x.data.partName}` : x.data.description)}</p>${x.deletedAt ? `<p class="acp-outcome">Motivo: ${esc(x.deletionReason)}</p>` : progress(x)}${x.serviceStatus ? `<p class="acp-linked-status">Orden vinculada · ${esc({ borrador: "Por iniciar", en_proceso: "En proceso", espera_refaccion: "En espera de refacción", completado: "Completada", cancelado: "Cancelada" }[x.serviceStatus] || x.serviceStatus)}</p>` : ""}${x.data.reply ? `<p class="acp-reply"><b>Respuesta de Carlab:</b> ${esc(x.data.reply)}</p>` : ""}<div class="hc-actions">${action(info.permissions.manageOrders ? "Gestionar solicitud" : "Ver seguimiento", `data-ac-action="request-detail" data-id="${esc(x.id)}"`)}${x.serviceId ? action("Ver orden", `data-ac-action="order-detail" data-id="${esc(x.serviceId)}"`) : ""}${info.permissions.manageOrders && x.kind === "service" ? action(x.deletedAt ? "Recuperar" : "Eliminar solicitud", `data-ac-action="${x.deletedAt ? "request-restore" : "request-delete"}" data-id="${esc(x.id)}"`, x.deletedAt ? "" : "aca-danger") : ""}</div></article>`;
   }
   function requestChooser(context) {
     ctx = context;
@@ -291,6 +396,7 @@
     selectNav,
     home,
     companies,
+    tools,
     trackingTabs,
     requestCard,
     requestChooser,

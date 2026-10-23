@@ -126,6 +126,10 @@ fs.mkdirSync(out, { recursive: true });
     phase = "admin creates a company supervisor";
     const admin = await pageFor("admin", "admin");
     await admin.goto(h.url + "/hispacold.html");
+    await admin
+      .getByRole("heading", { name: "El control de tu operación AC" })
+      .waitFor();
+    await admin.locator(".aca-nav [data-view=tools]").click();
     await admin.locator("[data-view=access]").click();
     await admin.locator("[data-ac-action=new-fleet-user]").click();
     const form = admin.locator("#ac-user-form");

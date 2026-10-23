@@ -44,7 +44,7 @@ function register(router, { pool, wrap, fail, text, brand, day, transaction }) {
         `SELECT DISTINCT company FROM (
     SELECT c.name AS company,u.brand FROM ac_fleet_units u JOIN ac_fleet_companies c ON c.id=u.company_id
     UNION SELECT company,COALESCE(payload->>'brand','hispacold') FROM hc_services WHERE deleted_at IS NULL
-    UNION SELECT operator_company,brand FROM ac_requests
+    UNION SELECT operator_company,brand FROM ac_requests WHERE deleted_at IS NULL
     ) x WHERE ($1::text IS NULL OR brand=$1) AND ($2::text IS NULL OR LOWER(TRIM(company))=LOWER(TRIM($2))) ORDER BY company`,
         [b, req.acCompany],
       );
@@ -88,7 +88,7 @@ function register(router, { pool, wrap, fail, text, brand, day, transaction }) {
      r.payload->>'description' AS description,r.payload->>'partName' AS part_name,r.payload->>'quantity' AS quantity,
      r.payload->>'priority' AS priority,r.payload->>'scheduledDate' AS scheduled_date
      FROM ac_requests r LEFT JOIN hc_services s ON s.id=r.service_id AND LOWER(TRIM(s.company))=LOWER(TRIM(r.operator_company)) AND LOWER(TRIM(s.unit))=LOWER(TRIM(r.unit)) AND COALESCE(s.payload->>'brand','hispacold')=r.brand
-     WHERE ($3::text IS NULL OR r.brand=$3) AND ($4='' OR LOWER(TRIM(r.operator_company))=LOWER(TRIM($4)))
+     WHERE r.deleted_at IS NULL AND ($3::text IS NULL OR r.brand=$3) AND ($4='' OR LOWER(TRIM(r.operator_company))=LOWER(TRIM($4)))
      AND ((r.created_at AT TIME ZONE 'America/Mazatlan')::date BETWEEN $1::date AND $2::date OR
       (r.status NOT IN ('atendida','entregada','rechazada','cancelada') AND NOT (COALESCE(s.status,'')='completado' AND s.deleted_at IS NULL)))
      ORDER BY r.created_at DESC LIMIT 10001`,

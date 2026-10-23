@@ -48,7 +48,7 @@
     library,
     currentView = "",
     offset = 0,
-    filters = { kind: "", brand: "", status: "", pending: "" },
+    filters = { kind: "", brand: "", status: "", pending: "", deleted: "" },
     parts = [],
     requests = [],
     users = [],
@@ -121,9 +121,7 @@
       document.body.append(el);
     }
     el.innerHTML =
-      (external
-        ? '<div class="acp-dialog-top"><button type="button" class="hc-btn" data-ac-action="dialog-close" aria-label="Cerrar ventana">×</button></div>'
-        : "") +
+      '<div class="acp-dialog-top"><button type="button" class="hc-btn" data-ac-action="dialog-close" aria-label="Cerrar ventana">×</button></div>' +
       html +
       '<p id="ac-dialog-error" class="hc-error" role="alert"></p>';
     if (!el.open) el.showModal();
@@ -133,8 +131,24 @@
   }
   async function navigate(view, id) {
     $("#ac-notification-panel").hidden = true;
-    if (!external && window.CarlabACNav)
-      return window.CarlabACNav.operations(view, id);
+    if (!external && window.CarlabACNav) {
+      if (view === "order") return window.CarlabACNav.open(id);
+      if (
+        [
+          "services",
+          "orders",
+          "history",
+          "library",
+          "codes",
+          "trash",
+          "calendar",
+        ].includes(view)
+      )
+        return window.CarlabACNav.show(view === "orders" ? "services" : view);
+      const result = await window.CarlabACNav.operations(view, id);
+      if (result) window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+      return result;
+    }
     await show(view, id);
     if (external) window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     return true;
@@ -239,7 +253,7 @@
       .forEach((el) =>
         el.classList.toggle("selected", el.dataset.acView === view),
       );
-    if (external && ["home", "companies"].includes(view)) {
+    if (["home", "companies", "tools"].includes(view)) {
       await window.ACPortal[view](portalContext(view));
       return;
     }
@@ -249,16 +263,23 @@
         info,
         library,
         external,
+        visual: true,
         toast,
         navigate,
         newRequest,
         active: () => currentView === "fleet",
-        initialFilters: external && id && typeof id === "object" ? id : null,
+        initialFilters: id && typeof id === "object" ? id : {},
       });
       if (typeof id === "string") await window.ACFleet.openDetail(id);
     } else if (view === "requests") {
-      if (external && id?.pending) {
-        filters = { kind: "", brand: "", status: "", pending: "true" };
+      if (id?.pending) {
+        filters = {
+          kind: "",
+          brand: "",
+          status: "",
+          pending: "true",
+          deleted: "",
+        };
         offset = 0;
       }
       await showRequests();
@@ -298,18 +319,26 @@
         `<details class="acp-filter-details" ${Object.values(filters).some(Boolean) ? "open" : ""}><summary>Filtrar solicitudes ${filters.pending === "true" ? "· Solo pendientes" : ""}</summary><form id="ac-request-filters" class="hc-filters">${select("Tipo", "kind", { service: "Servicio", part: "Refacción" }, filters.kind, "Todos")}${select("Estado", "status", info.stages, filters.status, "Todos")}${select("Mostrar", "pending", { true: "Solo pendientes" }, filters.pending, "Todas las solicitudes")}<button type="submit" class="hc-btn primary">Aplicar</button></form></details><section class="acp-follow-grid">${requests.map((x) => window.ACPortal.requestCard(x, info)).join("") || '<div class="hc-empty">No hay solicitudes para esta selección.</div>'}</section><div class="hc-pager"><span>${r.total} solicitudes</span><div class="hc-actions">${button("Anterior", "request-prev", offset === 0 ? "disabled" : "")}${button("Siguiente", "request-next", offset + 25 >= r.total ? "disabled" : "")}</div></div>`;
       return;
     }
+    const deleted = filters.deleted === "true";
     $("#hc-main").innerHTML =
       heading(
-        external
-          ? "Solicitudes de mi marca"
-          : "Solicitudes de servicio y refacciones",
-        external
-          ? `${name(info.user.brand)} · Seguimiento de las solicitudes enviadas a Carlab.`
-          : "Revisa solicitudes, programa servicios y entrega refacciones con trazabilidad.",
+        "Solicitudes AC",
+        "Revisa cada solicitud, programa la atención y consulta su avance.",
         button("+ Solicitar servicio", "new-service", "", "primary") +
           button("+ Solicitar refacción", "new-part"),
       ) +
-      `<form id="ac-request-filters" class="hc-filters">${external ? "" : select("Marca", "brand", info.brands, filters.brand, "Todas las marcas")}${select("Solicitud", "kind", { service: "Servicio", part: "Refacción" }, filters.kind, "Todos los tipos")}${select("Estado", "status", info.stages, filters.status, "Todos los estados")}<button class="hc-btn" type="submit">Filtrar</button>${button("Actualizar", "refresh")}</form><section class="hc-panel"><div class="hc-order-cards">${r.items.map((x) => `<article class="hc-order-card"><div class="hc-order-top"><b>${esc(x.folio)}</b><span class="hc-badge">${esc(info.stages[x.status])}</span></div><h3>${esc(x.company)} · ${esc(x.unit)}</h3><div class="hc-chips"><span>${esc(name(x.brand))}</span><span>${x.kind === "service" ? "Servicio" : "Refacción"}</span>${x.data.priority === "urgente" ? '<span class="hc-chip-express">Urgente</span>' : ""}</div><p>${esc(x.kind === "part" ? `${x.data.quantity} × ${x.data.partName}` : x.data.description)}</p><small>${fmt(x.createdAt)}${x.serviceStatus ? " · Orden: " + esc(library?.statuses?.[x.serviceStatus] || x.serviceStatus) : ""}</small>${button("Consultar solicitud", "request-detail", `data-id="${x.id}"`)}</article>`).join("") || '<div class="hc-empty">Sin solicitudes para este filtro.</div>'}</div><div class="hc-pager"><span>${r.total} solicitudes</span><div class="hc-actions">${button("Anterior", "request-prev", "" + (offset === 0 ? "disabled" : ""))}${button("Siguiente", "request-next", offset + 25 >= r.total ? "disabled" : "")}</div></div></section>`;
+      `<div class="acp-tabs" aria-label="Bandejas de solicitudes">${button("Activas", "request-inbox", 'data-deleted="" aria-pressed="' + !deleted + '"', !deleted ? "primary" : "")}${button("Eliminadas", "request-inbox", 'data-deleted="true" aria-pressed="' + deleted + '"', deleted ? "primary" : "")}</div>
+    ${deleted ? '<p class="hc-note">Solicitudes de servicio eliminadas. Puedes recuperarlas con su seguimiento y su orden vinculada.</p>' : ""}
+    <details class="acp-filter-details" ${[filters.brand, filters.kind, filters.status, filters.pending].some(Boolean) ? "open" : ""}><summary>Buscar por marca, tipo o estado ${filters.pending === "true" ? "· Solo pendientes" : ""}</summary><form id="ac-request-filters" class="hc-filters"><input type="hidden" name="deleted" value="${deleted ? "true" : ""}">${select("Marca", "brand", info.brands, filters.brand, "Todas las marcas")}${select("Tipo", "kind", { service: "Servicio", part: "Refacción" }, filters.kind, "Todos")}${select("Estado", "status", info.stages, filters.status, "Todos")}${select("Mostrar", "pending", { true: "Solo pendientes" }, filters.pending, "Todas las solicitudes")}<button class="hc-btn primary" type="submit">Aplicar</button>${button("Actualizar", "refresh")}</form></details>
+    <section class="acp-follow-grid">${requests.map((x) => window.ACPortal.requestCard(x, info)).join("") || '<div class="hc-empty">No hay solicitudes para esta selección.</div>'}</section>
+    <div class="hc-pager"><span>${r.total} solicitudes</span><div class="hc-actions">${button("Anterior", "request-prev", offset === 0 ? "disabled" : "")}${button("Siguiente", "request-next", offset + 25 >= r.total ? "disabled" : "")}</div></div>`;
+  }
+  async function requestRemoval(id, restore) {
+    currentRequest = await api("/requests/" + id);
+    const x = currentRequest;
+    dialog(
+      `<div class="hc-kicker">SOLICITUD DE SERVICIO</div><h2>${restore ? "Recuperar" : "Eliminar"} ${esc(x.folio)}</h2><p><b>${esc(x.company)} · Unidad ${esc(x.unit)}</b></p><p>${restore ? "Volverá a las solicitudes activas con el estado y seguimiento que tenía." : "Se moverá a Eliminadas y dejará de aparecer en los pendientes. Podrás recuperarla después."}</p>${x.serviceId ? '<div class="hc-note">La orden vinculada conservará su estado, trabajos, fotografías y reporte técnico.</div>' : ""}<form id="ac-request-removal"><input type="hidden" name="restore" value="${restore}">${restore ? "" : field("Motivo de eliminación *", "reason", "", "textarea", 'required maxlength="1000" rows="3" placeholder="Por ejemplo: solicitud duplicada"')}<div class="hc-actions">${button("Cancelar", "dialog-close")}<button type="submit" class="hc-btn ${restore ? "primary" : "aca-danger"}">${restore ? "Recuperar solicitud" : "Eliminar solicitud"}</button></div></form>`,
+    );
   }
   async function newRequest(kind, partId = "", seed = null) {
     requestPhotos = [];
@@ -399,10 +428,12 @@
   async function requestDetail(id) {
     currentRequest = await api("/requests/" + id);
     const x = currentRequest,
-      available = info.transitions?.[x.kind]?.[x.status] || [];
+      available = x.deletedAt
+        ? []
+        : info.transitions?.[x.kind]?.[x.status] || [];
     if (info.permissions.manageInventory)
       parts = await api("/parts?brand=" + x.brand);
-    dialog(`<div class="hc-kicker">${esc(name(x.brand))} / ${x.kind === "service" ? "SOLICITUD DE SERVICIO" : "SOLICITUD DE REFACCIÓN"}</div><h2>${esc(x.folio)}</h2><div class="hc-chips"><span>${esc(info.stages[x.status])}</span><span>${esc(x.company)} · ${esc(x.unit)}</span></div><p class="ac-detail-description">${esc(x.data.description)}</p><div class="hc-grid ac-summary">${[
+    dialog(`<div class="hc-kicker">${esc(name(x.brand))} / ${x.kind === "service" ? "SOLICITUD DE SERVICIO" : "SOLICITUD DE REFACCIÓN"}</div><h2>${esc(x.folio)}</h2>${x.deletedAt ? `<div class="acp-outcome"><b>Solicitud eliminada · ${fmt(x.deletedAt)}</b><p>${esc(x.deletionReason)}</p></div>` : ""}<div class="hc-chips"><span>${esc(info.stages[x.status])}</span><span>${esc(x.company)} · ${esc(x.unit)}</span></div><p class="ac-detail-description">${esc(x.data.description)}</p><div class="hc-grid ac-summary">${[
       [
         "Prioridad",
         { normal: "Normal", alta: "Alta", urgente: "Urgente" }[x.data.priority],
@@ -427,8 +458,8 @@
         "",
       )}</div>${x.data.reply ? `<div class="hc-note"><b>Respuesta de Carlab</b><p>${esc(x.data.reply)}</p></div>` : ""}<div class="ac-photos">${x.data.evidence.map((p) => `<img src="${esc(p.data)}" alt="Evidencia de solicitud">`).join("")}</div>${x.serviceId ? button("Consultar orden vinculada", "linked-order", `data-id="${x.serviceId}"`) : ""}
  ${available.length ? `<details class="hc-extra-fields" open><summary>Seguimiento Carlab</summary><form id="ac-request-update" class="hc-extra-content"><div class="hc-grid">${select("Nuevo estado *", "status", Object.fromEntries(available.map((s) => [s, info.stages[s]])), "", "Seleccionar estado")}${field("Fecha programada (para programar)", "scheduledDate", x.data.scheduledDate || "", "date")}${x.kind === "part" ? select("Refacción a entregar", "partId", Object.fromEntries(parts.map((p) => [p.id, `${p.name} · disponible ${p.stock}`])), x.data.partId, "Seleccionar pieza de inventario") : ""}${field("Respuesta / motivo / seguimiento", "notes", "", "textarea")}</div><button class="hc-btn primary" type="submit">Guardar seguimiento</button></form></details>` : ""}
- ${info.permissions.manageOrders && x.kind === "service" && !x.serviceId && !["rechazada", "cancelada", "orden_creada"].includes(x.status) ? `<details class="hc-extra-fields"><summary>Crear orden desde esta solicitud</summary><form id="ac-convert-request" class="hc-extra-content"><div class="hc-grid">${select("Servicio *", "type", info.serviceTypes, "", "Seleccionar servicio")}${select("Atención", "attention", { normal: "Normal", express: "Express" }, x.data.priority === "urgente" ? "express" : "normal")}${field("Fecha del servicio", "serviceDate", today(), "date", "required")}</div><p class="hc-subtle">Se abrirá una orden en borrador con la unidad, el motivo y las fotografías de la solicitud.</p><button class="hc-btn primary" type="submit">Crear orden</button></form></details>` : ""}
- <details class="hc-extra-fields"><summary>Bitácora de seguimiento</summary><div class="hc-timeline">${x.events.map((e) => `<div class="hc-event"><b>${esc(e.actor_name)}</b> · ${fmt(e.created_at)}<small>${esc(info.stages[e.details.status] || e.action)}${e.details.notes ? " · " + esc(e.details.notes) : ""}${e.details.folio ? " · " + esc(e.details.folio) : ""}</small></div>`).join("")}</div></details><div class="hc-actions">${button("Cerrar", "dialog-close")}</div>`);
+ ${info.permissions.manageOrders && !x.deletedAt && x.kind === "service" && !x.serviceId && !["rechazada", "cancelada", "orden_creada"].includes(x.status) ? `<details class="hc-extra-fields"><summary>Crear orden desde esta solicitud</summary><form id="ac-convert-request" class="hc-extra-content"><div class="hc-grid">${select("Servicio *", "type", info.serviceTypes, "", "Seleccionar servicio")}${select("Atención", "attention", { normal: "Normal", express: "Express" }, x.data.priority === "urgente" ? "express" : "normal")}${field("Fecha del servicio", "serviceDate", today(), "date", "required")}</div><p class="hc-subtle">Se abrirá una orden en borrador con la unidad, el motivo y las fotografías de la solicitud.</p><button class="hc-btn primary" type="submit">Crear orden</button></form></details>` : ""}
+ <details class="hc-extra-fields"><summary>Bitácora de seguimiento</summary><div class="hc-timeline">${x.events.map((e) => `<div class="hc-event"><b>${esc(e.actor_name)}</b> · ${fmt(e.created_at)}<small>${esc(info.stages[e.details.status] || { eliminacion: "Solicitud eliminada", restauracion: "Solicitud recuperada" }[e.action] || e.action)}${e.details.notes ? " · " + esc(e.details.notes) : ""}${e.details.folio ? " · " + esc(e.details.folio) : ""}</small></div>`).join("")}</div></details><div class="hc-actions">${button("Cerrar", "dialog-close")}${info.permissions.manageOrders && x.kind === "service" ? button(x.deletedAt ? "Recuperar solicitud" : "Eliminar solicitud", x.deletedAt ? "request-restore" : "request-delete", `data-id="${esc(x.id)}"`, x.deletedAt ? "" : "aca-danger") : ""}</div>`);
   }
   async function showParts() {
     parts = await api("/parts");
@@ -616,6 +647,26 @@
             : "Solicitud enviada: " + r.folio,
         );
       }
+      if (form.id === "ac-request-removal") {
+        const restore = body.restore === "true";
+        await api(
+          "/requests/" + currentRequest.id + (restore ? "/restore" : ""),
+          {
+            method: restore ? "POST" : "DELETE",
+            body: JSON.stringify({
+              version: currentRequest.version,
+              reason: body.reason,
+            }),
+          },
+        );
+        $("#ac-dialog").close();
+        await showRequests();
+        toast(
+          restore
+            ? "Solicitud recuperada."
+            : "Solicitud eliminada. Puedes recuperarla en Eliminadas.",
+        );
+      }
       if (form.id === "ac-request-update") {
         body.version = currentRequest.version;
         const r = await api("/requests/" + currentRequest.id, patch(body));
@@ -787,6 +838,19 @@
       if (a === "new-part") await newRequest("part");
       if (a === "request-part") await newRequest("part", b.dataset.id);
       if (a === "request-detail") await requestDetail(b.dataset.id);
+      if (a === "request-delete" || a === "request-restore")
+        await requestRemoval(b.dataset.id, a === "request-restore");
+      if (a === "request-inbox") {
+        filters = {
+          kind: "",
+          brand: "",
+          status: "",
+          pending: "",
+          deleted: b.dataset.deleted,
+        };
+        offset = 0;
+        await showRequests();
+      }
       if (a === "request-prev") {
         offset -= 25;
         await showRequests();

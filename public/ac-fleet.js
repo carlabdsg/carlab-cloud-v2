@@ -110,7 +110,7 @@
     return `<button type="button" class="acf-unit ${u.signal}" data-af="detail" data-id="${esc(u.id)}" aria-label="Unidad ${esc(u.unit)}, ${esc(u.company)}, ${esc(u.signalLabel)}"><div class="acf-unit-top"><span class="acf-badge ${u.signal}"><i></i>${esc(labels[u.signal])}</span><span>${esc(brandName(u.brand))}</span></div><div class="acf-unit-id">${esc(u.unit)}</div><div class="acf-unit-company">${esc(u.company)}</div><div class="acf-unit-model">${esc([u.busBrand, u.model].filter(Boolean).join(" · ") || "Modelo por registrar")}</div>${bus(u)}<div class="acf-unit-reason">${esc(u.reasons[0].text)}</div><div class="acf-unit-stats"><span><strong>${u.openOrders}</strong> órdenes abiertas</span><span><strong>${u.serviceRequests + u.partRequests}</strong> solicitudes</span></div><div class="acf-unit-foot"><span>${esc(u.base || u.fleet || "Base por registrar")}</span><span>${u.pendingDays ? u.pendingDays + " días pendiente" : u.verifiedOn ? "Evaluado " + fmt(u.verifiedOn) : "Por evaluar"} →</span></div></button>`;
   }
   function render() {
-    if (ctx.external) {
+    if (ctx.external || ctx.visual) {
       renderPortalFleet();
       return;
     }
@@ -142,7 +142,7 @@
     const s = data.summary,
       company = config.companies.find((c) => c.id === filters.company);
     $("#hc-main").innerHTML =
-      `<div class="acp-fleet-compact"><div class="acp-page-heading"><div><span class="acp-eyebrow">FLOTAS / ${esc(ctx.info.user.company || brandName(ctx.info.user.brand))}</span><h1>${esc(company?.name || ctx.info.user.company || "Mis unidades AC")}</h1><p>${s.total} unidades · Pulsa un autobús para consultar su expediente.</p></div><div class="hc-actions"><button type="button" class="hc-btn" data-ac-view="companies">← Empresas</button><button type="button" class="hc-btn" data-ac-view="upcoming">Calendario</button></div></div><section class="acf-kpis">${[
+      `<div class="acp-fleet-compact"><div class="acp-page-heading"><div><span class="acp-eyebrow">FLOTAS / ${esc(ctx.info.user.company || brandName(ctx.info.user.brand))}</span><h1>${esc(company?.name || ctx.info.user.company || (config.canManage ? "Unidades de aire acondicionado" : "Mis unidades AC"))}</h1><p>${s.total} unidades · Pulsa un autobús para consultar su expediente.</p></div><div class="hc-actions">${config.canManage ? btn("+ Registrar unidades", "new-unit", "", true) + btn("Gestionar empresas", "companies") : ""}<button type="button" class="hc-btn" data-ac-view="companies">← Empresas</button><button type="button" class="hc-btn" data-ac-view="upcoming">Calendario</button></div></div><section class="acf-kpis">${[
         ["", "Todas", s.total],
         ["green", "Operativas", s.green],
         ["amber", "Seguimiento", s.amber],
@@ -174,7 +174,7 @@
   }
   async function show(context) {
     ctx = context;
-    if (ctx.external)
+    if (ctx.external || ctx.initialFilters)
       Object.assign(
         filters,
         {
@@ -287,7 +287,7 @@
     dialog(`<div class="acf-detail-heading"><div><div class="hc-kicker">EXPEDIENTE DE CLIMATIZACIÓN</div><h2>Unidad ${esc(u.unit)}</h2><p>${esc(u.company)} · ${esc(brandName(u.brand))}</p></div><span class="acf-badge ${u.signal}">${esc(u.signalLabel)}</span></div>
       <div class="hc-actions">${btn("Cerrar", "close")}${config.canManage ? btn("Editar ficha / evaluación", "edit-unit") + (u.active ? btn("Etiqueta QR", "qr-label") + btn("Crear orden", "new-order") + btn("Eliminar unidad", "delete-unit") : btn("Restaurar unidad", "restore-unit")) : ""}${u.active ? btn("Solicitar servicio", "request-service", "", true) + btn("Solicitar refacción", "request-part") : ""}</div>
       <section class="acf-reasons"><h3>Qué requiere atención</h3>${u.reasons.map((r) => `<div class="acf-reason ${r.color}"><i></i><div><b>${esc(r.text)}</b><p>${esc(r.detail)}</p></div></div>`).join("")}</section>
-      ${ctx.external ? '<details class="acp-filter-details"><summary>Datos de la unidad y del equipo AC</summary>' : ""}<dl class="acf-detail-facts">${[
+      ${ctx.external || ctx.visual ? '<details class="acp-filter-details"><summary>Datos de la unidad y del equipo AC</summary>' : ""}<dl class="acf-detail-facts">${[
         ["Región / base", [u.region, u.base].filter(Boolean).join(" · ")],
         ["Autobús", [u.busBrand, u.model, u.year].filter(Boolean).join(" · ")],
         ["Flota", u.fleet],
@@ -305,7 +305,7 @@
           ([k, v]) =>
             `<div><dt>${esc(k)}</dt><dd>${esc(v || "Sin registrar")}</dd></div>`,
         )
-        .join("")}</dl>${ctx.external ? "</details>" : ""}
+        .join("")}</dl>${ctx.external || ctx.visual ? "</details>" : ""}
       ${u.conditionNote ? `<div class="hc-note"><b>Última evaluación manual · ${fmt(u.checkedOn)}</b><p>${esc(u.conditionNote)}</p></div>` : ""}
       <div class="acf-detail-tabs"><button type="button" data-af="tab" data-tab="orders" aria-pressed="true">Órdenes (${r.orders.length}${r.orders.length === 30 ? "+" : ""})</button><button type="button" data-af="tab" data-tab="requests" aria-pressed="false">Solicitudes (${r.requests.length}${r.requests.length === 30 ? "+" : ""})</button><button type="button" data-af="tab" data-tab="events" aria-pressed="false">Bitácora</button></div>
       <section data-af-panel="orders"><p class="acf-muted">Últimas 30 órdenes del equipo, de la más reciente a la más antigua.</p>${r.orders.map((o) => `<article class="acf-history"><div><b>${esc(o.folio)} · ${esc(ctx.library.statuses[o.status] || o.status)}</b><small>${fmt(o.service_date)} · ${esc(ctx.library.types[o.type] || o.type)}</small><p>${esc(o.symptoms || "Sin motivo registrado")}</p></div>${btn("Ver orden", "order", `data-id="${esc(o.id)}"`)}</article>`).join("") || '<div class="hc-empty">Sin órdenes registradas para esta unidad y marca.</div>'}</section>

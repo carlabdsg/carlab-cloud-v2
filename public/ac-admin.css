@@ -1,0 +1,197 @@
+body[data-ac-portal="admin"] .hc-heading h1 {
+  font-size: clamp(26px, 3vw, 36px);
+  letter-spacing: -1px;
+}
+body[data-ac-portal="admin"] .hc-heading p {
+  max-width: 650px;
+  line-height: 1.6;
+}
+body[data-ac-portal="admin"]
+  :is(.hc-panel, .hc-metric, .hc-order-card, .ac-part-card, .acf-kpi) {
+  border-radius: 16px;
+  border-color: var(--portal-line);
+}
+body[data-ac-portal="admin"] .hc-btn {
+  border-radius: 10px;
+  min-height: 40px;
+}
+body[data-ac-portal="admin"]
+  :is(.hc-field input, .hc-field select, .hc-field textarea) {
+  border-radius: 10px;
+}
+body[data-ac-portal="admin"] .hc-metrics {
+  gap: 14px;
+}
+body[data-ac-portal="admin"] .hc-metric {
+  padding: 20px;
+}
+body[data-ac-portal="admin"] .hc-metric strong {
+  color: #087f85;
+}
+body[data-ac-portal="admin"] .hc-metric small {
+  color: var(--portal-muted);
+}
+body[data-ac-portal="admin"] .hc-sidebar .hc-back {
+  margin-top: 16px;
+}
+body[data-ac-portal="admin"] .acp-follow-card {
+  display: flex;
+  flex-direction: column;
+}
+body[data-ac-portal="admin"] .acp-follow-card > .hc-actions {
+  margin-top: auto;
+  padding-top: 18px;
+}
+body[data-ac-portal="admin"] .acp-follow-description {
+  margin-bottom: 0;
+}
+body[data-ac-portal="admin"] .aca-danger {
+  color: #a63936;
+  background: #fff5f3;
+  border-color: #efc9c4;
+}
+body[data-ac-portal="admin"] .aca-danger:hover {
+  background: #fce4e0;
+}
+.aca-tools-section {
+  margin: 28px 0;
+}
+.aca-tools-section > h2 {
+  color: var(--portal-muted);
+  font-size: 13px;
+  font-weight: 650;
+  margin-bottom: 14px;
+}
+.aca-tool-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.aca-tool {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 22px;
+  background: #fff;
+  border: 1px solid var(--portal-line);
+  border-radius: 16px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--portal-ink);
+  min-width: 0;
+}
+.aca-tool:hover {
+  border-color: #8fbfba;
+  box-shadow: 0 6px 20px #173e4909;
+}
+.aca-tool > span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+.aca-tool b {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+.aca-tool small {
+  display: block;
+  color: var(--portal-muted);
+  line-height: 1.5;
+  font-size: 12px;
+}
+.aca-tool-icon {
+  background: #edf6f4;
+  border-radius: 12px;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  color: #087f85;
+  flex-shrink: 0;
+}
+.aca-tool svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+.aca-tool > svg {
+  width: 17px;
+  color: #879a9e;
+}
+.aca-cloud-link {
+  margin-top: 12px;
+}
+@media (min-width: 761px) {
+  body[data-ac-portal="admin"] .hc-sidebar {
+    overflow-y: auto;
+  }
+  body[data-ac-portal="admin"] .aca-nav button {
+    min-height: 46px;
+    margin-bottom: 5px;
+  }
+}
+@media (max-width: 1100px) {
+  .aca-tool-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  body[data-ac-portal="admin"] .hc-sidebar nav.aca-nav {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  body[data-ac-portal="admin"] .aca-nav .aca-desktop,
+  body[data-ac-portal="admin"] .hc-sidebar > .hc-back {
+    display: none;
+  }
+  body[data-ac-portal="admin"] .hc-topbar > span:first-child {
+    max-width: calc(100% - 65px);
+  }
+  body[data-ac-portal="admin"] .hc-heading {
+    display: block;
+  }
+  body[data-ac-portal="admin"] .hc-heading > .hc-actions {
+    margin-top: 16px;
+  }
+  body[data-ac-portal="admin"] .hc-metrics {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  body[data-ac-portal="admin"] .hc-metric {
+    padding: 14px;
+  }
+  body[data-ac-portal="admin"] .hc-metric span {
+    font-size: 10px;
+  }
+  body[data-ac-portal="admin"] .hc-metric strong {
+    font-size: 28px;
+  }
+  .aca-tool-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .aca-tool {
+    padding: 18px;
+  }
+  .aca-tools-section {
+    margin: 24px 0;
+  }
+  body[data-ac-portal="admin"] .hc-order-card {
+    min-width: 0;
+  }
+  body[data-ac-portal="admin"] .hc-pager {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+}
+/* Keep order actions above the mobile portal navigation. */
+@media (max-width: 760px) {
+  body[data-ac-portal="admin"] .hc-savebar {
+    bottom: calc(82px + env(safe-area-inset-bottom));
+    z-index: 10;
+  }
+}
