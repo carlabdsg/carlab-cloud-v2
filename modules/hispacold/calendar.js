@@ -51,12 +51,16 @@ function register(
         fail("Periodo de calendario inválido.");
       const p = [today, from, to],
         scope = [];
-      if (!req.acAdmin) {
+      if (req.acBrand) {
         p.push(req.acBrand);
         scope.push(`brand=$${p.length}`);
       } else if (req.query.brand) {
         p.push(brand(req.query.brand));
         scope.push(`brand=$${p.length}`);
+      }
+      if (req.acCompany) {
+        p.push(req.acCompany);
+        scope.push(`LOWER(TRIM(company))=LOWER(TRIM($${p.length}))`);
       }
       const visible = scope.length ? scope.join(" AND ") : "TRUE";
       // Options are scoped by permission/brand, not by the selected company or search.

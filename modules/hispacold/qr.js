@@ -64,7 +64,7 @@ function register(
       if (!valid(req.params.token)) fail("Código no disponible.", 404);
       const u = (
         await pool.query(
-          "SELECT u.id,u.brand FROM ac_fleet_qr q JOIN ac_fleet_units u ON u.id=q.unit_id WHERE q.token=$1 AND u.active=TRUE",
+          "SELECT u.id,u.brand,c.name AS company FROM ac_fleet_qr q JOIN ac_fleet_units u ON u.id=q.unit_id JOIN ac_fleet_companies c ON c.id=u.company_id WHERE q.token=$1 AND u.active=TRUE",
           [req.params.token],
         )
       ).rows[0];
@@ -73,7 +73,7 @@ function register(
           "Código no disponible. Puede haber sido reemplazado o la unidad está archivada.",
           404,
         );
-      allowed(req, u.brand);
+      allowed(req, u.brand, u.company);
       res.set("Cache-Control", "no-store").json({ unitId: u.id });
     }),
   );
@@ -87,7 +87,7 @@ function register(
         )
       ).rows[0];
       if (!order) fail("Orden no encontrada.", 404);
-      allowed(req, order.brand);
+      allowed(req, order.brand, order.company);
       const u = (
         await pool.query(
           "SELECT u.id FROM ac_fleet_units u JOIN ac_fleet_companies c ON c.id=u.company_id WHERE LOWER(TRIM(c.name))=LOWER(TRIM($1)) AND LOWER(TRIM(u.unit))=LOWER(TRIM($2)) AND u.brand=$3 AND u.active=TRUE",

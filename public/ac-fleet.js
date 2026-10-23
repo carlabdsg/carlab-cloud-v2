@@ -70,7 +70,7 @@
     green: "AC operativo",
     gray: "Sin verificación",
   };
-  const brandName = (b) => ctx.info.brands[b] || b;
+  const brandName = (b) => ctx.info.brands[b] || b || "Ambas marcas AC";
   const query = () => new URLSearchParams({ ...filters, today: today() });
   const active = () => ctx?.active();
   const post = (b) => ({ method: "POST", body: JSON.stringify(b) }),
@@ -99,7 +99,7 @@
     else ctx.toast(e.message);
   }
   const toolbar = () =>
-    `<form id="acf-filters" class="acf-filters">${field("Buscar unidad, empresa o equipo", "q", filters.q, "search", 'placeholder="Ej. 306, i8, serie AC…" maxlength="180"')}${select("Empresa", "company", Object.fromEntries(config.companies.map((c) => [c.id, c.name])), filters.company, "Todas las empresas")}${ctx.external ? "" : select("Marca AC", "brand", ctx.info.brands, filters.brand, "Ambas marcas")}${select("Región", "region", Object.fromEntries(config.regions.map((v) => [v, v])), filters.region, "Todas las regiones")}${select("Base", "base", Object.fromEntries(config.bases.map((v) => [v, v])), filters.base, "Todas las bases")}${select("Prioridad", "focus", { overdue: "Mantenimiento vencido", recurring: "Reparaciones recurrentes", pending: "Con órdenes o solicitudes" }, filters.focus, "Todas las prioridades")}${config.canManage ? select("Registros", "archived", { "": "Activos", true: "Eliminadas / archivadas" }, filters.archived) : ""}<div class="hc-actions"><button type="submit" class="hc-btn primary">Aplicar filtros</button>${btn("Limpiar", "clear")}</div></form>`;
+    `<form id="acf-filters" class="acf-filters">${field("Buscar unidad, empresa o equipo", "q", filters.q, "search", 'placeholder="Ej. 306, i8, serie AC…" maxlength="180"')}${select("Empresa", "company", Object.fromEntries(config.companies.map((c) => [c.id, c.name])), filters.company, "Todas las empresas")}${ctx.external ? "" : select("Marca AC", "brand", ctx.info.brands, filters.brand, "Ambas marcas")}${select("Región", "region", Object.fromEntries(config.regions.map((v) => [v, v])), filters.region, "Todas las regiones")}${select("Base", "base", Object.fromEntries(config.bases.map((v) => [v, v])), filters.base, "Todas las bases")}${select("Prioridad", "focus", { attention: "Críticas o en seguimiento", overdue: "Mantenimiento vencido", recurring: "Reparaciones recurrentes", pending: "Con órdenes o solicitudes" }, filters.focus, "Todas las prioridades")}${config.canManage ? select("Registros", "archived", { "": "Activos", true: "Eliminadas / archivadas" }, filters.archived) : ""}<div class="hc-actions"><button type="submit" class="hc-btn primary">Aplicar filtros</button>${btn("Limpiar", "clear")}</div></form>`;
   function bus(u) {
     const asset = u.busBrand.toLowerCase().includes("volvo")
       ? "bus-volvo.svg"
@@ -110,6 +110,10 @@
     return `<button type="button" class="acf-unit ${u.signal}" data-af="detail" data-id="${esc(u.id)}" aria-label="Unidad ${esc(u.unit)}, ${esc(u.company)}, ${esc(u.signalLabel)}"><div class="acf-unit-top"><span class="acf-badge ${u.signal}"><i></i>${esc(labels[u.signal])}</span><span>${esc(brandName(u.brand))}</span></div><div class="acf-unit-id">${esc(u.unit)}</div><div class="acf-unit-company">${esc(u.company)}</div><div class="acf-unit-model">${esc([u.busBrand, u.model].filter(Boolean).join(" · ") || "Modelo por registrar")}</div>${bus(u)}<div class="acf-unit-reason">${esc(u.reasons[0].text)}</div><div class="acf-unit-stats"><span><strong>${u.openOrders}</strong> órdenes abiertas</span><span><strong>${u.serviceRequests + u.partRequests}</strong> solicitudes</span></div><div class="acf-unit-foot"><span>${esc(u.base || u.fleet || "Base por registrar")}</span><span>${u.pendingDays ? u.pendingDays + " días pendiente" : u.verifiedOn ? "Evaluado " + fmt(u.verifiedOn) : "Por evaluar"} →</span></div></button>`;
   }
   function render() {
+    if (ctx.external) {
+      renderPortalFleet();
+      return;
+    }
     const s = data.summary,
       pct = s.total ? Math.round((s.green / s.total) * 100) : 0;
     $("#hc-main").innerHTML =
@@ -134,6 +138,25 @@
       <div class="hc-pager"><span>${data.total ? filters.offset + 1 : 0}–${Math.min(filters.offset + 60, data.total)} de ${data.total} unidades</span><div class="hc-actions">${btn("Anterior", "prev", filters.offset === 0 ? "disabled" : "")}${btn("Siguiente", "next", filters.offset + 60 >= data.total ? "disabled" : "")}</div></div>
       <details class="acf-guide"><summary>Cómo interpretar el semáforo</summary><p><b>Verde:</b> evaluación operativa vigente y sin pendientes. <b>Amarillo:</b> órdenes, solicitudes, observaciones, vencimientos o reparaciones recurrentes. <b>Rojo:</b> AC no operativo, orden en espera de refacción o solicitud urgente. <b>Gris:</b> falta una evaluación vigente. Abre cada autobús para conocer la causa exacta.</p><p>La vigencia de evaluación es de 90 días por defecto y el administrador puede ajustarla por unidad. Es una política de seguimiento de Carlab; la periodicidad de mantenimiento se establece según el equipo y su fabricante. Dos reparaciones menores o mayores cerradas en 90 días generan una alerta de recurrencia. El porcentaje corresponde al estado documentado del AC.</p></details>`;
   }
+  function renderPortalFleet() {
+    const s = data.summary,
+      company = config.companies.find((c) => c.id === filters.company);
+    $("#hc-main").innerHTML =
+      `<div class="acp-fleet-compact"><div class="acp-page-heading"><div><span class="acp-eyebrow">FLOTAS / ${esc(ctx.info.user.company || brandName(ctx.info.user.brand))}</span><h1>${esc(company?.name || ctx.info.user.company || "Mis unidades AC")}</h1><p>${s.total} unidades · Pulsa un autobús para consultar su expediente.</p></div><div class="hc-actions"><button type="button" class="hc-btn" data-ac-view="companies">← Empresas</button><button type="button" class="hc-btn" data-ac-view="upcoming">Calendario</button></div></div><section class="acf-kpis">${[
+        ["", "Todas", s.total],
+        ["green", "Operativas", s.green],
+        ["amber", "Seguimiento", s.amber],
+        ["red", "Críticas", s.red],
+        ["gray", "Sin evaluar", s.gray],
+      ]
+        .map(
+          ([key, label, count]) =>
+            `<button type="button" class="acf-kpi ${key || "all"} ${filters.signal === key ? "selected" : ""}" data-af="signal" data-signal="${key}" aria-pressed="${filters.signal === key}"><span>${label}</span><strong>${count}</strong></button>`,
+        )
+        .join(
+          "",
+        )}</section><details class="acp-filter-details"><summary>Buscar y filtrar unidades ${filters.q || filters.signal || filters.focus ? "· Hay filtros activos" : ""}</summary>${toolbar()}<div class="hc-actions">${btn("Exportar unidades", "export")}${btn("Actualizar", "refresh")}</div></details><section class="acf-grid">${data.items.map(card).join("") || '<div class="hc-empty">No hay unidades para esta selección.</div>'}</section><div class="hc-pager"><span>${data.total ? filters.offset + 1 : 0}–${Math.min(filters.offset + 60, data.total)} de ${data.total}</span><div class="hc-actions">${btn("Anterior", "prev", filters.offset === 0 ? "disabled" : "")}${btn("Siguiente", "next", filters.offset + 60 >= data.total ? "disabled" : "")}</div></div><p class="acp-updated">Verde: evaluación vigente sin alertas · Amarillo: seguimiento · Rojo: atención crítica · Gris: sin evaluación vigente.</p></div>`;
+  }
   async function load(withOptions = true) {
     const n = ++seq;
     try {
@@ -151,6 +174,22 @@
   }
   async function show(context) {
     ctx = context;
+    if (ctx.external)
+      Object.assign(
+        filters,
+        {
+          q: "",
+          company: ctx.info.user.companyId || "",
+          brand: "",
+          region: "",
+          base: "",
+          signal: "",
+          focus: "",
+          archived: "",
+          offset: 0,
+        },
+        ctx.initialFilters || {},
+      );
     await load();
     if (!timer)
       timer = setInterval(() => {
@@ -248,7 +287,7 @@
     dialog(`<div class="acf-detail-heading"><div><div class="hc-kicker">EXPEDIENTE DE CLIMATIZACIÓN</div><h2>Unidad ${esc(u.unit)}</h2><p>${esc(u.company)} · ${esc(brandName(u.brand))}</p></div><span class="acf-badge ${u.signal}">${esc(u.signalLabel)}</span></div>
       <div class="hc-actions">${btn("Cerrar", "close")}${config.canManage ? btn("Editar ficha / evaluación", "edit-unit") + (u.active ? btn("Etiqueta QR", "qr-label") + btn("Crear orden", "new-order") + btn("Eliminar unidad", "delete-unit") : btn("Restaurar unidad", "restore-unit")) : ""}${u.active ? btn("Solicitar servicio", "request-service", "", true) + btn("Solicitar refacción", "request-part") : ""}</div>
       <section class="acf-reasons"><h3>Qué requiere atención</h3>${u.reasons.map((r) => `<div class="acf-reason ${r.color}"><i></i><div><b>${esc(r.text)}</b><p>${esc(r.detail)}</p></div></div>`).join("")}</section>
-      <dl class="acf-detail-facts">${[
+      ${ctx.external ? '<details class="acp-filter-details"><summary>Datos de la unidad y del equipo AC</summary>' : ""}<dl class="acf-detail-facts">${[
         ["Región / base", [u.region, u.base].filter(Boolean).join(" · ")],
         ["Autobús", [u.busBrand, u.model, u.year].filter(Boolean).join(" · ")],
         ["Flota", u.fleet],
@@ -266,7 +305,7 @@
           ([k, v]) =>
             `<div><dt>${esc(k)}</dt><dd>${esc(v || "Sin registrar")}</dd></div>`,
         )
-        .join("")}</dl>
+        .join("")}</dl>${ctx.external ? "</details>" : ""}
       ${u.conditionNote ? `<div class="hc-note"><b>Última evaluación manual · ${fmt(u.checkedOn)}</b><p>${esc(u.conditionNote)}</p></div>` : ""}
       <div class="acf-detail-tabs"><button type="button" data-af="tab" data-tab="orders" aria-pressed="true">Órdenes (${r.orders.length}${r.orders.length === 30 ? "+" : ""})</button><button type="button" data-af="tab" data-tab="requests" aria-pressed="false">Solicitudes (${r.requests.length}${r.requests.length === 30 ? "+" : ""})</button><button type="button" data-af="tab" data-tab="events" aria-pressed="false">Bitácora</button></div>
       <section data-af-panel="orders"><p class="acf-muted">Últimas 30 órdenes del equipo, de la más reciente a la más antigua.</p>${r.orders.map((o) => `<article class="acf-history"><div><b>${esc(o.folio)} · ${esc(ctx.library.statuses[o.status] || o.status)}</b><small>${fmt(o.service_date)} · ${esc(ctx.library.types[o.type] || o.type)}</small><p>${esc(o.symptoms || "Sin motivo registrado")}</p></div>${btn("Ver orden", "order", `data-id="${esc(o.id)}"`)}</article>`).join("") || '<div class="hc-empty">Sin órdenes registradas para esta unidad y marca.</div>'}</section>
@@ -411,6 +450,7 @@
       }
       if (a === "signal") {
         filters.signal = b.dataset.signal;
+        if (ctx.external) filters.focus = "";
         filters.offset = 0;
         await load(false);
       }

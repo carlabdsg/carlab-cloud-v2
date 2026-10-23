@@ -35,7 +35,7 @@ function register(router, { pool, wrap, fail, text, brand, day, transaction }) {
   router.get(
     "/reports/options",
     wrap(async (req, res) => {
-      const b = req.acAdmin
+      const b = !req.acBrand
         ? req.query.brand
           ? brand(req.query.brand)
           : null
@@ -45,8 +45,8 @@ function register(router, { pool, wrap, fail, text, brand, day, transaction }) {
     SELECT c.name AS company,u.brand FROM ac_fleet_units u JOIN ac_fleet_companies c ON c.id=u.company_id
     UNION SELECT company,COALESCE(payload->>'brand','hispacold') FROM hc_services WHERE deleted_at IS NULL
     UNION SELECT operator_company,brand FROM ac_requests
-    ) x WHERE ($1::text IS NULL OR brand=$1) ORDER BY company`,
-        [b],
+    ) x WHERE ($1::text IS NULL OR brand=$1) AND ($2::text IS NULL OR LOWER(TRIM(company))=LOWER(TRIM($2))) ORDER BY company`,
+        [b, req.acCompany],
       );
       res.json({ companies: r.rows.map((r) => r.company) });
     }),
@@ -58,12 +58,12 @@ function register(router, { pool, wrap, fail, text, brand, day, transaction }) {
       if (!anchor) fail("Selecciona una fecha del periodo.");
       const kind = text(req.query.period, 10),
         range = period(kind, anchor, fail);
-      const b = req.acAdmin
+      const b = !req.acBrand
         ? req.query.brand
           ? brand(req.query.brand)
           : null
         : req.acBrand;
-      const company = text(req.query.company, 180),
+      const company = req.acCompany || text(req.query.company, 180),
         today = localToday();
       const report = await transaction(async (db) => {
         await db.query(
@@ -87,7 +87,7 @@ function register(router, { pool, wrap, fail, text, brand, day, transaction }) {
      (r.created_at AT TIME ZONE 'America/Mazatlan')::date AS created_date,
      r.payload->>'description' AS description,r.payload->>'partName' AS part_name,r.payload->>'quantity' AS quantity,
      r.payload->>'priority' AS priority,r.payload->>'scheduledDate' AS scheduled_date
-     FROM ac_requests r LEFT JOIN hc_services s ON s.id=r.service_id
+     FROM ac_requests r LEFT JOIN hc_services s ON s.id=r.service_id AND LOWER(TRIM(s.company))=LOWER(TRIM(r.operator_company)) AND LOWER(TRIM(s.unit))=LOWER(TRIM(r.unit)) AND COALESCE(s.payload->>'brand','hispacold')=r.brand
      WHERE ($3::text IS NULL OR r.brand=$3) AND ($4='' OR LOWER(TRIM(r.operator_company))=LOWER(TRIM($4)))
      AND ((r.created_at AT TIME ZONE 'America/Mazatlan')::date BETWEEN $1::date AND $2::date OR
       (r.status NOT IN ('atendida','entregada','rechazada','cancelada') AND NOT (COALESCE(s.status,'')='completado' AND s.deleted_at IS NULL)))
@@ -101,7 +101,7 @@ function register(router, { pool, wrap, fail, text, brand, day, transaction }) {
         );
         const ms = await db.query(
           `SELECT m.id,m.tipo,m.cantidad,m.empresa,m.unidad,m.garantia_folio,m.notas,
-     (m.created_at AT TIME ZONE 'America/Mazatlan')::date AS movement_date,s.nombre,s.sku,p.brands
+     (m.created_at AT TIME ZONE 'America/Mazatlan')::date AS movement_date,s.nombre,s.sku,p.brands,ar.brand AS request_brand
      FROM ac_stock_movements m JOIN ac_stock_parts s ON s.id=m.stock_part_id JOIN ac_stock_profiles p ON p.stock_part_id=s.id
      LEFT JOIN ac_inventory_events ev ON ev.stock_movement_id=m.id LEFT JOIN ac_requests ar ON ar.id=ev.request_id
      WHERE (m.created_at AT TIME ZONE 'America/Mazatlan')::date BETWEEN $1::date AND $2::date
@@ -229,12 +229,12 @@ function register(router, { pool, wrap, fail, text, brand, day, transaction }) {
           movements: ms.rows.map((m) => ({
             ...m,
             notas: req.acAdmin ? m.notas : "Entrega de refacción a la unidad",
-            brands: req.acAdmin ? m.brands : [req.acBrand],
+            brands: req.acAdmin ? m.brands : [m.request_brand].filter(Boolean),
             movement_date: date(m.movement_date),
           })),
           lowStock,
           inventoryScope: !req.acAdmin
-            ? "Entregas de refacciones correspondientes a tu marca. Las existencias y movimientos internos del almacén son exclusivos del administrador."
+            ? "Entregas de refacciones dentro de tu acceso autorizado. Las existencias y movimientos internos del almacén son exclusivos del administrador."
             : company
               ? "Movimientos asignados a esta empresa. Las entradas generales no se atribuyen a empresas."
               : "Movimientos del almacén AC de la marca seleccionada; las piezas compatibles con ambas marcas aparecen una sola vez.",

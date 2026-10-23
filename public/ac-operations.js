@@ -48,7 +48,7 @@
     library,
     currentView = "",
     offset = 0,
-    filters = { kind: "", brand: "", status: "" },
+    filters = { kind: "", brand: "", status: "", pending: "" },
     parts = [],
     requests = [],
     users = [],
@@ -101,7 +101,18 @@
       el.scrollIntoView({ block: "nearest" });
     } else toast(e.message);
   }
-  const name = (b) => info?.brands[b] || b;
+  const name = (b) =>
+    info?.brands[b] || b || info?.user.company || "Aire acondicionado";
+  const portalContext = (view) => ({
+    api,
+    info,
+    library,
+    toast,
+    navigate,
+    newRequest,
+    dialog,
+    active: () => currentView === view,
+  });
   function dialog(html) {
     let el = $("#ac-dialog");
     if (!el) {
@@ -110,7 +121,11 @@
       document.body.append(el);
     }
     el.innerHTML =
-      html + '<p id="ac-dialog-error" class="hc-error" role="alert"></p>';
+      (external
+        ? '<div class="acp-dialog-top"><button type="button" class="hc-btn" data-ac-action="dialog-close" aria-label="Cerrar ventana">×</button></div>'
+        : "") +
+      html +
+      '<p id="ac-dialog-error" class="hc-error" role="alert"></p>';
     if (!el.open) el.showModal();
   }
   function closeDialog() {
@@ -121,6 +136,7 @@
     if (!external && window.CarlabACNav)
       return window.CarlabACNav.operations(view, id);
     await show(view, id);
+    if (external) window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     return true;
   }
   const post = (body) => ({ method: "POST", body: JSON.stringify(body) });
@@ -157,7 +173,11 @@
     try {
       if (external) {
         const latest = await api("/me");
-        if (latest.user.brand !== info.user.brand) {
+        if (
+          latest.user.brand !== info.user.brand ||
+          latest.user.companyId !== info.user.companyId ||
+          latest.user.scopeType !== info.user.scopeType
+        ) {
           location.reload();
           return;
         }
@@ -213,11 +233,16 @@
       return;
     }
     currentView = view;
+    if (external) window.ACPortal.selectNav(view);
     document
       .querySelectorAll("[data-ac-view]")
       .forEach((el) =>
         el.classList.toggle("selected", el.dataset.acView === view),
       );
+    if (external && ["home", "companies"].includes(view)) {
+      await window.ACPortal[view](portalContext(view));
+      return;
+    }
     if (view === "fleet") {
       await window.ACFleet.show({
         api,
@@ -228,11 +253,16 @@
         navigate,
         newRequest,
         active: () => currentView === "fleet",
+        initialFilters: external && id && typeof id === "object" ? id : null,
       });
-      if (id) await window.ACFleet.openDetail(id);
+      if (typeof id === "string") await window.ACFleet.openDetail(id);
     } else if (view === "requests") {
+      if (external && id?.pending) {
+        filters = { kind: "", brand: "", status: "", pending: "true" };
+        offset = 0;
+      }
       await showRequests();
-      if (id) await requestDetail(id);
+      if (typeof id === "string") await requestDetail(id);
     } else if (view === "parts") await showParts();
     else if (view === "reports")
       await window.ACReports.show({
@@ -249,7 +279,7 @@
       renderNotifications();
     } else if (view === "orders") await showOrders();
     else if (view === "order") await showOrder(id);
-    else if (view === "upcoming") await showUpcoming();
+    else if (view === "upcoming") await showUpcoming(id);
     else if (view === "library") showLibrary();
   }
   async function showRequests() {
@@ -257,6 +287,17 @@
       "/requests?" + new URLSearchParams({ ...filters, offset }),
     );
     requests = r.items;
+    if (external) {
+      $("#hc-main").innerHTML =
+        heading(
+          "Seguimiento",
+          `${name(info.user.brand)} · Consulta tus solicitudes y sus órdenes vinculadas.`,
+          button("+ Solicitar atención", "portal-request", "", "primary"),
+        ) +
+        window.ACPortal.trackingTabs("requests") +
+        `<details class="acp-filter-details" ${Object.values(filters).some(Boolean) ? "open" : ""}><summary>Filtrar solicitudes ${filters.pending === "true" ? "· Solo pendientes" : ""}</summary><form id="ac-request-filters" class="hc-filters">${select("Tipo", "kind", { service: "Servicio", part: "Refacción" }, filters.kind, "Todos")}${select("Estado", "status", info.stages, filters.status, "Todos")}${select("Mostrar", "pending", { true: "Solo pendientes" }, filters.pending, "Todas las solicitudes")}<button type="submit" class="hc-btn primary">Aplicar</button></form></details><section class="acp-follow-grid">${requests.map((x) => window.ACPortal.requestCard(x, info)).join("") || '<div class="hc-empty">No hay solicitudes para esta selección.</div>'}</section><div class="hc-pager"><span>${r.total} solicitudes</span><div class="hc-actions">${button("Anterior", "request-prev", offset === 0 ? "disabled" : "")}${button("Siguiente", "request-next", offset + 25 >= r.total ? "disabled" : "")}</div></div>`;
+      return;
+    }
     $("#hc-main").innerHTML =
       heading(
         external
@@ -276,17 +317,35 @@
     const available = await api("/parts");
     parts = available;
     const chosen = parts.find((p) => p.id === partId);
-    const b = external
-      ? info.user.brand
-      : seed?.brand || chosen?.brands[0] || "";
+    const b =
+      external && info.user.brand
+        ? info.user.brand
+        : seed?.brand || chosen?.brands[0] || "";
     const units = await api("/units");
     const unitOptions = Object.fromEntries(
-      units.map((u, i) => [String(i), `${u.company} · ${u.unit}`]),
+      units.map((u, i) => [
+        String(i),
+        `${u.company} · ${u.unit}${u.brand ? " · " + name(u.brand) : ""}`,
+      ]),
     );
     window._acRequestUnits = units;
     dialog(
-      `<div class="hc-kicker">NUEVA SOLICITUD</div><h2>${kind === "service" ? "Solicitar servicio AC" : "Solicitar refacción AC"}</h2><p>La solicitud será revisada por Carlab. ${kind === "part" ? "La existencia se confirma al entregar." : "Carlab programará el servicio y abrirá la orden."}</p><form id="ac-new-request"><input name="kind" type="hidden" value="${kind}"><div class="hc-grid">${external ? `<div class="hc-field"><b>Empresa / marca</b><span class="hc-badge">${esc(name(b))}</span><input name="brand" type="hidden" value="${b}"></div>` : select("Marca *", "brand", info.brands, b, "Seleccionar marca")}${select("Unidad conocida (opcional)", "knownUnit", unitOptions, "", "Captura manual")}${field("Empresa operadora *", "company", "", "text", 'required maxlength="180"')}${field("Número económico *", "unit", "", "text", 'required maxlength="80"')}${kind === "part" ? select("Refacción de catálogo", "partId", Object.fromEntries(parts.filter((p) => !b || p.brands.includes(b)).map((p) => [p.id, p.name + (p.reference ? " · " + p.reference : "")])), partId, "Pieza fuera de catálogo") + `<div id="ac-custom-part" ${partId ? "hidden" : ""}>${field("Refacción solicitada *", "partName", "", "text")}${field("Número de parte / referencia", "reference")}</div>` + field("Cantidad *", "quantity", "1", "number", 'min="0.01" step="0.01" required') : ""}${field(kind === "service" ? "Falla o servicio solicitado *" : "Motivo de la solicitud *", "description", "", "textarea", 'required rows="3"')}${select("Prioridad", "priority", { normal: "Normal", alta: "Alta", urgente: "Urgente" }, "normal")}${field("Ubicación de atención", "location")}${field("Contacto / teléfono", "contact")}${field("Fecha preferida (opcional)", "preferredDate", "", "date")}</div><label class="hc-field"><b>Evidencia fotográfica (hasta 4)</b><input id="ac-request-photo" type="file" accept="image/jpeg,image/png,image/webp" multiple></label><div id="ac-request-photos" class="ac-photos"></div><div class="hc-actions">${button("Cancelar", "dialog-close")}<button type="submit" class="hc-btn primary">Enviar solicitud</button></div></form>`,
+      `<div class="hc-kicker">NUEVA SOLICITUD</div><h2>${kind === "service" ? "Solicitar servicio AC" : "Solicitar refacción AC"}</h2><p>La solicitud será revisada por Carlab. ${kind === "part" ? "La existencia se confirma al entregar." : "Carlab programará el servicio y abrirá la orden."}</p><form id="ac-new-request"><input name="kind" type="hidden" value="${kind}"><div class="hc-grid">${external && info.user.brand ? `<div class="hc-field"><b>Marca de aire acondicionado</b><span class="hc-badge">${esc(name(b))}</span><input name="brand" type="hidden" value="${b}"></div>` : select("Marca *", "brand", info.brands, b, "Seleccionar marca")}${select("Unidad conocida (opcional)", "knownUnit", unitOptions, "", "Captura manual")}${field("Empresa operadora *", "company", "", "text", 'required maxlength="180"')}${field("Número económico *", "unit", "", "text", 'required maxlength="80"')}${kind === "part" ? select("Refacción de catálogo", "partId", Object.fromEntries(parts.filter((p) => !b || p.brands.includes(b)).map((p) => [p.id, p.name + (p.reference ? " · " + p.reference : "")])), partId, "Pieza fuera de catálogo") + `<div id="ac-custom-part" ${partId ? "hidden" : ""}>${field("Refacción solicitada *", "partName", "", "text")}${field("Número de parte / referencia", "reference")}</div>` + field("Cantidad *", "quantity", "1", "number", 'min="0.01" step="0.01" required') : ""}${field(kind === "service" ? "Falla o servicio solicitado *" : "Motivo de la solicitud *", "description", "", "textarea", 'required rows="3"')}${select("Prioridad", "priority", { normal: "Normal", alta: "Alta", urgente: "Urgente" }, "normal")}${field("Ubicación de atención", "location")}${field("Contacto / teléfono", "contact")}${field("Fecha preferida (opcional)", "preferredDate", "", "date")}</div><label class="hc-field"><b>Evidencia fotográfica (hasta 4)</b><input id="ac-request-photo" type="file" accept="image/jpeg,image/png,image/webp" multiple></label><div id="ac-request-photos" class="ac-photos"></div><div class="hc-actions">${button("Cancelar", "dialog-close")}<button type="submit" class="hc-btn primary">Enviar solicitud</button></div></form>`,
     );
+    if (external) {
+      const form = $("#ac-new-request");
+      if (info.user.company) {
+        form.elements.company.value = info.user.company;
+        form.elements.company.readOnly = true;
+      }
+      const optional = document.createElement("details");
+      optional.className = "acp-form-optional";
+      optional.innerHTML =
+        "<summary>Ubicación, contacto y fecha preferida (opcional)</summary><div class=hc-grid></div>";
+      for (const key of ["location", "contact", "preferredDate"])
+        optional.lastElementChild.append(form.elements[key].closest("label"));
+      form.querySelector(".hc-grid").after(optional);
+    }
     if (seed) {
       const form = $("#ac-new-request");
       for (const key of ["company", "unit"]) {
@@ -384,6 +443,11 @@
           : button("+ Solicitar refacción", "new-part", "", "primary"),
       ) +
       `<form id="ac-parts-filter" class="hc-filters">${external ? "" : select("Marca", "brand", info.brands, "", "Todas las marcas")}${select("Origen", "family", { efficient: "Catálogo Efficient", recambios: "Recambios Hispacold 2025", cotizaciones: "Referencias de cotizaciones 2026", custom: "Otras piezas AC" }, "", "Todo el catálogo")}${field("Buscar pieza o referencia", "q", "", "search")}<button class="hc-btn" type="submit">Buscar</button>${button("Actualizar", "refresh")}</form><div id="ac-parts-list" class="ac-parts-grid">${partCards(parts)}</div>`;
+    if (external)
+      $("#ac-parts-filter").insertAdjacentHTML(
+        "beforebegin",
+        window.ACPortal.trackingTabs("parts"),
+      );
   }
   function partCards(rows) {
     return (
@@ -421,30 +485,53 @@
   }
   async function showUsers() {
     users = await api("/users");
+    const cards = (kind) =>
+      users
+        .filter((u) => (u.scopeType || "brand") === kind)
+        .map(
+          (u) =>
+            `<article class="hc-order-card"><h3>${esc(u.nombre)}</h3><p>${esc(u.email)}</p><div class="hc-chips"><span>${esc(u.company || u.empresa)}</span><span>${u.activo ? "Activo" : "Inactivo"}</span></div>${button("Editar acceso", "edit-user", `data-id="${u.id}"`)}</article>`,
+        )
+        .join("") ||
+      '<div class="hc-empty">No hay usuarios de este tipo.</div>';
     $("#hc-main").innerHTML =
       heading(
         "Accesos Supervisor AC",
-        "Usuarios externos. Cada acceso queda ligado a Hispacold o Eberspächer.",
-        button("+ Crear Supervisor AC", "new-user", "", "primary"),
+        "Dos tipos de acceso, separados por marca o por empresa.",
       ) +
-      `<div class="hc-order-cards">${users.map((u) => `<article class="hc-order-card"><h3>${esc(u.nombre)}</h3><p>${esc(u.email)}</p><div class="hc-chips"><span>${esc(u.empresa)}</span><span>${u.activo ? "Activo" : "Inactivo"}</span></div>${button("Editar acceso", "edit-user", `data-id="${u.id}"`)}</article>`).join("") || '<div class="hc-empty">Sin usuarios Supervisor AC registrados.</div>'}</div>`;
+      `<section class="hc-panel"><div class="hc-heading"><div><h2>Supervisores de flota AC</h2><p>Una empresa asignada y sus unidades Hispacold y Eberspächer.</p></div>${button("+ Supervisor de flota AC", "new-fleet-user", "", "primary")}</div><div class="hc-order-cards">${cards("fleet")}</div></section><section class="hc-panel"><div class="hc-heading"><div><h2>Supervisores de marca AC</h2><p>Las empresas con unidades de su marca asignada.</p></div>${button("+ Supervisor de marca AC", "new-user")}</div><div class="hc-order-cards">${cards("brand")}</div></section>`;
   }
-  function userForm(u = null) {
+  async function userForm(u = null) {
+    const fleetOptions = await api("/fleet/options");
     currentUser = u;
     const b = u
       ? Object.keys(info.brands).find((b) => info.brands[b] === u.empresa)
       : "";
     dialog(
-      `<h2>${u ? "Editar acceso" : "Crear Supervisor AC"}</h2><p>Puede solicitar y consultar servicios de su marca. Las órdenes y el inventario los administra Carlab.</p><form id="ac-user-form"><div class="hc-grid">${field("Nombre *", "nombre", u?.nombre || "", "text", "required")}${field("Correo *", "email", u?.email || "", "email", "required")}${select("Empresa / marca *", "brand", info.brands, b, "Seleccionar marca")}${field(u ? "Contraseña nueva (opcional)" : "Contraseña *", "password", "", "password", `${u ? "" : "required"} minlength="8" maxlength="128" autocomplete="new-password"`)}${field("Teléfono", "telefono", u?.telefono || "")}${select("Acceso", "activo", { true: "Activo", false: "Inactivo" }, u?.activo === false ? "false" : "true")}</div><div class="hc-actions">${button("Cancelar", "dialog-close")}<button class="hc-btn primary" type="submit">Guardar usuario</button></div></form>`,
+      `<h2>${u ? "Editar acceso" : "Crear Supervisor AC"}</h2><p>Elige el alcance: una marca en sus empresas o una empresa con sus unidades de AC. Puede consultar y solicitar; Carlab administra las órdenes y el inventario.</p><form id="ac-user-form"><div class="hc-grid">${field("Nombre *", "nombre", u?.nombre || "", "text", "required")}${field("Correo *", "email", u?.email || "", "email", "required")}${select("Tipo de supervisor *", "scopeType", { brand: "Supervisor de marca AC", fleet: "Supervisor de flota AC" }, u?.scopeType || "brand")}${select("Marca asignada *", "brand", info.brands, b, "Seleccionar marca")}${select("Empresa de la flota *", "companyId", Object.fromEntries(fleetOptions.companies.map((c) => [c.id, c.name])), u?.companyId || "", "Seleccionar empresa")}${field(u ? "Contraseña nueva (opcional)" : "Contraseña *", "password", "", "password", `${u ? "" : "required"} minlength="8" maxlength="128" autocomplete="new-password"`)}${field("Teléfono", "telefono", u?.telefono || "")}${select("Acceso", "activo", { true: "Activo", false: "Inactivo" }, u?.activo === false ? "false" : "true")}</div><div class="hc-actions">${button("Cancelar", "dialog-close")}<button class="hc-btn primary" type="submit">Guardar usuario</button></div></form>`,
     );
+  }
+  function userScopeFields() {
+    const form = $("#ac-user-form");
+    if (!form) return;
+    const fleet = form.elements.scopeType.value === "fleet";
+    for (const key of ["brand", "companyId"]) {
+      const el = form.elements[key],
+        visible = key === "companyId" ? fleet : !fleet;
+      el.closest("label").hidden = !visible;
+      el.closest("label").style.display = visible ? "" : "none";
+      el.disabled = !visible;
+      el.required = visible;
+    }
   }
   async function showOrders() {
     const r = await api("/orders?offset=" + offset);
     $("#hc-main").innerHTML =
       heading(
-        "Órdenes de mi marca",
+        "Órdenes de servicio",
         `${name(info.user.brand)} · Consulta de avances y reportes.`,
       ) +
+      (external ? window.ACPortal.trackingTabs("orders") : "") +
       `<div class="hc-order-cards">${r.items.map((o) => `<article class="hc-order-card"><div class="hc-order-top"><b>${esc(o.folio)}</b><span class="hc-badge ${esc(o.status)}">${esc(library.statuses[o.status])}</span></div><h3>${esc(o.company)} · ${esc(o.unit)}</h3><b>${esc(library.types[o.type])}</b><p>${esc(o.symptoms)}</p><small>${fmt(o.serviceDate)} · ${esc(o.technician || "Responsable por asignar")}</small>${button("Consultar orden", "order-detail", `data-id="${o.id}"`)}</article>`).join("") || '<div class="hc-empty">No hay órdenes de tu marca para mostrar.</div>'}</div><div class="hc-pager"><span>${r.total} órdenes</span><div>${button("Anterior", "order-prev", offset === 0 ? "disabled" : "")}${button("Siguiente", "order-next", offset + 25 >= r.total ? "disabled" : "")}</div></div>`;
   }
   let viewedOrder = null;
@@ -490,7 +577,7 @@
           "",
         )}${d.parts.length ? `<h2>Refacciones y materiales</h2><div class="hc-table-wrap"><table><thead><tr><th>Concepto</th><th>Referencia</th><th>Cantidad</th></tr></thead><tbody>${d.parts.map((p) => `<tr><td>${esc(p.description)}</td><td>${esc(p.reference)}</td><td>${esc(p.quantity)}</td></tr>`).join("")}</tbody></table></div>` : ""}${d.evidence.length ? `<h2>Evidencia fotográfica</h2><div class="hc-report-photos">${d.evidence.map((p) => `<figure><img src="${esc(p.data)}" alt="Evidencia"><figcaption>${esc(p.caption || p.name)}</figcaption></figure>`).join("")}</div>` : ""}</article>`;
   }
-  async function showUpcoming() {
+  async function showUpcoming(initialFilters) {
     await window.ACCalendar.show({
       api,
       info,
@@ -499,6 +586,8 @@
       navigate,
       newRequest,
       active: () => currentView === "upcoming",
+      initialFilters:
+        typeof initialFilters === "object" ? initialFilters : null,
     });
   }
   function showLibrary() {
@@ -609,6 +698,8 @@
   });
   document.addEventListener("change", async (e) => {
     try {
+      if (e.target.closest("#ac-user-form") && e.target.name === "scopeType")
+        userScopeFields();
       if (e.target.id === "ac-request-photo") {
         if (requestPhotos.length + e.target.files.length > 4)
           throw new Error("Puedes adjuntar hasta cuatro fotos.");
@@ -649,6 +740,11 @@
         if (e.target.value !== "" && u) {
           $("#ac-new-request [name=company]").value = u.company;
           $("#ac-new-request [name=unit]").value = u.unit;
+          const brandField = $("#ac-new-request [name=brand]");
+          if (u.brand && brandField.tagName === "SELECT") {
+            brandField.value = u.brand;
+            brandField.dispatchEvent(new Event("change", { bubbles: true }));
+          }
         }
       }
       if (e.target.closest("#ac-new-request") && e.target.name === "partId")
@@ -685,6 +781,8 @@
     try {
       if (a === "dialog-close") closeDialog();
       if (a === "refresh") await show(currentView);
+      if (a === "portal-request")
+        window.ACPortal.requestChooser(portalContext(currentView));
       if (a === "new-service") await newRequest("service");
       if (a === "new-part") await newRequest("part");
       if (a === "request-part") await newRequest("part", b.dataset.id);
@@ -728,8 +826,19 @@
           `<h2>Movimientos de inventario</h2><div class="hc-table-wrap"><table><thead><tr><th>Fecha</th><th>Movimiento</th><th>Cantidad</th><th>Orden / solicitud</th><th>Registrado por</th></tr></thead><tbody>${rows.map((r) => `<tr><td>${fmt(r.created_at)}</td><td>${esc(r.tipo)}<small>${esc(r.notas)}</small></td><td>${esc(r.cantidad)}</td><td>${esc(r.garantia_folio)}</td><td>${esc(r.actor)}</td></tr>`).join("")}</tbody></table></div>${button("Cerrar", "dialog-close")}`,
         );
       }
-      if (a === "new-user") userForm();
-      if (a === "edit-user") userForm(users.find((u) => u.id === b.dataset.id));
+      if (a === "new-fleet-user") {
+        await userForm();
+        $("#ac-user-form [name=scopeType]").value = "fleet";
+        userScopeFields();
+      }
+      if (a === "new-user") {
+        await userForm();
+        userScopeFields();
+      }
+      if (a === "edit-user") {
+        await userForm(users.find((u) => u.id === b.dataset.id));
+        userScopeFields();
+      }
       if (a === "orders") await navigate("orders");
       if (a === "order-detail") await navigate("order", b.dataset.id);
       if (a === "order-prev") {
@@ -840,10 +949,18 @@
       );
       panel();
       if (external) {
-        $("#hc-user").textContent = info.user.nombre + " · Supervisor AC";
+        window.ACPortal.setupNav();
+        $("#hc-user").textContent =
+          info.user.nombre +
+          (info.user.scopeType === "fleet"
+            ? " · Supervisor de flota AC"
+            : " · Supervisor de marca AC");
         $(".hc-space-label").textContent =
           name(info.user.brand).toUpperCase() + " / PORTAL EXTERNO";
-        await show("fleet", new URLSearchParams(location.search).get("unit"));
+        $(".hc-topbar>span:first-child").textContent =
+          name(info.user.brand) + " / AC";
+        const unitId = new URLSearchParams(location.search).get("unit");
+        await show(unitId ? "fleet" : "home", unitId);
       }
       await refreshNotifications();
       refreshTimer = setInterval(() => refreshNotifications(), 30000);

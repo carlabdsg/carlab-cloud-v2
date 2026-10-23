@@ -266,8 +266,8 @@ function register(
   });
   async function companies(req) {
     const r = await pool.query(
-      `SELECT c.* FROM ac_fleet_companies c ${req.acAdmin ? "" : "WHERE EXISTS(SELECT 1 FROM ac_fleet_units u WHERE u.company_id=c.id AND u.brand=$1 AND u.active=TRUE)"} ORDER BY c.name`,
-      req.acAdmin ? [] : [req.acBrand],
+      `SELECT c.* FROM ac_fleet_companies c ${req.acAdmin ? "" : req.acCompanyId ? "WHERE c.id=$1" : "WHERE EXISTS(SELECT 1 FROM ac_fleet_units u WHERE u.company_id=c.id AND u.brand=$1 AND u.active=TRUE)"} ORDER BY c.name`,
+      req.acAdmin ? [] : [req.acCompanyId || req.acBrand],
     );
     return r.rows.map(companyRow);
   }
@@ -278,7 +278,7 @@ function register(
     );
     if (!r.rows[0] || (!req.acAdmin && !r.rows[0].active))
       fail("Unidad no encontrada.", 404);
-    allowed(req, r.rows[0].brand);
+    allowed(req, r.rows[0].brand, r.rows[0].company);
     return r.rows[0];
   }
   qr.register(router, {
@@ -295,12 +295,16 @@ function register(
     const today = todayOf(req),
       p = [today],
       w = [];
-    if (!req.acAdmin) {
+    if (req.acBrand) {
       p.push(req.acBrand);
       w.push(`u.brand=$${p.length}`);
     } else if (req.query.brand) {
       p.push(brand(req.query.brand));
       w.push(`u.brand=$${p.length}`);
+    }
+    if (req.acCompanyId) {
+      p.push(req.acCompanyId);
+      w.push(`u.company_id=$${p.length}`);
     }
     w.push(
       req.acAdmin && req.query.archived === "true"
@@ -370,6 +374,8 @@ function register(
       items = items.filter((u) => u.dueIn !== null && u.dueIn < 0);
     if (req.query.focus === "recurring")
       items = items.filter((u) => u.repeatRepairs >= 2);
+    if (req.query.focus === "attention")
+      items = items.filter((u) => u.signal === "red" || u.signal === "amber");
     if (req.query.focus === "pending")
       items = items.filter(
         (u) => u.openOrders || u.serviceRequests || u.partRequests,
@@ -394,9 +400,9 @@ function register(
   router.get(
     "/fleet/options",
     wrap(async (req, res) => {
-      const p = req.acAdmin ? [] : [req.acBrand];
+      const p = req.acAdmin ? [] : [req.acCompanyId || req.acBrand];
       const r = await pool.query(
-        `SELECT DISTINCT u.base,c.region FROM ac_fleet_units u JOIN ac_fleet_companies c ON c.id=u.company_id WHERE u.active=TRUE ${req.acAdmin ? "" : "AND u.brand=$1"}`,
+        `SELECT DISTINCT u.base,c.region FROM ac_fleet_units u JOIN ac_fleet_companies c ON c.id=u.company_id WHERE u.active=TRUE ${req.acAdmin ? "" : req.acCompanyId ? "AND u.company_id=$1" : "AND u.brand=$1"}`,
         p,
       );
       res.json({
@@ -771,7 +777,7 @@ function register(
         params,
       );
       const requests = await pool.query(
-        `SELECT r.id,r.number,r.kind,r.status,r.payload->>'description' AS description,r.payload->>'priority' AS priority,r.payload->>'partName' AS part_name,r.payload->>'quantity' AS quantity,r.created_at,s.status AS order_status,s.deleted_at AS order_deleted FROM ac_requests r LEFT JOIN hc_services s ON s.id=r.service_id WHERE LOWER(TRIM(r.operator_company))=LOWER(TRIM($1)) AND LOWER(TRIM(r.unit))=LOWER(TRIM($2)) AND r.brand=$3 ORDER BY r.number DESC LIMIT 30`,
+        `SELECT r.id,r.number,r.kind,r.status,r.payload->>'description' AS description,r.payload->>'priority' AS priority,r.payload->>'partName' AS part_name,r.payload->>'quantity' AS quantity,r.created_at,s.status AS order_status,s.deleted_at AS order_deleted FROM ac_requests r LEFT JOIN hc_services s ON s.id=r.service_id AND LOWER(TRIM(s.company))=LOWER(TRIM(r.operator_company)) AND LOWER(TRIM(s.unit))=LOWER(TRIM(r.unit)) AND COALESCE(s.payload->>'brand','hispacold')=r.brand WHERE LOWER(TRIM(r.operator_company))=LOWER(TRIM($1)) AND LOWER(TRIM(r.unit))=LOWER(TRIM($2)) AND r.brand=$3 ORDER BY r.number DESC LIMIT 30`,
         params,
       );
       const events = await pool.query(

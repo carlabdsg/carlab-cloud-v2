@@ -85,7 +85,7 @@
       year: "numeric",
     });
     $("#hc-main").innerHTML =
-      `<div class="acc-heading"><div><div class="hc-kicker">PLANIFICACIÓN / ${ctx.external ? esc(ctx.info.brands[ctx.info.user.brand]).toUpperCase() : "CLIMATIZACIÓN"}</div><h1>Próximos servicios</h1><p>Selecciona un día y consulta las unidades que requieren mantenimiento.</p></div>${btn("Actualizar", "refresh")}</div>
+      `<div class="acc-heading"><div><div class="hc-kicker">PLANIFICACIÓN / ${ctx.external ? esc(ctx.info.user.company || ctx.info.brands[ctx.info.user.brand]).toUpperCase() : "CLIMATIZACIÓN"}</div><h1>Próximos servicios</h1><p>Selecciona un día y consulta las unidades que requieren mantenimiento.</p></div>${btn("Actualizar", "refresh")}</div>
     <section class="acc-summary" aria-label="Periodos de seguimiento">${[
       [
         "overdue",
@@ -124,6 +124,9 @@
   }
   async function show(context) {
     ctx = context;
+    if (context.initialFilters) {
+      Object.assign(state, { day: "", offset: 0 }, context.initialFilters);
+    }
     await load();
     if (!timer)
       timer = setInterval(() => {

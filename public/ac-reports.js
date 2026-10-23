@@ -48,7 +48,7 @@
   async function load() {
     const seq = ++sequence;
     const query = { ...filters };
-    if (ctx.external) query.brand = ctx.info.user.brand;
+    if (ctx.external) query.brand = ctx.info.user.brand || "";
     const [r, options] = await Promise.all([
       ctx.api("/reports?" + new URLSearchParams(query)),
       ctx.api(

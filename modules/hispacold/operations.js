@@ -155,6 +155,9 @@ function safeUser(u) {
     empresa: u.empresa,
     telefono: u.telefono || "",
     activo: u.activo,
+    scopeType: u.scope_type || "brand",
+    companyId: u.company_id || null,
+    company: u.company || null,
   };
 }
 async function notice(
@@ -212,6 +215,11 @@ function register(
       .then(() => inventory.init(pool))
       .then(() => officialParts.init(pool))
       .then(() => pool.query(fleet.schema))
+      .then(() =>
+        pool.query(
+          `CREATE TABLE IF NOT EXISTS ac_supervisor_access(user_id TEXT PRIMARY KEY REFERENCES users(id), scope_type TEXT NOT NULL CHECK(scope_type IN ('brand','fleet')), company_id TEXT REFERENCES ac_fleet_companies(id), CHECK((scope_type='brand' AND company_id IS NULL) OR (scope_type='fleet' AND company_id IS NOT NULL)));`,
+        ),
+      )
       .catch((e) => {
         ready = null;
         throw e;
@@ -236,8 +244,21 @@ function register(
         );
       req.acUser = u;
       req.acAdmin = u.role === "admin";
-      req.acBrand = req.acAdmin ? null : userBrand(u);
       await init();
+      const access = req.acAdmin
+        ? null
+        : (
+            await pool.query(
+              "SELECT a.scope_type,a.company_id,c.name AS company FROM ac_supervisor_access a LEFT JOIN ac_fleet_companies c ON c.id=a.company_id WHERE a.user_id=$1",
+              [u.id],
+            )
+          ).rows[0];
+      req.acCompany = access?.scope_type === "fleet" ? access.company : null;
+      req.acCompanyId =
+        access?.scope_type === "fleet" ? access.company_id : null;
+      if (access?.scope_type === "fleet" && !req.acCompany)
+        fail("La cuenta no tiene una empresa válida asignada.", 403);
+      req.acBrand = req.acAdmin || req.acCompany ? null : userBrand(u);
       if (
         ["POST", "PATCH", "PUT"].includes(req.method) &&
         (!req.body || typeof req.body !== "object" || Array.isArray(req.body))
@@ -253,8 +274,16 @@ function register(
         .json({ error: "Solo Carlab puede realizar esta acción." });
     next();
   };
-  const allowed = (req, b) => {
-    if (!req.acAdmin && b !== req.acBrand) fail("Registro no encontrado.", 404);
+  const allowed = (req, b, company) => {
+    if (req.acAdmin) return;
+    if (
+      req.acCompany
+        ? String(company || "")
+            .trim()
+            .toLowerCase() !== req.acCompany.trim().toLowerCase()
+        : b !== req.acBrand
+    )
+      fail("Registro no encontrado.", 404);
   };
   async function transaction(fn) {
     const client = await pool.connect();
@@ -303,7 +332,7 @@ function register(
           : r.status,
       data: r.payload,
       version: r.version,
-      serviceId: r.order_deleted ? null : r.service_id,
+      serviceId: r.order_deleted || !r.order_status ? null : r.service_id,
       serviceStatus: r.order_deleted ? null : r.order_status,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
@@ -313,11 +342,11 @@ function register(
   }
   async function requestDetail(req, id) {
     const r = await pool.query(
-      `SELECT r.*,s.status AS order_status,s.deleted_at AS order_deleted FROM ac_requests r LEFT JOIN hc_services s ON s.id=r.service_id WHERE r.id=$1`,
+      `SELECT r.*,s.status AS order_status,s.deleted_at AS order_deleted FROM ac_requests r LEFT JOIN hc_services s ON s.id=r.service_id AND LOWER(TRIM(s.company))=LOWER(TRIM(r.operator_company)) AND LOWER(TRIM(s.unit))=LOWER(TRIM(r.unit)) AND COALESCE(s.payload->>'brand','hispacold')=r.brand WHERE r.id=$1`,
       [id],
     );
     if (!r.rows[0]) fail("Solicitud no encontrada.", 404);
-    allowed(req, r.rows[0].brand);
+    allowed(req, r.rows[0].brand, r.rows[0].operator_company);
     const ev = await pool.query(
       "SELECT actor_name,action,details,created_at FROM ac_request_events WHERE request_id=$1 ORDER BY id DESC",
       [id],
@@ -353,7 +382,13 @@ function register(
     "/me",
     wrap(async (req, res) =>
       res.json({
-        user: { ...safeUser(req.acUser), brand: req.acBrand },
+        user: {
+          ...safeUser(req.acUser),
+          brand: req.acBrand,
+          scopeType: req.acCompany ? "fleet" : "brand",
+          companyId: req.acCompanyId,
+          company: req.acCompany,
+        },
         brands: catalog.brands,
         stages,
         transitions: req.acAdmin ? transitions : {},
@@ -375,7 +410,9 @@ function register(
       // The external portal needs labels for orders/PDFs, not the technical library.
       if (!req.acAdmin)
         return res.json({
-          brands: { [req.acBrand]: catalog.brands[req.acBrand] },
+          brands: req.acBrand
+            ? { [req.acBrand]: catalog.brands[req.acBrand] }
+            : catalog.brands,
           types: catalog.types,
           statuses: catalog.statuses,
           brandCatalogs: {},
@@ -439,12 +476,16 @@ function register(
     wrap(async (req, res) => {
       const params = [],
         where = ["deleted_at IS NULL"];
-      if (!req.acAdmin) {
+      if (req.acBrand) {
         params.push(req.acBrand);
         where.push(`COALESCE(payload->>'brand','hispacold')=$${params.length}`);
       } else if (req.query.brand) {
         params.push(brand(req.query.brand));
         where.push(`COALESCE(payload->>'brand','hispacold')=$${params.length}`);
+      }
+      if (req.acCompany) {
+        params.push(req.acCompany);
+        where.push(`LOWER(TRIM(company))=LOWER(TRIM($${params.length}))`);
       }
       if (req.query.q) {
         params.push("%" + text(req.query.q, 180) + "%");
@@ -492,7 +533,7 @@ function register(
         [req.params.id],
       );
       if (!r.rows[0]) fail("Orden no encontrada.", 404);
-      allowed(req, r.rows[0].payload.brand || "hispacold");
+      allowed(req, r.rows[0].payload.brand || "hispacold", r.rows[0].company);
       const ev = await pool.query(
         "SELECT actor_name,action,details,created_at FROM hc_events WHERE service_id=$1 ORDER BY id DESC",
         [req.params.id],
@@ -510,8 +551,8 @@ function register(
         return res.json(r.rows);
       }
       const r = await pool.query(
-        `SELECT DISTINCT company,unit FROM (SELECT c.name AS company,u.unit FROM ac_fleet_units u JOIN ac_fleet_companies c ON c.id=u.company_id WHERE u.brand=$1 AND u.active=TRUE UNION SELECT company,unit FROM hc_services WHERE deleted_at IS NULL AND COALESCE(payload->>'brand','hispacold')=$1 UNION SELECT operator_company AS company,unit FROM ac_requests WHERE brand=$1) x ORDER BY company,unit LIMIT 1000`,
-        [req.acBrand],
+        `SELECT DISTINCT company,unit,brand FROM (SELECT c.name AS company,u.unit,u.brand FROM ac_fleet_units u JOIN ac_fleet_companies c ON c.id=u.company_id WHERE u.active=TRUE UNION SELECT company,unit,COALESCE(payload->>'brand','hispacold') FROM hc_services WHERE deleted_at IS NULL UNION SELECT operator_company AS company,unit,brand FROM ac_requests) x WHERE ($1::text IS NULL OR brand=$1) AND ($2::text IS NULL OR LOWER(TRIM(company))=LOWER(TRIM($2))) ORDER BY company,unit,brand LIMIT 1000`,
+        [req.acBrand, req.acCompany],
       );
       res.json(r.rows);
     }),
@@ -523,9 +564,13 @@ function register(
       if (!today) fail("Selecciona el día de consulta.");
       const p = [today],
         w = ["$1::date IS NOT NULL", "next_date IS NOT NULL"];
-      if (!req.acAdmin) {
+      if (req.acBrand) {
         p.push(req.acBrand);
-        w.push("brand=$2");
+        w.push(`brand=$${p.length}`);
+      }
+      if (req.acCompany) {
+        p.push(req.acCompany);
+        w.push(`LOWER(TRIM(company))=LOWER(TRIM($${p.length}))`);
       }
       const r = await pool.query(
         scheduleCTE +
@@ -546,13 +591,18 @@ function register(
     admin,
     wrap(async (req, res) => {
       const r = await pool.query(
-        "SELECT * FROM users WHERE role='supervisor_ac' AND deleted_at IS NULL ORDER BY nombre",
+        "SELECT u.*,a.scope_type,a.company_id,c.name AS company FROM users u LEFT JOIN ac_supervisor_access a ON a.user_id=u.id LEFT JOIN ac_fleet_companies c ON c.id=a.company_id WHERE u.role='supervisor_ac' AND u.deleted_at IS NULL ORDER BY u.nombre",
       );
       res.json(r.rows.map(safeUser));
     }),
   );
   async function saveUser(req, id) {
-    const b = brand(req.body.brand),
+    const scopeType = req.body.scopeType || "brand";
+    if (!["brand", "fleet"].includes(scopeType))
+      fail("Selecciona el tipo de supervisor.");
+    const companyId =
+      scopeType === "fleet" ? text(req.body.companyId, 100) : null;
+    const b = scopeType === "brand" ? brand(req.body.brand) : null,
       nombre = text(req.body.nombre, 180),
       email = text(req.body.email, 254).toLowerCase(),
       password = req.body.password == null ? "" : req.body.password,
@@ -570,6 +620,18 @@ function register(
       );
     const hash = password ? await bcrypt.hash(password, 10) : null;
     return transaction(async (client) => {
+      const company =
+        scopeType === "fleet"
+          ? (
+              await client.query(
+                "SELECT name FROM ac_fleet_companies WHERE id=$1",
+                [companyId],
+              )
+            ).rows[0]
+          : null;
+      if (scopeType === "fleet" && !company)
+        fail("Selecciona una empresa registrada en Flotas AC.");
+      const affiliation = company ? company.name : catalog.brands[b];
       let old;
       if (id) {
         const r = await client.query(
@@ -597,24 +659,34 @@ function register(
             nombre,
             email,
             hash || old.password_hash,
-            catalog.brands[b],
+            affiliation,
             telefono,
             req.body.activo !== false,
           ],
         );
       else
         r = await client.query(
-          `INSERT INTO users(id,nombre,email,password_hash,role,empresa,telefono,activo) VALUES($1,$2,$3,$4,'supervisor_ac',$5,$6,TRUE) RETURNING *`,
+          `INSERT INTO users(id,nombre,email,password_hash,role,empresa,telefono,activo) VALUES($1,$2,$3,$4,'supervisor_ac',$5,$6,$7) RETURNING *`,
           [
             crypto.randomUUID(),
             nombre,
             email,
             hash,
-            catalog.brands[b],
+            affiliation,
             telefono,
+            req.body.activo !== false,
           ],
         );
-      return safeUser(r.rows[0]);
+      await client.query(
+        "INSERT INTO ac_supervisor_access(user_id,scope_type,company_id) VALUES($1,$2,$3) ON CONFLICT(user_id) DO UPDATE SET scope_type=EXCLUDED.scope_type,company_id=EXCLUDED.company_id",
+        [r.rows[0].id, scopeType, companyId],
+      );
+      return safeUser({
+        ...r.rows[0],
+        scope_type: scopeType,
+        company_id: companyId,
+        company: company?.name,
+      });
     });
   }
   router.post(
@@ -632,12 +704,16 @@ function register(
     wrap(async (req, res) => {
       const p = [],
         w = [];
-      if (!req.acAdmin) {
+      if (req.acBrand) {
         p.push(req.acBrand);
         w.push(`r.brand=$${p.length}`);
       } else if (req.query.brand) {
         p.push(brand(req.query.brand));
         w.push(`r.brand=$${p.length}`);
+      }
+      if (req.acCompany) {
+        p.push(req.acCompany);
+        w.push(`LOWER(TRIM(r.operator_company))=LOWER(TRIM($${p.length}))`);
       }
       if (req.query.kind) {
         if (!["service", "part"].includes(req.query.kind))
@@ -645,6 +721,10 @@ function register(
         p.push(req.query.kind);
         w.push(`r.kind=$${p.length}`);
       }
+      if (req.query.pending === "true")
+        w.push(
+          `r.status NOT IN ('atendida','entregada','rechazada','cancelada') AND NOT (COALESCE(s.status,'')='completado' AND s.deleted_at IS NULL)`,
+        );
       if (req.query.status) {
         if (!stages[req.query.status]) fail("Estado inválido.");
         p.push(req.query.status);
@@ -655,11 +735,11 @@ function register(
       const where = w.length ? "WHERE " + w.join(" AND ") : "",
         offset = page(req.query);
       const count = await pool.query(
-        `SELECT COUNT(*)::int total FROM ac_requests r LEFT JOIN hc_services s ON s.id=r.service_id ${where}`,
+        `SELECT COUNT(*)::int total FROM ac_requests r LEFT JOIN hc_services s ON s.id=r.service_id AND LOWER(TRIM(s.company))=LOWER(TRIM(r.operator_company)) AND LOWER(TRIM(s.unit))=LOWER(TRIM(r.unit)) AND COALESCE(s.payload->>'brand','hispacold')=r.brand ${where}`,
         p,
       );
       const r = await pool.query(
-        `SELECT r.*,s.status AS order_status,s.deleted_at AS order_deleted FROM ac_requests r LEFT JOIN hc_services s ON s.id=r.service_id ${where} ORDER BY r.created_at DESC,r.number DESC LIMIT 25 OFFSET $${p.length + 1}`,
+        `SELECT r.*,s.status AS order_status,s.deleted_at AS order_deleted FROM ac_requests r LEFT JOIN hc_services s ON s.id=r.service_id AND LOWER(TRIM(s.company))=LOWER(TRIM(r.operator_company)) AND LOWER(TRIM(s.unit))=LOWER(TRIM(r.unit)) AND COALESCE(s.payload->>'brand','hispacold')=r.brand ${where} ORDER BY r.created_at DESC,r.number DESC LIMIT 25 OFFSET $${p.length + 1}`,
         [...p, offset],
       );
       res.json({
@@ -676,14 +756,15 @@ function register(
   router.post(
     "/requests",
     wrap(async (req, res) => {
-      const b = req.acAdmin ? brand(req.body.brand) : req.acBrand,
+      const b = req.acBrand || brand(req.body.brand),
         kind = text(req.body.kind, 20),
         company = text(req.body.company, 180),
         unit = text(req.body.unit, 80),
         clientKey = key(req.body.clientKey);
       if (!["service", "part"].includes(kind) || !company || !unit)
         fail("Selecciona tipo, empresa operadora y unidad.");
-      if (!req.acAdmin && req.body.brand && req.body.brand !== req.acBrand)
+      allowed(req, b, company);
+      if (req.acBrand && req.body.brand && req.body.brand !== req.acBrand)
         fail("Solo puedes solicitar servicios de tu marca.", 403);
       if (req.body.fleetUnitId) {
         const fleetUnit = await pool.query(
@@ -784,6 +865,11 @@ function register(
           const previous = await client.query(
             "SELECT * FROM ac_requests WHERE created_by=$1 AND client_key=$2",
             [req.acUser.id, clientKey],
+          );
+          allowed(
+            req,
+            previous.rows[0].brand,
+            previous.rows[0].operator_company,
           );
           if (previous.rows[0].brand !== b || previous.rows[0].kind !== kind)
             fail("El identificador pertenece a otra solicitud.", 409);
@@ -1054,7 +1140,7 @@ function register(
     wrap(async (req, res) => {
       const p = [],
         w = [];
-      const b = req.acAdmin
+      const b = !req.acBrand
         ? req.query.brand
           ? brand(req.query.brand)
           : null
@@ -1275,15 +1361,28 @@ function register(
       res.json(result);
     }),
   );
+  const notificationParams = (req) =>
+    req.acAdmin ? [] : [req.acCompany || req.acBrand];
   const visibility = (req) =>
-    req.acAdmin ? "TRUE" : "n.brand=$1 AND n.audience='all'";
+    req.acAdmin
+      ? "TRUE"
+      : req.acCompany
+        ? `n.audience='all' AND (
+    (n.target_type='request' AND EXISTS(SELECT 1 FROM ac_requests r WHERE r.id=n.target_id AND LOWER(TRIM(r.operator_company))=LOWER(TRIM($1)))) OR
+    (n.target_type='order' AND EXISTS(SELECT 1 FROM hc_services s WHERE s.id=n.target_id AND LOWER(TRIM(s.company))=LOWER(TRIM($1)))) OR
+    (n.target_type='fleet' AND EXISTS(SELECT 1 FROM ac_fleet_units u JOIN ac_fleet_companies c ON c.id=u.company_id WHERE u.id=n.target_id AND LOWER(TRIM(c.name))=LOWER(TRIM($1))))
+  )`
+        : "n.brand=$1 AND n.audience='all'";
   const relevant = `(n.target_type<>'fleet' OR EXISTS(SELECT 1 FROM ac_fleet_units fu WHERE fu.id=n.target_id AND fu.active=TRUE AND fu.brand=n.brand AND fu.condition='no_operativo')) AND (n.target_type<>'order' OR EXISTS(SELECT 1 FROM hc_services s WHERE s.id=n.target_id AND s.deleted_at IS NULL AND (n.kind<>'closure_reminder' OR s.status IN ('borrador','en_proceso')) AND (n.kind<>'maintenance_due' OR (s.next_date IS NOT NULL AND n.event_key='maintenance:'||s.id||':'||s.next_date::text AND s.id IN (SELECT id FROM hc_services s2 WHERE s2.deleted_at IS NULL AND s2.status='completado' AND (s2.type='preventivo' OR s2.next_date IS NOT NULL) AND LOWER(TRIM(s2.company))=LOWER(TRIM(s.company)) AND LOWER(TRIM(s2.unit))=LOWER(TRIM(s.unit)) AND COALESCE(s2.payload->>'brand','hispacold')=COALESCE(s.payload->>'brand','hispacold') ORDER BY s2.service_date DESC,s2.number DESC LIMIT 1)))))`;
   async function reminders(req, today) {
     const p = [today];
     let b = "";
-    if (!req.acAdmin) {
+    if (req.acBrand) {
       p.push(req.acBrand);
       b = " AND COALESCE(payload->>'brand','hispacold')=$2";
+    } else if (req.acCompany) {
+      p.push(req.acCompany);
+      b = " AND LOWER(TRIM(company))=LOWER(TRIM($2))";
     }
     await pool.query(
       `INSERT INTO ac_notifications(event_key,brand,audience,kind,title,body,target_type,target_id,created_at) SELECT 'order-created:'||id,COALESCE(payload->>'brand','hispacold'),'all','order_created','Nueva orden · HC-'||LPAD(number::text,6,'0'),company||' · Unidad '||unit,'order',id,created_at FROM hc_services WHERE deleted_at IS NULL AND service_date >= $1::date - INTERVAL '30 days'${b} ON CONFLICT(event_key) DO NOTHING`,
@@ -1294,7 +1393,11 @@ function register(
         `INSERT INTO ac_notifications(event_key,brand,audience,kind,title,body,target_type,target_id) SELECT 'closure:'||id||':'||$1::text,COALESCE(payload->>'brand','hispacold'),'admin','closure_reminder','Pendiente de cierre · HC-'||LPAD(number::text,6,'0'),company||' · Unidad '||unit,'order',id FROM hc_services WHERE deleted_at IS NULL AND status IN ('borrador','en_proceso') AND service_date <= $1::date - INTERVAL '2 days' ON CONFLICT(event_key) DO NOTHING`,
         [today],
       );
-    const brandClause = req.acAdmin ? "" : ` AND brand=$2`;
+    const brandClause = req.acBrand
+      ? ` AND brand=$2`
+      : req.acCompany
+        ? " AND LOWER(TRIM(company))=LOWER(TRIM($2))"
+        : "";
     await pool.query(
       scheduleCTE +
         `INSERT INTO ac_notifications(event_key,brand,audience,kind,title,body,target_type,target_id) SELECT 'maintenance:'||id||':'||next_date::text,brand,'all','maintenance_due','Servicio vencido · HC-'||LPAD(number::text,6,'0'),company||' · Unidad '||unit||' · Fecha '||next_date::text,'order',id FROM latest WHERE next_date < $1::date${brandClause} ON CONFLICT(event_key) DO NOTHING`,
@@ -1307,7 +1410,7 @@ function register(
       const today = day(req.query.today);
       if (!today) fail("Fecha de consulta obligatoria.");
       await reminders(req, today);
-      const p = req.acAdmin ? [] : [req.acBrand],
+      const p = notificationParams(req),
         w = visibility(req) + " AND " + relevant;
       const r = await pool.query(
         `SELECT n.*,r.read_at FROM ac_notifications n LEFT JOIN ac_notification_reads r ON r.notification_id=n.id AND r.user_id=$${p.length + 1} WHERE ${w} ORDER BY n.id DESC LIMIT 40`,
@@ -1336,7 +1439,7 @@ function register(
   router.post(
     "/notifications/read",
     wrap(async (req, res) => {
-      const p = req.acAdmin ? [] : [req.acBrand];
+      const p = notificationParams(req);
       let clause;
       if (req.body.ids) {
         if (

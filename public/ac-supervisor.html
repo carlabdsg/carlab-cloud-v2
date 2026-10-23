@@ -12,14 +12,16 @@
     <script src="/ac-qr.js?v=6.5" defer></script>
     <script src="/hispacold-pdf.js?v=6.2" defer></script>
     <link rel="stylesheet" href="/ac-fleet.css?v=6.3" />
-    <script src="/ac-fleet.js?v=6.5" defer></script>
+    <script src="/ac-fleet.js?v=6.6" defer></script>
     <link rel="stylesheet" href="/ac-calendar.css?v=5.2" />
-    <script src="/ac-calendar.js?v=5.2" defer></script>
+    <script src="/ac-calendar.js?v=6.6" defer></script>
     <link rel="stylesheet" href="/ac-reports.css?v=6.3" />
-    <script src="/ac-reports.js?v=6.3" defer></script>
+    <script src="/ac-reports.js?v=6.6" defer></script>
     <link rel="stylesheet" href="/ac-parts-picker.css?v=6.4" />
     <script src="/ac-parts-picker.js?v=6.4" defer></script>
-    <script src="/ac-operations.js?v=6.4" defer></script>
+    <link rel="stylesheet" href="/ac-portal.css?v=6.6" />
+    <script src="/ac-portal.js?v=6.6" defer></script>
+    <script src="/ac-operations.js?v=6.6" defer></script>
   </head>
   <body class="hc-app" data-ac-portal="external">
     <aside class="hc-sidebar">
@@ -27,28 +29,29 @@
         >CARLAB<span>CLOUD / CLIMATIZACIÓN</span></a
       >
       <div class="hc-space-label">PORTAL SUPERVISOR AC</div>
-      <nav aria-label="Portal Supervisor AC">
-        <button type="button" data-ac-view="fleet" class="selected">
-          ▰ &nbsp; Flotas AC
+      <nav class="acp-nav" aria-label="Portal Supervisor AC">
+        <button
+          type="button"
+          data-ac-view="home"
+          data-ac-nav="home"
+          class="selected"
+        >
+          <span>Inicio</span>
         </button>
-        <button type="button" data-ac-view="requests">
-          ✉ &nbsp; Solicitudes AC</button
-        ><button type="button" data-ac-view="orders">
-          ◈ &nbsp; Órdenes de mi marca</button
-        ><button type="button" data-ac-view="upcoming">
-          ▦ &nbsp; Próximos servicios</button
-        ><button type="button" data-ac-view="parts">
-          ▣ &nbsp; Refacciones AC</button
-        ><button type="button" data-ac-view="reports">
-          ▤ &nbsp; Reportes AC</button
-        ><button type="button" data-ac-view="notifications">
-          ♧ &nbsp; Notificaciones
+        <button type="button" data-ac-view="companies" data-ac-nav="fleet">
+          <span>Flotas</span>
+        </button>
+        <button type="button" data-ac-view="requests" data-ac-nav="tracking">
+          <span>Seguimiento</span>
+        </button>
+        <button type="button" data-ac-view="reports" data-ac-nav="report">
+          <span>Reportes</span>
         </button>
       </nav>
       <div class="hc-side-note">
         <span class="hc-dot"></span> SUPERVISOR AC<span
-          >Solicitudes y seguimiento<br />Consulta de información de tu
-          marca</span
+          >Solicitudes y seguimiento<br />Consulta de información de tu acceso
+          autorizado</span
         >
       </div>
       <button type="button" class="hc-back ac-logout" data-ac-action="logout">
