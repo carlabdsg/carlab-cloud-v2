@@ -1,4 +1,5 @@
 "use strict";
+const incidentStatusSQL = require("./incidents").effective;
 const crypto = require("crypto");
 const qr = require("./qr");
 const conditions = {
@@ -73,7 +74,7 @@ const fleetSQL = `SELECT u.*,c.name AS company,c.region,c.city,
  SELECT COUNT(*) FILTER(WHERE r.kind='service')::int AS service_requests,COUNT(*) FILTER(WHERE r.kind='part')::int AS part_requests,
  COUNT(*) FILTER(WHERE r.kind='service' AND r.payload->>'priority'='urgente')::int AS urgent_requests,MIN(r.created_at) AS oldest_request
  FROM ac_requests r LEFT JOIN hc_services linked ON linked.id=r.service_id
- WHERE ${requestMatch} AND r.deleted_at IS NULL AND r.status NOT IN ('entregada','rechazada','cancelada') AND
+ WHERE ${requestMatch} AND r.deleted_at IS NULL AND r.status NOT IN ('atendida','entregada','rechazada','cancelada') AND
  (r.kind='part' OR r.service_id IS NULL OR linked.deleted_at IS NOT NULL OR linked.status='cancelado')
  ) rq ON TRUE`;
 function unitRow(r, today) {
@@ -823,7 +824,7 @@ function register(
         params,
       );
       const requests = await pool.query(
-        `SELECT r.id,r.number,r.kind,r.status,r.payload->>'description' AS description,r.payload->>'priority' AS priority,r.payload->>'partName' AS part_name,r.payload->>'quantity' AS quantity,r.created_at,s.status AS order_status,s.deleted_at AS order_deleted FROM ac_requests r LEFT JOIN hc_services s ON s.id=r.service_id AND LOWER(TRIM(s.company))=LOWER(TRIM(r.operator_company)) AND LOWER(TRIM(s.unit))=LOWER(TRIM(r.unit)) AND COALESCE(s.payload->>'brand','hispacold')=r.brand WHERE r.deleted_at IS NULL AND LOWER(TRIM(r.operator_company))=LOWER(TRIM($1)) AND LOWER(TRIM(r.unit))=LOWER(TRIM($2)) AND r.brand=$3 ORDER BY r.number DESC LIMIT 30`,
+        `SELECT r.id,r.number,r.kind,r.status,(SELECT i.number FROM ac_incidents i WHERE i.request_id=r.id) AS incident_number,(SELECT ${incidentStatusSQL} FROM ac_incidents i WHERE i.request_id=r.id) AS incident_status,r.payload->>'description' AS description,r.payload->>'priority' AS priority,r.payload->>'partName' AS part_name,r.payload->>'quantity' AS quantity,r.created_at,s.status AS order_status,s.deleted_at AS order_deleted FROM ac_requests r LEFT JOIN hc_services s ON s.id=r.service_id AND LOWER(TRIM(s.company))=LOWER(TRIM(r.operator_company)) AND LOWER(TRIM(s.unit))=LOWER(TRIM(r.unit)) AND COALESCE(s.payload->>'brand','hispacold')=r.brand WHERE r.deleted_at IS NULL AND LOWER(TRIM(r.operator_company))=LOWER(TRIM($1)) AND LOWER(TRIM(r.unit))=LOWER(TRIM($2)) AND r.brand=$3 ORDER BY r.number DESC LIMIT 30`,
         params,
       );
       const events = await pool.query(
@@ -840,12 +841,17 @@ function register(
         requests: requests.rows.map((r) => ({
           ...r,
           status:
-            r.order_status === "completado" && !r.order_deleted
+            r.incident_status ||
+            (r.order_status === "completado" && !r.order_deleted
               ? "atendida"
-              : r.status,
+              : r.status),
           folio:
-            (r.kind === "service" ? "SAC-" : "RAC-") +
-            String(r.number).padStart(6, "0"),
+            (r.incident_number
+              ? "IAC-"
+              : r.kind === "service"
+                ? "SAC-"
+                : "RAC-") +
+            String(r.incident_number || r.number).padStart(6, "0"),
         })),
         events: events.rows,
         today,

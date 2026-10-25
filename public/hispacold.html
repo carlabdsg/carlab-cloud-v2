@@ -13,20 +13,22 @@
     <script src="/hispacold-pdf.js?v=6.2" defer></script>
     <script src="/hispacold-drafts.js?v=5" defer></script>
     <link rel="stylesheet" href="/hispacold-guided.css?v=6" />
-    <script src="/hispacold.js?v=6.8" defer></script>
+    <script src="/hispacold.js?v=6.11" defer></script>
     <link rel="stylesheet" href="/ac-fleet.css?v=6.3" />
-    <script src="/ac-fleet.js?v=6.10" defer></script>
+    <script src="/ac-fleet.js?v=6.11" defer></script>
     <link rel="stylesheet" href="/ac-calendar.css?v=5.2" />
-    <script src="/ac-calendar.js?v=6.6" defer></script>
+    <script src="/ac-calendar.js?v=6.11" defer></script>
     <link rel="stylesheet" href="/ac-reports.css?v=6.3" />
-    <script src="/ac-reports.js?v=6.6" defer></script>
+    <script src="/ac-reports.js?v=6.11" defer></script>
     <link rel="stylesheet" href="/ac-parts-picker.css?v=6.4" />
     <script src="/ac-parts-picker.js?v=6.4" defer></script>
     <link rel="stylesheet" href="/ac-portal.css?v=6.10" />
     <link rel="stylesheet" href="/ac-admin.css?v=6.7" />
     <link rel="stylesheet" href="/ac-order-form.css?v=6.8" />
-    <script src="/ac-portal.js?v=6.7" defer></script>
-    <script src="/ac-operations.js?v=6.7" defer></script>
+    <script src="/ac-portal.js?v=6.11" defer></script>
+    <link rel="stylesheet" href="/ac-incidents.css?v=6.11" />
+    <script src="/ac-incidents.js?v=6.11" defer></script>
+    <script src="/ac-operations.js?v=6.11" defer></script>
   </head>
   <body class="hc-app" data-ac-portal="admin">
     <aside class="hc-sidebar">
@@ -49,7 +51,15 @@
         <button type="button" data-view="services" data-ac-nav="order">
           <span>Órdenes</span>
         </button>
-        <button type="button" data-view="requests" data-ac-nav="tracking">
+        <button type="button" data-view="incidents" data-ac-nav="incident">
+          <span>Reportes AC</span>
+        </button>
+        <button
+          type="button"
+          class="aca-desktop"
+          data-view="requests"
+          data-ac-nav="tracking"
+        >
           <span>Solicitudes</span>
         </button>
         <button
@@ -66,7 +76,7 @@
           data-ac-nav="report"
           class="aca-desktop"
         >
-          <span>Reportes</span>
+          <span>Informes</span>
         </button>
         <button type="button" data-view="tools" data-ac-nav="more">
           <span>Más opciones</span>

@@ -26,6 +26,12 @@ function register(
     WHERE f.active=TRUE AND f.next_date IS NOT NULL AND NOT EXISTS(
       SELECT 1 FROM latest l WHERE LOWER(TRIM(l.company))=LOWER(TRIM(c.name)) AND LOWER(TRIM(l.unit))=LOWER(TRIM(f.unit)) AND l.brand=f.brand
     )
+    UNION ALL
+    SELECT 'incident:'||r.id,NULL::text,i.number,r.brand,r.operator_company,r.unit,(r.payload->>'scheduledDate')::date,u.id,u.base,'incident'
+    FROM ac_incidents i JOIN ac_requests r ON r.id=i.request_id JOIN ac_fleet_units u ON u.id=i.fleet_unit_id
+    LEFT JOIN hc_services s ON s.id=r.service_id
+    WHERE u.active=TRUE AND r.deleted_at IS NULL AND i.status NOT IN ('resuelto','descartado','confirmacion')
+    AND COALESCE(r.payload->>'scheduledDate','')<>'' AND (s.id IS NULL OR s.status<>'completado' OR s.deleted_at IS NOT NULL)
   ) `;
   router.get(
     "/calendar",
@@ -130,7 +136,11 @@ function register(
         items: rows.rows.map((r) => ({
           id: r.id,
           orderId: r.order_id,
-          folio: r.number ? "HC-" + String(r.number).padStart(6, "0") : null,
+          folio: r.number
+            ? (r.source === "incident" ? "IAC-" : "HC-") +
+              String(r.number).padStart(6, "0")
+            : null,
+          incidentId: r.source === "incident" ? r.id.slice(9) : null,
           brand: r.brand,
           company: r.company,
           unit: r.unit,

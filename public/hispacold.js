@@ -233,7 +233,14 @@
     view = name;
     const key = ["fleet", "companies"].includes(name)
       ? "companies"
-      : ["home", "services", "requests", "parts", "reports"].includes(name)
+      : [
+            "home",
+            "services",
+            "requests",
+            "parts",
+            "reports",
+            "incidents",
+          ].includes(name)
         ? name
         : "tools";
     $$(".aca-nav [data-view]").forEach((b) => {
@@ -343,6 +350,7 @@
           "tools",
           "fleet",
           "requests",
+          "incidents",
           "parts",
           "access",
           "notifications",

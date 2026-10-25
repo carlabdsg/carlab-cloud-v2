@@ -110,9 +110,15 @@
     toast,
     navigate,
     newRequest,
+    newIncident,
+    compress,
     dialog,
     active: () => currentView === view,
   });
+  async function newIncident(seed) {
+    document.querySelector("#ac-dialog")?.close();
+    await window.ACIncidents.create(portalContext("incidents"), seed);
+  }
   function dialog(html) {
     let el = $("#ac-dialog");
     if (!el) {
@@ -267,10 +273,13 @@
         toast,
         navigate,
         newRequest,
+        newIncident,
         active: () => currentView === "fleet",
         initialFilters: id && typeof id === "object" ? id : {},
       });
       if (typeof id === "string") await window.ACFleet.openDetail(id);
+    } else if (view === "incidents") {
+      await window.ACIncidents.show(portalContext("incidents"), id);
     } else if (view === "requests") {
       if (id?.pending) {
         filters = {
@@ -335,6 +344,7 @@
   }
   async function requestRemoval(id, restore) {
     currentRequest = await api("/requests/" + id);
+    if (currentRequest.incident) return navigate("incidents", id);
     const x = currentRequest;
     dialog(
       `<div class="hc-kicker">SOLICITUD DE SERVICIO</div><h2>${restore ? "Recuperar" : "Eliminar"} ${esc(x.folio)}</h2><p><b>${esc(x.company)} · Unidad ${esc(x.unit)}</b></p><p>${restore ? "Volverá a las solicitudes activas con el estado y seguimiento que tenía." : "Se moverá a Eliminadas y dejará de aparecer en los pendientes. Podrás recuperarla después."}</p>${x.serviceId ? '<div class="hc-note">La orden vinculada conservará su estado, trabajos, fotografías y reporte técnico.</div>' : ""}<form id="ac-request-removal"><input type="hidden" name="restore" value="${restore}">${restore ? "" : field("Motivo de eliminación *", "reason", "", "textarea", 'required maxlength="1000" rows="3" placeholder="Por ejemplo: solicitud duplicada"')}<div class="hc-actions">${button("Cancelar", "dialog-close")}<button type="submit" class="hc-btn ${restore ? "primary" : "aca-danger"}">${restore ? "Recuperar solicitud" : "Eliminar solicitud"}</button></div></form>`,
@@ -834,6 +844,7 @@
       if (a === "refresh") await show(currentView);
       if (a === "portal-request")
         window.ACPortal.requestChooser(portalContext(currentView));
+      if (a === "new-incident") await newIncident();
       if (a === "new-service") await newRequest("service");
       if (a === "new-part") await newRequest("part");
       if (a === "request-part") await newRequest("part", b.dataset.id);

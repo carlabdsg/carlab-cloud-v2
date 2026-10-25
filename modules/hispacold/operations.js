@@ -8,6 +8,7 @@ const maintenanceCalendar = require("./calendar");
 const inventory = require("./inventory");
 const officialParts = require("./official-parts");
 const reports = require("./reports");
+const incidents = require("./incidents");
 const notificationSchema = `
 CREATE TABLE IF NOT EXISTS ac_notifications (
  id BIGSERIAL PRIMARY KEY, event_key TEXT NOT NULL UNIQUE, brand TEXT NOT NULL,
@@ -218,6 +219,7 @@ function register(
       .then(() => inventory.init(pool))
       .then(() => officialParts.init(pool))
       .then(() => pool.query(fleet.schema))
+      .then(() => pool.query(incidents.schema))
       .then(() =>
         pool.query(
           `CREATE TABLE IF NOT EXISTS ac_supervisor_access(user_id TEXT PRIMARY KEY REFERENCES users(id), scope_type TEXT NOT NULL CHECK(scope_type IN ('brand','fleet')), company_id TEXT REFERENCES ac_fleet_companies(id), CHECK((scope_type='brand' AND company_id IS NULL) OR (scope_type='fleet' AND company_id IS NOT NULL)));`,
@@ -323,8 +325,10 @@ function register(
     const result = {
       id: r.id,
       folio:
+        r.payload.incidentFolio ||
         (r.kind === "service" ? "SAC-" : "RAC-") +
-        String(r.number).padStart(6, "0"),
+          String(r.number).padStart(6, "0"),
+      incident: !!r.payload.incident,
       kind: r.kind,
       brand: r.brand,
       company: r.operator_company,
@@ -361,6 +365,20 @@ function register(
     );
     return { ...requestRow(r.rows[0]), events: ev.rows };
   }
+  const incidentOps = incidents.register(router, {
+    pool,
+    wrap,
+    admin,
+    allowed,
+    transaction,
+    fail,
+    text,
+    day,
+    key,
+    image,
+    page,
+    notice,
+  });
   fleet.register(router, {
     pool,
     wrap,
@@ -714,7 +732,10 @@ function register(
       if (deleted && !req.acAdmin)
         fail("Solo Carlab puede consultar las solicitudes eliminadas.", 403);
       const p = [],
-        w = [deleted ? "r.deleted_at IS NOT NULL" : "r.deleted_at IS NULL"];
+        w = [
+          deleted ? "r.deleted_at IS NOT NULL" : "r.deleted_at IS NULL",
+          "NOT EXISTS(SELECT 1 FROM ac_incidents i WHERE i.request_id=r.id)",
+        ];
       if (req.acBrand) {
         p.push(req.acBrand);
         w.push(`r.brand=$${p.length}`);
@@ -929,6 +950,8 @@ function register(
       );
       if (!row || row.kind !== "service")
         fail("Solicitud de servicio no encontrada.", 404);
+      if (row.payload.incident)
+        fail("Gestiona este registro desde Reportes AC.", 409);
       if (row.version !== req.body.version)
         fail(
           "Otra sesión actualizó esta solicitud. Recarga antes de continuar.",
@@ -985,6 +1008,8 @@ function register(
         );
         const row = r.rows[0];
         if (!row) fail("Solicitud no encontrada.", 404);
+        if (row.payload.incident)
+          fail("Gestiona este registro desde Reportes AC.", 409);
         if (row.deleted_at)
           fail("Recupera la solicitud antes de modificarla.", 409);
         if (row.version !== req.body.version)
@@ -1117,6 +1142,7 @@ function register(
           fail("Solicitud de servicio no encontrada.", 404);
         if (row.deleted_at)
           fail("Recupera la solicitud antes de crear una orden.", 409);
+        await incidentOps.beforeOrder(client, req, row);
         if (row.service_id) {
           const old = await client.query(
             "SELECT * FROM hc_services WHERE id=$1",
@@ -1174,7 +1200,9 @@ function register(
             d.serviceDate,
             JSON.stringify(d),
             req.acUser.id,
-            "request-" + row.id,
+            row.payload.incident
+              ? "incident-" + row.id + "-" + row.version
+              : "request-" + row.id,
           ],
         );
         const order = s.rows[0];
@@ -1208,6 +1236,7 @@ function register(
           ],
         );
         await orderNotice(client, order);
+        await incidentOps.afterOrder(client, req, row);
         return mapRow(order);
       });
       res.status(result.replayed ? 200 : 201).json(result);
@@ -1451,7 +1480,7 @@ function register(
     (n.target_type='fleet' AND EXISTS(SELECT 1 FROM ac_fleet_units u JOIN ac_fleet_companies c ON c.id=u.company_id WHERE u.id=n.target_id AND LOWER(TRIM(c.name))=LOWER(TRIM($1))))
   )`
         : "n.brand=$1 AND n.audience='all'";
-  const relevant = `(n.target_type<>'request' OR EXISTS(SELECT 1 FROM ac_requests r WHERE r.id=n.target_id AND r.deleted_at IS NULL)) AND (n.target_type<>'fleet' OR EXISTS(SELECT 1 FROM ac_fleet_units fu WHERE fu.id=n.target_id AND fu.active=TRUE AND fu.brand=n.brand AND fu.condition='no_operativo')) AND (n.target_type<>'order' OR EXISTS(SELECT 1 FROM hc_services s WHERE s.id=n.target_id AND s.deleted_at IS NULL AND (n.kind<>'closure_reminder' OR s.status IN ('borrador','en_proceso')) AND (n.kind<>'maintenance_due' OR (s.next_date IS NOT NULL AND n.event_key='maintenance:'||s.id||':'||s.next_date::text AND s.id IN (SELECT id FROM hc_services s2 WHERE s2.deleted_at IS NULL AND s2.status='completado' AND (s2.type='preventivo' OR s2.next_date IS NOT NULL) AND LOWER(TRIM(s2.company))=LOWER(TRIM(s.company)) AND LOWER(TRIM(s2.unit))=LOWER(TRIM(s.unit)) AND COALESCE(s2.payload->>'brand','hispacold')=COALESCE(s.payload->>'brand','hispacold') ORDER BY s2.service_date DESC,s2.number DESC LIMIT 1)))))`;
+  const relevant = `(n.kind<>'incident_confirmation' OR EXISTS(SELECT 1 FROM ac_incidents i JOIN ac_requests r ON r.id=i.request_id LEFT JOIN hc_services s ON s.id=r.service_id WHERE r.id=n.target_id AND ${incidents.effective}='confirmacion')) AND (n.target_type<>'request' OR EXISTS(SELECT 1 FROM ac_requests r WHERE r.id=n.target_id AND r.deleted_at IS NULL)) AND (n.target_type<>'fleet' OR EXISTS(SELECT 1 FROM ac_fleet_units fu WHERE fu.id=n.target_id AND fu.active=TRUE AND fu.brand=n.brand AND fu.condition='no_operativo')) AND (n.target_type<>'order' OR EXISTS(SELECT 1 FROM hc_services s WHERE s.id=n.target_id AND s.deleted_at IS NULL AND (n.kind<>'closure_reminder' OR s.status IN ('borrador','en_proceso')) AND (n.kind<>'maintenance_due' OR (s.next_date IS NOT NULL AND n.event_key='maintenance:'||s.id||':'||s.next_date::text AND s.id IN (SELECT id FROM hc_services s2 WHERE s2.deleted_at IS NULL AND s2.status='completado' AND (s2.type='preventivo' OR s2.next_date IS NOT NULL) AND LOWER(TRIM(s2.company))=LOWER(TRIM(s.company)) AND LOWER(TRIM(s2.unit))=LOWER(TRIM(s.unit)) AND COALESCE(s2.payload->>'brand','hispacold')=COALESCE(s.payload->>'brand','hispacold') ORDER BY s2.service_date DESC,s2.number DESC LIMIT 1)))))`;
   async function reminders(req, today) {
     const p = [today];
     let b = "";
@@ -1488,6 +1517,7 @@ function register(
       const today = day(req.query.today);
       if (!today) fail("Fecha de consulta obligatoria.");
       await reminders(req, today);
+      await incidentOps.reminders(req);
       const p = notificationParams(req),
         w = visibility(req) + " AND " + relevant;
       const r = await pool.query(

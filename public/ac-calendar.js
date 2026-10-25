@@ -68,7 +68,7 @@
   }
   function item(row) {
     const [cls, label] = status(row.nextDate);
-    return `<article class="acc-service ${cls}"><div class="acc-service-top"><div><span class="acc-eyebrow">${esc(ctx.info.brands[row.brand])}</span><h3>Unidad ${esc(row.unit)}</h3></div><span class="acc-status ${cls}">${label}</span></div><p class="acc-company">${esc(row.company)}</p><div class="acc-service-date"><b>${fmt(row.nextDate, { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</b>${row.base ? `<span>${esc(row.base)}</span>` : ""}</div><small class="acc-source">${row.source === "fleet" ? "Plan inicial registrado en Flotas AC" : "Seguimiento de " + esc(row.folio)}</small><div class="hc-actions">${row.orderId ? btn("Ver antecedente", "order", `data-id="${esc(row.id)}"`) : ""}${row.fleetUnitId ? btn("Ficha de unidad", "fleet", `data-id="${esc(row.id)}"`) : ""}${ctx.external ? btn("Solicitar servicio", "request", `data-id="${esc(row.id)}"`, true) : row.orderId ? btn("Registrar servicio", "new-order", `data-id="${esc(row.id)}"`, true) : btn("Solicitar servicio", "request", `data-id="${esc(row.id)}"`, true)}</div></article>`;
+    return `<article class="acc-service ${cls}"><div class="acc-service-top"><div><span class="acc-eyebrow">${esc(ctx.info.brands[row.brand])}</span><h3>Unidad ${esc(row.unit)}</h3></div><span class="acc-status ${cls}">${label}</span></div><p class="acc-company">${esc(row.company)}</p><div class="acc-service-date"><b>${fmt(row.nextDate, { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</b>${row.base ? `<span>${esc(row.base)}</span>` : ""}</div><small class="acc-source">${row.source === "fleet" ? "Plan inicial registrado en Flotas AC" : "Seguimiento de " + esc(row.folio)}</small><div class="hc-actions">${row.incidentId ? btn("Ver reporte", "incident", `data-id="${esc(row.id)}"`, true) : ""}${row.orderId ? btn("Ver antecedente", "order", `data-id="${esc(row.id)}"`) : ""}${row.fleetUnitId ? btn("Ficha de unidad", "fleet", `data-id="${esc(row.id)}"`) : ""}${row.incidentId ? "" : ctx.external ? btn("Solicitar servicio", "request", `data-id="${esc(row.id)}"`, true) : row.orderId ? btn("Registrar servicio", "new-order", `data-id="${esc(row.id)}"`, true) : btn("Solicitar servicio", "request", `data-id="${esc(row.id)}"`, true)}</div></article>`;
   }
   function agendaTitle() {
     return state.day
@@ -235,6 +235,8 @@
         if (ctx.external) await ctx.navigate("order", row.orderId);
         else await window.CarlabACNav.open(row.orderId);
       }
+      if (a === "incident" && row)
+        await ctx.navigate("incidents", row.incidentId);
       if (a === "fleet" && row) await ctx.navigate("fleet", row.fleetUnitId);
       if (a === "new-order" && row && !ctx.external)
         await window.CarlabACNav.newFrom(row.orderId);

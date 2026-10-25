@@ -1,4 +1,5 @@
 "use strict";
+const incidentStatusSQL = require("./incidents").effective;
 const { fleetSQL, unitRow } = require("./fleet");
 const catalog = require("./catalog");
 const date = (v) =>
@@ -88,10 +89,19 @@ function register(router, { pool, wrap, fail, text, brand, day, transaction }) {
      r.payload->>'description' AS description,r.payload->>'partName' AS part_name,r.payload->>'quantity' AS quantity,
      r.payload->>'priority' AS priority,r.payload->>'scheduledDate' AS scheduled_date
      FROM ac_requests r LEFT JOIN hc_services s ON s.id=r.service_id AND LOWER(TRIM(s.company))=LOWER(TRIM(r.operator_company)) AND LOWER(TRIM(s.unit))=LOWER(TRIM(r.unit)) AND COALESCE(s.payload->>'brand','hispacold')=r.brand
-     WHERE r.deleted_at IS NULL AND ($3::text IS NULL OR r.brand=$3) AND ($4='' OR LOWER(TRIM(r.operator_company))=LOWER(TRIM($4)))
+     WHERE r.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM ac_incidents i WHERE i.request_id=r.id) AND ($3::text IS NULL OR r.brand=$3) AND ($4='' OR LOWER(TRIM(r.operator_company))=LOWER(TRIM($4)))
      AND ((r.created_at AT TIME ZONE 'America/Mazatlan')::date BETWEEN $1::date AND $2::date OR
       (r.status NOT IN ('atendida','entregada','rechazada','cancelada') AND NOT (COALESCE(s.status,'')='completado' AND s.deleted_at IS NULL)))
      ORDER BY r.created_at DESC LIMIT 10001`,
+          p,
+        );
+        const ir = await db.query(
+          `SELECT r.id,i.number,r.brand,r.operator_company AS company,r.unit,r.payload->>'description' AS description,
+        (r.created_at AT TIME ZONE 'America/Mazatlan')::date AS created_date,
+        ${incidentStatusSQL} AS status
+        FROM ac_incidents i JOIN ac_requests r ON r.id=i.request_id LEFT JOIN hc_services s ON s.id=r.service_id
+        WHERE r.deleted_at IS NULL AND ($3::text IS NULL OR r.brand=$3) AND ($4='' OR LOWER(TRIM(r.operator_company))=LOWER(TRIM($4)))
+        AND ((r.created_at AT TIME ZONE 'America/Mazatlan')::date BETWEEN $1::date AND $2::date OR i.status NOT IN ('resuelto','descartado')) ORDER BY r.created_at DESC LIMIT 10001`,
           p,
         );
         const fs = await db.query(
@@ -109,7 +119,7 @@ function register(router, { pool, wrap, fail, text, brand, day, transaction }) {
      AND m.tipo<>'saldo_inicial' AND ($5::boolean OR m.tipo='salida_unidad') ORDER BY m.created_at DESC LIMIT 10001`,
           [...p, req.acAdmin],
         );
-        if ([os, rs, ms].some((r) => r.rows.length > 10000))
+        if ([os, rs, ms, ir].some((r) => r.rows.length > 10000))
           fail(
             "Este reporte supera 10,000 registros. Selecciona una empresa, marca o semana.",
             413,
@@ -129,6 +139,17 @@ function register(router, { pool, wrap, fail, text, brand, day, transaction }) {
           created_date: date(r.created_date),
         }));
         const inPeriod = (d) => d >= range.from && d <= range.to;
+        const incidents = ir.rows.map((r) => ({
+          ...r,
+          folio: "IAC-" + String(r.number).padStart(6, "0"),
+          created_date: date(r.created_date),
+        }));
+        const periodIncidents = incidents.filter((r) =>
+          inPeriod(r.created_date),
+        );
+        const pendingIncidents = incidents.filter(
+          (r) => !["resuelto", "descartado"].includes(r.status),
+        );
         const periodOrders = orders.filter((r) => inPeriod(r.service_date));
         const periodRequests = requests.filter((r) => inPeriod(r.created_date));
         const pendingOrders = orders.filter((r) =>
@@ -152,6 +173,8 @@ function register(router, { pool, wrap, fail, text, brand, day, transaction }) {
               orders: 0,
               completed: 0,
               requests: 0,
+              incidents: 0,
+              pendingIncidents: 0,
               pendingOrders: 0,
               pendingRequests: 0,
               critical: 0,
@@ -170,6 +193,9 @@ function register(router, { pool, wrap, fail, text, brand, day, transaction }) {
           g.orders++;
           if (o.status === "completado") g.completed++;
         }
+        for (const r of periodIncidents) group(r.company, r.brand).incidents++;
+        for (const r of pendingIncidents)
+          group(r.company, r.brand).pendingIncidents++;
         for (const r of periodRequests) group(r.company, r.brand).requests++;
         for (const o of pendingOrders)
           group(o.company, o.brand).pendingOrders++;
@@ -190,8 +216,10 @@ function register(router, { pool, wrap, fail, text, brand, day, transaction }) {
           company,
           asOf: today,
           generatedAt: new Date().toISOString(),
-          note: "Órdenes por fecha de servicio; solicitudes y movimientos por fecha de registro (Mazatlán). Los estados, pendientes y semáforos son los actuales al generar el reporte; no reconstruyen un corte histórico.",
+          note: "Órdenes por fecha de servicio; reportes, solicitudes y movimientos por fecha de registro (Mazatlán). Los estados, pendientes y semáforos son los actuales al generar el reporte; no reconstruyen un corte histórico.",
           summary: {
+            incidents: periodIncidents.length,
+            pendingIncidents: pendingIncidents.length,
             orders: periodOrders.length,
             completed: periodOrders.filter((o) => o.status === "completado")
               .length,
@@ -214,6 +242,8 @@ function register(router, { pool, wrap, fail, text, brand, day, transaction }) {
               a.brand.localeCompare(b.brand),
           ),
           orders: periodOrders,
+          incidents: periodIncidents,
+          pendingIncidents,
           requests: periodRequests,
           pendingOrders,
           pendingRequests,

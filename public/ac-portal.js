@@ -13,6 +13,7 @@
         })[c],
     );
   const icons = {
+    incident: '<path d="M12 3 2 21h20zM12 9v5m0 3v1"/>',
     more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
     parts: '<path d="m3 7 9-4 9 4v10l-9 4-9-4zm0 0 9 5 9-5M12 12v9M7 5l9 5"/>',
     order:
@@ -97,7 +98,7 @@
   async function home(context) {
     ctx = context;
     const date = today();
-    const [fleet, requests, calendar] = await Promise.all([
+    const [fleet, requests, calendar, incidents] = await Promise.all([
       ctx.api("/fleet/units?today=" + date),
       ctx.api("/requests?pending=true"),
       ctx.api(
@@ -108,6 +109,7 @@
             bucket: "week",
           }),
       ),
+      ctx.api("/incidents?status=abiertos"),
     ]);
     if (!context.active()) return;
     const s = fleet.summary,
@@ -173,13 +175,14 @@
             `<button type="button" class="acp-kpi ${color}" data-aportal="metric" data-filter="${filter}" data-value="${value}"><span>${label}</span><strong>${count}</strong><small>${help} ${icon("arrow")}</small></button>`,
         )
         .join("")}</section>
+    <section class="aci-home-callout"><div><h2>Reportes AC</h2><p>${incidents.summary.abiertos} abiertos · ${incidents.summary.urgentes} urgentes · ${incidents.summary.confirmacion} por confirmar</p></div><div class="hc-actions">${action("+ Reportar falla", 'data-ac-action="new-incident"', "primary")}${nav("incidents", "Ver reportes", "incident")}</div></section>
     <div class="acp-home-grid"><section class="acp-panel"><div class="acp-panel-head"><div><h2>Atención prioritaria</h2><p>Primero lo que necesita seguimiento.</p></div><span class="acp-count">${s.red + s.amber}</span></div>${priority.map(priorityRow).join("") || '<div class="acp-empty">Sin alertas en las unidades registradas.<small>Las unidades sin evaluación se muestran en gris en Flotas.</small></div>'}${nav("companies", context.info.permissions.manageOrders ? "Ver flotas" : "Ver mis flotas", "fleet", "acp-wide")}</section>
     <section class="acp-panel"><div class="acp-panel-head"><div><h2>Próximos 7 días</h2><p>Servicios con fecha registrada.</p></div>${icon("calendar")}</div>${
       calendar.items
         .slice(0, 5)
         .map(
           (x) =>
-            `<button type="button" class="acp-date-row" data-aportal="scheduled" data-id="${esc(x.fleetUnitId || "")}" data-order="${esc(x.orderId || "")}"><span>${stamp(x.nextDate)}</span><div><strong>Unidad ${esc(x.unit)}</strong><small>${esc(x.company)}</small></div>${icon("arrow")}</button>`,
+            `<button type="button" class="acp-date-row" data-aportal="scheduled" data-id="${esc(x.fleetUnitId || "")}" data-order="${esc(x.orderId || "")}" data-incident="${esc(x.incidentId || "")}"><span>${stamp(x.nextDate)}</span><div><strong>Unidad ${esc(x.unit)}</strong><small>${esc(x.company)}</small></div>${icon("arrow")}</button>`,
         )
         .join("") ||
       '<div class="acp-empty">Sin servicios programados en estos días.</div>'
@@ -244,7 +247,7 @@
           [
             "reports",
             "report",
-            "Reportes",
+            "Informes",
             "Resultados por semana, mes, empresa o marca",
           ],
         ],
@@ -355,7 +358,7 @@
   function requestChooser(context) {
     ctx = context;
     ctx.dialog(
-      `<h2>¿Qué necesita tu unidad?</h2><p>Elige el tipo de atención que quieres solicitar a Carlab.</p><div class="acp-request-choices">${action(icon("fleet") + "<b>Solicitar servicio</b><span>Revisión, mantenimiento o reparación</span>", 'data-ac-action="new-service"')}${action(icon("plus") + "<b>Solicitar refacción</b><span>Buscar una pieza o describir lo que necesitas</span>", 'data-ac-action="new-part"')}</div>`,
+      `<h2>¿Qué necesita tu unidad?</h2><p>Elige el tipo de atención que quieres solicitar a Carlab.</p><div class="acp-request-choices">${action(icon("incident") + "<b>Reportar falla</b><span>Registrar una incidencia y darle seguimiento</span>", 'data-ac-action="new-incident"')}${action(icon("fleet") + "<b>Solicitar servicio</b><span>Revisión, mantenimiento o reparación</span>", 'data-ac-action="new-service"')}${action(icon("plus") + "<b>Solicitar refacción</b><span>Buscar una pieza o describir lo que necesitas</span>", 'data-ac-action="new-part"')}</div>`,
     );
   }
   document.addEventListener("input", (e) => {
@@ -376,8 +379,8 @@
       if (a === "refresh") await ctx.navigate("home");
       if (a === "scheduled")
         await ctx.navigate(
-          b.dataset.id ? "fleet" : "order",
-          b.dataset.id || b.dataset.order,
+          b.dataset.incident ? "incidents" : b.dataset.id ? "fleet" : "order",
+          b.dataset.incident || b.dataset.id || b.dataset.order,
         );
       if (a === "metric") {
         if (b.dataset.filter === "requests")

@@ -291,7 +291,7 @@
         preventScroll: true,
       });
     dialog(`<div class="acf-detail-heading"><div><div class="hc-kicker">EXPEDIENTE DE CLIMATIZACIÓN</div><h2>Unidad ${esc(u.unit)}</h2><p>${esc(u.company)} · ${esc(brandName(u.brand))}</p></div><span class="acf-badge ${u.signal}">${esc(u.signalLabel)}</span></div>
-      <div class="hc-actions">${btn("Cerrar", "close")}${config.canManage ? btn("Editar ficha / evaluación", "edit-unit") + (u.active ? btn("Etiqueta QR", "qr-label") + btn("Crear orden", "new-order") + btn("Eliminar unidad", "delete-unit") : btn("Restaurar unidad", "restore-unit")) : ""}${u.active ? btn("Solicitar servicio", "request-service", "", true) + btn("Solicitar refacción", "request-part") : ""}</div>
+      <div class="hc-actions">${btn("Cerrar", "close")}${config.canManage ? btn("Editar ficha / evaluación", "edit-unit") + (u.active ? btn("Etiqueta QR", "qr-label") + btn("Crear orden", "new-order") + btn("Eliminar unidad", "delete-unit") : btn("Restaurar unidad", "restore-unit")) : ""}${u.active ? btn("Reportar falla", "report-incident", "", true) + btn("Solicitar servicio", "request-service") + btn("Solicitar refacción", "request-part") : ""}</div>
       <section class="acf-reasons"><h3>Qué requiere atención</h3>${u.reasons.map((r) => `<div class="acf-reason ${r.color}"><i></i><div><b>${esc(r.text)}</b><p>${esc(r.detail)}</p></div></div>`).join("")}</section>
       ${ctx.external || ctx.visual ? '<details class="acp-filter-details"><summary>Datos de la unidad y del equipo AC</summary>' : ""}<dl class="acf-detail-facts">${[
         ["Región / base", [u.region, u.base].filter(Boolean).join(" · ")],
@@ -313,9 +313,9 @@
         )
         .join("")}</dl>${ctx.external || ctx.visual ? "</details>" : ""}
       ${u.conditionNote ? `<div class="hc-note"><b>Última evaluación manual · ${fmt(u.checkedOn)}</b><p>${esc(u.conditionNote)}</p></div>` : ""}
-      <div class="acf-detail-tabs"><button type="button" data-af="tab" data-tab="orders" aria-pressed="true">Órdenes (${r.orders.length}${r.orders.length === 30 ? "+" : ""})</button><button type="button" data-af="tab" data-tab="requests" aria-pressed="false">Solicitudes (${r.requests.length}${r.requests.length === 30 ? "+" : ""})</button><button type="button" data-af="tab" data-tab="events" aria-pressed="false">Bitácora</button></div>
+      <div class="acf-detail-tabs"><button type="button" data-af="tab" data-tab="orders" aria-pressed="true">Órdenes (${r.orders.length}${r.orders.length === 30 ? "+" : ""})</button><button type="button" data-af="tab" data-tab="requests" aria-pressed="false">Solicitudes / reportes (${r.requests.length}${r.requests.length === 30 ? "+" : ""})</button><button type="button" data-af="tab" data-tab="events" aria-pressed="false">Bitácora</button></div>
       <section data-af-panel="orders"><p class="acf-muted">Últimas 30 órdenes del equipo, de la más reciente a la más antigua.</p>${r.orders.map((o) => `<article class="acf-history"><div><b>${esc(o.folio)} · ${esc(ctx.library.statuses[o.status] || o.status)}</b><small>${fmt(o.service_date)} · ${esc(ctx.library.types[o.type] || o.type)}</small><p>${esc(o.symptoms || "Sin motivo registrado")}</p></div>${btn("Ver orden", "order", `data-id="${esc(o.id)}"`)}</article>`).join("") || '<div class="hc-empty">Sin órdenes registradas para esta unidad y marca.</div>'}</section>
-      <section data-af-panel="requests" hidden><p class="acf-muted">Últimas 30 solicitudes de servicio y refacciones.</p>${r.requests.map((r) => `<article class="acf-history"><div><b>${esc(r.folio)} · ${esc(ctx.info.stages[r.status] || r.status)}</b><small>${fmt(r.created_at)} · ${r.kind === "service" ? "Servicio" : "Refacciones"}</small><p>${esc(r.kind === "part" ? `${r.quantity} × ${r.part_name}` : r.description)}</p></div>${btn("Ver solicitud", "request", `data-id="${esc(r.id)}"`)}</article>`).join("") || '<div class="hc-empty">Sin solicitudes registradas.</div>'}</section>
+      <section data-af-panel="requests" hidden><p class="acf-muted">Últimos 30 reportes y solicitudes de servicio o refacciones.</p>${r.requests.map((r) => `<article class="acf-history"><div><b>${esc(r.folio)} · ${esc(ctx.info.stages[r.status] || { nuevo: "Nuevo", revision: "En revisión", atencion: "En atención", confirmacion: "Por confirmar", resuelto: "Resuelto", descartado: "Descartado" }[r.status] || r.status)}</b><small>${fmt(r.created_at)} · ${r.incident_number ? "Reporte AC" : r.kind === "service" ? "Servicio" : "Refacciones"}</small><p>${esc(r.kind === "part" ? `${r.quantity} × ${r.part_name}` : r.description)}</p></div>${btn(r.incident_number ? "Ver reporte" : "Ver solicitud", "request", `data-id="${esc(r.id)}"`)}</article>`).join("") || '<div class="hc-empty">Sin solicitudes registradas.</div>'}</section>
       <section data-af-panel="events" hidden><p class="acf-muted">Últimos 30 cambios del registro de flota.</p>${r.events.map((e) => `<article class="acf-history"><div><b>${esc(e.action)}</b><small>${fmt(e.created_at)} · ${esc(e.actor_name)}</small><p>${esc(e.notes)}</p></div></article>`).join("")}</section>`);
   }
   function removalForm(restore = false) {
@@ -539,6 +539,10 @@
         document
           .querySelectorAll("[data-af=tab]")
           .forEach((t) => t.setAttribute("aria-pressed", String(t === b)));
+      }
+      if (a === "report-incident") {
+        close();
+        await ctx.newIncident(detail);
       }
       if (a === "request-service" || a === "request-part") {
         close();

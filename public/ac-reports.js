@@ -31,7 +31,18 @@
     working = false,
     filters = { period: "month", anchor: today(), brand: "", company: "" };
   const brand = (b) => ctx.info.brands[b] || b;
-  const status = (s) => data.statuses[s] || ctx.info.stages[s] || s;
+  const status = (s) =>
+    data.statuses[s] ||
+    ctx.info.stages[s] ||
+    {
+      nuevo: "Nuevo",
+      revision: "En revisión",
+      atencion: "En atención",
+      confirmacion: "Por confirmar",
+      resuelto: "Resuelto",
+      descartado: "Descartado",
+    }[s] ||
+    s;
   const btn = (text, action, primary = false) =>
     `<button type="button" class="hc-btn ${primary ? "primary" : ""}" data-ar="${action}">${text}</button>`;
   const opts = (rows, value) =>
@@ -95,6 +106,8 @@
           "Órdenes del periodo",
           "Completadas",
           "Solicitudes del periodo",
+          "Reportes AC del periodo",
+          "Reportes AC abiertos",
           "Órdenes pendientes actuales",
           "Solicitudes pendientes actuales",
           "Unidades críticas",
@@ -107,12 +120,41 @@
           g.orders,
           g.completed,
           g.requests,
+          g.incidents || 0,
+          g.pendingIncidents || 0,
           g.pendingOrders,
           g.pendingRequests,
           g.critical,
           g.overdue,
         ]),
       },
+      ...[
+        ["Reportes AC del periodo", data.incidents || []],
+        [
+          "Reportes AC abiertos actuales (todos los periodos)",
+          data.pendingIncidents || [],
+        ],
+      ].map(([title, rows]) => ({
+        title,
+        head: [
+          "Folio",
+          "Empresa",
+          "Unidad",
+          "Marca",
+          "Registro",
+          "Estado actual",
+          "Incidencia",
+        ],
+        rows: rows.map((r) => [
+          r.folio,
+          r.company,
+          r.unit,
+          brand(r.brand),
+          fmt(r.created_date),
+          status(r.status),
+          r.description,
+        ]),
+      })),
       {
         title: "Órdenes del periodo",
         head: [
@@ -245,16 +287,18 @@
   function render(companies) {
     const s = data.summary;
     $("#hc-main").innerHTML =
-      `<div class="hc-heading"><div><div class="hc-kicker">CARLAB / CONTROL DE CLIMATIZACIÓN</div><h1>Reportes AC</h1><p>Actividad del periodo y seguimiento de pendientes.</p></div><div class="hc-actions">${btn("Descargar PDF", "pdf", true)}${btn("Exportar CSV", "csv")}</div></div>
+      `<div class="hc-heading"><div><div class="hc-kicker">CARLAB / CONTROL DE CLIMATIZACIÓN</div><h1>Informes AC</h1><p>Actividad del periodo y seguimiento de pendientes.</p></div><div class="hc-actions">${btn("Descargar PDF", "pdf", true)}${btn("Exportar CSV", "csv")}</div></div>
    <form id="acr-filters" class="hc-filters"><label class="hc-field"><b>Periodo</b><select name="period">${opts(
      [
        ["week", "Semanal · lunes a domingo"],
        ["month", "Mensual"],
      ],
      filters.period,
-   )}</select></label><label class="hc-field"><b>Fecha dentro del periodo</b><input type="date" name="anchor" required value="${esc(filters.anchor)}"></label>${ctx.external ? "" : `<label class="hc-field"><b>Marca AC</b><select name="brand">${opts([["", "Ambas marcas"], ...Object.entries(ctx.info.brands)], filters.brand)}</select></label>`}<label class="hc-field"><b>Empresa</b><select name="company">${opts([["", "Todas las empresas"], ...companies.map((c) => [c, c])], filters.company)}</select></label><button type="submit" class="hc-btn primary">Generar reporte</button></form>
+   )}</select></label><label class="hc-field"><b>Fecha dentro del periodo</b><input type="date" name="anchor" required value="${esc(filters.anchor)}"></label>${ctx.external ? "" : `<label class="hc-field"><b>Marca AC</b><select name="brand">${opts([["", "Ambas marcas"], ...Object.entries(ctx.info.brands)], filters.brand)}</select></label>`}<label class="hc-field"><b>Empresa</b><select name="company">${opts([["", "Todas las empresas"], ...companies.map((c) => [c, c])], filters.company)}</select></label><button type="submit" class="hc-btn primary">Generar informe</button></form>
    <div class="hc-actions acr-period">${btn("← Periodo anterior", "previous")}<strong>${fmt(data.from)} al ${fmt(data.to)}</strong>${btn("Periodo siguiente →", "next")}${btn("Esta semana", "week")}${btn("Este mes", "month")}</div>
    <p class="hc-note">${esc(data.note)}</p><div class="acr-kpis">${[
+     ["Reportes AC del periodo", s.incidents || 0],
+     ["Reportes AC abiertos", s.pendingIncidents || 0],
      ["Órdenes del periodo", s.orders],
      ["Completadas del periodo", s.completed],
      ["Solicitudes de servicio", s.serviceRequests],
