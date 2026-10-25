@@ -161,7 +161,7 @@ function bind() {
   [
     'loginView','dashboardView','loginForm','loginEmail','loginPassword','loginError','registerForm','registerMessage','regNombre','regEmail','regTelefono','regEmpresa','regNumeroEconomico','regPassword',
     'tabLoginBtn','tabRegisterBtn','welcomeText','currentUserName','currentUserEmail','currentRoleBadge','avatarCircle','pageTitle','roleSummaryText','roleBrief','logoutBtn',
-    'navBoardBtn','navNewReportBtn','navServicesBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navFleetBtn','navPartsBtn','navStockBtn','navCobranzaBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel','stockPanel','cobranzaPanel','servicesPanel','servicesPeriod','servicesStartDate','servicesEndDate','servicesEmpresa','servicesUnidad','servicesEstatus','servicesConsultBtn','servicesPdfBtn','servicesDetailPdfBtn','servicesCsvBtn','servicesJsonBtn','servicesPackageBtn','servicesSummary','servicesTable','authorizedActivitiesModal','authorizedActivitiesClose','authorizedActivitiesSummary','authorizedActivitiesList','authorizedActivitiesAddBtn','authorizedActivitiesCancelBtn','authorizedActivitiesSaveBtn',
+    'navQuotesBtn','quotesPanel','opNavQuotesBtn','navBoardBtn','navNewReportBtn','navServicesBtn','navAnalyticsBtn','navHistoryBtn','navScheduleBtn','navFleetBtn','navPartsBtn','navStockBtn','navCobranzaBtn','navUsersBtn','navRequestsBtn','navCompaniesBtn','reportFormPanel','usersPanel','requestsPanel','companiesPanel','analyticsPanel','historyPanel','schedulePanel','filtersPanel','stockPanel','cobranzaPanel','servicesPanel','servicesPeriod','servicesStartDate','servicesEndDate','servicesEmpresa','servicesUnidad','servicesEstatus','servicesConsultBtn','servicesPdfBtn','servicesDetailPdfBtn','servicesCsvBtn','servicesJsonBtn','servicesPackageBtn','servicesSummary','servicesTable','authorizedActivitiesModal','authorizedActivitiesClose','authorizedActivitiesSummary','authorizedActivitiesList','authorizedActivitiesAddBtn','authorizedActivitiesCancelBtn','authorizedActivitiesSaveBtn',
     'reportForm','numeroObra','modelo','numeroEconomico','empresa','kilometraje','contactoNombre','telefono','descripcionFallo','solicitaRefaccion','refaccionFields','detalleRefaccion',
     'evidencias','evidenciasCamara','evidenciasRefaccion','evidenciasRefaccionCamara','previewEvidencias','previewRefaccion','firmaCanvas','clearSignatureBtn','cancelReportBtn','searchInput','validationFilter','operationalFilter',
     'garantiasList','garantiaCardTemplate','statTotal','statNew','statAccepted','statDone','listTitle','boardKicker','statusLegend','userForm','userId','userNombre','userEmail',
@@ -795,7 +795,7 @@ function updateHeaderForRole() {
   if (els.roleBrief) els.roleBrief.innerHTML = copy.panels.map(([title, desc]) => `<article><strong>${escapeHtml(title)}</strong><span>${escapeHtml(desc)}</span></article>`).join('');
 }
 function setActiveNav(activeBtn) {
-  [els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navScheduleBtn,els.navFleetBtn,els.navServicesBtn,els.navPartsBtn,els.navStockBtn,els.navCobranzaBtn,els.navCampaignsBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
+  [els.navQuotesBtn,els.navBoardBtn,els.navNewReportBtn,els.navAnalyticsBtn,els.navHistoryBtn,els.navScheduleBtn,els.navFleetBtn,els.navServicesBtn,els.navPartsBtn,els.navStockBtn,els.navCobranzaBtn,els.navCampaignsBtn,els.navUsersBtn,els.navRequestsBtn,els.navCompaniesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
   if (activeBtn && !activeBtn.classList.contains('hidden')) activeBtn.classList.add('active');
 }
 
@@ -804,13 +804,14 @@ function updateOperatorAppNav(panel) {
   document.body.classList.toggle('operator-mode', !!operatorMode);
   els.operatorAppNav?.classList.toggle('hidden', !operatorMode);
   if (!operatorMode) {
-    [els.opNavHomeBtn, els.opNavNewBtn, els.opNavScheduleBtn, els.opNavLogoutBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
+    [els.opNavHomeBtn, els.opNavNewBtn, els.opNavScheduleBtn, els.opNavQuotesBtn, els.opNavLogoutBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
     return;
   }
-  [els.opNavHomeBtn, els.opNavNewBtn, els.opNavScheduleBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
+  [els.opNavHomeBtn, els.opNavNewBtn, els.opNavScheduleBtn, els.opNavQuotesBtn].filter(Boolean).forEach(btn => btn.classList.remove('active'));
   if (panel === 'board') els.opNavHomeBtn?.classList.add('active');
   if (panel === 'report') els.opNavNewBtn?.classList.add('active');
   if (panel === 'schedule') els.opNavScheduleBtn?.classList.add('active');
+  if (panel === 'quotes') els.opNavQuotesBtn?.classList.add('active');
 }
 function switchPanel(panel) {
   if (state.user?.role === 'supervisor_flotas' && ['users','requests','companies','report','stock','cobranza'].includes(panel)) panel = 'fleet';
@@ -827,6 +828,7 @@ function switchPanel(panel) {
   state.activePanel = panel;
   document.getElementById('boardPanel')?.classList.toggle('hidden', panel !== 'board');
   els.reportFormPanel?.classList.toggle('hidden', panel !== 'report');
+  els.quotesPanel?.classList.toggle('hidden', panel !== 'quotes');
   els.usersPanel?.classList.toggle('hidden', panel !== 'users');
   els.requestsPanel?.classList.toggle('hidden', panel !== 'requests');
   els.companiesPanel?.classList.toggle('hidden', panel !== 'companies');
@@ -853,6 +855,7 @@ function switchPanel(panel) {
   if (panel === 'services') { configureServicesCompanyFilter(); loadServicesReport(); }
   updateOperatorAppNav(panel);
   setActiveNav(
+    panel === 'quotes' ? els.navQuotesBtn :
     panel === 'report' ? els.navNewReportBtn :
     panel === 'users' ? els.navUsersBtn :
     panel === 'requests' ? els.navRequestsBtn :
@@ -869,6 +872,7 @@ function switchPanel(panel) {
     els.navBoardBtn
   );
   window.CarlabReportsUI?.panelChanged(panel);
+  window.CarlabQuotations?.panelChanged(panel);
   if (panel === 'report') window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -878,6 +882,7 @@ function showDashboard() {
   document.body.classList.toggle('executive-mode', state.user?.role !== 'operador');
   document.body.dataset.role = state.user?.role || ''; 
   els.navNewReportBtn?.classList.toggle('hidden', !isRole('operador','admin'));
+  els.navQuotesBtn?.classList.toggle('hidden', !isRole('operador','admin'));
   els.navUsersBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navRequestsBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navCompaniesBtn?.classList.toggle('hidden', !isRole('admin'));
@@ -3860,6 +3865,8 @@ els.opNavLogoutBtn?.addEventListener('click', logoutSession);
 els.imageLightboxClose?.addEventListener('click', closeImageLightbox);
 els.imageLightbox?.addEventListener('click', (e) => { if (e.target === els.imageLightbox) closeImageLightbox(); });
 els.navBoardBtn?.addEventListener('click', () => switchPanel('board'));
+els.navQuotesBtn?.addEventListener('click', () => switchPanel('quotes'));
+els.opNavQuotesBtn?.addEventListener('click', () => switchPanel('quotes'));
 els.navNewReportBtn?.addEventListener('click', () => { resetReportForm(); switchPanel('report'); });
 els.navAnalyticsBtn?.addEventListener('click', () => switchPanel('analytics'));
 els.navHistoryBtn?.addEventListener('click', () => switchPanel('history'));

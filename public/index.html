@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/style.min.css" />
   <link rel="stylesheet" href="/agenda-pro.css?v=1" />
   <link rel="stylesheet" href="/reports-workspace.css?v=7.1" />
+  <link rel="stylesheet" href="/report-quotations.css?v=7.3" />
 </head>
 <body id="carlabWorkspace" class="carlab-workspace">
   <div id="app">
@@ -110,6 +111,7 @@
               <button id="navAnalyticsBtn" class="nav-btn hidden" type="button">Analítica</button>
               <button id="navHistoryBtn" class="nav-btn hidden" type="button">Historial por unidad</button>
               <button id="navScheduleBtn" class="nav-btn hidden" type="button">Agenda</button>
+              <button id="navQuotesBtn" class="nav-btn hidden" type="button">Cotizaciones</button>
               <button id="navFleetBtn" class="nav-btn hidden" type="button">Flotas</button>
               <button id="navServicesBtn" class="nav-btn hidden" type="button">Servicios</button>
               <button id="navPartsBtn" class="nav-btn hidden" type="button">Refacciones</button>
@@ -155,6 +157,8 @@
             <button id="globalRefreshBtn" class="btn btn-secondary" type="button">Actualizar</button>
           </div>
         </header>
+
+        <section id="quotesPanel" class="hidden" aria-label="Cotizaciones por unidad"></section>
 
         <section id="roleBrief" class="panel role-brief"></section>
 
@@ -817,6 +821,7 @@
     <button id="opNavHomeBtn" type="button">Reportes</button>
     <button id="opNavNewBtn" type="button">Nuevo</button>
     <button id="opNavScheduleBtn" type="button">Agenda</button>
+    <button id="opNavQuotesBtn" type="button">Cotizaciones</button>
     <button id="opNavLogoutBtn" type="button">Salir</button>
   </nav>
 
@@ -871,11 +876,12 @@
   </div>
 
   <script src="/vendor/hc-jspdf.umd.min.js"></script>
-  <script src="/app.min.js?v=20261025-reportes72"></script>
+  <script src="/app.min.js?v=20261025-reportes73"></script>
   <script src="/agenda-pro.js?v=1"></script>
   <script src="/vendor/ac-qrcode.js"></script>
   <script src="/reports-qr.js?v=7.0"></script>
-  <script src="/reports-workspace.js?v=7.2"></script>
+  <script src="/reports-workspace.js?v=7.3"></script>
+  <script src="/report-quotations.js?v=7.3"></script>
   <script src="/hispacold-entry.js?v=1" defer></script>
   <script src="/ac-main-entry.js?v=4" defer></script>
 </body>

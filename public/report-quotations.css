@@ -1,0 +1,572 @@
+/* Uploaded report quotations. Kept separate from billing and the AC portal. */
+body#carlabWorkspace #quotesPanel {
+  padding: 0 0 30px;
+  min-width: 0;
+}
+body#carlabWorkspace .rq-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: center;
+  margin: 8px 0 22px;
+}
+body#carlabWorkspace .rq-heading h2 {
+  font-size: 24px;
+  letter-spacing: -0.7px;
+  margin: 8px 0;
+}
+body#carlabWorkspace .rq-heading p {
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+}
+body#carlabWorkspace .rq-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 24px 0;
+}
+body#carlabWorkspace .rq-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  background: var(--rq-soft);
+  color: var(--rq-ink);
+  line-height: 1.3;
+}
+body#carlabWorkspace .rq-status i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--rq-color);
+  flex: none;
+}
+body#carlabWorkspace .rq-sin_cotizacion {
+  --rq-color: #8c97a9;
+  --rq-ink: #58677b;
+  --rq-soft: #edf0f5;
+}
+body#carlabWorkspace .rq-cotizada {
+  --rq-color: #397bd3;
+  --rq-ink: #225ca7;
+  --rq-soft: #eaf2ff;
+}
+body#carlabWorkspace .rq-aceptada {
+  --rq-color: #239767;
+  --rq-ink: #176445;
+  --rq-soft: #e8f6ee;
+}
+body#carlabWorkspace .rq-rechazada {
+  --rq-color: #d05263;
+  --rq-ink: #a52d40;
+  --rq-soft: #fff0f2;
+}
+body#carlabWorkspace .rq-filters {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr 1fr;
+  gap: 16px;
+  padding: 18px 20px;
+  background: #fff;
+  border: 1px solid #dfe5ef;
+  border-radius: 12px;
+}
+body#carlabWorkspace .rq-filters label {
+  margin: 0;
+  color: #52627a;
+}
+body#carlabWorkspace .rq-filters select,
+body#carlabWorkspace .rq-filters input {
+  margin-top: 8px;
+  background: #fff;
+  color: #263348;
+}
+body#carlabWorkspace .rq-list-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin: 20px 0;
+  font-size: 12px;
+  color: #64748b;
+}
+body#carlabWorkspace .rq-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+body#carlabWorkspace .rq-unit {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 292px;
+  background: #fff;
+  border: 1px solid #dfe5ef;
+  border-top: 4px solid var(--rq-color);
+  border-radius: 13px;
+  padding: 20px;
+  text-align: left;
+  color: #263348;
+  transition:
+    box-shadow 0.15s,
+    border-color 0.15s;
+}
+body#carlabWorkspace .rq-unit:hover {
+  box-shadow: 0 6px 20px #17223710;
+  border-color: var(--rq-color);
+}
+body#carlabWorkspace .rq-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: #64748b;
+}
+body#carlabWorkspace .rq-unit-number {
+  font-size: 32px;
+  letter-spacing: -1px;
+  line-height: 1.2;
+  margin-top: 22px;
+  overflow-wrap: anywhere;
+}
+body#carlabWorkspace .rq-unit-company {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 5px;
+}
+body#carlabWorkspace .rq-bus {
+  display: block;
+  align-self: center;
+  margin: 18px 0 22px;
+  width: min(230px, 100%);
+  height: 90px;
+  background: var(--rq-color);
+  mask-image: var(--rq-bus-image);
+  -webkit-mask-image: var(--rq-bus-image);
+  mask-size: contain;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-position: center;
+}
+body#carlabWorkspace .rq-card-bottom {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 15px;
+  border-top: 1px solid #e5eaf2;
+  font-size: 11px;
+  line-height: 1.5;
+}
+body#carlabWorkspace .rq-card-bottom strong {
+  white-space: nowrap;
+  color: #52627a;
+  font-size: 11px;
+}
+body#carlabWorkspace .rq-link {
+  color: #a72359;
+  border: 0;
+  background: transparent;
+  padding: 8px 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-size: 12px;
+  cursor: pointer;
+}
+body#carlabWorkspace #rqMessage:empty,
+body#carlabWorkspace #rqDetailMessage:empty {
+  display: none;
+}
+body#carlabWorkspace #rqMessage,
+body#carlabWorkspace #rqDetailMessage {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #a52d40;
+}
+body#carlabWorkspace .rq-empty {
+  grid-column: 1/-1;
+  background: #fff;
+  border: 1px dashed #ccd5e4;
+  border-radius: 12px;
+  padding: 40px 22px;
+  text-align: center;
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.7;
+}
+body#carlabWorkspace .rq-empty h3 {
+  color: #263348;
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+body#carlabWorkspace .rq-empty-small {
+  padding: 24px;
+  margin: 18px 0;
+}
+body#carlabWorkspace #rqDialog {
+  width: min(1080px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  padding: 0;
+  border: 1px solid #dfe5ef;
+  border-radius: 15px;
+  background: #fff;
+  color: #263348;
+  box-shadow: 0 28px 90px #0c132255;
+  overflow: auto;
+}
+body#carlabWorkspace #rqDialog::backdrop {
+  background: #0c1322b8;
+}
+body#carlabWorkspace #rqDialog .rq-dialog-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding: 24px 76px 20px 28px;
+  background: #fff;
+  border-bottom: 1px solid #dfe5ef;
+}
+body#carlabWorkspace #rqDialog h2 {
+  font-size: 25px;
+  letter-spacing: -0.7px;
+  line-height: 1.2;
+  margin: 7px 0;
+}
+body#carlabWorkspace #rqDialog .rq-dialog-head p {
+  color: #64748b;
+  font-size: 13px;
+  margin: 0;
+  line-height: 1.6;
+}
+body#carlabWorkspace #rqDialog .rq-close {
+  position: absolute;
+  right: 20px;
+  top: 22px;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  font-size: 28px;
+  line-height: 1;
+  color: #263348;
+  background: #f1f5fa;
+  border: 1px solid #dfe5ef;
+  border-radius: 50%;
+}
+body#carlabWorkspace #rqDialog .rq-dialog-body {
+  padding: 24px 28px 28px;
+}
+body#carlabWorkspace #rqDialog #rqUnitField,
+body#carlabWorkspace #rqDialog #rqReportField {
+  margin: 0 0 20px;
+}
+body#carlabWorkspace #rqDialog input,
+body#carlabWorkspace #rqDialog textarea,
+body#carlabWorkspace #rqDialog select {
+  background-color: #fff;
+  color: #263348;
+  min-height: 44px;
+  border: 1px solid #ccd5e4;
+  font-size: 14px;
+}
+body#carlabWorkspace #rqDialog label {
+  color: #52627a;
+}
+body#carlabWorkspace #rqDialog select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  padding: 12px 40px 12px 14px;
+  border-radius: 8px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%2352627a' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-position: right 14px center;
+  background-repeat: no-repeat;
+}
+body#carlabWorkspace #rqDialog .rq-report-summary {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 20px;
+  background: #f8fafc;
+  border: 1px solid #e5eaf2;
+  border-radius: 10px;
+  margin-bottom: 18px;
+}
+body#carlabWorkspace #rqDialog .rq-report-summary h3 {
+  font-size: 15px;
+  line-height: 1.7;
+  font-weight: 500;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 8px 0 0;
+  color: #263348;
+}
+body#carlabWorkspace #rqDialog .rq-status {
+  flex: none;
+}
+body#carlabWorkspace #rqDialog .rq-file-bar {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 0;
+  align-items: center;
+}
+body#carlabWorkspace #rqDialog .rq-file-bar strong {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+body#carlabWorkspace #rqDialog .rq-file-bar span {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 5px;
+}
+body#carlabWorkspace #rqDialog #rqPdfActions {
+  display: flex;
+  gap: 18px;
+  flex-shrink: 0;
+}
+body#carlabWorkspace #rqDialog #rqPdfMessage {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.5;
+}
+body#carlabWorkspace #rqDialog #rqPdfViewer {
+  border: 1px solid #dfe5ef;
+  border-radius: 8px;
+  background: #f1f5fa;
+  overflow: hidden;
+}
+body#carlabWorkspace #rqDialog .rq-pdf-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #dfe5ef;
+  color: #263348;
+  font-size: 12px;
+}
+body#carlabWorkspace #rqDialog .rq-pdf-toolbar button {
+  width: 40px;
+  height: 40px;
+  border: 1px solid #ccd5e4;
+  border-radius: 6px;
+  background: #fff;
+  color: #263348;
+  font-size: 20px;
+}
+body#carlabWorkspace #rqDialog .rq-pdf-toolbar button:disabled {
+  opacity: 0.35;
+}
+body#carlabWorkspace #rqDialog .rq-pdf-spacer {
+  flex: 1;
+}
+body#carlabWorkspace #rqDialog .rq-pdf-pages {
+  height: 60vh;
+  min-height: 280px;
+  overflow: auto;
+  padding: 12px;
+}
+body#carlabWorkspace #rqDialog .rq-pdf-pages canvas {
+  display: block;
+  background: white;
+  box-shadow: 0 2px 8px #17223718;
+}
+body#carlabWorkspace #rqDialog .rq-response {
+  border: 1px solid var(--rq-color);
+  border-radius: 10px;
+  background: var(--rq-soft);
+  padding: 18px;
+  margin: 20px 0;
+  color: var(--rq-ink);
+}
+body#carlabWorkspace #rqDialog .rq-response strong {
+  display: block;
+  color: inherit;
+  font-size: 14px;
+}
+body#carlabWorkspace #rqDialog .rq-response span {
+  display: block;
+  font-size: 12px;
+  margin-top: 6px;
+}
+body#carlabWorkspace #rqDialog .rq-response p {
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.6;
+}
+body#carlabWorkspace #rqDialog .rq-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 14px 0 0;
+}
+body#carlabWorkspace #rqDialog .rq-accept,
+body#carlabWorkspace #rqDialog .rq-reject {
+  border-radius: 7px;
+  padding: 12px 18px;
+  min-height: 44px;
+  font-size: 13px;
+  font-weight: 600;
+}
+body#carlabWorkspace #rqDialog .rq-accept {
+  background: #177b51;
+  color: #fff;
+}
+body#carlabWorkspace #rqDialog .rq-reject {
+  background: #fff0f2;
+  color: #a52d40;
+  border: 1px solid #e9b2bd;
+}
+body#carlabWorkspace #rqDialog .rq-decision {
+  margin-top: 24px;
+  border-top: 1px solid #dfe5ef;
+  padding-top: 8px;
+}
+body#carlabWorkspace #rqDialog .rq-decision p,
+body#carlabWorkspace #rqDialog .rq-upload p {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.7;
+}
+body#carlabWorkspace #rqDialog #rqDecisionBox {
+  background: #f8fafc;
+  border: 1px solid #dfe5ef;
+  padding: 20px;
+  margin-top: 20px;
+  border-radius: 10px;
+}
+body#carlabWorkspace #rqDialog .rq-upload {
+  margin-top: 24px;
+  padding: 22px;
+  background: #f8fafc;
+  border: 1px solid #dfe5ef;
+  border-radius: 10px;
+}
+body#carlabWorkspace #rqDialog .rq-upload h3 {
+  font-size: 17px;
+  margin: 0 0 8px;
+  color: #263348;
+}
+body#carlabWorkspace #rqDialog #rqUploadStatus,
+body#carlabWorkspace #rqDialog #rqDecisionStatus {
+  color: #a52d40;
+  font-size: 12px;
+}
+body#carlabWorkspace #rqDialog .rq-history {
+  margin-top: 24px;
+  border-top: 1px solid #dfe5ef;
+  padding-top: 18px;
+}
+body#carlabWorkspace #rqDialog .rq-history summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: #52627a;
+  padding: 8px 0;
+}
+body#carlabWorkspace #rqDialog .rq-history > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid #edf0f5;
+  font-size: 12px;
+}
+body#carlabWorkspace #rqDialog .rq-history small {
+  display: block;
+  color: #64748b;
+  margin-top: 5px;
+}
+body#carlabWorkspace #rqDialog .rq-note {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.6;
+}
+@media (max-width: 1100px) {
+  body#carlabWorkspace .rq-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  body#carlabWorkspace .rq-heading {
+    display: block;
+  }
+  body#carlabWorkspace .rq-heading h2 {
+    font-size: 22px;
+  }
+  body#carlabWorkspace .rq-heading > .btn {
+    margin-top: 18px;
+    width: 100%;
+  }
+  body#carlabWorkspace .rq-legend {
+    gap: 8px;
+  }
+  body#carlabWorkspace .rq-filters {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    padding: 16px;
+  }
+  body#carlabWorkspace .rq-grid {
+    grid-template-columns: 1fr;
+  }
+  body#carlabWorkspace .rq-unit {
+    min-height: 272px;
+  }
+  body#carlabWorkspace #rqDialog {
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    border-radius: 12px;
+  }
+  body#carlabWorkspace #rqDialog .rq-dialog-head {
+    padding: 20px 68px 18px 18px;
+  }
+  body#carlabWorkspace #rqDialog .rq-close {
+    right: 14px;
+    top: 16px;
+  }
+  body#carlabWorkspace #rqDialog .rq-dialog-body {
+    padding: 20px 16px;
+  }
+  body#carlabWorkspace #rqDialog .rq-report-summary {
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px;
+  }
+  body#carlabWorkspace #rqDialog .rq-file-bar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+  body#carlabWorkspace #rqDialog .rq-upload,
+  body#carlabWorkspace #rqDialog #rqDecisionBox {
+    padding: 16px;
+  }
+  body#carlabWorkspace #rqDialog .rq-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  body#carlabWorkspace #rqDialog input,
+  body#carlabWorkspace #rqDialog select,
+  body#carlabWorkspace #rqDialog textarea,
+  body#carlabWorkspace .rq-filters select,
+  body#carlabWorkspace .rq-filters input {
+    font-size: 16px;
+  }
+  body#carlabWorkspace #rqDialog .rq-pdf-pages {
+    height: 380px;
+    min-height: 0;
+  }
+}

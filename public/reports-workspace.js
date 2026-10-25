@@ -72,6 +72,7 @@
     campaigns: ["Campañas", "Seguimiento de trabajos por flota"],
     users: ["Usuarios", "Personas y permisos de acceso"],
     requests: ["Solicitudes de acceso", "Revisión de registros de operadores"],
+    quotes: ["Cotizaciones", "PDF por unidad y respuesta de la empresa"],
     companies: ["Empresas", "Directorio y contactos"],
   };
   function panelChanged(panel) {
@@ -105,6 +106,7 @@
     const navIcons = {
       navBoardBtn: "report",
       navNewReportBtn: "plus",
+      navQuotesBtn: "report",
       navFleetBtn: "bus",
       navScheduleBtn: "calendar",
       navAnalyticsBtn: "chart",
