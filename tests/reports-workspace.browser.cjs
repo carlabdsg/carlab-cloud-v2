@@ -8,6 +8,9 @@ const engine = process.env.BROWSER_ENGINE || "chromium",
 fs.mkdirSync(out, { recursive: true });
 (async () => {
   const h = await setup();
+  await h.db.query(
+    "UPDATE fleet_units SET numero_obra='', modelo='   ' WHERE id='unit-2'",
+  );
   let browser,
     page,
     phase = "init";
@@ -71,6 +74,61 @@ fs.mkdirSync(out, { recursive: true });
     assert.deepEqual(stored.body.evidencias, [h.evidence]);
     assert.deepEqual(stored.body.evidenciasRefaccion, [h.evidence]);
     assert.equal(stored.body.folio, "GAR-000001");
+    phase = "company-first unit selection";
+    await page.locator("#rwNewReport").click();
+    assert.ok(await page.locator("#rwUnitPicker").isDisabled());
+    assert.equal(await page.locator("#rwUnitPicker option").count(), 1);
+    const companyBox = await page.locator("#empresa").boundingBox();
+    const unitBox = await page.locator("#rwUnitPicker").boundingBox();
+    assert.ok(
+      companyBox.y < unitBox.y,
+      "Company must appear before unit picker",
+    );
+    await page.locator("#empresa").selectOption("ANS");
+    await page.waitForFunction(
+      () => document.querySelectorAll("#rwUnitPicker option").length === 12,
+    );
+    assert.ok(
+      (
+        await page
+          .locator("#rwUnitPicker option")
+          .evaluateAll((os) => os.slice(1).map((o) => o.value))
+      ).every((id) => Number(id.split("-")[1]) <= 11),
+    );
+    await page.locator("#rwFormNext").click();
+    assert.ok(
+      await page.locator("#rw-form-step-0").isVisible(),
+      "A unit must be selected",
+    );
+    await page.locator("#rwUnitPicker").selectOption("unit-1");
+    assert.equal(await page.locator("#numeroObra").inputValue(), "OB-1");
+    await page.locator("#empresa").selectOption("Transportes del Pacífico");
+    assert.equal(await page.locator("#numeroEconomico").inputValue(), "");
+    assert.equal(await page.locator("#numeroObra").inputValue(), "Pendiente");
+    assert.equal(await page.locator("#modelo").inputValue(), "Pendiente");
+    assert.equal(await page.locator("#kilometraje").inputValue(), "");
+    assert.deepEqual(
+      await page
+        .locator("#rwUnitPicker option")
+        .evaluateAll((os) => os.slice(1).map((o) => o.value)),
+      ["unit-12", "unit-13", "unit-14"],
+    );
+    await page.locator("#rwUnitPicker").selectOption("unit-14");
+    assert.equal(await page.locator("#numeroEconomico").inputValue(), "334");
+    await page.locator("#rwManualUnit").click();
+    assert.ok(await page.locator("#numeroEconomico").isVisible());
+    await page.locator("#numeroEconomico").fill("FUTURA-01");
+    await page.locator("#empresa").selectOption("ANS");
+    assert.equal(await page.locator("#numeroEconomico").inputValue(), "");
+    assert.ok(!(await page.locator("#numeroEconomico").isVisible()));
+    await page.locator("#rwUnitPicker").selectOption("unit-2");
+    assert.equal(await page.locator("#numeroObra").inputValue(), "Pendiente");
+    assert.equal(await page.locator("#modelo").inputValue(), "Pendiente");
+    await page.screenshot({
+      path: path.join(out, engine + "-company-unit.png"),
+      fullPage: true,
+    });
+    await page.locator("#cancelReportBtn").click();
     phase = "fleet companies";
     await page.locator("#navFleetBtn").click();
     await page.locator(".rw-company-card").first().waitFor();
@@ -198,12 +256,47 @@ fs.mkdirSync(out, { recursive: true });
     );
     phase = "mobile form";
     await page.locator("#rwNewReport").click();
+    await page.locator("#empresa").selectOption("ANS");
     await page.locator("#rwUnitPicker").selectOption("unit-2");
+    await page.screenshot({
+      path: path.join(out, engine + "-mobile-company-unit.png"),
+      fullPage: true,
+    });
+    await page.locator("#numeroObra").fill("   ");
+    await page.locator("#modelo").fill("");
     await page.locator("#rwFormNext").click();
     await page.screenshot({
       path: path.join(out, engine + "-mobile-form.png"),
       fullPage: true,
     });
+    await page
+      .locator("#descripcionFallo")
+      .fill("Reporte con datos técnicos pendientes.");
+    await page.locator("#rwFormNext").click();
+    await page.locator("#reportForm button[type=submit]").click();
+    await page.locator("#boardPanel:not(.hidden)").waitFor();
+    const pending = (
+      await h.db.query(
+        "SELECT numero_obra,modelo,numero_economico,empresa,fleet_unit_id FROM garantias WHERE descripcion_fallo='Reporte con datos técnicos pendientes.'",
+      )
+    ).rows[0];
+    assert.deepEqual(pending, {
+      numero_obra: "Pendiente",
+      modelo: "Pendiente",
+      numero_economico: "322",
+      empresa: "ANS",
+      fleet_unit_id: "unit-2",
+    });
+    const originalUnit = (
+      await h.db.query(
+        "SELECT numero_obra,modelo FROM fleet_units WHERE id='unit-2'",
+      )
+    ).rows[0];
+    assert.deepEqual(
+      originalUnit,
+      { numero_obra: "", modelo: "   " },
+      "Defaults must not overwrite the fleet record",
+    );
     phase = "supervisor scope";
     const sc = await browser.newContext({
       viewport: { width: 390, height: 844 },
@@ -220,37 +313,124 @@ fs.mkdirSync(out, { recursive: true });
     assert.equal(await sp.locator("#navNewReportBtn:not(.hidden)").count(), 0);
     await sc.close();
     phase = "operator QR and session return";
-    const oc = await browser.newContext({ viewport: { width: 390, height: 844 } });
-    await oc.addInitScript(t => localStorage.setItem("carlabToken", t), h.token("operator"));
-    const op = await oc.newPage(); op.on("pageerror", e => errors.push(e.message));
+    const oc = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+    });
+    await oc.addInitScript(
+      (t) => localStorage.setItem("carlabToken", t),
+      h.token("operator"),
+    );
+    const op = await oc.newPage();
+    op.on("pageerror", (e) => errors.push(e.message));
     await op.goto(h.url + "/?reportqr=" + codes[0].token);
     await op.locator("#rwDialog[open]").waitFor();
-    await op.getByRole("button", { name: "+ Registrar reporte", exact: true }).click();
+    await op
+      .getByRole("button", { name: "+ Registrar reporte", exact: true })
+      .click();
     assert.equal(await op.locator("#empresa").inputValue(), "ANS");
     assert.ok(await op.locator("#empresa").isDisabled());
     assert.equal(await op.locator("#numeroEconomico").inputValue(), "321");
     await op.locator("#rwFormNext").click();
-    await op.locator("#descripcionFallo").fill("Reporte del operador con etiqueta de su empresa.");
+    await op
+      .locator("#descripcionFallo")
+      .fill("Reporte del operador con etiqueta de su empresa.");
     await op.locator("#rwFormNext").click();
     await op.locator("#reportForm button[type=submit]").click();
     await op.locator("#boardPanel:not(.hidden)").waitFor();
-    assert.equal((await h.db.query("SELECT count(*)::int n FROM garantias")).rows[0].n, 10);
-    const foreign = (await h.call("/api/report-qr/batch", { method:"POST", body:{ unitIds:["unit-14"] } })).body.units[0];
+    assert.equal(
+      (await h.db.query("SELECT count(*)::int n FROM garantias")).rows[0].n,
+      11,
+    );
+    const foreign = (
+      await h.call("/api/report-qr/batch", {
+        method: "POST",
+        body: { unitIds: ["unit-14"] },
+      })
+    ).body.units[0];
     await op.goto(h.url + "/?reportqr=" + foreign.token);
-    await op.getByRole("heading", { name:"No se pudo abrir la unidad" }).waitFor();
+    await op
+      .getByRole("heading", { name: "No se pudo abrir la unidad" })
+      .waitFor();
     await oc.close();
-    const guest = await browser.newContext({ viewport:{width:390,height:844} });
-    const gp = await guest.newPage(); gp.on("pageerror", e => errors.push(e.message));
+    const guest = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+    });
+    const gp = await guest.newPage();
+    gp.on("pageerror", (e) => errors.push(e.message));
     await gp.goto(h.url + "/?reportqr=" + codes[0].token);
+    phase = "login contrast and responsive access";
+    await gp.setViewportSize({ width: 1440, height: 1000 });
+    await gp.screenshot({
+      path: path.join(out, engine + "-login.png"),
+      fullPage: true,
+    });
+    const loginColors = await gp.evaluate(() => {
+      const read = (sel) => {
+        const s = getComputedStyle(document.querySelector(sel));
+        return {
+          color: s.color,
+          background: s.backgroundColor,
+          border: s.borderColor,
+        };
+      };
+      return {
+        label: read("label[for=loginEmail]"),
+        input: read("#loginEmail"),
+        title: read("#loginPane h2"),
+        button: read("#loginForm button[type=submit]"),
+        card: read(".auth-card"),
+      };
+    });
+    assert.equal(loginColors.card.background, "rgb(255, 255, 255)");
+    assert.equal(loginColors.input.color, "rgb(23, 34, 55)");
+    assert.equal(loginColors.label.color, "rgb(52, 67, 91)");
+    assert.equal(loginColors.title.color, "rgb(23, 34, 55)");
+    assert.equal(loginColors.button.background, "rgb(190, 46, 104)");
+    await gp.locator("#tabRegisterBtn").click();
+    await gp.locator("#registerPane:not(.hidden)").waitFor();
+    await gp.screenshot({
+      path: path.join(out, engine + "-register.png"),
+      fullPage: true,
+    });
+    await gp.setViewportSize({ width: 390, height: 844 });
+    assert.ok(
+      await gp.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1,
+      ),
+    );
+    await gp.screenshot({
+      path: path.join(out, engine + "-mobile-register.png"),
+      fullPage: true,
+    });
+    await gp.locator("#tabLoginBtn").click();
+    await gp.locator("#rwPasswordToggle").click();
+    assert.equal(
+      await gp.locator("#loginPassword").getAttribute("type"),
+      "text",
+    );
+    await gp.locator("#rwPasswordToggle").click();
+    assert.equal(
+      await gp.locator("#loginPassword").getAttribute("type"),
+      "password",
+    );
+    await gp.screenshot({
+      path: path.join(out, engine + "-mobile-login.png"),
+      fullPage: true,
+    });
     await gp.locator("#loginEmail").fill("admin@carlab.local");
     await gp.locator("#loginPassword").fill("Admin123*");
     await gp.locator("#loginForm button[type=submit]").click();
-    await gp.getByRole("heading",{name:"Unidad 321",exact:true}).waitFor();
+    await gp
+      .getByRole("heading", { name: "Unidad 321", exact: true })
+      .waitFor();
     await gp.locator("#rwDialog .rw-close").click();
     await gp.locator("#workspaceMenu").click();
     await gp.locator("#logoutBtn").click();
     await gp.locator("#loginView:not(.hidden)").waitFor();
-    assert.equal(await gp.evaluate(()=>localStorage.getItem("carlabToken")),null);
+    assert.equal(
+      await gp.evaluate(() => localStorage.getItem("carlabToken")),
+      null,
+    );
     await guest.close();
     assert.deepEqual(errors, []);
     console.log(
