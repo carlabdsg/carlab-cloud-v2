@@ -8,70 +8,76 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.min.css" />
-  <link rel="stylesheet" href="/reports-workspace.css?v=7.0" />
+  <link rel="stylesheet" href="/reports-workspace.css?v=7.1" />
 </head>
 <body id="carlabWorkspace" class="carlab-workspace">
   <div id="app">
     <section id="loginView" class="auth-shell">
-      <div class="auth-backdrop"></div>
       <div class="auth-layout">
+        <aside class="rw-access-brand" aria-label="CARLAB Cloud">
+          <div class="rw-access-wordmark">CARLAB<span>CLOUD / SERVICIO TÉCNICO</span></div>
+          <div class="rw-access-intro"><span class="rw-access-kicker">CONTROL Y SEGUIMIENTO</span><h1>Reportes, flotas<br>y servicio.</h1><p>El historial de cada unidad.<br>La información de tu operación.</p></div>
+          <div class="rw-access-photo" aria-hidden="true"></div>
+          <div class="rw-access-caption"><span>CARLAB</span><span>Una plataforma. Toda tu flota.</span></div>
+        </aside>
         <div class="auth-card">
-          <img src="/logo.jpg" alt="CARLAB" class="auth-logo" />
+          <div class="rw-access-mobile-brand">CARLAB<span>CLOUD</span></div>
           <div class="stack-inline auth-switcher">
             <button id="tabLoginBtn" class="btn btn-primary" type="button">Iniciar sesión</button>
             <button id="tabRegisterBtn" class="btn btn-ghost" type="button">Solicitar acceso</button>
           </div>
 
           <div id="loginPane">
-            <div class="card-eyebrow">ACCESO INTERNO</div>
-            <h2>Entrar al sistema</h2>
-            <p class="muted">Admin, supervisor, operativo y operadores aprobados.</p>
-            <form id="loginForm" class="stack gap-16" autocomplete="off">
+            <div class="card-eyebrow">BIENVENIDO A CARLAB</div>
+            <h2>Inicia sesión</h2>
+            <p class="muted">Accede con la cuenta de tu empresa.</p>
+            <form id="loginForm" class="stack gap-16">
               <div>
-                <label>Correo</label>
-                <input id="loginEmail" type="email" placeholder="Correo corporativo" autocomplete="off" required />
+                <label for="loginEmail">Correo</label>
+                <input id="loginEmail" type="email" placeholder="nombre@empresa.com" autocomplete="username" autocapitalize="none" spellcheck="false" required />
               </div>
               <div>
-                <label>Contraseña</label>
-                <input id="loginPassword" type="password" placeholder="Tu contraseña" autocomplete="new-password" required />
+                <label for="loginPassword">Contraseña</label>
+                <div class="rw-password-field"><input id="loginPassword" type="password" placeholder="Tu contraseña" autocomplete="current-password" required /><button id="rwPasswordToggle" type="button" aria-label="Mostrar contraseña" aria-pressed="false">Ver</button></div>
               </div>
-              <button class="btn btn-primary" type="submit">Entrar</button>
+              <button class="btn btn-primary" type="submit">Entrar a mi cuenta <span aria-hidden="true">→</span></button>
             </form>
-            <div id="loginError" class="alert hidden"></div>
+            <div id="loginError" class="alert hidden" role="alert"></div>
+            <p class="rw-access-help">¿Necesitas una cuenta? Selecciona <strong>Solicitar acceso</strong>.</p>
           </div>
 
           <div id="registerPane" class="hidden">
             <div class="card-eyebrow">ALTA DE OPERADOR</div>
             <h2>Solicitar acceso</h2>
-            <p class="muted">El operador llena el formato y el admin aprueba o rechaza la solicitud.</p>
+            <p class="muted">Registra tus datos. El administrador revisará tu solicitud.</p>
             <form id="registerForm" class="stack gap-16" autocomplete="off">
               <div>
-                <label>Nombre completo</label>
+                <label for="regNombre">Nombre completo</label>
                 <input id="regNombre" required />
               </div>
               <div>
-                <label>Correo</label>
+                <label for="regEmail">Correo</label>
                 <input id="regEmail" type="email" required />
               </div>
               <div>
-                <label>Teléfono</label>
+                <label for="regTelefono">Teléfono</label>
                 <input id="regTelefono" required />
               </div>
               <div>
-                <label>Empresa</label>
+                <label for="regEmpresa">Empresa</label>
                 <select id="regEmpresa" required></select>
               </div>
               <div>
-                <label>Número económico de unidad</label>
+                <label for="regNumeroEconomico">Número económico de unidad</label>
                 <input id="regNumeroEconomico" />
               </div>
               <div>
-                <label>Contraseña</label>
+                <label for="regPassword">Contraseña</label>
                 <input id="regPassword" type="password" required />
               </div>
               <button class="btn btn-primary" type="submit">Enviar solicitud</button>
             </form>
-            <div id="registerMessage" class="alert hidden"></div>
+            <div id="registerMessage" class="alert hidden" role="status"></div>
           </div>
         </div>
       </div>
@@ -277,8 +283,8 @@
             <span class="badge badge-info">Captura controlada</span>
           </div>
           <form id="reportForm" class="grid-form">
-            <div><label>Número de obra</label><input id="numeroObra" required /></div>
-            <div><label>Modelo</label><input id="modelo" required /></div>
+            <div><label>Número de obra</label><input id="numeroObra" placeholder="Pendiente" /></div>
+            <div><label>Modelo</label><input id="modelo" placeholder="Pendiente" /></div>
             <div><label>Número económico</label><input id="numeroEconomico" required /></div>
             <div><label>Empresa</label><select id="empresa" required></select></div>
             <div><label>Kilometraje</label><input id="kilometraje" inputmode="numeric" placeholder="Ej. 245000" /></div>
@@ -859,10 +865,10 @@
   </div>
 
   <script src="/vendor/hc-jspdf.umd.min.js"></script>
-  <script src="/app.min.js?v=20261025-reportes7"></script>
+  <script src="/app.min.js?v=20261025-reportes71"></script>
   <script src="/vendor/ac-qrcode.js"></script>
   <script src="/reports-qr.js?v=7.0"></script>
-  <script src="/reports-workspace.js?v=7.0"></script>
+  <script src="/reports-workspace.js?v=7.1"></script>
   <script src="/hispacold-entry.js?v=1" defer></script>
   <script src="/ac-main-entry.js?v=4" defer></script>
 </body>

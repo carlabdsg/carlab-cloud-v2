@@ -11,6 +11,10 @@
     fleetTab: "summary",
     step: 0,
     units: [],
+    unitsLoading: false,
+    unitsError: false,
+    unitLoadId: 0,
+    manualUnit: false,
     session: "",
     returnFocus: null,
   };
@@ -83,6 +87,16 @@
     }
   }
   function initShell() {
+    $("rwPasswordToggle").addEventListener("click", () => {
+      const show = $("loginPassword").type === "password";
+      $("loginPassword").type = show ? "text" : "password";
+      $("rwPasswordToggle").textContent = show ? "Ocultar" : "Ver";
+      $("rwPasswordToggle").setAttribute("aria-pressed", String(show));
+      $("rwPasswordToggle").setAttribute(
+        "aria-label",
+        show ? "Ocultar contraseña" : "Mostrar contraseña",
+      );
+    });
     const brand = document.querySelector(".brand-lockup");
     brand.innerHTML =
       '<div class="rw-brand">CARLAB<span>CLOUD</span></div><p>REPORTES Y FLOTAS</p>';
@@ -634,7 +648,7 @@
       },
     );
     form.before(steps);
-    const groups = [[3, 2, 0, 1, 4, 5, 6], [7, 8, 9, 10, 11], [12]];
+    const groups = [[2, 0, 1, 4, 5, 6], [7, 8, 9, 10, 11], [12]];
     groups.forEach((indexes, i) => {
       const section = element("section", "rw-form-section");
       section.dataset.step = String(i);
@@ -645,7 +659,7 @@
         "Verifica antes de enviar",
       ];
       const hints = [
-        "Selecciona una unidad registrada para completar sus datos o captura la información manualmente.",
+        "Elige la empresa y después una de sus unidades. Sus datos se completan automáticamente.",
         "Describe el síntoma, cuándo ocurre y dónde se presenta. Agrega las fotografías necesarias.",
         "Revisa los datos y registra la firma del operador o responsable.",
       ];
@@ -657,16 +671,41 @@
         ),
       );
       if (i === 0) {
+        fields[3].classList.add("rw-company-field");
+        section.append(fields[3]);
         const picker = element(
-          "label",
+          "div",
           "rw-unit-picker",
-          '<span>Completar con una unidad de mi flota</span><select id="rwUnitPicker"><option value="">Captura manual / seleccionar unidad</option></select>',
+          '<label for="rwUnitPicker">Unidad de la empresa</label><select id="rwUnitPicker" required aria-describedby="rwUnitHint"><option value="">Primero selecciona una empresa</option></select><p id="rwUnitHint" class="rw-field-hint" role="status"></p><div class="rw-unit-picker-actions"><button type="button" id="rwManualUnit" class="rw-text-button">Capturar unidad no registrada</button><button type="button" id="rwRetryUnits" class="rw-text-button" hidden>Volver a cargar unidades</button></div>',
         );
         section.append(picker);
+        fields[2].id = "rwManualUnitField";
+        fields[2].hidden = true;
+        els.numeroEconomico.required = false;
         picker.querySelector("select").onchange = (e) => {
-          const unit = view.units.find((u) => u.id === e.target.value);
+          const unit = companyUnits().find((u) => u.id === e.target.value);
           if (unit) prefillUnit(unit);
+          else clearUnitFields();
         };
+        picker.querySelector("#rwManualUnit").onclick = () => {
+          view.manualUnit = !view.manualUnit;
+          clearUnitFields();
+          renderUnitPicker();
+          if (view.manualUnit) els.numeroEconomico.focus();
+          else $("rwUnitPicker").focus();
+        };
+        picker.querySelector("#rwRetryUnits").onclick = loadFormUnits;
+        [els.numeroObra, els.modelo].forEach((input) => {
+          input.required = false;
+          input.addEventListener("blur", fillPendingDetails);
+          input.parentElement.append(
+            element(
+              "small",
+              "rw-field-hint",
+              "Si no se conoce, se guarda como Pendiente.",
+            ),
+          );
+        });
       }
       if (i === 2) {
         const preview = element("div", "rw-review-summary");
@@ -711,7 +750,11 @@
         goStep(view.step + 1);
       }
     });
-    els.empresa.addEventListener("change", renderUnitPicker);
+    els.empresa.addEventListener("change", () => {
+      view.manualUnit = false;
+      clearUnitFields();
+      renderUnitPicker();
+    });
     // Associate the original labels with their inputs without replacing controls.
     form
       .querySelectorAll("input[id],select[id],textarea[id],canvas[id]")
@@ -724,6 +767,7 @@
   function goStep(step) {
     step = Math.max(0, Math.min(2, step));
     if (step > view.step) {
+      fillPendingDetails();
       for (let i = 0; i < step; i++)
         for (const input of document.querySelectorAll(
           `#rw-form-step-${i} [required]`,
@@ -761,8 +805,8 @@
     $("rwReviewSummary").innerHTML = `<dl>${[
       ["Empresa", els.empresa.value],
       ["Unidad", els.numeroEconomico.value],
-      ["Obra", els.numeroObra.value],
-      ["Modelo", els.modelo.value],
+      ["Obra", els.numeroObra.value.trim() || "Pendiente"],
+      ["Modelo", els.modelo.value.trim() || "Pendiente"],
       ["Contacto", els.contactoNombre.value],
       ["Teléfono", els.telefono.value],
       ["Kilometraje", els.kilometraje.value],
@@ -782,39 +826,119 @@
   }
   function resetForm() {
     view.step = 0;
+    view.manualUnit = false;
+    fillPendingDetails();
     els.reportFormPanel.querySelector(".topbar-kicker").textContent =
       "REGISTRO DE INCIDENCIA";
     els.reportFormPanel.querySelector(".panel-head .badge").textContent =
       "Fallas y garantías";
-    if ($("rwUnitPicker")) $("rwUnitPicker").value = "";
+    renderUnitPicker();
     updateSteps();
   }
+  function companyUnits() {
+    const company = normalizeIdentityKey(els.empresa.value);
+    if (!company) return [];
+    return view.units
+      .filter((unit) => normalizeIdentityKey(unit.empresa) === company)
+      .sort((a, b) =>
+        a.numeroEconomico.localeCompare(b.numeroEconomico, "es", {
+          numeric: true,
+        }),
+      );
+  }
+  function fillPendingDetails() {
+    for (const input of [els.numeroObra, els.modelo]) {
+      if (!input.value.trim()) input.value = "Pendiente";
+    }
+  }
+  function clearUnitFields() {
+    els.numeroEconomico.value = "";
+    els.numeroObra.value = "Pendiente";
+    els.modelo.value = "Pendiente";
+    els.kilometraje.value = "";
+    $("rwUnitPicker").value = "";
+  }
   async function loadFormUnits() {
+    const requestId = ++view.unitLoadId;
+    view.unitsLoading = true;
+    view.unitsError = false;
+    renderUnitPicker();
     try {
-      view.units = await api.getFleetUnits();
-      renderUnitPicker();
+      const units = await api.getFleetUnits();
+      if (requestId !== view.unitLoadId) return;
+      view.units = units;
     } catch {
+      if (requestId !== view.unitLoadId) return;
       view.units = [];
-      renderUnitPicker();
+      view.unitsError = true;
+    } finally {
+      if (requestId === view.unitLoadId) {
+        view.unitsLoading = false;
+        // A historical report may refer to a unit no longer registered. Preserve it.
+        if (
+          state.editingGarantiaId &&
+          els.numeroEconomico.value &&
+          !companyUnits().some(
+            (unit) =>
+              normalizeIdentityKey(unit.numeroEconomico) ===
+              normalizeIdentityKey(els.numeroEconomico.value),
+          )
+        )
+          view.manualUnit = true;
+        renderUnitPicker();
+      }
     }
   }
   function renderUnitPicker() {
     const select = $("rwUnitPicker");
     if (!select) return;
-    const previous = select.value;
-    select.replaceChildren(
-      new Option("Captura manual / seleccionar unidad", ""),
-      ...view.units
-        .filter((u) => !els.empresa.value || u.empresa === els.empresa.value)
-        .map(
-          (u) =>
-            new Option(
-              `${u.numeroEconomico} · ${u.empresa} · ${u.modelo || ""}`,
-              u.id,
-            ),
-        ),
+    const units = companyUnits();
+    const hasCompany = Boolean(els.empresa.value);
+    const match = units.find(
+      (unit) =>
+        normalizeIdentityKey(unit.numeroEconomico) ===
+        normalizeIdentityKey(els.numeroEconomico.value),
     );
-    select.value = previous;
+    const placeholder = !hasCompany
+      ? "Primero selecciona una empresa"
+      : view.unitsLoading
+        ? "Cargando unidades…"
+        : view.unitsError
+          ? "No se pudieron cargar las unidades"
+          : units.length
+            ? "Selecciona una unidad"
+            : "Esta empresa no tiene unidades registradas";
+    select.replaceChildren(
+      new Option(placeholder, ""),
+      ...units.map(
+        (u) =>
+          new Option(
+            `${u.numeroEconomico}${u.modelo?.trim() ? " · " + u.modelo.trim() : ""}${u.nombreFlota ? " · " + u.nombreFlota : ""}`,
+            u.id,
+          ),
+      ),
+    );
+    select.value = !view.manualUnit && match ? match.id : "";
+    select.disabled = !hasCompany || view.manualUnit;
+    select.required = !view.manualUnit;
+    $("rwManualUnitField").hidden = !view.manualUnit;
+    els.numeroEconomico.required = view.manualUnit;
+    $("rwManualUnit").disabled = !hasCompany;
+    $("rwManualUnit").textContent = view.manualUnit
+      ? "Volver a las unidades de la empresa"
+      : "Capturar unidad no registrada";
+    $("rwRetryUnits").hidden = !view.unitsError;
+    $("rwUnitHint").textContent = !hasCompany
+      ? "Solo se mostrarán las unidades de la empresa seleccionada."
+      : view.manualUnit
+        ? "Captura el número económico. La empresa seleccionada se conservará."
+        : view.unitsLoading
+          ? "Consultando la flota…"
+          : view.unitsError
+            ? "Reintenta la consulta o captura la unidad manualmente."
+            : units.length
+              ? `${units.length} unidades de ${els.empresa.value}. Obra y modelo se completan al seleccionar.`
+              : "Puedes capturar el número económico con la opción de abajo.";
   }
   function prefillUnit(unit) {
     if (
@@ -822,10 +946,11 @@
       !Array.from(els.empresa.options).some((o) => o.value === unit.empresa)
     )
       els.empresa.add(new Option(unit.empresa, unit.empresa));
+    view.manualUnit = false;
     els.empresa.value = unit.empresa || "";
     els.numeroEconomico.value = unit.numeroEconomico || "";
-    els.numeroObra.value = unit.numeroObra || "";
-    els.modelo.value = unit.modelo || "";
+    els.numeroObra.value = unit.numeroObra?.trim() || "Pendiente";
+    els.modelo.value = unit.modelo?.trim() || "Pendiente";
     els.kilometraje.value = unit.kilometraje || "";
     renderUnitPicker();
     $("rwUnitPicker").value = unit.id;
