@@ -3,14 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CARLAB CLOUD V3 | Cobranza 2</title>
+  <title>CARLAB | Reportes y flotas</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.min.css" />
   <link rel="stylesheet" href="/agenda-pro.css?v=1" />
+  <link rel="stylesheet" href="/reports-workspace.css?v=7.0" />
 </head>
-<body>
+<body id="carlabWorkspace" class="carlab-workspace">
   <div id="app">
     <section id="loginView" class="auth-shell">
       <div class="auth-backdrop"></div>
@@ -863,9 +864,12 @@
     </div>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="/app.min.js?v=20261022-acqr6.2"></script>
+  <script src="/vendor/hc-jspdf.umd.min.js"></script>
+  <script src="/app.min.js?v=20261025-reportes7"></script>
   <script src="/agenda-pro.js?v=1"></script>
+  <script src="/vendor/ac-qrcode.js"></script>
+  <script src="/reports-qr.js?v=7.0"></script>
+  <script src="/reports-workspace.js?v=7.0"></script>
   <script src="/hispacold-entry.js?v=1" defer></script>
   <script src="/ac-main-entry.js?v=4" defer></script>
 </body>

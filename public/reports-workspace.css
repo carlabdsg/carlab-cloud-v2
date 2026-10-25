@@ -1,0 +1,1846 @@
+/* General CARLAB workspace only. The AC portal does not load this stylesheet. */
+body#carlabWorkspace.carlab-workspace {
+  --bg: #f5f5f1;
+  --surface: #fff;
+  --surface-2: #f8f9f6;
+  --line: #dfe4df;
+  --text: #24312d;
+  --title: #1f302a;
+  --muted: #69776f;
+  --accent: #2d5b49;
+  --accent-soft: #edf4ef;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+}
+body#carlabWorkspace.carlab-workspace [hidden] {
+  display: none !important;
+}
+body#carlabWorkspace.carlab-workspace * {
+  box-sizing: border-box;
+}
+body#carlabWorkspace.carlab-workspace button {
+  font-family: inherit;
+}
+body#carlabWorkspace.carlab-workspace button:focus-visible,
+body#carlabWorkspace.carlab-workspace a:focus-visible {
+  outline: 3px solid #a45f82;
+  outline-offset: 3px;
+}
+body#carlabWorkspace.carlab-workspace input:focus,
+body#carlabWorkspace.carlab-workspace select:focus,
+body#carlabWorkspace.carlab-workspace textarea:focus {
+  border-color: #477c63;
+  box-shadow: 0 0 0 3px #477c6318;
+}
+body#carlabWorkspace.carlab-workspace input[type="checkbox"],
+body#carlabWorkspace.carlab-workspace input[type="radio"] {
+  width: 18px;
+  min-height: 18px;
+  height: 18px;
+  accent-color: #2d5b49;
+  flex: none;
+}
+body#carlabWorkspace.carlab-workspace input,
+body#carlabWorkspace.carlab-workspace select,
+body#carlabWorkspace.carlab-workspace textarea {
+  border-radius: 8px;
+  min-width: 0;
+  font-size: 14px;
+}
+body#carlabWorkspace.carlab-workspace #dashboardView {
+  display: grid !important;
+  grid-template-columns: 232px minmax(0, 1fr) !important;
+  min-height: 100vh;
+  gap: 0 !important;
+  padding: 0 !important;
+  max-width: none !important;
+}
+body#carlabWorkspace.carlab-workspace #dashboardView.hidden {
+  display: none !important;
+}
+body#carlabWorkspace.carlab-workspace #dashboardView .sidebar {
+  position: sticky !important;
+  top: 0 !important;
+  height: 100vh !important;
+  width: 232px !important;
+  min-width: 0 !important;
+  overflow-y: auto !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #24332d !important;
+  color: #d4dfd8 !important;
+  padding: 28px 18px 18px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 20px !important;
+  box-shadow: none !important;
+}
+body#carlabWorkspace.carlab-workspace .sidebar:before,
+body#carlabWorkspace.carlab-workspace .sidebar:after,
+body#carlabWorkspace.carlab-workspace .main-area:before,
+body#carlabWorkspace.carlab-workspace .main-area:after {
+  display: none !important;
+}
+body#carlabWorkspace.carlab-workspace .sidebar-top {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 24px !important;
+}
+body#carlabWorkspace.carlab-workspace .brand-lockup {
+  padding: 0 12px !important;
+  border: 0 !important;
+  background: none !important;
+}
+body#carlabWorkspace.carlab-workspace .rw-brand {
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #fff;
+}
+body#carlabWorkspace.carlab-workspace .rw-brand span {
+  font-size: 10px;
+  letter-spacing: 2px;
+  display: block;
+  margin-top: 3px;
+  color: #bacac0;
+  font-weight: 500;
+}
+body#carlabWorkspace.carlab-workspace .brand-lockup p {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  margin: 14px 0 0;
+  color: #b9c7bf;
+}
+body#carlabWorkspace.carlab-workspace .profile-panel {
+  display: flex !important;
+  border: 0 !important;
+  border-top: 1px solid #ffffff20 !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding: 17px 8px 0 !important;
+  gap: 10px !important;
+  flex-wrap: wrap;
+}
+body#carlabWorkspace.carlab-workspace .profile-panel strong {
+  color: #edf3ee !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+}
+body#carlabWorkspace.carlab-workspace .profile-panel .muted {
+  color: #b9c7bf !important;
+  font-size: 10px !important;
+}
+body#carlabWorkspace.carlab-workspace .avatar-circle {
+  background: #425c4e !important;
+  color: #fff !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  font-size: 13px !important;
+}
+body#carlabWorkspace.carlab-workspace #currentRoleBadge {
+  display: none !important;
+}
+body#carlabWorkspace.carlab-workspace .nav-stack,
+body#carlabWorkspace.carlab-workspace .nav-group {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+}
+body#carlabWorkspace.carlab-workspace .nav-group-label {
+  color: #9eafa3 !important;
+  letter-spacing: 1.2px !important;
+  font-size: 9px !important;
+  margin: 16px 10px 8px !important;
+}
+body#carlabWorkspace.carlab-workspace .sidebar .nav-btn {
+  display: flex !important;
+  align-items: center;
+  gap: 12px !important;
+  min-height: 42px !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  color: #c5d2c9 !important;
+  border-radius: 7px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  padding: 10px 12px !important;
+  text-align: left !important;
+  transform: none !important;
+}
+body#carlabWorkspace.carlab-workspace .sidebar .nav-btn.hidden {
+  display: none !important;
+}
+body#carlabWorkspace.carlab-workspace .sidebar .nav-btn.active,
+body#carlabWorkspace.carlab-workspace .sidebar .nav-btn:hover {
+  color: #fff !important;
+  background: #3d5146 !important;
+}
+body#carlabWorkspace.carlab-workspace .sidebar .nav-btn:before,
+body#carlabWorkspace.carlab-workspace .sidebar .nav-btn:after {
+  display: none !important;
+}
+body#carlabWorkspace.carlab-workspace svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  vertical-align: middle;
+}
+body#carlabWorkspace.carlab-workspace .sidebar .stats,
+body#carlabWorkspace.carlab-workspace .system-note,
+body#carlabWorkspace.carlab-workspace #roleBrief,
+body#carlabWorkspace.carlab-workspace #executiveDeck,
+body#carlabWorkspace.carlab-workspace #commandSidePanel,
+body#carlabWorkspace.carlab-workspace #fleetOwnerDeck {
+  display: none !important;
+}
+body#carlabWorkspace.carlab-workspace .sidebar-bottom {
+  margin-top: auto;
+  border-top: 1px solid #ffffff20;
+  padding-top: 16px;
+}
+body#carlabWorkspace.carlab-workspace #logoutBtn {
+  color: #c5d2c9 !important;
+  background: transparent !important;
+  border-color: #ffffff20 !important;
+  width: 100%;
+}
+body#carlabWorkspace.carlab-workspace #dashboardView .main-area {
+  padding: 0 34px 44px !important;
+  display: block !important;
+  min-width: 0 !important;
+  max-width: 1600px !important;
+  width: 100% !important;
+  margin: 0 auto !important;
+  background: transparent !important;
+}
+body#carlabWorkspace.carlab-workspace #dashboardView .topbar {
+  display: flex !important;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px !important;
+  padding: 30px 0 25px !important;
+  margin: 0 0 22px !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--line) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  position: relative !important;
+  top: auto !important;
+}
+body#carlabWorkspace.carlab-workspace #pageTitle {
+  font-size: 30px !important;
+  letter-spacing: -1px !important;
+  line-height: 1.2 !important;
+  font-weight: 650 !important;
+  margin: 7px 0 !important;
+  color: var(--title) !important;
+}
+body#carlabWorkspace.carlab-workspace #statusLegend {
+  font-size: 13px !important;
+  margin: 0 !important;
+  color: var(--muted) !important;
+  max-width: 600px !important;
+}
+body#carlabWorkspace.carlab-workspace .topbar-kicker,
+body#carlabWorkspace.carlab-workspace .rw-eyebrow {
+  font-size: 10px !important;
+  font-weight: 650 !important;
+  letter-spacing: 1.2px !important;
+  text-transform: uppercase;
+  color: #718077 !important;
+}
+body#carlabWorkspace.carlab-workspace .topbar-side {
+  display: flex !important;
+  gap: 10px !important;
+  align-items: center !important;
+}
+body#carlabWorkspace.carlab-workspace .topbar-chip {
+  background: none !important;
+  border: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+body#carlabWorkspace.carlab-workspace .topbar-chip:not(.notif-chip) {
+  display: none !important;
+}
+body#carlabWorkspace.carlab-workspace .notif-chip span {
+  display: none;
+}
+body#carlabWorkspace.carlab-workspace .notif-chip strong {
+  font-size: 11px !important;
+  color: var(--muted) !important;
+  font-weight: 500 !important;
+}
+body#carlabWorkspace.carlab-workspace .btn,
+body#carlabWorkspace.carlab-workspace .fleet-primary-button {
+  min-height: 40px !important;
+  padding: 10px 16px !important;
+  border-radius: 7px !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+  transform: none !important;
+  white-space: normal;
+}
+body#carlabWorkspace.carlab-workspace .btn-primary,
+body#carlabWorkspace.carlab-workspace .fleet-primary-button {
+  background: #2d5140 !important;
+  border: 1px solid #2d5140 !important;
+  color: #fff !important;
+}
+body#carlabWorkspace.carlab-workspace .btn-secondary {
+  background: #fff !important;
+  border: 1px solid #d5dfd7 !important;
+  color: #2c4536 !important;
+}
+body#carlabWorkspace.carlab-workspace .btn-ghost {
+  background: transparent !important;
+  border: 1px solid #dfe5df !important;
+  color: #586a5e !important;
+}
+body#carlabWorkspace.carlab-workspace button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+body#carlabWorkspace.carlab-workspace .panel,
+body#carlabWorkspace.carlab-workspace .owner-card,
+body#carlabWorkspace.carlab-workspace .analytic-card,
+body#carlabWorkspace.carlab-workspace .table-row,
+body#carlabWorkspace.carlab-workspace .card {
+  border-color: var(--line) !important;
+  box-shadow: none !important;
+  background-image: none !important;
+  border-radius: 10px !important;
+}
+body#carlabWorkspace.carlab-workspace .panel {
+  padding: 24px !important;
+  margin-bottom: 20px !important;
+  background: #fff !important;
+  min-width: 0 !important;
+}
+body#carlabWorkspace.carlab-workspace .panel-head {
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 22px !important;
+}
+body#carlabWorkspace.carlab-workspace .panel-head h3 {
+  font-size: 19px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.4px !important;
+  margin: 6px 0 !important;
+}
+body#carlabWorkspace.carlab-workspace .board-row {
+  display: block !important;
+  grid-template-columns: none !important;
+}
+body#carlabWorkspace.carlab-workspace #boardPanel {
+  padding: 22px 0 0 !important;
+  overflow: hidden !important;
+}
+body#carlabWorkspace.carlab-workspace #boardPanel > .panel-head {
+  padding: 0 22px;
+}
+body#carlabWorkspace.carlab-workspace #filtersPanel {
+  display: grid;
+  grid-template-columns: minmax(180px, 2fr) repeat(3, minmax(125px, 1fr)) auto;
+  gap: 10px;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  margin: 22px 0 !important;
+}
+body#carlabWorkspace.carlab-workspace #filtersPanel input,
+body#carlabWorkspace.carlab-workspace #filtersPanel select {
+  min-height: 42px;
+  font-size: 12px;
+}
+body#carlabWorkspace.carlab-workspace .rw-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 8px;
+}
+body#carlabWorkspace.carlab-workspace .rw-metric {
+  padding: 19px 20px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: none;
+}
+body#carlabWorkspace.carlab-workspace .rw-metric.selected {
+  border-color: #587760;
+  box-shadow: inset 0 3px #587760;
+  background: #fafcf9;
+}
+body#carlabWorkspace.carlab-workspace .rw-metric > span {
+  font-size: 12px;
+  color: #627168;
+  font-weight: 550;
+}
+body#carlabWorkspace.carlab-workspace .rw-metric strong {
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -1.5px;
+  line-height: 1.2;
+}
+body#carlabWorkspace.carlab-workspace .rw-metric small {
+  font-size: 10px;
+  color: #7c877e;
+}
+body#carlabWorkspace.carlab-workspace #garantiasList.rw-report-list {
+  display: block !important;
+  padding: 0 !important;
+  gap: 0 !important;
+}
+body#carlabWorkspace.carlab-workspace .rw-report-row {
+  border-top: 1px solid #e6ebe4;
+}
+body#carlabWorkspace.carlab-workspace .rw-report-open {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 20px 22px;
+  background: #fff;
+  text-align: left;
+  color: var(--text);
+  border: 0;
+  min-width: 0;
+}
+body#carlabWorkspace.carlab-workspace .rw-report-open:hover {
+  background: #f8faf7;
+}
+body#carlabWorkspace.carlab-workspace .rw-report-symbol {
+  display: grid;
+  place-items: center;
+  border: 1px solid #dbe5da;
+  background: #f3f6ef;
+  border-radius: 9px;
+  color: #54705a;
+  width: 42px;
+  height: 46px;
+  flex: none;
+}
+body#carlabWorkspace.carlab-workspace .rw-report-main {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  flex: 1;
+}
+body#carlabWorkspace.carlab-workspace .rw-report-main .rw-eyebrow {
+  font-size: 10px !important;
+  letter-spacing: 0.5px !important;
+  color: #65766a !important;
+}
+body#carlabWorkspace.carlab-workspace .rw-report-main .rw-eyebrow > span {
+  color: #909a93;
+  text-transform: none;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+body#carlabWorkspace.carlab-workspace .rw-report-main > strong {
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.2px;
+}
+body#carlabWorkspace.carlab-workspace .rw-report-main > strong > span {
+  font-size: 12px;
+  font-weight: 400;
+  color: #6c7970;
+  margin-left: 10px;
+}
+body#carlabWorkspace.carlab-workspace .rw-description {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  font-size: 13px;
+  color: #4f5e54;
+}
+body#carlabWorkspace.carlab-workspace .rw-report-meta {
+  font-size: 10px;
+  color: #879288;
+}
+body#carlabWorkspace.carlab-workspace .rw-report-status {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-end;
+  min-width: 130px;
+}
+body#carlabWorkspace.carlab-workspace .rw-report-status small {
+  color: #8b958d;
+  text-transform: capitalize;
+  font-size: 11px;
+}
+body#carlabWorkspace.carlab-workspace .rw-arrow {
+  color: #91a091;
+}
+body#carlabWorkspace.carlab-workspace .rw-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.3;
+  padding: 6px 9px;
+  border-radius: 5px;
+  text-transform: capitalize;
+  white-space: nowrap;
+  background: #f0f2ef;
+  color: #657268;
+}
+body#carlabWorkspace.carlab-workspace .rw-pill i {
+  width: 5px;
+  height: 5px;
+  flex: none;
+  background: currentColor;
+  border-radius: 50%;
+}
+body#carlabWorkspace.carlab-workspace .rw-pill.green {
+  background: #eaf3e9;
+  color: #477342;
+}
+body#carlabWorkspace.carlab-workspace .rw-pill.amber {
+  background: #faf0dc;
+  color: #987020;
+}
+body#carlabWorkspace.carlab-workspace .rw-pill.red {
+  background: #f9eae4;
+  color: #a35b40;
+}
+body#carlabWorkspace.carlab-workspace .rw-pill.blue {
+  background: #e8f0f4;
+  color: #466d83;
+}
+body#carlabWorkspace.carlab-workspace #fleetPanel {
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  max-width: none !important;
+}
+body#carlabWorkspace.carlab-workspace #dashboardView #fleetPanel .fleet-shell {
+  padding: 0 !important;
+  max-width: none !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+body#carlabWorkspace.carlab-workspace #dashboardView #fleetPanel .fleet-header {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  margin: 0 0 20px !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  background: none !important;
+  border: 0 !important;
+}
+body#carlabWorkspace.carlab-workspace #fleetPanel .fleet-heading-block {
+  display: none !important;
+}
+body#carlabWorkspace.carlab-workspace
+  #dashboardView
+  #fleetPanel
+  .fleet-toolbar {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+body#carlabWorkspace.carlab-workspace #fleetSearchInput {
+  flex: 1 1 230px !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 100px !important;
+}
+body#carlabWorkspace.carlab-workspace #fleetPanel .fleet-chip-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 5px !important;
+}
+body#carlabWorkspace.carlab-workspace #dashboardView #fleetPanel .fleet-chip {
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  padding: 9px 12px !important;
+  min-height: 36px !important;
+  border-radius: 6px !important;
+  background: #fff !important;
+  border: 1px solid var(--line) !important;
+  color: #647267 !important;
+  box-shadow: none !important;
+}
+body#carlabWorkspace.carlab-workspace
+  #dashboardView
+  #fleetPanel
+  .fleet-chip.active {
+  color: #2d5140 !important;
+  background: #e9f0e8 !important;
+  border-color: #b5c8b7 !important;
+}
+body#carlabWorkspace.carlab-workspace #fleetPanel .fleet-units-grid {
+  display: block !important;
+  grid-template-columns: none !important;
+}
+body#carlabWorkspace.carlab-workspace
+  #fleetPanel
+  #fleetUnitsList.rw-fleet-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 16px !important;
+}
+body#carlabWorkspace.carlab-workspace .rw-fleet-breadcrumb {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin: 25px 0 20px;
+}
+body#carlabWorkspace.carlab-workspace .rw-fleet-breadcrumb h3 {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  margin: 7px 0;
+}
+body#carlabWorkspace.carlab-workspace .rw-fleet-breadcrumb p {
+  font-size: 12px;
+  color: #768378;
+  margin: 0;
+}
+body#carlabWorkspace.carlab-workspace .rw-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+body#carlabWorkspace.carlab-workspace .rw-inline select {
+  width: auto;
+  max-width: 200px;
+  font-size: 12px;
+}
+body#carlabWorkspace.carlab-workspace .rw-fleet-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+body#carlabWorkspace.carlab-workspace .rw-fleet-metric {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 15px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+body#carlabWorkspace.carlab-workspace .rw-fleet-metric span {
+  font-size: 11px;
+  color: #758175;
+}
+body#carlabWorkspace.carlab-workspace .rw-fleet-metric strong {
+  font-size: 26px;
+  font-weight: 600;
+}
+body#carlabWorkspace.carlab-workspace .rw-fleet-metric.green strong {
+  color: #548145;
+}
+body#carlabWorkspace.carlab-workspace .rw-fleet-metric.amber strong {
+  color: #ac8026;
+}
+body#carlabWorkspace.carlab-workspace .rw-fleet-metric.red strong {
+  color: #ad604c;
+}
+body#carlabWorkspace.carlab-workspace .rw-fleet-metric.blue strong {
+  color: #5c8597;
+}
+body#carlabWorkspace.carlab-workspace .rw-company-card,
+body#carlabWorkspace.carlab-workspace .rw-unit-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid #dbe2d9;
+  border-radius: 10px;
+  padding: 23px;
+  background: #fff;
+  box-shadow: none;
+  min-width: 0;
+  color: var(--text);
+  transition: border-color 0.15s;
+}
+body#carlabWorkspace.carlab-workspace .rw-company-card:hover,
+body#carlabWorkspace.carlab-workspace .rw-unit-card:hover {
+  border-color: #729177;
+  box-shadow: 0 4px 12px #24332d08;
+}
+body#carlabWorkspace.carlab-workspace .rw-company-top,
+body#carlabWorkspace.carlab-workspace .rw-company-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #83917f;
+  font-size: 11px;
+  gap: 10px;
+}
+body#carlabWorkspace.carlab-workspace .rw-company-top > svg {
+  width: 33px;
+  height: 33px;
+  background: #eef3e9;
+  padding: 6px;
+  border-radius: 8px;
+  color: #6b8564;
+}
+body#carlabWorkspace.carlab-workspace .rw-company-card h4 {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  margin: 30px 0 20px;
+  overflow-wrap: anywhere;
+}
+body#carlabWorkspace.carlab-workspace .rw-fleet-bar {
+  display: flex;
+  width: 100%;
+  height: 5px;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 14px;
+  gap: 2px;
+}
+body#carlabWorkspace.carlab-workspace .rw-fleet-bar .green {
+  background: #9db889;
+}
+body#carlabWorkspace.carlab-workspace .rw-fleet-bar .amber {
+  background: #d9b86e;
+}
+body#carlabWorkspace.carlab-workspace .rw-fleet-bar .red {
+  background: #cf9078;
+}
+body#carlabWorkspace.carlab-workspace .rw-fleet-bar .blue {
+  background: #8baebc;
+}
+body#carlabWorkspace.carlab-workspace .rw-unit-card {
+  border-top: 3px solid var(--bus-color);
+  --bus-color: #779b6d;
+}
+body#carlabWorkspace.carlab-workspace .rw-unit-card.red {
+  --bus-color: #b86b54;
+}
+body#carlabWorkspace.carlab-workspace .rw-unit-card.amber {
+  --bus-color: #c39b46;
+}
+body#carlabWorkspace.carlab-workspace .rw-unit-card.blue {
+  --bus-color: #6f94a7;
+}
+body#carlabWorkspace.carlab-workspace .rw-unit-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  font-size: 10px;
+  color: #8b968c;
+}
+body#carlabWorkspace.carlab-workspace .rw-unit-number {
+  display: block;
+  font-size: 34px;
+  font-weight: 650;
+  letter-spacing: -1.5px;
+  margin-top: 22px;
+  overflow-wrap: anywhere;
+}
+body#carlabWorkspace.carlab-workspace .rw-unit-company {
+  display: block;
+  font-size: 11px;
+  color: #798779;
+  margin: 4px 0;
+}
+body#carlabWorkspace.carlab-workspace .rw-bus {
+  display: block;
+  width: 200px;
+  max-width: 100%;
+  height: 86px;
+  margin: 20px auto;
+  background: var(--bus-color);
+  mask: var(--bus-image) center/contain no-repeat;
+  -webkit-mask: var(--bus-image) center/contain no-repeat;
+}
+body#carlabWorkspace.carlab-workspace .rw-unit-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #e7ece4;
+  padding-top: 15px;
+  gap: 8px;
+  font-size: 10px;
+  color: #82907f;
+}
+body#carlabWorkspace.carlab-workspace .rw-unit-footer strong {
+  font-size: 14px;
+  font-weight: 650;
+  margin-right: 4px;
+}
+body#carlabWorkspace.carlab-workspace .rw-unit-footer svg {
+  width: 13px;
+  height: 13px;
+}
+body#carlabWorkspace.carlab-workspace .rw-empty {
+  grid-column: 1/-1;
+  padding: 50px 25px;
+  text-align: center;
+  border: 1px dashed #bccaba;
+  border-radius: 10px;
+  color: #798774;
+}
+body#carlabWorkspace.carlab-workspace .fleet-form-card {
+  background: #fff !important;
+  box-shadow: none !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 10px !important;
+  padding: 22px !important;
+  margin-bottom: 20px !important;
+}
+body#carlabWorkspace.carlab-workspace .fleet-detail-modal-root,
+body#carlabWorkspace.carlab-workspace .modal-shell {
+  position: fixed !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 1600 !important;
+  padding: 24px !important;
+  background: #17251cc0 !important;
+  backdrop-filter: none !important;
+  overflow: hidden !important;
+}
+body#carlabWorkspace.carlab-workspace .fleet-detail-modal-root.hidden,
+body#carlabWorkspace.carlab-workspace .modal-shell.hidden {
+  display: none !important;
+}
+body#carlabWorkspace.carlab-workspace #reportDetailModal {
+  z-index: 1700 !important;
+}
+body#carlabWorkspace.carlab-workspace #authorizedActivitiesModal {
+  z-index: 1800 !important;
+}
+body#carlabWorkspace.carlab-workspace .fleet-detail-modal-overlay {
+  position: absolute !important;
+  inset: 0 !important;
+  background: transparent !important;
+}
+body#carlabWorkspace.carlab-workspace .fleet-detail-modal-shell,
+body#carlabWorkspace.carlab-workspace .parts-request-modal {
+  position: relative !important;
+  width: min(1100px, 100%) !important;
+  max-width: 1100px !important;
+  max-height: calc(100dvh - 48px) !important;
+  overflow: auto !important;
+  inset: auto !important;
+  transform: none !important;
+  margin: 0 !important;
+  background: #fff !important;
+  border: 1px solid #e0e6de !important;
+  border-radius: 12px !important;
+  box-shadow: 0 24px 70px #0d201b30 !important;
+  padding: 0 !important;
+  isolation: isolate;
+}
+body#carlabWorkspace.carlab-workspace .fleet-detail-modal-content {
+  padding: 0 !important;
+}
+body#carlabWorkspace.carlab-workspace .fleet-detail-head,
+body#carlabWorkspace.carlab-workspace .report-detail-head-sticky {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 3 !important;
+  background: #fff !important;
+  margin: 0 !important;
+  padding: 25px 76px 20px 26px !important;
+  border-bottom: 1px solid var(--line) !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+}
+body#carlabWorkspace.carlab-workspace .report-detail-head-sticky {
+  display: block !important;
+}
+body#carlabWorkspace.carlab-workspace .fleet-detail-head p,
+body#carlabWorkspace.carlab-workspace .report-detail-head-sticky p {
+  font-size: 12px !important;
+  color: var(--muted) !important;
+  margin: 8px 0 0 !important;
+}
+body#carlabWorkspace.carlab-workspace .rw-close,
+body#carlabWorkspace.carlab-workspace .parts-request-close {
+  position: absolute !important;
+  right: 18px !important;
+  top: 20px !important;
+  width: 38px !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  display: grid !important;
+  place-items: center !important;
+  line-height: 1 !important;
+  border: 1px solid #cbd8cb !important;
+  border-radius: 50% !important;
+  background: #f3f7f0 !important;
+  color: #23362a !important;
+  font-size: 26px !important;
+  padding: 0 !important;
+  z-index: 10 !important;
+  box-shadow: none !important;
+}
+body#carlabWorkspace.carlab-workspace #reportDetailClose {
+  position: sticky !important;
+  float: right;
+  margin: 16px 16px -54px 0 !important;
+  top: 16px !important;
+  right: 16px !important;
+}
+body#carlabWorkspace.carlab-workspace .report-detail-scroll,
+body#carlabWorkspace.carlab-workspace .rw-fleet-detail-body {
+  padding: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  min-height: 300px;
+}
+body#carlabWorkspace.carlab-workspace .rw-tabs {
+  display: flex;
+  gap: 20px;
+  padding: 0 26px;
+  border-bottom: 1px solid var(--line);
+  background: #f9faf7;
+  overflow-x: auto;
+}
+body#carlabWorkspace.carlab-workspace .rw-tab {
+  font-size: 12px;
+  color: #71806e;
+  padding: 16px 0;
+  min-height: 48px;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  font-weight: 550;
+}
+body#carlabWorkspace.carlab-workspace .rw-tab[aria-selected="true"] {
+  color: #2a4e37;
+  border-color: #4c7754;
+  font-weight: 650;
+}
+body#carlabWorkspace.carlab-workspace .rw-tab-panel {
+  padding: 24px 26px;
+}
+body#carlabWorkspace.carlab-workspace .rw-tab-panel > .fleet-hero {
+  display: grid !important;
+  grid-template-columns: 1.5fr 1fr !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  gap: 20px !important;
+}
+body#carlabWorkspace.carlab-workspace .rw-tab-panel .detail-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+body#carlabWorkspace.carlab-workspace .rw-tab-panel .fleet-detail-summary,
+body#carlabWorkspace.carlab-workspace .report-detail-summary {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+  margin: 0 0 22px !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+body#carlabWorkspace.carlab-workspace .fleet-detail-summary article {
+  background: #f6f8f3 !important;
+  border: 1px solid #e5eae1 !important;
+  box-shadow: none !important;
+  border-radius: 8px !important;
+  padding: 15px !important;
+}
+body#carlabWorkspace.carlab-workspace .fleet-detail-summary article strong {
+  font-size: 16px !important;
+  line-height: 1.3 !important;
+  overflow-wrap: anywhere;
+}
+body#carlabWorkspace.carlab-workspace .fleet-detail-summary article span {
+  font-size: 10px !important;
+  margin-bottom: 8px;
+  color: #819079 !important;
+}
+body#carlabWorkspace.carlab-workspace .rw-tab-panel .owner-card {
+  background: #fff !important;
+  padding: 18px !important;
+  border: 1px solid var(--line) !important;
+  margin: 15px 0 !important;
+}
+body#carlabWorkspace.carlab-workspace .rw-tab-panel p {
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+body#carlabWorkspace.carlab-workspace .rw-section-intro h4 {
+  font-size: 17px;
+  margin: 0 0 8px;
+}
+body#carlabWorkspace.carlab-workspace .rw-section-intro p {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 24px;
+}
+body#carlabWorkspace.carlab-workspace .rw-management .action-area {
+  display: grid;
+  gap: 24px;
+}
+body#carlabWorkspace.carlab-workspace .rw-management .action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 0;
+}
+body#carlabWorkspace.carlab-workspace .rw-management .action-row select {
+  flex: 1;
+  min-width: 180px;
+  width: auto;
+}
+body#carlabWorkspace.carlab-workspace .rw-management .action-row input {
+  flex: 2;
+  min-width: 200px;
+  width: auto;
+}
+body#carlabWorkspace.carlab-workspace
+  .rw-management
+  .action-area
+  > div:not(.action-row) {
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+}
+body#carlabWorkspace.carlab-workspace .report-detail-actions-sticky {
+  position: sticky !important;
+  bottom: 0 !important;
+  background: #fff !important;
+  border-top: 1px solid var(--line) !important;
+  padding: 16px 26px !important;
+  z-index: 2;
+}
+body#carlabWorkspace.carlab-workspace .media-gallery {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+  gap: 12px;
+}
+body#carlabWorkspace.carlab-workspace .media-thumb img {
+  height: 140px !important;
+  width: 100% !important;
+  object-fit: contain !important;
+  background: #f7f8f6;
+}
+body#carlabWorkspace.carlab-workspace .rw-form-steps {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 26px;
+  scroll-margin-top: 16px;
+}
+body#carlabWorkspace.carlab-workspace .rw-form-step {
+  flex: 1;
+  background: transparent;
+  padding: 18px 12px;
+  color: #7c8979;
+  font-size: 12px;
+  text-align: left;
+  border-bottom: 2px solid transparent;
+}
+body#carlabWorkspace.carlab-workspace .rw-form-step.active {
+  border-bottom-color: #4e7356;
+  color: #305239;
+  font-weight: 650;
+}
+body#carlabWorkspace.carlab-workspace #reportForm.rw-guided-form {
+  display: block !important;
+  max-width: 900px;
+  margin: 0 auto;
+}
+body#carlabWorkspace.carlab-workspace .rw-form-section {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+body#carlabWorkspace.carlab-workspace .rw-form-intro,
+body#carlabWorkspace.carlab-workspace .rw-unit-picker,
+body#carlabWorkspace.carlab-workspace .rw-review-summary {
+  grid-column: 1/-1;
+}
+body#carlabWorkspace.carlab-workspace .rw-form-intro h3 {
+  font-size: 22px;
+  letter-spacing: -0.5px;
+  font-weight: 600;
+  margin: 9px 0;
+}
+body#carlabWorkspace.carlab-workspace .rw-form-intro p {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #7c8878;
+  max-width: 600px;
+  margin: 0 0 8px;
+}
+body#carlabWorkspace.carlab-workspace .rw-unit-picker {
+  padding: 18px;
+  background: #f0f5eb;
+  border: 1px solid #dce8d3;
+  border-radius: 9px;
+  display: block;
+}
+body#carlabWorkspace.carlab-workspace .rw-unit-picker select {
+  margin-top: 8px;
+}
+body#carlabWorkspace.carlab-workspace .rw-form-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  padding: 22px 0 0;
+  margin-top: 30px;
+}
+body#carlabWorkspace.carlab-workspace #rwFormNext {
+  margin-left: auto;
+}
+body#carlabWorkspace.carlab-workspace #firmaCanvas {
+  background: #fafbf8 !important;
+  border: 1px dashed #aabca3 !important;
+  width: 100% !important;
+  max-width: 900px;
+  touch-action: none;
+  height: auto !important;
+  aspect-ratio: 900/240;
+  border-radius: 8px !important;
+}
+body#carlabWorkspace.carlab-workspace .rw-review-summary {
+  background: #f7f9f3;
+  border: 1px solid #e3eadb;
+  border-radius: 10px;
+  padding: 22px;
+}
+body#carlabWorkspace.carlab-workspace .rw-review-summary dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin: 0 0 22px;
+}
+body#carlabWorkspace.carlab-workspace .rw-review-summary dt {
+  font-size: 10px;
+  color: #8a9484;
+  margin-bottom: 5px;
+}
+body#carlabWorkspace.carlab-workspace .rw-review-summary dd {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+body#carlabWorkspace.carlab-workspace .rw-review-summary p {
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.7;
+}
+body#carlabWorkspace.carlab-workspace .rw-review-summary h4 {
+  font-size: 13px;
+  margin: 18px 0 5px;
+}
+body#carlabWorkspace.carlab-workspace .radio-row label {
+  border: 1px solid #dce5d5;
+  padding: 15px;
+  border-radius: 8px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex: 1;
+  cursor: pointer;
+}
+body#carlabWorkspace.carlab-workspace .radio-row label:has(input:checked) {
+  border-color: #73946c;
+  background: #f0f6ea;
+  color: #3a603d;
+}
+body#carlabWorkspace.carlab-workspace .evidence-input-stack .small {
+  font-size: 10px;
+  line-height: 1.6;
+}
+body#carlabWorkspace.carlab-workspace .rw-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(680px, calc(100vw - 32px));
+  max-height: calc(100dvh - 36px);
+  padding: 0;
+  border: 1px solid #dce6d7;
+  border-radius: 12px;
+  box-shadow: 0 20px 70px #10230e40;
+  background: #fff;
+  color: var(--text);
+  overflow: auto;
+}
+body#carlabWorkspace.carlab-workspace .rw-dialog::backdrop {
+  background: #1e2e22bb;
+}
+body#carlabWorkspace.carlab-workspace .rw-dialog > header {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  padding: 24px 72px 22px 24px;
+  z-index: 1;
+}
+body#carlabWorkspace.carlab-workspace .rw-dialog header h3 {
+  font-size: 23px;
+  font-weight: 600;
+  margin: 8px 0;
+  letter-spacing: -0.5px;
+}
+body#carlabWorkspace.carlab-workspace .rw-dialog header p {
+  font-size: 12px;
+  line-height: 1.6;
+  color: #7a8674;
+  margin: 0;
+}
+body#carlabWorkspace.carlab-workspace .rw-dialog-content {
+  padding: 24px;
+}
+body#carlabWorkspace.carlab-workspace .rw-qr-intro {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 16px;
+  background: #f2f6ed;
+  border-radius: 10px;
+  margin-bottom: 22px;
+}
+body#carlabWorkspace.carlab-workspace .rw-qr-intro svg {
+  width: 40px;
+  height: 40px;
+  color: #6c8960;
+}
+body#carlabWorkspace.carlab-workspace .rw-qr-intro p {
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 0;
+}
+body#carlabWorkspace.carlab-workspace .rw-field select {
+  margin-top: 8px;
+}
+body#carlabWorkspace.carlab-workspace .rw-select-all {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 0;
+  margin: 0;
+}
+body#carlabWorkspace.carlab-workspace #rwQrCount {
+  margin-left: auto;
+  font-size: 12px;
+}
+body#carlabWorkspace.carlab-workspace .rw-qr-units {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  max-height: 260px;
+  overflow: auto;
+}
+body#carlabWorkspace.carlab-workspace .rw-qr-units label {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 16px;
+  margin: 0;
+  border-bottom: 1px solid #edf1e8;
+  cursor: pointer;
+}
+body#carlabWorkspace.carlab-workspace .rw-qr-units label strong {
+  min-width: 50px;
+  font-size: 13px;
+}
+body#carlabWorkspace.carlab-workspace .rw-qr-units label span {
+  font-size: 11px;
+  color: #7c8876;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+body#carlabWorkspace.carlab-workspace .rw-dialog-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+  margin-top: 20px;
+}
+body#carlabWorkspace.carlab-workspace .rw-dialog-footer > span {
+  font-size: 11px;
+  color: #85907d;
+  line-height: 1.6;
+}
+body#carlabWorkspace.carlab-workspace #rwQrProgress {
+  font-size: 12px;
+  min-height: 16px;
+  line-height: 1.6;
+  color: #4e6e45;
+}
+body#carlabWorkspace.carlab-workspace .rw-scan-unit {
+  text-align: center;
+  padding: 18px 0 28px;
+}
+body#carlabWorkspace.carlab-workspace .rw-scan-unit svg {
+  width: 70px;
+  height: 70px;
+  color: #68865a;
+}
+body#carlabWorkspace.carlab-workspace .rw-scan-unit p {
+  color: #7b8774;
+  font-size: 12px;
+}
+body#carlabWorkspace.carlab-workspace .rw-scan-unit ~ button {
+  width: 100%;
+  margin: 5px 0;
+}
+body#carlabWorkspace.carlab-workspace .rw-menu-toggle,
+body#carlabWorkspace.carlab-workspace .rw-menu-backdrop {
+  display: none;
+}
+body#carlabWorkspace.carlab-workspace #operatorAppNav {
+  display: none !important;
+}
+body#carlabWorkspace.carlab-workspace .toast {
+  z-index: 99999 !important;
+}
+body#carlabWorkspace.carlab-workspace .image-lightbox {
+  z-index: 2100 !important;
+}
+body#carlabWorkspace.carlab-workspace .analytics-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+body#carlabWorkspace.carlab-workspace .auth-shell {
+  background: #23332b !important;
+}
+body#carlabWorkspace.carlab-workspace .auth-card {
+  background: #fff !important;
+  border-radius: 16px !important;
+  box-shadow: 0 20px 70px #15261d55 !important;
+}
+body#carlabWorkspace.carlab-workspace .auth-card h2 {
+  font-size: 26px !important;
+  color: #284030 !important;
+}
+@media (min-width: 1650px) {
+  body#carlabWorkspace.carlab-workspace
+    #fleetPanel
+    #fleetUnitsList.rw-fleet-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width: 1250px) {
+  body#carlabWorkspace.carlab-workspace #dashboardView {
+    grid-template-columns: 210px minmax(0, 1fr) !important;
+  }
+  body#carlabWorkspace.carlab-workspace #dashboardView .sidebar {
+    width: 210px !important;
+  }
+  body#carlabWorkspace.carlab-workspace #dashboardView .main-area {
+    padding: 0 22px 36px !important;
+  }
+  body#carlabWorkspace.carlab-workspace #filtersPanel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  body#carlabWorkspace.carlab-workspace #filtersPanel > input {
+    grid-column: 1/-1;
+  }
+  body#carlabWorkspace.carlab-workspace
+    #fleetPanel
+    #fleetUnitsList.rw-fleet-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width: 900px) {
+  body#carlabWorkspace.carlab-workspace #dashboardView {
+    display: block !important;
+  }
+  body#carlabWorkspace.carlab-workspace #dashboardView .sidebar {
+    position: fixed !important;
+    left: 0;
+    z-index: 2000 !important;
+    width: 245px !important;
+    transform: translateX(-100%);
+    transition: transform 0.18s;
+  }
+  body#carlabWorkspace.carlab-workspace.rw-menu-open #dashboardView .sidebar {
+    transform: translateX(0);
+  }
+  body#carlabWorkspace.carlab-workspace .rw-menu-toggle {
+    display: block;
+    background: #e9eee3;
+    border: 1px solid #cbd8c3;
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: #365133;
+    min-height: 42px;
+    font-size: 18px;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    background: #16281088;
+    z-index: 1950;
+  }
+  body#carlabWorkspace.carlab-workspace.rw-menu-open .rw-menu-backdrop {
+    display: block;
+  }
+  body#carlabWorkspace.carlab-workspace #dashboardView .topbar {
+    justify-content: flex-start;
+    gap: 14px !important;
+  }
+  body#carlabWorkspace.carlab-workspace .topbar-side {
+    margin-left: auto;
+  }
+  body#carlabWorkspace.carlab-workspace .topbar-chip {
+    display: none !important;
+  }
+  body#carlabWorkspace.carlab-workspace #statusLegend {
+    max-width: 420px !important;
+  }
+  body#carlabWorkspace.carlab-workspace .fleet-detail-modal-root,
+  body#carlabWorkspace.carlab-workspace .modal-shell {
+    padding: 14px !important;
+  }
+  body#carlabWorkspace.carlab-workspace .fleet-detail-modal-shell,
+  body#carlabWorkspace.carlab-workspace .parts-request-modal {
+    max-height: calc(100dvh - 28px) !important;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-tab-panel > .fleet-hero {
+    grid-template-columns: 1fr !important;
+  }
+}
+@media (max-width: 600px) {
+  body#carlabWorkspace.carlab-workspace #dashboardView .main-area {
+    padding: 0 14px 30px !important;
+  }
+  body#carlabWorkspace.carlab-workspace #dashboardView .topbar {
+    padding: 20px 0 !important;
+    margin-bottom: 20px !important;
+  }
+  body#carlabWorkspace.carlab-workspace #pageTitle {
+    font-size: 24px !important;
+  }
+  body#carlabWorkspace.carlab-workspace #statusLegend {
+    font-size: 11px !important;
+    max-width: 240px !important;
+  }
+  body#carlabWorkspace.carlab-workspace .topbar-side {
+    display: none !important;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-metric {
+    padding: 14px 15px;
+    gap: 6px;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-metric strong {
+    font-size: 29px;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-metric small {
+    font-size: 9px;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-report-open {
+    gap: 12px;
+    padding: 18px 15px;
+    flex-wrap: wrap;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-report-symbol {
+    display: none;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-report-main {
+    flex-basis: 100%;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-report-main > strong > span {
+    display: block;
+    margin: 5px 0 0;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-report-status {
+    min-width: 0;
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-arrow {
+    margin-left: auto;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-report-main .rw-eyebrow > span {
+    display: inline;
+  }
+  body#carlabWorkspace.carlab-workspace #boardPanel > .panel-head {
+    padding: 0 15px;
+  }
+  body#carlabWorkspace.carlab-workspace #boardPanel > .panel-head .btn {
+    padding: 8px 10px !important;
+    font-size: 11px !important;
+  }
+  body#carlabWorkspace.carlab-workspace .panel {
+    padding: 18px !important;
+  }
+  body#carlabWorkspace.carlab-workspace #filtersPanel {
+    gap: 8px;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-fleet-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-fleet-metric {
+    padding: 13px 14px;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-fleet-breadcrumb {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 16px;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-inline {
+    width: 100%;
+  }
+  body#carlabWorkspace.carlab-workspace
+    #fleetPanel
+    #fleetUnitsList.rw-fleet-grid {
+    grid-template-columns: 1fr !important;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-unit-card {
+    padding: 20px;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-unit-number {
+    font-size: 36px;
+  }
+  body#carlabWorkspace.carlab-workspace
+    #fleetPanel
+    .fleet-toolbar
+    .fleet-chip-row {
+    order: 3;
+    width: 100%;
+  }
+  body#carlabWorkspace.carlab-workspace #fleetRefreshBtn {
+    display: none !important;
+  }
+  body#carlabWorkspace.carlab-workspace #fleetNewBtn {
+    font-size: 11px !important;
+  }
+  body#carlabWorkspace.carlab-workspace .fleet-detail-modal-root,
+  body#carlabWorkspace.carlab-workspace .modal-shell {
+    padding: 8px !important;
+  }
+  body#carlabWorkspace.carlab-workspace .fleet-detail-modal-shell,
+  body#carlabWorkspace.carlab-workspace .parts-request-modal {
+    max-height: calc(100dvh - 16px) !important;
+    border-radius: 10px !important;
+  }
+  body#carlabWorkspace.carlab-workspace .fleet-detail-head,
+  body#carlabWorkspace.carlab-workspace .report-detail-head-sticky {
+    padding: 22px 64px 18px 18px !important;
+  }
+  body#carlabWorkspace.carlab-workspace .fleet-detail-head h3,
+  body#carlabWorkspace.carlab-workspace .report-detail-head-sticky h3 {
+    font-size: 19px !important;
+    overflow-wrap: anywhere;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-tabs {
+    gap: 18px;
+    padding: 0 18px;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-tab-panel {
+    padding: 20px 16px;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-tab-panel .fleet-detail-summary,
+  body#carlabWorkspace.carlab-workspace .report-detail-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-tab-panel .detail-grid {
+    grid-template-columns: 1fr !important;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-tab-panel .mini-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  body#carlabWorkspace.carlab-workspace .report-detail-actions-sticky {
+    padding: 14px 16px !important;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-form-section {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-form-section .col-span-2 {
+    grid-column: 1 !important;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-form-step {
+    font-size: 10px;
+    padding: 12px 8px;
+    line-height: 1.5;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-form-intro h3 {
+    font-size: 21px;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-review-summary dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  body#carlabWorkspace.carlab-workspace .rw-form-section .radio-row {
+    flex-wrap: wrap;
+    display: flex;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-form-section .radio-row label {
+    min-width: 90px;
+    padding: 12px 8px;
+    gap: 5px;
+    font-size: 11px;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-dialog {
+    width: calc(100vw - 16px);
+  }
+  body#carlabWorkspace.carlab-workspace .rw-dialog-content {
+    padding: 18px;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-dialog-footer {
+    flex-direction: column;
+    gap: 10px;
+  }
+  body#carlabWorkspace.carlab-workspace .rw-dialog-footer .btn {
+    width: 100%;
+  }
+  body#carlabWorkspace.carlab-workspace .analytics-grid {
+    grid-template-columns: 1fr !important;
+  }
+  body#carlabWorkspace.carlab-workspace .grid-form {
+    grid-template-columns: 1fr !important;
+  }
+  body#carlabWorkspace.carlab-workspace .admin-cost-editor-row {
+    display: flex !important;
+    flex-wrap: wrap !important;
+  }
+  body#carlabWorkspace.carlab-workspace .table-row {
+    overflow-wrap: anywhere;
+    min-width: 0 !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  body#carlabWorkspace.carlab-workspace * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+body#carlabWorkspace .parts-request-close,
+body#carlabWorkspace .rw-close {
+  left: auto !important;
+  float: none !important;
+  transform: none !important;
+}
+body#carlabWorkspace #reportDetailClose {
+  position: absolute !important;
+  right: 18px !important;
+  left: auto !important;
+  margin: 0 !important;
+  top: 18px !important;
+}
+body#carlabWorkspace .sidebar-top,
+body#carlabWorkspace .nav-stack {
+  max-height: none !important;
+  overflow: visible !important;
+  flex-shrink: 0 !important;
+}
+body#carlabWorkspace .sidebar-top {
+  flex: 1 0 auto !important;
+}
+body#carlabWorkspace #dashboardView h3 {
+  font-weight: 600 !important;
+  color: #263a2c !important;
+}
+body#carlabWorkspace #dashboardView .panel {
+  box-shadow: none !important;
+  border-radius: 10px !important;
+}
+
+body#carlabWorkspace #reportDetailModal .report-detail-modal {
+  overflow: hidden !important;
+}
+body#carlabWorkspace #reportDetailContent {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 50px);
+}
+body#carlabWorkspace #reportDetailContent .report-detail-scroll {
+  overflow: auto !important;
+  min-height: 0 !important;
+  flex: 1;
+}
+body#carlabWorkspace #reportDetailContent > .report-detail-head-sticky,
+body#carlabWorkspace #reportDetailContent > .report-detail-actions-sticky {
+  flex-shrink: 0;
+}
+@media (max-width: 600px) {
+  body#carlabWorkspace #reportDetailContent {
+    max-height: calc(100dvh - 18px);
+  }
+}
+
+body#carlabWorkspace.carlab-workspace {
+  background: #f5f5f1 !important;
+}
+body#carlabWorkspace #dashboardView .sidebar-bottom {
+  position: static !important;
+  bottom: auto !important;
+  flex-shrink: 0 !important;
+  background: none !important;
+}
+body#carlabWorkspace #dashboardView .sidebar-top {
+  min-height: auto !important;
+  height: auto !important;
+  padding-bottom: 15px !important;
+}
+body#carlabWorkspace #fleetPanel #fleetNewBtn {
+  background: #2d5140 !important;
+  box-shadow: none !important;
+  border-radius: 7px !important;
+  font-weight: 600 !important;
+}
+body#carlabWorkspace .rw-fleet-tools {
+  margin: 16px 0;
+  color: #74856f;
+  font-size: 12px;
+}
+body#carlabWorkspace .rw-fleet-tools summary {
+  cursor: pointer;
+  padding: 13px 0;
+}
+body#carlabWorkspace #fleetBulkDeleteBox {
+  display: block !important;
+  margin-top: 14px !important;
+}
+html body#carlabWorkspace.carlab-workspace #dashboardView .hidden,
+html body#carlabWorkspace.carlab-workspace .hidden {
+  display: none !important;
+}
+body#carlabWorkspace.fleet-detail-modal-open::before,
+body#carlabWorkspace.fleet-detail-modal-open::after {
+  display: none !important;
+  content: none !important;
+}
+body#carlabWorkspace #dashboardView #fleetPanel #fleetDetail {
+  display: none !important;
+}
+body#carlabWorkspace #dashboardView #fleetPanel #fleetUnitsList {
+  filter: none !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+body#carlabWorkspace #fleetDetailModalRoot {
+  filter: none !important;
+  pointer-events: auto !important;
+  z-index: 1600 !important;
+}
+
+@media (max-width: 900px) {
+  body#carlabWorkspace.carlab-workspace #dashboardView .sidebar {
+    transform: translateX(-100%) !important;
+    visibility: hidden !important;
+  }
+  body#carlabWorkspace.carlab-workspace.rw-menu-open #dashboardView .sidebar {
+    transform: translateX(0) !important;
+    visibility: visible !important;
+  }
+}
+
+body#carlabWorkspace #dashboardView #filtersPanel {
+  grid-template-columns: minmax(180px, 1fr) minmax(300px, 2fr) !important;
+  align-items: start !important;
+  box-shadow: none !important;
+}
+body#carlabWorkspace .rw-filter-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 8px;
+}
+body#carlabWorkspace .rw-advanced-filters summary {
+  display: none;
+}
+body#carlabWorkspace #dashboardView .topbar {
+  flex-direction: row !important;
+  text-align: left !important;
+  align-items: center !important;
+}
+body#carlabWorkspace #dashboardView .panel-head {
+  flex-direction: row !important;
+  text-align: left !important;
+  justify-content: space-between !important;
+}
+@media (max-width: 900px) {
+  body#carlabWorkspace #dashboardView #filtersPanel {
+    grid-template-columns: 1fr !important;
+  }
+  body#carlabWorkspace .rw-advanced-filters summary {
+    display: block;
+    padding: 12px 16px;
+    cursor: pointer;
+    border: 1px solid #dce4d6;
+    border-radius: 8px;
+    background: #fff;
+    font-size: 12px;
+    color: #64765b;
+  }
+  body#carlabWorkspace .rw-advanced-filters summary::after {
+    content: " +";
+    float: right;
+  }
+  body#carlabWorkspace .rw-advanced-filters[open] summary::after {
+    content: " −";
+  }
+  body#carlabWorkspace .rw-filter-fields {
+    margin-top: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  body#carlabWorkspace #dashboardView .topbar {
+    flex-wrap: nowrap !important;
+    gap: 12px !important;
+  }
+  body#carlabWorkspace #dashboardView .topbar > div:first-of-type {
+    flex: 1;
+    min-width: 0;
+  }
+  body#carlabWorkspace #dashboardView .panel-head {
+    gap: 10px !important;
+  }
+  body#carlabWorkspace #reportFormPanel .panel-head .badge {
+    display: none;
+  }
+  body#carlabWorkspace #reportFormPanel input,
+  body#carlabWorkspace #reportFormPanel select,
+  body#carlabWorkspace #reportFormPanel textarea {
+    font-size: 16px;
+  }
+  body#carlabWorkspace #dashboardView .table-row {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+  body#carlabWorkspace #dashboardView .grid-form .col-span-2 {
+    grid-column: 1 !important;
+  }
+}
+
+body#carlabWorkspace #dashboardView .sidebar .nav-btn:not(.active):not(:hover){background:transparent!important;box-shadow:none!important}
+body#carlabWorkspace #dashboardView .sidebar .nav-btn.active{background:#3d5146!important;color:white!important}
