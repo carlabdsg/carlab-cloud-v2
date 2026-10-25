@@ -672,6 +672,14 @@
       );
       if (i === 0) {
         fields[3].classList.add("rw-company-field");
+        const companyHint = element(
+          "small",
+          "rw-field-hint",
+          "Asignada a tu cuenta. Solo puedes reportar unidades de esta empresa.",
+        );
+        companyHint.id = "rwCompanyHint";
+        companyHint.hidden = true;
+        fields[3].append(companyHint);
         section.append(fields[3]);
         const picker = element(
           "div",
@@ -892,6 +900,14 @@
   function renderUnitPicker() {
     const select = $("rwUnitPicker");
     if (!select) return;
+    const assigned = syncReportCompanyAssignment();
+    $("rwCompanyHint").hidden = !assigned;
+    els.empresa.parentElement.querySelector("label").textContent = assigned
+      ? "Empresa asignada"
+      : "Empresa";
+    $("rw-form-step-0").querySelector(".rw-form-intro p").textContent = assigned
+      ? "Tu empresa ya está asignada. Selecciona una de sus unidades para completar los datos del reporte."
+      : "Elige la empresa y después una de sus unidades. Sus datos se completan automáticamente.";
     const units = companyUnits();
     const hasCompany = Boolean(els.empresa.value);
     const match = units.find(
@@ -929,7 +945,9 @@
       : "Capturar unidad no registrada";
     $("rwRetryUnits").hidden = !view.unitsError;
     $("rwUnitHint").textContent = !hasCompany
-      ? "Solo se mostrarán las unidades de la empresa seleccionada."
+      ? assigned
+        ? "Tu cuenta no tiene una empresa asignada. Solicita al administrador que complete tu registro."
+        : "Solo se mostrarán las unidades de la empresa seleccionada."
       : view.manualUnit
         ? "Captura el número económico. La empresa seleccionada se conservará."
         : view.unitsLoading
@@ -1163,6 +1181,10 @@
       $("rwReportMetrics").hidden = panel !== "board";
     },
     resetForm,
+    refreshCompany() {
+      renderUnitPicker();
+      updateSteps();
+    },
     sessionReady,
   };
   initShell();

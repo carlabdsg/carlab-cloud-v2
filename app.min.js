@@ -392,6 +392,21 @@ function fillSelect(select, options, placeholder = 'Selecciona') {
   select.innerHTML = `<option value="">${placeholder}</option>` + options.map(o => `<option value="${escapeHtml(o.nombre)}">${escapeHtml(o.nombre)}</option>`).join('');
 }
 
+function syncReportCompanyAssignment() {
+  const select = els.empresa;
+  if (!select) return false;
+  const scoped = isRole('operador', 'supervisor', 'supervisor_flotas');
+  if (!scoped) { select.disabled = false; return false; }
+  const assigned = String(state.user?.empresa || '').trim();
+  const company = assigned && (state.companies || []).find(item => normalizeIdentityKey(item.nombre) === normalizeIdentityKey(assigned));
+  const name = company?.nombre || assigned;
+  // Keep one real, selected option. Assigning the raw account name to a catalog
+  // select can otherwise leave it empty when case or whitespace differs.
+  select.replaceChildren(new Option(name || 'Sin empresa asignada', name, true, true));
+  select.disabled = true;
+  return true;
+}
+
 function resetSignature() {
   if (!ctx || !els.firmaCanvas) return;
   ctx.clearRect(0, 0, els.firmaCanvas.width, els.firmaCanvas.height);
@@ -526,7 +541,7 @@ function resetReportForm() {
   els.refaccionFields?.classList.add('hidden');
   const radio = document.querySelector('input[name="tipoIncidente"][value="daño"]');
   if (radio) radio.checked = true;
-  if (isRole('operador') && state.user?.empresa && els.empresa) els.empresa.value = state.user.empresa;
+  syncReportCompanyAssignment();
   if (isRole('operador') && els.contactoNombre) els.contactoNombre.value = state.user?.nombre || '';
   if (isRole('operador') && els.telefono) els.telefono.value = state.user?.telefono || '';
   resetSignature();
@@ -3151,27 +3166,12 @@ function renderCompanies() {
     });
   }
 
-  const isOperador = isRole('operador');
-  let empresaOptions = activeCompanies;
-  if (isOperador && state.user?.empresa) {
-    const ownKey = normalizeIdentityKey(state.user.empresa);
-    const own = activeCompanies.filter(c => normalizeIdentityKey(c.nombre) === ownKey);
-    // Si por algún motivo no aparece en la lista de activas, igual limitamos a su empresa.
-    empresaOptions = own.length ? own : [{ nombre: state.user.empresa }];
-  }
-
-  fillSelect(els.empresa, empresaOptions, 'Selecciona empresa');
+  if (!syncReportCompanyAssignment()) fillSelect(els.empresa, activeCompanies, 'Selecciona empresa');
   fillSelect(els.regEmpresa, activeCompanies, 'Selecciona empresa');
   fillSelect(els.userEmpresa, activeCompanies, 'Sin empresa');
   configureServicesCompanyFilter(activeCompanies);
 
-  // El operador queda bloqueado a su propia empresa: no puede ver ni elegir otras.
-  if (isOperador && state.user?.empresa && els.empresa) {
-    els.empresa.value = state.user.empresa;
-    els.empresa.disabled = true;
-  } else if (els.empresa) {
-    els.empresa.disabled = false;
-  }
+  window.CarlabReportsUI?.refreshCompany();
 }
 
 
@@ -3474,7 +3474,14 @@ async function saveAuthorizedActivities() {
 
 async function loadGarantias() { state.garantias = await api.getGarantias(); renderGarantias(); await loadNotifications(); }
 async function loadUsers() { if (!isRole('admin')) return; state.users = await api.getUsers(); renderUsers(); }
-async function loadCompanies() { state.companies = isRole('admin') ? await api.getCompanies() : await api.getPublicCompanies(); renderCompanies(); }
+async function loadCompanies() {
+  try { state.companies = isRole('admin') ? await api.getCompanies() : await api.getPublicCompanies(); }
+  catch (error) {
+    // Assigned-company reporting does not depend on the public directory.
+    if (!isRole('operador','supervisor','supervisor_flotas') || !state.user?.empresa) throw error;
+  }
+  renderCompanies();
+}
 async function loadRequests() { if (!isRole('admin')) return; state.registrationRequests = await api.getRequests(); renderRequests(); }
 
 function paintUnitHistory(history) {
