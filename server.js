@@ -102,8 +102,27 @@ function respondDbError(res, error, message = 'No se pudo cargar la información
 }
 
 app.use(compression());
+app.use('/api/public/report-qr', express.json({ limit: '5mb' }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// Printed report labels keep their existing URLs; account access remains available explicitly.
+app.get(['/', '/index.html'], (req, res, next) => {
+  const code = String(req.query.reportqr || '');
+  if (/^[a-f0-9]{48}$/.test(code) && req.query.access !== 'account') {
+    res.set('Cache-Control', 'no-store');
+    return res.redirect(302, '/reporte-qr.html?code=' + code);
+  }
+  next();
+});
+app.get('/reporte-qr.html', (_req, res, next) => {
+  res.set({
+    'Cache-Control': 'no-store',
+    'Referrer-Policy': 'no-referrer',
+    'X-Frame-Options': 'DENY',
+    'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+  });
+  next();
+});
 app.use(express.static(path.join(__dirname, 'public'), {
   etag: true,
   lastModified: true,
@@ -4128,7 +4147,8 @@ app.patch('/api/cobranza/direct-sales/:id', authRequired, requireRoles('admin'),
 
 // Additive admin module; its tables initialize only when an admin opens it.
 require('./modules/hispacold').register(app, { pool, authRequired });
-require('./modules/reports/qr').register(app, { pool, authRequired, normalizedIdentitySql });
+const reportQrRegistry = require('./modules/reports/qr').register(app, { pool, authRequired, normalizedIdentitySql });
+require('./modules/reports/guest').register(app, { pool, ensureQrRegistry: reportQrRegistry.ready, secret: JWT_SECRET, nextGarantiaFolio, normalizeMxPhone });
 require('./modules/reports/quotations').register(app, { pool, authRequired, normalizedIdentitySql, normalizeIdentityValue });
 
 app.get('*', (_req, res) => {

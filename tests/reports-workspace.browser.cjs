@@ -176,7 +176,7 @@ fs.mkdirSync(out, { recursive: true });
       })
     ).body.units;
     phase = "scan and prefill";
-    await page.goto(h.url + "/?reportqr=" + codes[0].token);
+    await page.goto(h.url + "/?access=account&reportqr=" + codes[0].token);
     await page.locator("#rwDialog[open]").waitFor();
     await page
       .getByRole("button", { name: "+ Registrar reporte", exact: true })
@@ -322,7 +322,7 @@ fs.mkdirSync(out, { recursive: true });
     );
     const op = await oc.newPage();
     op.on("pageerror", (e) => errors.push(e.message));
-    await op.goto(h.url + "/?reportqr=" + codes[0].token);
+    await op.goto(h.url + "/?access=account&reportqr=" + codes[0].token);
     await op.locator("#rwDialog[open]").waitFor();
     await op
       .getByRole("button", { name: "+ Registrar reporte", exact: true })
@@ -347,7 +347,7 @@ fs.mkdirSync(out, { recursive: true });
         body: { unitIds: ["unit-14"] },
       })
     ).body.units[0];
-    await op.goto(h.url + "/?reportqr=" + foreign.token);
+    await op.goto(h.url + "/?access=account&reportqr=" + foreign.token);
     await op
       .getByRole("heading", { name: "No se pudo abrir la unidad" })
       .waitFor();
@@ -357,7 +357,7 @@ fs.mkdirSync(out, { recursive: true });
     });
     const gp = await guest.newPage();
     gp.on("pageerror", (e) => errors.push(e.message));
-    await gp.goto(h.url + "/?reportqr=" + codes[0].token);
+    await gp.goto(h.url + "/?access=account&reportqr=" + codes[0].token);
     phase = "login contrast and responsive access";
     await gp.setViewportSize({ width: 1440, height: 1000 });
     await gp.screenshot({

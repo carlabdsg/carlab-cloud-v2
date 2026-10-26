@@ -171,5 +171,6 @@ function register(app, { pool, authRequired, normalizedIdentitySql }) {
       });
     }),
   );
+  return { ready };
 }
 module.exports = { register };

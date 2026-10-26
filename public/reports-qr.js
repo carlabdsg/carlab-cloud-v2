@@ -109,7 +109,7 @@
           );
     doc.link(x + 27 * scale, y + 79 * scale, 52 * scale, 52 * scale, { url });
     text(
-      "Escanea para consultar o registrar un reporte",
+      "Escanea para registrar una falla",
       53,
       134,
       6.6,
@@ -117,7 +117,7 @@
       "center",
     );
     text(
-      "Acceso con cuenta autorizada",
+      "Reporta sin crear una cuenta",
       53,
       139,
       6.5,
