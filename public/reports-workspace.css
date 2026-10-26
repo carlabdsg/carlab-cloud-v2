@@ -2189,3 +2189,57 @@ body#carlabWorkspace.carlab-workspace
     font-size: 28px;
   }
 }
+
+/* Direct unit search in the operator report board. */
+body#carlabWorkspace #dashboardView .rw-report-search {
+  min-width: 0;
+}
+body#carlabWorkspace #dashboardView .rw-report-search label {
+  display: block;
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #52627a;
+  font-weight: 600;
+}
+body#carlabWorkspace:not([data-role="operador"]) #rwSearchLabel {
+  display: none;
+}
+body#carlabWorkspace .rw-search-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+body#carlabWorkspace #dashboardView .rw-search-controls input {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+body#carlabWorkspace #dashboardView #rwClearSearch {
+  flex: none;
+  min-height: 44px;
+}
+body#carlabWorkspace[data-role="operador"][data-panel="board"]
+  #dashboardView
+  #filtersPanel:not(.hidden) {
+  display: block !important;
+  padding: 18px 20px !important;
+  border: 1px solid #dfe5ef !important;
+  border-radius: 12px;
+  background: #fff !important;
+}
+body#carlabWorkspace[data-role="operador"] #rwAdvancedFilters {
+  display: none !important;
+}
+body#carlabWorkspace[data-role="operador"] .rw-report-search {
+  max-width: 680px;
+}
+@media (max-width: 600px) {
+  body#carlabWorkspace #dashboardView #filtersPanel .rw-search-controls input {
+    font-size: 16px;
+  }
+  body#carlabWorkspace[data-role="operador"][data-panel="board"]
+    #dashboardView
+    #filtersPanel:not(.hidden) {
+    padding: 16px !important;
+  }
+}

@@ -66,6 +66,36 @@ body#carlabWorkspace .rq-rechazada {
   --rq-ink: #a52d40;
   --rq-soft: #fff0f2;
 }
+body#carlabWorkspace .rq-all {
+  --rq-color: #52627a;
+  --rq-ink: #263348;
+  --rq-soft: #edf0f5;
+}
+body#carlabWorkspace .rq-filter-button {
+  min-height: 44px;
+  border: 1px solid transparent;
+  padding: 9px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+body#carlabWorkspace .rq-filter-button:hover {
+  border-color: var(--rq-color);
+}
+body#carlabWorkspace .rq-filter-button[aria-pressed="true"] {
+  border-color: var(--rq-color);
+  box-shadow: inset 0 0 0 1px var(--rq-color);
+  font-weight: 700;
+}
+body#carlabWorkspace .rq-filter-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 5px;
+  border-radius: 5px;
+  background: #ffffffb3;
+  font-size: 11px;
+}
 body#carlabWorkspace .rq-filters {
   display: grid;
   grid-template-columns: 1fr 1.4fr 1fr;

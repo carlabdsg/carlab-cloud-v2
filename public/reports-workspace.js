@@ -151,6 +151,24 @@
       "Fallas y garantías";
     $("searchInput").setAttribute("aria-label", "Buscar reportes");
     $("searchInput").placeholder = "Buscar folio, unidad, empresa o falla…";
+    const searchBox = element("div", "rw-report-search");
+    searchBox.innerHTML =
+      '<label id="rwSearchLabel" for="searchInput">Buscar reportes</label><div class="rw-search-controls"></div>';
+    $("searchInput").before(searchBox);
+    searchBox.querySelector(".rw-search-controls").append($("searchInput"));
+    $("searchInput").type = "search";
+    $("searchInput").autocomplete = "off";
+    $("searchInput").spellcheck = false;
+    const clearSearch = button("Limpiar", "btn btn-ghost", () => {
+      $("searchInput").value = "";
+      renderReports();
+      $("searchInput").focus();
+    });
+    clearSearch.id = "rwClearSearch";
+    clearSearch.hidden = true;
+    clearSearch.setAttribute("aria-label", "Limpiar búsqueda de reportes");
+    searchBox.querySelector(".rw-search-controls").append(clearSearch);
+    $("searchInput").addEventListener("search", renderReports);
     $("validationFilter").setAttribute("aria-label", "Filtrar por validación");
     $("operationalFilter").setAttribute(
       "aria-label",
@@ -220,6 +238,17 @@
   }
   function renderReports() {
     if (!state.user) return;
+    const operator = state.user.role === "operador";
+    const unitSearch = normalizeText($("searchInput").value).trim();
+    const searchLabel = operator
+      ? "Buscar reportes por unidad"
+      : "Buscar reportes";
+    $("rwSearchLabel").textContent = searchLabel;
+    $("searchInput").setAttribute("aria-label", searchLabel);
+    $("searchInput").placeholder = operator
+      ? "Número de unidad · Ej. B310 o 325"
+      : "Buscar folio, unidad, empresa o falla…";
+    $("rwClearSearch").hidden = !$("searchInput").value;
     const all = state.garantias || [],
       groups = [
         ["all", "Todos", all.length],
@@ -267,7 +296,14 @@
         .map((name) => new Option(name, name)),
     );
     company.value = previous;
-    const items = filteredGarantias()
+    const available = operator
+      ? all.filter(
+          (r) =>
+            !unitSearch ||
+            normalizeText(r.numeroEconomico).includes(unitSearch),
+        )
+      : filteredGarantias();
+    const items = available
       .filter((r) => !company.value || r.empresa === company.value)
       .filter(
         (r) =>

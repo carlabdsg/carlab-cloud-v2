@@ -39,17 +39,27 @@
   };
   const panel = $("quotesPanel");
   panel.innerHTML = `<div class="rq-heading"><div><span class="rw-eyebrow">AUTORIZACIÓN DE TRABAJOS</span><h2>Cotizaciones por unidad</h2><p id="rqIntro"></p></div><button type="button" class="btn btn-primary" id="rqNew">+ Subir cotización</button></div>
-    <div class="rq-legend" aria-label="Estados de cotización">${Object.keys(
-      labels,
-    )
-      .map((s) => pill(s))
+    <div class="rq-legend" role="group" aria-label="Filtrar unidades por estado">${[
+      "",
+      ...Object.keys(labels),
+    ]
+      .map(
+        (s) =>
+          `<button type="button" class="rq-status rq-filter-button rq-${s || "all"}" data-rq-filter="${s}" aria-pressed="${!s}" aria-controls="rqGrid">${s ? '<i aria-hidden="true"></i>' : ""}<span>${esc(labels[s] || "Todas")}</span><span class="rq-filter-count">0</span></button>`,
+      )
       .join("")}</div>
     <div class="rq-filters"><label>Empresa<select id="rqCompany"><option value="">Todas las empresas</option></select></label><label>Buscar unidad<input id="rqSearch" type="search" placeholder="Número económico, empresa o flota" /></label><label>Estado<select id="rqStatus"><option value="">Todos los estados</option>${Object.keys(
       labels,
     )
       .map((s) => `<option value="${s}">${labels[s]}</option>`)
       .join("")}</select></label></div>
-    <div class="rq-list-head"><span id="rqCount"></span><button type="button" class="rq-link" id="rqRefresh">Actualizar</button></div><p id="rqMessage" role="status" aria-live="polite"></p><div id="rqGrid" class="rq-grid"></div>`;
+    <div class="rq-list-head"><span id="rqCount" role="status" aria-live="polite"></span><button type="button" class="rq-link" id="rqRefresh">Actualizar</button></div><p id="rqMessage" role="status" aria-live="polite"></p><div id="rqGrid" class="rq-grid"></div>`;
+  panel.querySelectorAll("[data-rq-filter]").forEach((button) => {
+    button.onclick = () => {
+      view.filter = button.dataset.rqFilter;
+      render();
+    };
+  });
   const dialog = document.createElement("dialog");
   dialog.id = "rqDialog";
   dialog.className = "rq-dialog";
@@ -136,18 +146,33 @@
     }
   }
   function render() {
-    const search = normalizeText(view.query);
-    const units = view.units.filter(
+    const search = normalizeText(view.query).trim();
+    const matching = view.units.filter(
       (u) =>
         (!view.company || u.empresa === view.company) &&
-        (!view.filter || u.status === view.filter) &&
         (!search ||
           normalizeText(
             `${u.empresa} ${u.numeroEconomico} ${u.modelo} ${u.nombreFlota}`,
           ).includes(search)),
     );
+    const units = matching.filter(
+      (u) => !view.filter || u.status === view.filter,
+    );
+    $("rqStatus").value = view.filter;
+    panel.querySelectorAll("[data-rq-filter]").forEach((button) => {
+      const status = button.dataset.rqFilter;
+      const count = matching.filter(
+        (u) => !status || u.status === status,
+      ).length;
+      button.setAttribute("aria-pressed", String(status === view.filter));
+      button.querySelector(".rq-filter-count").textContent = count;
+      button.setAttribute(
+        "aria-label",
+        `${labels[status] || "Todas"}: ${count} ${count === 1 ? "unidad" : "unidades"}`,
+      );
+    });
     $("rqCount").textContent =
-      `${units.length} unidades · ${view.units.filter((u) => u.pending).length} con cotización pendiente`;
+      `${units.length} ${units.length === 1 ? "unidad" : "unidades"} · ${units.filter((u) => u.pending).length} con cotización pendiente`;
     $("rqGrid").replaceChildren();
     if (!units.length) {
       $("rqGrid").innerHTML =
