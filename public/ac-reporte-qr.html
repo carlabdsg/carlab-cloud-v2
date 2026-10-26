@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Reportar falla de A/C · CARLAB</title>
+    <link rel="stylesheet" href="/report-guest.css?v=7.5" />
+    <link rel="stylesheet" href="/ac-guest.css?v=7.6" />
+    <script src="/ac-guest.js?v=7.6" defer></script>
+  </head>
+  <body class="ac-guest">
+    <header class="top">
+      <a class="brand" href="/" aria-label="CARLAB, inicio"
+        >CARLAB<span>SERVICIOS INTEGRALES</span></a
+      ><a id="accountLink" href="/">Tengo cuenta</a>
+    </header>
+    <main>
+      <p class="eyebrow">AIRE ACONDICIONADO / REPORTE POR QR</p>
+      <h1>Reportar falla de A/C</h1>
+      <p class="intro">
+        Describe la falla del aire acondicionado. Puedes reportarla sin crear
+        una cuenta.
+      </p>
+      <p id="loadMessage" role="status">
+        Consultando la unidad de tu etiqueta…
+      </p>
+      <button id="retryLoad" class="secondary" type="button" hidden>
+        Volver a intentar
+      </button>
+      <section
+        id="unitCard"
+        class="unit"
+        aria-label="Unidad de la etiqueta"
+        hidden
+      >
+        <div>
+          <span id="unitCompany"></span>
+          <h2 id="unitNumber"></h2>
+          <p id="unitModel"></p>
+        </div>
+        <span class="bus" aria-hidden="true"></span>
+      </section>
+      <form id="guestForm" hidden>
+        <fieldset id="reportFields">
+          <section class="card">
+            <h2><span>1</span> Tu contacto</h2>
+            <div class="fields">
+              <label for="guestName"
+                >Nombre completo<input
+                  id="guestName"
+                  name="name"
+                  autocomplete="name"
+                  required
+                  minlength="3"
+                  maxlength="120"
+                  placeholder="Tu nombre y apellidos"
+              /></label>
+              <label for="guestPhone"
+                >Teléfono<input
+                  id="guestPhone"
+                  name="phone"
+                  type="tel"
+                  autocomplete="tel"
+                  required
+                  minlength="10"
+                  maxlength="32"
+                  placeholder="10 dígitos o código de país"
+              /></label>
+            </div>
+            <p class="hint">
+              Estos datos permiten identificar y atender tu reporte.
+            </p>
+          </section>
+          <section class="card">
+            <h2><span>2</span> La incidencia</h2>
+            <div class="fields">
+              <label for="guestCategory"
+                >¿Qué presenta el aire acondicionado?
+                <select id="guestCategory" name="category" required>
+                  <option value="">Seleccionar falla</option>
+                  <option value="no_enfria">No enfría</option>
+                  <option value="poco_frio">Enfriamiento insuficiente</option>
+                  <option value="ventilacion">Sin ventilación</option>
+                  <option value="fuga">Fuga visible</option>
+                  <option value="ruido">Ruido o vibración</option>
+                  <option value="alarma">Código de alarma</option>
+                  <option value="otra">Otra incidencia</option>
+                </select>
+              </label>
+              <label for="guestEquipmentState"
+                >Condición del equipo
+                <select id="guestEquipmentState" name="equipmentState">
+                  <option value="desconocido">No se ha comprobado</option>
+                  <option value="operativo">Funciona</option>
+                  <option value="parcial">Funciona parcialmente</option>
+                  <option value="detenido">No funciona</option>
+                </select>
+              </label>
+              <label for="guestPriority"
+                >Prioridad
+                <select id="guestPriority" name="priority">
+                  <option value="normal">Normal</option>
+                  <option value="alta">Alta</option>
+                  <option value="urgente">Urgente</option>
+                </select>
+              </label>
+              <label for="guestLocation"
+                >Ubicación <small>(opcional)</small>
+                <input
+                  id="guestLocation"
+                  name="location"
+                  maxlength="300"
+                  placeholder="Ej. Terminal o taller"
+                />
+              </label>
+            </div>
+            <label for="guestDescription"
+              >Descripción de la falla<textarea
+                id="guestDescription"
+                name="description"
+                rows="5"
+                required
+                minlength="10"
+                maxlength="4000"
+                placeholder="Describe la falla, desde cuándo ocurre y cualquier alarma que aparezca."
+              ></textarea>
+            </label>
+          </section>
+          <section class="card">
+            <div class="section-head">
+              <h2><span>3</span> Fotografías <small>(opcional)</small></h2>
+              <span id="photoCount">0 / 4</span>
+            </div>
+            <p class="hint">Agrega hasta 4 fotos para facilitar la revisión.</p>
+            <div class="photo-actions">
+              <button id="takePhoto" class="secondary" type="button">
+                Tomar foto</button
+              ><button id="choosePhotos" class="secondary" type="button">
+                Elegir fotografías
+              </button>
+            </div>
+            <input
+              id="cameraInput"
+              class="visually-hidden"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              tabindex="-1"
+              aria-label="Tomar fotografía"
+            />
+            <input
+              id="photosInput"
+              class="visually-hidden"
+              type="file"
+              accept="image/*"
+              multiple
+              tabindex="-1"
+              aria-label="Seleccionar fotografías"
+            />
+            <p id="photoMessage" role="status"></p>
+            <div id="photoPreview" class="photos"></div>
+          </section>
+          <div class="honeypot" aria-hidden="true">
+            <label
+              >Sitio web<input
+                id="guestWebsite"
+                name="website"
+                tabindex="-1"
+                autocomplete="off"
+            /></label>
+          </div>
+          <label class="confirm"
+            ><input id="guestConfirm" type="checkbox" required />Confirmo que
+            los datos describen lo observado en esta unidad.</label
+          >
+        </fieldset>
+        <p id="submitMessage" role="status" aria-live="polite"></p>
+        <button id="sendReport" class="primary" type="submit">
+          Enviar reporte
+        </button>
+        <p class="footnote">
+          CARLAB revisará el reporte antes de autorizar cualquier trabajo.
+        </p>
+      </form>
+      <section
+        id="receipt"
+        class="card receipt"
+        aria-labelledby="receiptTitle"
+        tabindex="-1"
+        hidden
+      >
+        <span class="receipt-icon" aria-hidden="true">✓</span>
+        <p class="eyebrow">ENVÍO CONFIRMADO</p>
+        <h2 id="receiptTitle">Reporte recibido</h2>
+        <p>Guarda este folio para dar seguimiento con CARLAB.</p>
+        <strong id="receiptFolio"></strong>
+        <p id="receiptUnit"></p>
+        <span class="pending">Pendiente de revisión</span>
+        <p class="hint">
+          No necesitas volver a enviarlo. El equipo de CARLAB ya puede
+          consultarlo.
+        </p>
+        <button id="newReport" class="secondary" type="button">
+          Registrar otro reporte
+        </button>
+      </section>
+      <noscript
+        ><p>
+          Activa JavaScript en tu navegador para enviar el reporte de esta
+          unidad.
+        </p></noscript
+      >
+    </main>
+    <footer>CARLAB · Reportes de aire acondicionado</footer>
+  </body>
+</html>

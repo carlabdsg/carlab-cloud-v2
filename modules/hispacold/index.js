@@ -1006,7 +1006,7 @@ function register(
     });
   });
   app.use("/api/hispacold", router);
-  operations.register(app, {
+  const acOperations = operations.register(app, {
     pool,
     authRequired,
     ensureServices: init,
@@ -1014,6 +1014,6 @@ function register(
     mapRow,
     scheduleCTE,
   });
-  return { init };
+  return { init, ensureOperations: acOperations.init };
 }
 module.exports = { register, validate, schema, mapRow };

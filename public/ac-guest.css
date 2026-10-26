@@ -1,0 +1,27 @@
+.ac-guest a {
+  color: #087b7e;
+}
+.ac-guest .unit {
+  border-bottom-color: #087f83;
+}
+.ac-guest .bus {
+  background-color: #73d1ca;
+}
+.ac-guest .card h2 > span {
+  color: #087b7e;
+  background: #e8f7f5;
+}
+.ac-guest .primary {
+  background: #087b7e;
+  border-color: #087b7e;
+}
+.ac-guest button:focus-visible,
+.ac-guest a:focus-visible {
+  outline-color: #087f83;
+}
+.ac-guest input:focus,
+.ac-guest select:focus,
+.ac-guest textarea:focus {
+  border-color: #087f83;
+  outline-color: #087f83;
+}

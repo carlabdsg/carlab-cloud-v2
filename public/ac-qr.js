@@ -118,13 +118,13 @@
     doc.link(left, top, 52, 52, { url: target });
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
-    doc.text("Escanea para consultar o solicitar servicio", 53, 134, {
+    doc.text("Escanea para reportar una falla de A/C", 53, 134, {
       align: "center",
     });
     doc.setFont("helvetica", "bold");
     doc.setTextColor(85, 85, 85);
     doc.setFontSize(6.5);
-    doc.text("Acceso con cuenta autorizada", 53, 139, { align: "center" });
+    doc.text("Reporta sin crear una cuenta", 53, 139, { align: "center" });
     return doc;
   }
   function label(unit, data, brand) {

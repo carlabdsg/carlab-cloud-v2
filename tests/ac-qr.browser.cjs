@@ -113,7 +113,7 @@ fs.mkdirSync(out, { recursive: true });
     phase = "signed-out login returns to scanned unit";
     const anon = await browser.newContext();
     const ap = await anon.newPage();
-    await ap.goto(url);
+    await ap.goto(url + "&access=account");
     await ap.locator("#qr-login").waitFor();
     assert.equal(
       await ap

@@ -11,9 +11,13 @@
     return;
   }
   const signin = () => {
+    if (new URLSearchParams(location.search).get("access") !== "account") {
+      location.replace("/ac-reporte-qr.html?code=" + code);
+      return;
+    }
     status.textContent =
-      "Inicia sesión para consultar esta unidad. El QR no da acceso a información sin autorización.";
-    login.href = "/?acqr=" + code;
+      "Inicia sesión para consultar el expediente de esta unidad y dar seguimiento.";
+    login.href = "/?acqr=" + code + "&access=account";
     login.hidden = false;
   };
   const token = localStorage.getItem("carlabToken");
@@ -28,7 +32,7 @@
         cache: "no-store",
       });
     const me = await get("/me");
-    if (me.status === 401) {
+    if (me.status === 401 || me.status === 403) {
       signin();
       return;
     }
