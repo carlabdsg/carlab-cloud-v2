@@ -257,7 +257,7 @@ function register(router, deps) {
       if (req.query.q) {
         p.push("%" + text(req.query.q, 180) + "%");
         w.push(
-          `(r.unit||' '||r.operator_company||' IAC-'||LPAD(i.number::text,6,'0')||' '||COALESCE(r.payload->>'description','')) ILIKE $${p.length}`,
+          `(r.unit||' '||r.operator_company||' IAC-'||LPAD(i.number::text,6,'0')||' '||COALESCE(r.payload->>'description','')||' '||COALESCE(r.payload->>'sourceIntakeFolio','')) ILIKE $${p.length}`,
         );
       }
       const base = w.join(" AND ");

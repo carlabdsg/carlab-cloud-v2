@@ -102,7 +102,9 @@
     } else toast(e.message);
   }
   const name = (b) =>
-    info?.brands[b] || b || info?.user.company || "Aire acondicionado";
+    b === "pending"
+      ? "Marca por confirmar"
+      : info?.brands[b] || b || info?.user.company || "Aire acondicionado";
   const portalContext = (view) => ({
     api,
     info,
@@ -280,6 +282,8 @@
       if (typeof id === "string") await window.ACFleet.openDetail(id);
     } else if (view === "incidents") {
       await window.ACIncidents.show(portalContext("incidents"), id);
+    } else if (view === "intakes" && info.permissions.manageOrders) {
+      await window.ACQrIntakes.show(portalContext("intakes"), id);
     } else if (view === "requests") {
       if (id?.pending) {
         filters = {
@@ -985,6 +989,9 @@
           panel().hidden = true;
           if (external) await navigate("order", n.targetId);
           else await window.CarlabACNav.open(n.targetId);
+        } else if (n.targetType === "ac_intake") {
+          panel().hidden = true;
+          await navigate("intakes", n.targetId);
         } else if (n.targetType === "fleet")
           await navigate("fleet", n.targetId);
         else await navigate("requests", n.targetId);

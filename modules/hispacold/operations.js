@@ -9,6 +9,7 @@ const inventory = require("./inventory");
 const officialParts = require("./official-parts");
 const reports = require("./reports");
 const incidents = require("./incidents");
+const qrIntakes = require("./qr-intakes");
 const notificationSchema = `
 CREATE TABLE IF NOT EXISTS ac_notifications (
  id BIGSERIAL PRIMARY KEY, event_key TEXT NOT NULL UNIQUE, brand TEXT NOT NULL,
@@ -220,6 +221,7 @@ function register(
       .then(() => officialParts.init(pool))
       .then(() => pool.query(fleet.schema))
       .then(() => pool.query(incidents.schema))
+      .then(() => pool.query(qrIntakes.schema))
       .then(() =>
         pool.query(
           `CREATE TABLE IF NOT EXISTS ac_supervisor_access(user_id TEXT PRIMARY KEY REFERENCES users(id), scope_type TEXT NOT NULL CHECK(scope_type IN ('brand','fleet')), company_id TEXT REFERENCES ac_fleet_companies(id), CHECK((scope_type='brand' AND company_id IS NULL) OR (scope_type='fleet' AND company_id IS NOT NULL)));`,
@@ -365,6 +367,7 @@ function register(
     );
     return { ...requestRow(r.rows[0]), events: ev.rows };
   }
+  qrIntakes.registerAdmin(router, { pool, admin, wrap, transaction, notice });
   const incidentOps = incidents.register(router, {
     pool,
     wrap,
@@ -1480,7 +1483,7 @@ function register(
     (n.target_type='fleet' AND EXISTS(SELECT 1 FROM ac_fleet_units u JOIN ac_fleet_companies c ON c.id=u.company_id WHERE u.id=n.target_id AND LOWER(TRIM(c.name))=LOWER(TRIM($1))))
   )`
         : "n.brand=$1 AND n.audience='all'";
-  const relevant = `(n.kind<>'incident_confirmation' OR EXISTS(SELECT 1 FROM ac_incidents i JOIN ac_requests r ON r.id=i.request_id LEFT JOIN hc_services s ON s.id=r.service_id WHERE r.id=n.target_id AND ${incidents.effective}='confirmacion')) AND (n.target_type<>'request' OR EXISTS(SELECT 1 FROM ac_requests r WHERE r.id=n.target_id AND r.deleted_at IS NULL)) AND (n.target_type<>'fleet' OR EXISTS(SELECT 1 FROM ac_fleet_units fu WHERE fu.id=n.target_id AND fu.active=TRUE AND fu.brand=n.brand AND fu.condition='no_operativo')) AND (n.target_type<>'order' OR EXISTS(SELECT 1 FROM hc_services s WHERE s.id=n.target_id AND s.deleted_at IS NULL AND (n.kind<>'closure_reminder' OR s.status IN ('borrador','en_proceso')) AND (n.kind<>'maintenance_due' OR (s.next_date IS NOT NULL AND n.event_key='maintenance:'||s.id||':'||s.next_date::text AND s.id IN (SELECT id FROM hc_services s2 WHERE s2.deleted_at IS NULL AND s2.status='completado' AND (s2.type='preventivo' OR s2.next_date IS NOT NULL) AND LOWER(TRIM(s2.company))=LOWER(TRIM(s.company)) AND LOWER(TRIM(s2.unit))=LOWER(TRIM(s.unit)) AND COALESCE(s2.payload->>'brand','hispacold')=COALESCE(s.payload->>'brand','hispacold') ORDER BY s2.service_date DESC,s2.number DESC LIMIT 1)))))`;
+  const relevant = `(n.target_type<>'ac_intake' OR EXISTS(SELECT 1 FROM ac_qr_intakes qi WHERE qi.id=n.target_id AND qi.status='pending')) AND (n.kind<>'incident_confirmation' OR EXISTS(SELECT 1 FROM ac_incidents i JOIN ac_requests r ON r.id=i.request_id LEFT JOIN hc_services s ON s.id=r.service_id WHERE r.id=n.target_id AND ${incidents.effective}='confirmacion')) AND (n.target_type<>'request' OR EXISTS(SELECT 1 FROM ac_requests r WHERE r.id=n.target_id AND r.deleted_at IS NULL)) AND (n.target_type<>'fleet' OR EXISTS(SELECT 1 FROM ac_fleet_units fu WHERE fu.id=n.target_id AND fu.active=TRUE AND fu.brand=n.brand AND fu.condition='no_operativo')) AND (n.target_type<>'order' OR EXISTS(SELECT 1 FROM hc_services s WHERE s.id=n.target_id AND s.deleted_at IS NULL AND (n.kind<>'closure_reminder' OR s.status IN ('borrador','en_proceso')) AND (n.kind<>'maintenance_due' OR (s.next_date IS NOT NULL AND n.event_key='maintenance:'||s.id||':'||s.next_date::text AND s.id IN (SELECT id FROM hc_services s2 WHERE s2.deleted_at IS NULL AND s2.status='completado' AND (s2.type='preventivo' OR s2.next_date IS NOT NULL) AND LOWER(TRIM(s2.company))=LOWER(TRIM(s.company)) AND LOWER(TRIM(s2.unit))=LOWER(TRIM(s.unit)) AND COALESCE(s2.payload->>'brand','hispacold')=COALESCE(s.payload->>'brand','hispacold') ORDER BY s2.service_date DESC,s2.number DESC LIMIT 1)))))`;
   async function reminders(req, today) {
     const p = [today];
     let b = "";

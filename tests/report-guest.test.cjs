@@ -215,14 +215,14 @@ test("Guest QR reports: fixed identity, isolated access, validation, idempotency
   assert.equal(redirect.status, 302);
   assert.equal(
     redirect.headers.get("location"),
-    "/reporte-qr.html?code=" + code,
+    "/reportar.html?code=" + code,
   );
   const account = await fetch(h.url + "/?access=account&reportqr=" + code, {
     redirect: "manual",
   });
   assert.equal(account.status, 200);
   assert.ok((await account.text()).includes('id="loginForm"'));
-  const publicPage = await fetch(h.url + "/reporte-qr.html?code=" + code);
+  const publicPage = await fetch(h.url + "/reportar.html?code=" + code);
   assert.equal(publicPage.headers.get("referrer-policy"), "no-referrer");
   assert.ok(
     publicPage.headers

@@ -8,7 +8,7 @@
     <title>Reportar falla de A/C · CARLAB</title>
     <link rel="stylesheet" href="/report-guest.css?v=7.5" />
     <link rel="stylesheet" href="/ac-guest.css?v=7.6" />
-    <script src="/ac-guest.js?v=7.6" defer></script>
+    <script src="/ac-guest.js?v=7.7" defer></script>
   </head>
   <body class="ac-guest">
     <header class="top">
@@ -42,6 +42,12 @@
         </div>
         <span class="bus" aria-hidden="true"></span>
       </section>
+      <a id="chooseReport" href="/" hidden>← Cambiar tipo de reporte</a>
+      <p id="pendingLinkNote" class="card" hidden>
+        Esta unidad aún necesita vincularse a su ficha de aire acondicionado.
+        Puedes enviar la falla: administración completará la marca y la unidad
+        después.
+      </p>
       <form id="guestForm" hidden>
         <fieldset id="reportFields">
           <section class="card">
@@ -197,8 +203,8 @@
         <p>Guarda este folio para dar seguimiento con CARLAB.</p>
         <strong id="receiptFolio"></strong>
         <p id="receiptUnit"></p>
-        <span class="pending">Pendiente de revisión</span>
-        <p class="hint">
+        <span id="receiptState" class="pending">Pendiente de revisión</span>
+        <p id="receiptNote" class="hint">
           No necesitas volver a enviarlo. El equipo de CARLAB ya puede
           consultarlo.
         </p>

@@ -46,6 +46,7 @@
   const priorities = { normal: "Normal", alta: "Alta", urgente: "Urgente" };
   const actionNames = {
     reporte_creado: "Registro de incidencia",
+    vinculacion_qr: "Vinculación de reporte QR",
     comment: "Información complementaria",
     review: "Revisión iniciada",
     request_info: "Información solicitada por Carlab",
@@ -121,12 +122,13 @@
   }
   async function load() {
     const seq = ++sequence,
-      r = await ctx.api(
-        "/incidents?" + new URLSearchParams({ ...filters, offset }),
-      );
+      [r, intakes] = await Promise.all([
+        ctx.api("/incidents?" + new URLSearchParams({ ...filters, offset })),
+        admin() ? ctx.api("/qr-intakes") : Promise.resolve(null),
+      ]);
     if (seq !== sequence || !ctx.active()) return;
     $("#hc-main").innerHTML =
-      `<div class="acp-page-heading"><div><span class="acp-eyebrow">SEGUIMIENTO DE CLIMATIZACIÓN</span><h1>Reportes AC</h1><p>Una falla registrada. Una atención con seguimiento.</p></div><div class="hc-actions">${btn("+ Reportar falla", "new", "", true)}${btn("Actualizar", "refresh")}</div></div>
+      `<div class="acp-page-heading"><div><span class="acp-eyebrow">SEGUIMIENTO DE CLIMATIZACIÓN</span><h1>Reportes AC</h1><p>Una falla registrada. Una atención con seguimiento.</p></div><div class="hc-actions">${admin() ? btn("Pendientes de vincular (" + intakes.total + ")", "intakes") : ""}${btn("+ Reportar falla", "new", "", true)}${btn("Actualizar", "refresh")}</div></div>
   <section class="acp-kpis aci-kpis" aria-label="Resumen de reportes">${[
     ["nuevos", "Nuevos", "nuevo", "teal"],
     ["urgentes", "Urgentes", "urgentes", "red"],
@@ -243,7 +245,7 @@
           resolve: "Registrar conclusión / pedir confirmación",
           discard: "Descartar reporte con motivo",
         };
-    dialog(`<div class="aci-title"><span class="acp-eyebrow">REPORTE DE INCIDENCIA · ${esc(ctx.info.brands[x.brand])}</span><div class="aci-detail-heading"><h2>${esc(x.folio)}</h2><span class="aci-status ${x.status}">${esc(config.stages[x.status])}</span></div><p><b>Unidad ${esc(x.unit)}</b> · ${esc(x.company)}</p>${x.data.source === "guest_qr" ? '<p class="hc-subtle">Visitante QR · Reporte enviado sin cuenta</p>' : ""}${x.deletedAt ? '<p class="hc-error">Reporte archivado. El historial y la orden se conservan.</p>' : ""}</div>
+    dialog(`<div class="aci-title"><span class="acp-eyebrow">REPORTE DE INCIDENCIA · ${esc(ctx.info.brands[x.brand])}</span><div class="aci-detail-heading"><h2>${esc(x.folio)}</h2><span class="aci-status ${x.status}">${esc(config.stages[x.status])}</span></div><p><b>Unidad ${esc(x.unit)}</b> · ${esc(x.company)}</p>${x.data.source === "guest_qr" ? '<p class="hc-subtle">Visitante QR · Reporte enviado sin cuenta</p>' : ""}${x.data.sourceIntakeFolio ? `<p class="hc-subtle">Recepción: ${esc(x.data.sourceIntakeFolio)} · ${esc(x.data.sourceCompany)} · Unidad ${esc(x.data.sourceUnit)}</p>` : ""}${x.deletedAt ? '<p class="hc-error">Reporte archivado. El historial y la orden se conservan.</p>' : ""}</div>
   <ol class="aci-progress" aria-label="Seguimiento">${["nuevo", "revision", "atencion", "confirmacion", "resuelto"].map((s, i) => `<li class="${["nuevo", "revision", "atencion", "confirmacion", "resuelto"].indexOf(x.status) >= i ? "reached" : ""}" ${x.status === s ? 'aria-current="step"' : ""}>${esc(config.stages[s])}</li>`).join("")}</ol>
   <section class="aci-facts"><div><small>Incidencia</small><b>${esc(config.categories[x.category])}</b></div><div><small>Condición reportada por el usuario</small><b>${esc(config.equipmentStates[x.equipmentState])}</b></div><div><small>Prioridad</small><b>${esc(priorities[x.data.priority])}</b></div><div><small>Detección</small><b>${date(x.occurredOn)}</b></div><div><small>Responsable Carlab</small><b>${esc(x.assignee)}</b></div>${x.data.scheduledDate ? `<div><small>Atención programada</small><b>${date(x.data.scheduledDate)}</b></div>` : ""}</section><section class="aci-observation"><h3>Descripción de la incidencia</h3><p>${esc(x.data.description)}</p>${x.data.location ? `<small>Ubicación: ${esc(x.data.location)}</small>` : ""}${x.data.contact ? `<small>Contacto: ${esc(x.data.contact)}</small>` : ""}</section>
   ${x.recurrences ? `<p class="aci-recurrence">Se encontraron ${x.recurrences} reporte(s) adicional(es) de esta categoría en los últimos 90 días. Revisar el historial para confirmar si se trata de una falla recurrente.</p>` : ""}
@@ -540,6 +542,7 @@
     try {
       if (a === "close") close();
       if (a === "new") await create(ctx);
+      if (a === "intakes" && admin()) await ctx.navigate("intakes");
       if (a === "refresh") await load();
       if (a === "reload") await detail(current.id);
       if (a === "filter") {

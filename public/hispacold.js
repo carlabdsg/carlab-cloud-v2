@@ -231,18 +231,21 @@
   }
   function nav(name) {
     view = name;
-    const key = ["fleet", "companies"].includes(name)
-      ? "companies"
-      : [
-            "home",
-            "services",
-            "requests",
-            "parts",
-            "reports",
-            "incidents",
-          ].includes(name)
-        ? name
-        : "tools";
+    const key =
+      name === "intakes"
+        ? "incidents"
+        : ["fleet", "companies"].includes(name)
+          ? "companies"
+          : [
+                "home",
+                "services",
+                "requests",
+                "parts",
+                "reports",
+                "incidents",
+              ].includes(name)
+            ? name
+            : "tools";
     $$(".aca-nav [data-view]").forEach((b) => {
       const selected = b.dataset.view === key;
       b.classList.toggle("selected", selected);

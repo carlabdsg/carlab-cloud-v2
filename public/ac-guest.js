@@ -1,7 +1,9 @@
 "use strict";
 (() => {
   const $ = (id) => document.getElementById(id);
-  const code = new URLSearchParams(location.search).get("code") || "";
+  const params = new URLSearchParams(location.search);
+  const fromReport = params.has("reportqr");
+  const code = params.get(fromReport ? "reportqr" : "code") || "";
   const state = {
     unit: null,
     token: "",
@@ -11,7 +13,9 @@
     pending: null,
     sent: false,
   };
-  const receiptKey = "carlab-ac-guest-receipt:" + code;
+  const receiptKey =
+    (fromReport ? "carlab-general-ac-receipt:" : "carlab-ac-guest-receipt:") +
+    code;
   const storage = {
     get() {
       try {
@@ -32,13 +36,19 @@
     },
   };
   $("accountLink").href = /^[a-f0-9]{48}$/.test(code)
-    ? "/?acqr=" + code + "&access=account"
+    ? (fromReport ? "/?reportqr=" : "/?acqr=") + code + "&access=account"
     : "/";
+  if (fromReport && /^[a-f0-9]{48}$/.test(code)) {
+    $("chooseReport").href = "/reportar.html?code=" + code;
+    $("chooseReport").hidden = false;
+  }
   async function request(method, body) {
     let response;
     try {
       response = await fetch(
-        "/api/public/ac-report-qr/" + encodeURIComponent(code),
+        "/api/public/ac-report-qr/" +
+          (fromReport ? "from-report/" : "") +
+          encodeURIComponent(code),
         {
           method,
           cache: "no-store",
@@ -94,9 +104,16 @@
     state.sent = true;
     state.pending = null;
     $("guestForm").hidden = true;
+    $("pendingLinkNote").hidden = true;
     $("receiptFolio").textContent = data.folio;
     $("receiptUnit").textContent =
       `${data.unit.empresa} · Unidad ${data.unit.numeroEconomico} · ${data.unit.marca}`;
+    $("receiptState").textContent = data.pendingLink
+      ? "Pendiente de vincular a AC"
+      : "Pendiente de revisión";
+    $("receiptNote").textContent = data.pendingLink
+      ? "Tu falla quedó registrada. Administración completará la marca y la ficha de AC; no necesitas enviarla otra vez."
+      : "No necesitas volver a enviarlo. El equipo de CARLAB ya puede consultarlo.";
     $("receipt").hidden = false;
     $("receipt").focus();
     storage.set(data);
@@ -111,6 +128,7 @@
     }
     try {
       const data = await request("GET");
+      $("pendingLinkNote").hidden = !data.pendingLink;
       state.unit = data.unit;
       state.token = data.formToken;
       $("unitCompany").textContent = data.unit.empresa;
@@ -124,7 +142,7 @@
       if (
         saved?.folio &&
         saved?.unit?.empresa === data.unit.empresa &&
-        saved?.unit?.brand === data.unit.brand &&
+        (fromReport || saved?.unit?.brand === data.unit.brand) &&
         saved?.unit?.numeroEconomico === data.unit.numeroEconomico
       )
         showReceipt(saved);

@@ -111,7 +111,7 @@ app.get(['/', '/index.html'], (req, res, next) => {
   const code = String(req.query.reportqr || '');
   if (/^[a-f0-9]{48}$/.test(code) && req.query.access !== 'account') {
     res.set('Cache-Control', 'no-store');
-    return res.redirect(302, '/reporte-qr.html?code=' + code);
+    return res.redirect(302, '/reportar.html?code=' + code);
   }
   const acCode = String(req.query.acqr || '');
   if (/^[a-f0-9]{48}$/.test(acCode) && req.query.access !== 'account') {
@@ -120,7 +120,7 @@ app.get(['/', '/index.html'], (req, res, next) => {
   }
   next();
 });
-app.get(['/reporte-qr.html', '/ac-reporte-qr.html'], (_req, res, next) => {
+app.get(['/reportar.html', '/reporte-qr.html', '/ac-reporte-qr.html'], (_req, res, next) => {
   res.set({
     'Cache-Control': 'no-store',
     'Referrer-Policy': 'no-referrer',
@@ -4156,6 +4156,7 @@ const acRegistry = require('./modules/hispacold').register(app, { pool, authRequ
 require('./modules/hispacold/guest').register(app, { pool, ensureOperations: acRegistry.ensureOperations, secret: JWT_SECRET, normalizeMxPhone });
 const reportQrRegistry = require('./modules/reports/qr').register(app, { pool, authRequired, normalizedIdentitySql });
 require('./modules/reports/guest').register(app, { pool, ensureQrRegistry: reportQrRegistry.ready, secret: JWT_SECRET, nextGarantiaFolio, normalizeMxPhone });
+require('./modules/hispacold/qr-intakes').registerPublic(app, { pool, ensureOperations: acRegistry.ensureOperations, ensureQrRegistry: reportQrRegistry.ready, secret: JWT_SECRET, normalizeMxPhone, notice: require('./modules/hispacold/operations').notice });
 require('./modules/reports/quotations').register(app, { pool, authRequired, normalizedIdentitySql, normalizeIdentityValue });
 
 app.get('*', (_req, res) => {

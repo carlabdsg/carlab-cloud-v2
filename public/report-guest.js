@@ -34,6 +34,10 @@
   $("accountLink").href = /^[a-f0-9]{48}$/.test(code)
     ? "/?reportqr=" + code + "&access=account"
     : "/";
+  if (/^[a-f0-9]{48}$/.test(code)) {
+    $("chooseReport").href = "/reportar.html?code=" + code;
+    $("chooseReport").hidden = false;
+  }
   async function request(method, body) {
     let response;
     try {

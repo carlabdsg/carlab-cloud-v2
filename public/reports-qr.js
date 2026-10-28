@@ -109,7 +109,7 @@
           );
     doc.link(x + 27 * scale, y + 79 * scale, 52 * scale, 52 * scale, { url });
     text(
-      "Escanea para registrar una falla",
+      "Reporte general o aire acondicionado",
       53,
       134,
       6.6,
