@@ -35,7 +35,9 @@ test("Guest QR reports: fixed identity, isolated access, validation, idempotency
   assert.deepEqual(Object.keys(initial.body).sort(), [
     "formToken",
     "maxPhotos",
+    "pendingLink",
     "reportOptions",
+    "source",
     "unit",
   ]);
   assert.deepEqual(Object.keys(initial.body.unit).sort(), [

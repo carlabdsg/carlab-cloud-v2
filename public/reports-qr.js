@@ -1,11 +1,15 @@
-/* Batch labels for the general reports system. AC labels stay independent. */
+/* Batch report labels. ANS shares its canonical AC code across both modules. */
 "use strict";
 (() => {
   const valid = (token) => /^[a-f0-9]{48}$/.test(token || "");
   const target = (unit) => {
     if (!valid(unit.token))
       throw new Error("La etiqueta no tiene un código válido.");
-    return location.origin + "/?reportqr=" + unit.token;
+    return (
+      location.origin +
+      (unit.qrSource === "ac" ? "/reportar.html?code=" : "/?reportqr=") +
+      unit.token
+    );
   };
   const layouts = {
     small: {
@@ -137,6 +141,7 @@
       );
     const layout = layouts[size];
     if (!layout) throw new Error("Tamaño de etiqueta no válido.");
+    await Promise.all([window.CarlabAssets.pdf(), window.CarlabAssets.qr()]);
     const single = size === "individual",
       doc = new window.jspdf.jsPDF({
         unit: "mm",

@@ -362,7 +362,8 @@
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
-  function pdf() {
+  async function pdf() {
+    await window.CarlabAssets.pdf({ tables: true });
     const doc = new window.jspdf.jsPDF({
       orientation: "landscape",
       unit: "mm",
@@ -519,7 +520,7 @@
     b.disabled = true;
     try {
       const a = b.dataset.ar;
-      if (a === "pdf") pdf();
+      if (a === "pdf") await pdf();
       else if (a === "csv") csv();
       else {
         if (a === "week" || a === "month") {

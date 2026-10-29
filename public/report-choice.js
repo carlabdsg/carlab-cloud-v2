@@ -23,6 +23,11 @@
       });
       const data = await r.json();
       if (!r.ok) throw Error(data.error || "No se pudo consultar la unidad.");
+      if (data.source === "ac") {
+        $("acChoice").href = "/ac-reporte-qr.html?code=" + code + "&type=ac";
+        $("accountLink").href =
+          "/?acqr=" + code + "&reportqr=" + code + "&access=account";
+      }
       if (data.reportOptions?.ac !== true) {
         location.replace("/reporte-qr.html?code=" + code);
         return;

@@ -180,13 +180,11 @@ function register(app, { pool, ensureOperations, secret, normalizeMxPhone }) {
       if (!error.status) console.error("[ac-guest-report]", error.message);
       if (error.status === 429) res.set("Retry-After", "3600");
       if (!res.headersSent)
-        res
-          .status(error.status || 500)
-          .json({
-            error: error.status
-              ? error.message
-              : "No se pudo completar la operación. Conserva esta página e intenta nuevamente.",
-          });
+        res.status(error.status || 500).json({
+          error: error.status
+            ? error.message
+            : "No se pudo completar la operación. Conserva esta página e intenta nuevamente.",
+        });
     }
   };
   app.get(
@@ -205,6 +203,10 @@ function register(app, { pool, ensureOperations, secret, normalizeMxPhone }) {
           brand: row.brand,
           marca: brands[row.brand],
           modelo: row.ac_model || row.model || "Pendiente",
+        },
+        reportOptions: {
+          general: require("./qr-policy").dual(row.company),
+          ac: true,
         },
         formToken: issue(req.params.code, row),
         maxPhotos: 4,

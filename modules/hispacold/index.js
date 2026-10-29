@@ -22,6 +22,7 @@ ALTER TABLE hc_services ADD COLUMN IF NOT EXISTS delete_reason TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS hc_services_client_idx ON hc_services(created_by,client_key) WHERE client_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS hc_services_unit_idx ON hc_services(company,unit,service_date DESC);
 CREATE INDEX IF NOT EXISTS hc_services_next_idx ON hc_services(next_date) WHERE status <> 'cancelado';
+CREATE INDEX IF NOT EXISTS hc_services_live_identity_idx ON hc_services((COALESCE(payload->>'brand','hispacold')),LOWER(TRIM(company)),LOWER(TRIM(unit)),service_date DESC,number DESC) WHERE deleted_at IS NULL;
 CREATE TABLE IF NOT EXISTS hc_events (
  id BIGSERIAL PRIMARY KEY, service_id TEXT NOT NULL REFERENCES hc_services(id),
  actor_id TEXT NOT NULL, actor_name TEXT NOT NULL, action TEXT NOT NULL, details JSONB NOT NULL,

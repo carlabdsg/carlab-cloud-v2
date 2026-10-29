@@ -46,6 +46,13 @@
       return;
     }
     if (!response.ok) throw new Error(data.error || "Código no disponible.");
+    if (
+      data.dual &&
+      new URLSearchParams(location.search).get("access") !== "account"
+    ) {
+      location.replace("/reportar.html?code=" + code);
+      return;
+    }
     const page =
       info.user.role === "admin" ? "/hispacold.html" : "/ac-supervisor.html";
     location.replace(page + "?unit=" + encodeURIComponent(data.unitId));

@@ -115,6 +115,9 @@
     try {
       const data = await request("GET");
       $("chooseReport").hidden = data.reportOptions?.ac !== true;
+      if (data.source === "ac")
+        $("accountLink").href =
+          "/?acqr=" + code + "&reportqr=" + code + "&access=account";
       document.querySelector("main h1").textContent =
         "Reportar daños y garantías";
       state.unit = data.unit;

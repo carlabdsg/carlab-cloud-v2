@@ -17,7 +17,14 @@ async function ensure(db, unitId) {
   ).rows[0];
 }
 const valid = (token) => /^[a-f0-9]{48}$/.test(token || "");
-const payload = (row) => ({ ...row, path: "/ac-unit.html?code=" + row.token });
+const payload = (row, company) => {
+  const dual = require("./qr-policy").dual(company);
+  return {
+    ...row,
+    dual,
+    path: (dual ? "/reportar.html?code=" : "/ac-unit.html?code=") + row.token,
+  };
+};
 function register(
   router,
   { pool, admin, wrap, fail, allowed, transaction, getUnit, audit },
@@ -30,7 +37,7 @@ function register(
       if (!u.active) fail("La unidad está archivada.", 409);
       res
         .set("Cache-Control", "no-store")
-        .json(payload(await ensure(pool, u.id)));
+        .json(payload(await ensure(pool, u.id), u.company));
     }),
   );
   router.post(
@@ -53,9 +60,9 @@ function register(
           )
         ).rows[0];
         await audit(db, u.id, req, "QR reemplazado", reason);
-        return next;
+        return payload(next, u.company);
       });
-      res.set("Cache-Control", "no-store").json(payload(row));
+      res.set("Cache-Control", "no-store").json(row);
     }),
   );
   router.get(
@@ -74,7 +81,9 @@ function register(
           404,
         );
       allowed(req, u.brand, u.company);
-      res.set("Cache-Control", "no-store").json({ unitId: u.id });
+      res
+        .set("Cache-Control", "no-store")
+        .json({ unitId: u.id, dual: require("./qr-policy").dual(u.company) });
     }),
   );
   router.get(
@@ -96,7 +105,7 @@ function register(
       ).rows[0];
       res
         .set("Cache-Control", "no-store")
-        .json(u ? payload(await ensure(pool, u.id)) : null);
+        .json(u ? payload(await ensure(pool, u.id), order.company) : null);
     }),
   );
 }

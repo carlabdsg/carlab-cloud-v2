@@ -100,7 +100,7 @@
     const date = today();
     const [fleet, requests, calendar, incidents] = await Promise.all([
       ctx.api("/fleet/units?today=" + date),
-      ctx.api("/requests?pending=true"),
+      ctx.api("/requests?pending=true&summary=true"),
       ctx.api(
         "/calendar?" +
           new URLSearchParams({
@@ -109,7 +109,7 @@
             bucket: "week",
           }),
       ),
-      ctx.api("/incidents?status=abiertos"),
+      ctx.api("/incidents?status=abiertos&summary=true"),
     ]);
     if (!context.active()) return;
     const s = fleet.summary,

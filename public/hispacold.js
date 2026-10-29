@@ -443,7 +443,13 @@
   async function calendar() {
     await window.ACOperations.show("upcoming");
   }
+  let unitsRequest;
+  async function loadUnits() {
+    if (!unitsRequest) unitsRequest = api("/units").then(rows => { units = rows; }).catch(error => { unitsRequest = null; throw error; });
+    return unitsRequest;
+  }
   async function history() {
+    await loadUnits();
     let body =
       '<div class="hc-empty"><strong>Un expediente, todas sus intervenciones</strong>Selecciona una unidad de Flotas o consulta por empresa y económico.</div>';
     if (historyQuery.company && historyQuery.unit) {
@@ -477,6 +483,7 @@
   const orderIcon = (key) =>
     `<svg class="hco-icon" viewBox="0 0 24 24" aria-hidden="true">${orderIcons[key] || orderIcons.note}</svg>`;
   async function choose(source = null, attention = "normal") {
+    await loadUnits();
     if (!(await leave())) return;
     cloneSource = source;
     const brand = source?.data?.brand || (source ? "hispacold" : "");
@@ -606,6 +613,7 @@
     markDirty();
   }
   async function resume(id) {
+    await loadUnits();
     if (!(await leave())) return;
     const saved = await HCDrafts.get(catalog.user.id, id);
     if (!saved) return toast("El borrador ya no está disponible.");
@@ -1811,6 +1819,7 @@
     markDirty();
   }
   async function editRecord() {
+    await loadUnits();
     if (!record) return;
     draft = normalizeData(record.data);
     localId = "order-" + record.id + "-" + editorSession;
@@ -2490,7 +2499,6 @@
     try {
       bootToken = localStorage.getItem("carlabToken") || "";
       catalog = await api("/catalog");
-      units = await api("/units");
       $("#hc-user").textContent = catalog.user.nombre + " · Administrador";
       window.ACPortal.setupNav();
       await window.ACOperations.ready;

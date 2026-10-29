@@ -1,6 +1,7 @@
 "use strict";
 const crypto = require("node:crypto");
 const qrSettings = require("./qr-settings");
+const acQrPolicy = require("../hispacold/qr-policy");
 const fail = (status, message) => Object.assign(new Error(message), { status });
 const codePattern = /^[a-f0-9]{48}$/;
 const MAX_PHOTO = 650 * 1024;
@@ -53,7 +54,14 @@ function photo(value) {
 
 function register(
   app,
-  { pool, ensureQrRegistry, secret, nextGarantiaFolio, normalizeMxPhone },
+  {
+    pool,
+    ensureQrRegistry,
+    ensureOperations,
+    secret,
+    nextGarantiaFolio,
+    normalizeMxPhone,
+  },
 ) {
   let initialization;
   const ready = () =>
@@ -128,11 +136,40 @@ function register(
       );
     return nonce;
   }
-  const readUnit = (client, code, lock = false) =>
-    client.query(
+  async function readUnit(client, code, lock = false) {
+    const general = await client.query(
       `SELECT u.id,u.empresa,u.nombre_flota,u.numero_economico,u.numero_obra,u.modelo,u.marca FROM report_unit_qr q JOIN fleet_units u ON u.id=q.fleet_unit_id WHERE q.token=$1${lock ? " FOR UPDATE OF u" : ""}`,
       [code],
     );
+    if (general.rows.length || !ensureOperations) return general;
+    // The POST preflight initializes AC before acquiring a transaction client.
+    await ensureOperations();
+    const ac = await client.query(
+      `SELECT u.id,u.unit,u.model,u.brand,c.name AS company FROM ac_fleet_qr q JOIN ac_fleet_units u ON u.id=q.unit_id JOIN ac_fleet_companies c ON c.id=u.company_id WHERE q.token=$1 AND u.active=TRUE${lock ? " FOR UPDATE OF u,q FOR SHARE OF c" : ""}`,
+      [code],
+    );
+    const unit = ac.rows[0];
+    if (!unit || !acQrPolicy.dual(unit.company)) return { rows: [] };
+    const matches = await client.query(
+      `SELECT id,numero_obra,modelo,marca FROM fleet_units WHERE LOWER(TRIM(empresa))=LOWER(TRIM($1)) AND LOWER(TRIM(numero_economico))=LOWER(TRIM($2)) LIMIT 2${lock ? " FOR SHARE" : ""}`,
+      [unit.company, unit.unit],
+    );
+    const linked = matches.rows.length === 1 ? matches.rows[0] : null;
+    return {
+      rows: [
+        {
+          id: "ac:" + unit.id,
+          empresa: unit.company,
+          numero_economico: unit.unit,
+          modelo: linked?.modelo || unit.model,
+          numero_obra: linked?.numero_obra,
+          marca: linked?.marca || "",
+          source: "ac",
+          generalUnitId: linked?.id || null,
+        },
+      ],
+    };
+  }
   const receipt = (row) => ({
     folio: row.folio,
     receivedAt: row.created_at,
@@ -175,7 +212,12 @@ function register(
         );
       res.json({
         unit: unit(row),
-        reportOptions: await qrSettings.options(pool, row),
+        reportOptions:
+          row.source === "ac"
+            ? { general: true, ac: true, mode: "dual" }
+            : await qrSettings.options(pool, row),
+        source: row.source || "general",
+        pendingLink: row.source === "ac" && !row.generalUnitId,
         formToken: issue(req.params.code, row),
         maxPhotos: 4,
       });
@@ -223,6 +265,8 @@ function register(
       if (!Array.isArray(photos) || photos.length > 4)
         throw fail(400, "Puedes adjuntar hasta 4 fotografías.");
       const evidence = photos.map(photo);
+      // Public general codes do not initialize unrelated AC catalogs.
+      await readUnit(pool, req.params.code);
       const client = await pool.connect();
       try {
         await client.query("BEGIN");
@@ -272,7 +316,7 @@ function register(
             description,
             JSON.stringify(evidence),
             name + " · Visitante QR",
-            row.id,
+            row.source === "ac" ? row.generalUnitId : row.id,
           ],
         );
         const saved = (

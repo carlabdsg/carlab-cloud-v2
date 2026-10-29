@@ -1055,6 +1055,7 @@ async function exportPdf(reportOrId) {
     notify(error.message || 'No se pudo cargar el reporte completo para exportar.', true);
     return;
   }
+  try { await window.CarlabAssets.pdf(); } catch (error) { notify(error.message, true); return; }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   const logo = await getImageData('/logo.jpg');
@@ -1189,7 +1190,13 @@ function beginCompanyEdit(company) {
   els.companyCancelEditBtn.classList.remove('hidden');
 }
 
+let notificationRequest;
 async function loadNotifications() {
+  if (notificationRequest) return notificationRequest;
+  notificationRequest = performNotifications().finally(() => { notificationRequest = null; });
+  return notificationRequest;
+}
+async function performNotifications() {
   try {
     const data = await api.getNotifications();
     if (els.notifSummary) els.notifSummary.textContent = `${data.pendingSchedules || 0} agenda · ${data.todaySchedules || 0} hoy`;
@@ -1891,6 +1898,7 @@ async function exportDirectSalePdf(saleLike) {
   const sale = saleLike?.items ? saleLike : state.directSales.find(item => item.id === saleLike) || null;
   if (!sale) { notify('Primero registra o selecciona una venta.', true); return; }
   try {
+    try { await window.CarlabAssets.pdf(); } catch (error) { notify(error.message, true); return; }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     const logo = await getImageData('/logo.jpg');
@@ -2286,6 +2294,7 @@ async function exportCommercialPdf(quote) {
     const draft = state.quoteDrafts[quote.id] || ensureQuoteDraft(quote) || quote;
     const items = (draft.items || quote.items || []).map(item => ({ ...item, total: Number(((Number(item.qty || 0) * Number(item.unitPrice || 0)) || item.total || 0).toFixed(2)) }));
     const totals = computeQuoteDraftTotals({ items, discount: Number(draft.discount || 0), iva: Number(draft.iva || 0), anticipo: Number(draft.anticipo || 0) });
+    try { await window.CarlabAssets.pdf(); } catch (error) { notify(error.message, true); return; }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     const logo = await getImageData('/logo.jpg');
@@ -3390,6 +3399,7 @@ async function drawServicesDetailedBlocks(doc, rows = [], options = {}) {
 }
 
 async function exportServicesPdf(mode = 'executive') {
+  try { await window.CarlabAssets.pdf(); } catch (error) { notify(error.message, true); return; }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   const rows = state.servicesReport.reports || [];
@@ -3553,7 +3563,8 @@ els.tabLoginBtn?.addEventListener('click', () => {
   document.getElementById('registerPane')?.classList.add('hidden');
   els.tabLoginBtn.className = 'btn btn-primary'; if (els.tabRegisterBtn) els.tabRegisterBtn.className = 'btn btn-ghost';
 });
-els.tabRegisterBtn?.addEventListener('click', () => {
+els.tabRegisterBtn?.addEventListener('click', async () => {
+  try { state.companies = await api.getPublicCompanies(); renderCompanies(); } catch (error) { notify(error.message, true); }
   document.getElementById('loginPane')?.classList.add('hidden');
   document.getElementById('registerPane')?.classList.remove('hidden');
   els.tabLoginBtn.className = 'btn btn-ghost'; els.tabRegisterBtn.className = 'btn btn-primary';
@@ -3563,14 +3574,9 @@ els.loginForm?.addEventListener('submit', async (e) => {
   e.preventDefault(); els.loginError?.classList.add('hidden');
   try {
     const data = await api.login(els.loginEmail.value.trim(), els.loginPassword.value);
-    state.token = data.token; localStorage.setItem('carlabToken', state.token); state.user = data.user; const acQrCode = new URLSearchParams(location.search).get('acqr'); if (/^[a-f0-9]{48}$/.test(acQrCode || '') && ['admin','supervisor_ac'].includes(state.user.role)) { location.replace('/ac-unit.html?code=' + acQrCode); return; } if (state.user.role === 'supervisor_ac') { location.replace('/ac-supervisor.html'); return; } showDashboard();
+    state.token = data.token; localStorage.setItem('carlabToken', state.token); state.user = data.user; const acQrCode = new URLSearchParams(location.search).get('acqr'); if (/^[a-f0-9]{48}$/.test(acQrCode || '') && ['admin','supervisor_ac'].includes(state.user.role)) { location.replace('/ac-unit.html?code=' + acQrCode + '&access=account'); return; } if (state.user.role === 'supervisor_ac') { location.replace('/ac-supervisor.html'); return; } showDashboard();
     await loadCompanies();
     await loadGarantias();
-    await loadNotifications();
-    if (isRole('admin')) {
-      await loadUsers();
-      await loadRequests();
-    }
     resetReportForm(); resetCompanyForm(); resetFleetForm(); await window.CarlabReportsUI?.sessionReady(); notify(`Bienvenido, ${state.user.nombre}.`);
   } catch (error) { if (els.loginError) { els.loginError.textContent = error.message; els.loginError.classList.remove('hidden'); } else notify(error.message,true); }
 });
@@ -4122,14 +4128,11 @@ els.companyForm?.addEventListener('submit', async (e) => {
 ['input','change'].forEach(evt => { els.searchInput?.addEventListener(evt, renderGarantias); els.validationFilter?.addEventListener(evt, renderGarantias); els.operationalFilter?.addEventListener(evt, renderGarantias); });
 
 (async function init() {
-  try { state.companies = await api.getPublicCompanies(); renderCompanies(); } catch {}
   if (!state.token) return showLogin();
   try {
-    const data = await api.me(); state.user = data.user; const acQrCode = new URLSearchParams(location.search).get('acqr'); if (/^[a-f0-9]{48}$/.test(acQrCode || '') && ['admin','supervisor_ac'].includes(state.user.role)) { location.replace('/ac-unit.html?code=' + acQrCode); return; } if (state.user.role === 'supervisor_ac') { location.replace('/ac-supervisor.html'); return; } showDashboard();
-    await Promise.allSettled([loadCompanies(), loadGarantias(), loadNotifications()]);
-    await Promise.allSettled([loadSchedules('')]);
-    renderCommandSidePanels();
-    if (isRole('admin')) await Promise.allSettled([loadUsers(), loadRequests()]);
+    const data = await api.me(); state.user = data.user; const acQrCode = new URLSearchParams(location.search).get('acqr'); if (/^[a-f0-9]{48}$/.test(acQrCode || '') && ['admin','supervisor_ac'].includes(state.user.role)) { location.replace('/ac-unit.html?code=' + acQrCode + '&access=account'); return; } if (state.user.role === 'supervisor_ac') { location.replace('/ac-supervisor.html'); return; } showDashboard();
+    await Promise.allSettled([loadCompanies(), loadGarantias()]);
+    if (!window.CarlabReportsUI) { await loadSchedules(''); renderCommandSidePanels(); }
     resetReportForm(); resetCompanyForm(); resetFleetForm(); await window.CarlabReportsUI?.sessionReady();
   } catch (error) {
     if ([401, 403, 404].includes(error.status)) { localStorage.removeItem('carlabToken'); state.token = ''; }
@@ -4140,7 +4143,7 @@ els.companyForm?.addEventListener('submit', async (e) => {
 
 
 setInterval(async () => {
-  if (!state.token || !state.user) return;
+  if (!state.token || !state.user || document.hidden || navigator.onLine === false) return;
   if (state.activePanel === 'fleet') return; // el usuario está viendo flotas: no interrumpir hasta que navegue o interactúe
   try {
     if (!shouldPauseLiveRefresh()) await loadNotifications();

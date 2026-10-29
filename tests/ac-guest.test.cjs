@@ -32,6 +32,7 @@ test("AC guest QR: existing units, brand/company scope, protected access, idempo
   assert.deepEqual(Object.keys(first.body).sort(), [
     "formToken",
     "maxPhotos",
+    "reportOptions",
     "unit",
   ]);
   assert.deepEqual(first.body.unit, {

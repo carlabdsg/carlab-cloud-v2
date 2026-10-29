@@ -322,7 +322,8 @@
     await detail(x.id);
     ctx.toast("Seguimiento guardado.");
   }
-  function pdf() {
+  async function pdf() {
+    await window.CarlabAssets.pdf({ tables: true });
     const x = current,
       doc = new window.jspdf.jsPDF({
         unit: "mm",
@@ -582,7 +583,7 @@
         );
       }
       if (a === "informs") await ctx.navigate("reports");
-      if (a === "pdf") pdf();
+      if (a === "pdf") await pdf();
       if (a === "archive") {
         dialog(
           `<h2>${current.deletedAt ? "Recuperar" : "Archivar"} ${esc(current.folio)}</h2><p>El historial y las órdenes vinculadas se conservan.</p><form id="aci-archive">${field("Motivo *", "reason", "", "textarea", 'required maxlength="1000"')}<div class="hc-actions">${btn("Volver", "reload")}<button type="submit" class="hc-btn primary">Confirmar</button></div></form>`,

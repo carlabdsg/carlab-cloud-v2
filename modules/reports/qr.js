@@ -3,7 +3,10 @@ const crypto = require("node:crypto");
 const settings = require("./qr-settings");
 
 // Additive QR registry. Existing units and report records are never rewritten.
-function register(app, { pool, authRequired, normalizedIdentitySql }) {
+function register(
+  app,
+  { pool, authRequired, normalizedIdentitySql, ensureOperations },
+) {
   let initialization;
   function ready() {
     if (!initialization)
@@ -68,6 +71,7 @@ function register(app, { pool, authRequired, normalizedIdentitySql }) {
     marca: row.marca || "",
     kilometraje: row.kilometraje || "",
     token: row.token,
+    ...(row.qrSource ? { qrSource: row.qrSource } : {}),
   });
   app.post(
     "/api/report-qr/batch",
@@ -93,6 +97,18 @@ function register(app, { pool, authRequired, normalizedIdentitySql }) {
           .json({ error: "Selecciona entre 1 y 5,000 unidades distintas." });
       }
       await ready();
+      if (ensureOperations) {
+        const companies = await pool.query(
+          "SELECT DISTINCT empresa FROM fleet_units WHERE id=ANY($1::text[])",
+          [ids],
+        );
+        if (
+          companies.rows.some((row) =>
+            require("../hispacold/qr-policy").dual(row.empresa),
+          )
+        )
+          await ensureOperations();
+      }
       const client = await pool.connect();
       try {
         await client.query("BEGIN");
@@ -123,6 +139,36 @@ function register(app, { pool, authRequired, normalizedIdentitySql }) {
           "SELECT fleet_unit_id, token FROM report_unit_qr WHERE fleet_unit_id = ANY($1::text[])",
           [ids],
         );
+        // ANS uses its existing AC code as the canonical label in both modules.
+        // Earlier report codes remain in their registry and continue working.
+        const canonical = new Map();
+        const ansIds = units.rows
+          .filter((u) => require("../hispacold/qr-policy").dual(u.empresa))
+          .map((u) => u.id);
+        if (ensureOperations && ansIds.length) {
+          const matches = await client.query(
+            `SELECT fu.id,au.id AS ac_id FROM fleet_units fu JOIN ac_fleet_companies c ON LOWER(TRIM(c.name))=LOWER(TRIM(fu.empresa)) JOIN ac_fleet_units au ON au.company_id=c.id AND LOWER(TRIM(au.unit))=LOWER(TRIM(fu.numero_economico)) WHERE fu.id=ANY($1::text[]) AND au.active=TRUE FOR SHARE OF au,c`,
+            [ansIds],
+          );
+          const grouped = new Map();
+          for (const row of matches.rows)
+            grouped.set(row.id, [...(grouped.get(row.id) || []), row.ac_id]);
+          const unique = [...grouped].filter(([, ids]) => ids.length === 1);
+          if (unique.length) {
+            const acIds = unique.map(([, ids]) => ids[0]);
+            await client.query(
+              `INSERT INTO ac_fleet_qr(unit_id,token) SELECT * FROM UNNEST($1::text[],$2::text[]) ON CONFLICT(unit_id) DO NOTHING`,
+              [acIds, acIds.map(() => crypto.randomBytes(24).toString("hex"))],
+            );
+            const acCodes = await client.query(
+              "SELECT unit_id,token FROM ac_fleet_qr WHERE unit_id=ANY($1::text[])",
+              [acIds],
+            );
+            const byAc = new Map(acCodes.rows.map((q) => [q.unit_id, q.token]));
+            for (const [id, [acId]] of unique)
+              canonical.set(id, byAc.get(acId));
+          }
+        }
         await client.query("COMMIT");
         const byId = new Map(
           codes.rows.map((row) => [row.fleet_unit_id, row.token]),
@@ -135,11 +181,17 @@ function register(app, { pool, authRequired, normalizedIdentitySql }) {
         res.json({
           units: ids.map((id) =>
             map(
-              { ...rows.get(id), token: byId.get(id) },
-              settings.resolve(
-                configs.get(rows.get(id).empresa),
-                rows.get(id).nombre_flota,
-              ),
+              {
+                ...rows.get(id),
+                token: canonical.get(id) || byId.get(id),
+                ...(canonical.has(id) ? { qrSource: "ac" } : {}),
+              },
+              canonical.has(id)
+                ? { general: true, ac: true, mode: "dual" }
+                : settings.resolve(
+                    configs.get(rows.get(id).empresa),
+                    rows.get(id).nombre_flota,
+                  ),
             ),
           ),
         });
@@ -170,6 +222,28 @@ function register(app, { pool, authRequired, normalizedIdentitySql }) {
         `SELECT u.*, q.token FROM report_unit_qr q JOIN fleet_units u ON u.id = q.fleet_unit_id WHERE q.token = $1${scope}`,
         params,
       );
+      if (!result.rows.length && ensureOperations) {
+        await ensureOperations();
+        const acScope = global.includes(user.role)
+          ? ""
+          : ` AND ${normalizedIdentitySql("c.name")}=${normalizedIdentitySql("$2")}`;
+        const ac = await pool.query(
+          `SELECT u.id,c.name AS empresa,COALESCE(u.nombre_flota,a.fleet) AS nombre_flota,a.unit AS numero_economico,COALESCE(u.numero_obra,a.work_number) AS numero_obra,COALESCE(u.modelo,a.model) AS modelo,COALESCE(u.marca,a.bus_brand) AS marca,COALESCE(u.kilometraje,a.mileage) AS kilometraje,q.token FROM ac_fleet_qr q JOIN ac_fleet_units a ON a.id=q.unit_id JOIN ac_fleet_companies c ON c.id=a.company_id LEFT JOIN fleet_units u ON LOWER(TRIM(u.empresa))=LOWER(TRIM(c.name)) AND LOWER(TRIM(u.numero_economico))=LOWER(TRIM(a.unit)) WHERE q.token=$1 AND a.active=TRUE${acScope}`,
+          params,
+        );
+        if (
+          ac.rows.length === 1 &&
+          require("../hispacold/qr-policy").dual(ac.rows[0].empresa)
+        ) {
+          return res.json({
+            unit: map(
+              { ...ac.rows[0], qrSource: "ac" },
+              { general: true, ac: true, mode: "dual" },
+            ),
+            canReport: ["admin", "operador"].includes(user.role),
+          });
+        }
+      }
       if (!result.rows.length)
         return res
           .status(404)

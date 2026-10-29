@@ -54,6 +54,7 @@
     otro: "Otro",
   };
   async function exportPDF(record, catalog) {
+    await window.CarlabAssets.pdf({ tables: true });
     if (!window.jspdf?.jsPDF)
       throw new Error(
         "No se cargó el generador PDF. Recarga y vuelve a intentar.",

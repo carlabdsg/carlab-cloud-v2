@@ -130,6 +130,16 @@
     }
     try {
       const data = await request("GET");
+      if (!fromReport && data.reportOptions?.general === true) {
+        $("accountLink").href =
+          "/?acqr=" + code + "&reportqr=" + code + "&access=account";
+        if (params.get("type") !== "ac") {
+          location.replace("/reportar.html?code=" + code);
+          return;
+        }
+        $("chooseReport").href = "/reportar.html?code=" + code;
+        $("chooseReport").hidden = false;
+      }
       $("pendingLinkNote").hidden = !data.pendingLink;
       state.unit = data.unit;
       state.token = data.formToken;

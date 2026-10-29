@@ -2517,6 +2517,20 @@ app.get('/api/fleet/summary', authRequired, requireRoles('admin','operativo','su
   }
 });
 
+app.get('/api/fleet/unit-options', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas','operador'), asyncRoute(async (req, res) => {
+  const params = [], where = [];
+  if (SUPERVISOR_ROLES.includes(req.user.role) || req.user.role === 'operador') {
+    params.push(req.user.empresa || '');
+    where.push(`${normalizedIdentitySql('empresa')}=${normalizedIdentitySql(`$${params.length}`)}`);
+  }
+  const company = String(req.query.empresa || '').trim();
+  if (!company) return res.json([]);
+  params.push(company);
+  where.push(`${normalizedIdentitySql('empresa')}=${normalizedIdentitySql(`$${params.length}`)}`);
+  const result = await dbQuery(`SELECT id,empresa,numero_economico AS "numeroEconomico",nombre_flota AS "nombreFlota",numero_obra AS "numeroObra",modelo,marca,kilometraje FROM fleet_units WHERE ${where.join(' AND ')} ORDER BY numero_economico,id`, params);
+  res.set('Cache-Control', 'private, no-store').json(result.rows);
+}));
+
 app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supervisor','supervisor_flotas','operador'), async (req, res) => {
   try {
     const params = [];
@@ -4170,8 +4184,8 @@ app.patch('/api/cobranza/direct-sales/:id', authRequired, requireRoles('admin'),
 // Additive AC modules initialize their tables lazily; public reporting uses separate scoped routes.
 const acRegistry = require('./modules/hispacold').register(app, { pool, authRequired });
 require('./modules/hispacold/guest').register(app, { pool, ensureOperations: acRegistry.ensureOperations, secret: JWT_SECRET, normalizeMxPhone });
-const reportQrRegistry = require('./modules/reports/qr').register(app, { pool, authRequired, normalizedIdentitySql });
-require('./modules/reports/guest').register(app, { pool, ensureQrRegistry: reportQrRegistry.ready, secret: JWT_SECRET, nextGarantiaFolio, normalizeMxPhone });
+const reportQrRegistry = require('./modules/reports/qr').register(app, { pool, authRequired, normalizedIdentitySql, ensureOperations: acRegistry.ensureOperations });
+require('./modules/reports/guest').register(app, { pool, ensureQrRegistry: reportQrRegistry.ready, ensureOperations: acRegistry.ensureOperations, secret: JWT_SECRET, nextGarantiaFolio, normalizeMxPhone });
 require('./modules/hispacold/qr-intakes').registerPublic(app, { pool, ensureOperations: acRegistry.ensureOperations, ensureQrRegistry: reportQrRegistry.ready, secret: JWT_SECRET, normalizeMxPhone, notice: require('./modules/hispacold/operations').notice });
 require('./modules/reports/quotations').register(app, { pool, authRequired, normalizedIdentitySql, normalizeIdentityValue });
 

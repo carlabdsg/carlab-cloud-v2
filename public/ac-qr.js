@@ -14,7 +14,11 @@
   }
   function url(data) {
     if (!valid(data?.token)) throw new Error("Código QR inválido.");
-    return location.origin + "/ac-unit.html?code=" + data.token;
+    return (
+      location.origin +
+      (data.dual ? "/reportar.html?code=" : "/ac-unit.html?code=") +
+      data.token
+    );
   }
   function matrix(value) {
     const qr = qrcode(0, "M");
@@ -48,7 +52,9 @@
     });
     doc.setProperties({
       title: "CARLAB · Unidad " + unit.unit,
-      subject: "Expediente de aire acondicionado",
+      subject: data.dual
+        ? "Reportes de carrocería y aire acondicionado"
+        : "Expediente de aire acondicionado",
     });
     // Fixed text boxes keep long company/unit names on this single label.
     function box(value, x, top, width, height, size) {
@@ -82,7 +88,11 @@
     });
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7);
-    doc.text("EXPEDIENTE DE AIRE ACONDICIONADO", 10, 41);
+    doc.text(
+      data.dual ? "REPORTES" : "EXPEDIENTE DE AIRE ACONDICIONADO",
+      10,
+      41,
+    );
     doc.setFillColor(221, 221, 221);
     doc.rect(10, 45, 86, 0.2, "F");
     box(unit.company, 10, 49, 86, 7.5, 11);
@@ -118,16 +128,24 @@
     doc.link(left, top, 52, 52, { url: target });
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
-    doc.text("Escanea para reportar una falla de A/C", 53, 134, {
-      align: "center",
-    });
+    doc.text(
+      data.dual
+        ? "Carrocería y aire acondicionado"
+        : "Escanea para reportar una falla de A/C",
+      53,
+      134,
+      {
+        align: "center",
+      },
+    );
     doc.setFont("helvetica", "bold");
     doc.setTextColor(85, 85, 85);
     doc.setFontSize(6.5);
     doc.text("Reporta sin crear una cuenta", 53, 139, { align: "center" });
     return doc;
   }
-  function label(unit, data, brand) {
+  async function label(unit, data, brand) {
+    await Promise.all([window.CarlabAssets.pdf(), window.CarlabAssets.qr()]);
     labelDocument(unit, data, brand).save(
       "CARLAB-QR-Unidad-" + String(unit.unit).replace(/[^\w-]/g, "_") + ".pdf",
     );
@@ -140,6 +158,7 @@
     labelDocument,
     order: async (id) => {
       const data = await api("/fleet/order-qr/" + encodeURIComponent(id));
+      if (data) await window.CarlabAssets.qr();
       return data ? { url: url(data), image: png(url(data)) } : null;
     },
   };

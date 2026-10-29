@@ -284,6 +284,7 @@ function register(router, deps) {
       }
       const where = w.join(" AND "),
         offset = page(req.query);
+      if (req.query.summary === "true") return res.json({ summary });
       const total = (
         await pool.query(`SELECT COUNT(*)::int n ${joins} WHERE ${where}`, p)
       ).rows[0].n;

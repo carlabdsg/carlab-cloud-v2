@@ -273,6 +273,7 @@
     qrData = await ctx.api(
       "/fleet/units/" + encodeURIComponent(detail.id) + "/qr",
     );
+    await window.CarlabAssets.qr();
     const url = window.ACQR.url(qrData);
     dialog(
       `<h2>Etiqueta QR · Unidad ${esc(detail.unit)}</h2><p>${esc(detail.company)} · ${esc(brandName(detail.brand))}</p><img class="acf-qr-image" src="${window.ACQR.png(url)}" alt="QR del expediente de esta unidad"><p>Etiqueta frontal de 10.6 × 14.6 cm, con empresa, unidad y marca de AC. Imprime el PDF a tamaño real (100 %). Cualquier operador puede reportar una falla sin cuenta. Consultar el expediente y dar seguimiento requiere iniciar sesión.</p><div class="hc-actions">${btn("Descargar etiqueta PDF", "qr-download", "", true)}<a class="hc-btn" href="${esc(url)}" target="_blank" rel="noopener">Probar acceso</a>${btn("Volver a la ficha", "qr-back")}</div><details class="acf-qr-replace"><summary>Reemplazar un código perdido o comprometido</summary><p>El QR anterior dejará de funcionar, incluso en etiquetas y reportes ya impresos. Para reimprimir el mismo código, descarga la etiqueta.</p><label class="hc-field"><b>Motivo del reemplazo</b><input id="acf-qr-reason" maxlength="500"></label>${btn("Invalidar anterior y generar nuevo", "qr-replace")}</details>`,
@@ -449,7 +450,7 @@
       if (a === "qr-label") await qrLabel();
       if (a === "qr-back") await openDetail(detail.id);
       if (a === "qr-download")
-        window.ACQR.label(detail, qrData, brandName(detail.brand));
+        await window.ACQR.label(detail, qrData, brandName(detail.brand));
       if (a === "qr-replace") {
         const reason = $("#acf-qr-reason").value.trim();
         if (reason.length < 3)

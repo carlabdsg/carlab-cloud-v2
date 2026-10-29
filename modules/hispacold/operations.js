@@ -35,6 +35,7 @@ ALTER TABLE ac_requests ADD COLUMN IF NOT EXISTS deleted_by TEXT;
 ALTER TABLE ac_requests ADD COLUMN IF NOT EXISTS deletion_reason TEXT;
 CREATE INDEX IF NOT EXISTS ac_requests_brand_idx ON ac_requests(brand,created_at DESC);
 CREATE INDEX IF NOT EXISTS ac_requests_service_idx ON ac_requests(service_id);
+CREATE INDEX IF NOT EXISTS ac_requests_live_identity_idx ON ac_requests(brand,LOWER(TRIM(operator_company)),LOWER(TRIM(unit)),created_at DESC) WHERE deleted_at IS NULL;
 CREATE TABLE IF NOT EXISTS ac_request_events (
  id BIGSERIAL PRIMARY KEY, request_id TEXT NOT NULL REFERENCES ac_requests(id),
  actor TEXT NOT NULL, actor_name TEXT NOT NULL, action TEXT NOT NULL, details JSONB NOT NULL,
@@ -535,7 +536,7 @@ function register(
         ),
         offset = page(req.query);
       const r = await pool.query(
-        `SELECT * FROM hc_services WHERE ${w} ORDER BY service_date DESC,number DESC LIMIT 25 OFFSET $${params.length + 1}`,
+        `SELECT id,number,type,status,company,unit,service_date,next_date,version,deleted_at,deleted_by,delete_reason,created_at,updated_at,jsonb_build_object('brand',payload->'brand','attention',payload->'attention','technician',payload->'technician','symptoms',payload->'symptoms','result',payload->'result') AS payload FROM hc_services WHERE ${w} ORDER BY service_date DESC,number DESC LIMIT 25 OFFSET $${params.length + 1}`,
         [...params, offset],
       );
       res.json({
@@ -773,8 +774,10 @@ function register(
         `SELECT COUNT(*)::int total FROM ac_requests r LEFT JOIN hc_services s ON s.id=r.service_id AND LOWER(TRIM(s.company))=LOWER(TRIM(r.operator_company)) AND LOWER(TRIM(s.unit))=LOWER(TRIM(r.unit)) AND COALESCE(s.payload->>'brand','hispacold')=r.brand ${where}`,
         p,
       );
+      if (req.query.summary === "true")
+        return res.json({ total: count.rows[0].total });
       const r = await pool.query(
-        `SELECT r.*,s.status AS order_status,s.deleted_at AS order_deleted FROM ac_requests r LEFT JOIN hc_services s ON s.id=r.service_id AND LOWER(TRIM(s.company))=LOWER(TRIM(r.operator_company)) AND LOWER(TRIM(s.unit))=LOWER(TRIM(r.unit)) AND COALESCE(s.payload->>'brand','hispacold')=r.brand ${where} ORDER BY r.created_at DESC,r.number DESC LIMIT 25 OFFSET $${p.length + 1}`,
+        `SELECT r.id,r.number,r.client_key,r.kind,r.brand,r.operator_company,r.unit,r.status,r.payload - 'evidence' AS payload,r.service_id,r.version,r.created_by,r.updated_by,r.created_at,r.updated_at,r.deleted_at,r.deleted_by,r.deletion_reason,s.status AS order_status,s.deleted_at AS order_deleted FROM ac_requests r LEFT JOIN hc_services s ON s.id=r.service_id AND LOWER(TRIM(s.company))=LOWER(TRIM(r.operator_company)) AND LOWER(TRIM(s.unit))=LOWER(TRIM(r.unit)) AND COALESCE(s.payload->>'brand','hispacold')=r.brand ${where} ORDER BY r.created_at DESC,r.number DESC LIMIT 25 OFFSET $${p.length + 1}`,
         [...p, offset],
       );
       res.json({

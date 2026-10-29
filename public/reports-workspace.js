@@ -806,7 +806,8 @@
     els.empresa.addEventListener("change", () => {
       view.manualUnit = false;
       clearUnitFields();
-      renderUnitPicker();
+      view.units = [];
+      loadFormUnits();
     });
     // Associate the original labels with their inputs without replacing controls.
     form
@@ -917,7 +918,8 @@
     view.unitsError = false;
     renderUnitPicker();
     try {
-      const units = await api.getFleetUnits();
+      const company = els.empresa.value;
+      const units = company ? await api.request("/api/fleet/unit-options?empresa=" + encodeURIComponent(company)) : [];
       if (requestId !== view.unitLoadId) return;
       view.units = units;
     } catch {
@@ -1009,7 +1011,7 @@
       !Array.from(els.empresa.options).some((o) => o.value === unit.empresa)
     )
       els.empresa.add(new Option(unit.empresa, unit.empresa));
-    view.manualUnit = false;
+    view.manualUnit = !unit.id;
     els.empresa.value = unit.empresa || "";
     els.numeroEconomico.value = unit.numeroEconomico || "";
     els.numeroObra.value = unit.numeroObra?.trim() || "Pendiente";
@@ -1203,7 +1205,7 @@
             switchPanel("report");
           }),
         );
-      if (isRole("admin", "operativo", "supervisor_flotas"))
+      if (unit.id && isRole("admin", "operativo", "supervisor_flotas"))
         content.append(
           button("Consultar expediente", "btn btn-secondary", () => {
             root.close();
