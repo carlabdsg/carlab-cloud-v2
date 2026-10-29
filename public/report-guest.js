@@ -36,7 +36,6 @@
     : "/";
   if (/^[a-f0-9]{48}$/.test(code)) {
     $("chooseReport").href = "/reportar.html?code=" + code;
-    $("chooseReport").hidden = false;
   }
   async function request(method, body) {
     let response;
@@ -115,6 +114,9 @@
     }
     try {
       const data = await request("GET");
+      $("chooseReport").hidden = data.reportOptions?.ac !== true;
+      document.querySelector("main h1").textContent =
+        "Reportar daños y garantías";
       state.unit = data.unit;
       state.token = data.formToken;
       $("unitCompany").textContent = data.unit.empresa;

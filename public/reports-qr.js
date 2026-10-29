@@ -109,7 +109,9 @@
           );
     doc.link(x + 27 * scale, y + 79 * scale, 52 * scale, 52 * scale, { url });
     text(
-      "Reporte general o aire acondicionado",
+      unit.reportOptions?.ac === true
+        ? "Reporte general o aire acondicionado"
+        : "Daños y garantías",
       53,
       134,
       6.6,

@@ -35,6 +35,7 @@ test("Guest QR reports: fixed identity, isolated access, validation, idempotency
   assert.deepEqual(Object.keys(initial.body).sort(), [
     "formToken",
     "maxPhotos",
+    "reportOptions",
     "unit",
   ]);
   assert.deepEqual(Object.keys(initial.body.unit).sort(), [
@@ -213,10 +214,7 @@ test("Guest QR reports: fixed identity, isolated access, validation, idempotency
     redirect: "manual",
   });
   assert.equal(redirect.status, 302);
-  assert.equal(
-    redirect.headers.get("location"),
-    "/reportar.html?code=" + code,
-  );
+  assert.equal(redirect.headers.get("location"), "/reportar.html?code=" + code);
   const account = await fetch(h.url + "/?access=account&reportqr=" + code, {
     redirect: "manual",
   });

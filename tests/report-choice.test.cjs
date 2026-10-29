@@ -11,6 +11,16 @@ const photo =
     .toString("base64");
 test("General QR choice: AC intake, exact mapping, admin association, scope, replay and preservation", async (t) => {
   const h = await setup();
+  const qrConfig = (await h.call("/api/report-qr/settings?company=ANS")).body;
+  assert.equal(
+    (
+      await h.call("/api/report-qr/settings", {
+        method: "PATCH",
+        body: { company: "ANS", mode: "dual", version: qrConfig.version },
+      })
+    ).status,
+    200,
+  );
   t.after(() => h.close());
   const codes = (
     await h.call("/api/report-qr/batch", {
@@ -294,6 +304,17 @@ test("General QR choice: AC intake, exact mapping, admin association, scope, rep
   await h.db.query(
     "UPDATE fleet_units SET empresa='Otra empresa' WHERE id='unit-3'",
   );
+  const changedCompany = (
+    await h.call("/api/report-qr/settings?company=Otra%20empresa")
+  ).body;
+  await h.call("/api/report-qr/settings", {
+    method: "PATCH",
+    body: {
+      company: "Otra empresa",
+      mode: "dual",
+      version: changedCompany.version,
+    },
+  });
   assert.equal((await post({ ...valid, formToken: opened }, 2)).status, 409);
   const noauth = await fetch(h.url + "/api/ac/qr-intakes", {
     headers: { Authorization: "Bearer " + valid.formToken },

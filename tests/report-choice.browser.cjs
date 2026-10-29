@@ -8,6 +8,16 @@ const engine = process.env.BROWSER_ENGINE || "chromium",
 fs.mkdirSync(out, { recursive: true });
 (async () => {
   const h = await setup();
+  const qrConfig = (await h.call("/api/report-qr/settings?company=ANS")).body;
+  assert.equal(
+    (
+      await h.call("/api/report-qr/settings", {
+        method: "PATCH",
+        body: { company: "ANS", mode: "dual", version: qrConfig.version },
+      })
+    ).status,
+    200,
+  );
   let browser,
     page,
     admin,

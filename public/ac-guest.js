@@ -82,6 +82,8 @@
         { uncertain: method === "POST" },
       );
     }
+    if (!response.ok && fromReport && data.code === "REPORT_QR_GENERAL_ONLY")
+      location.replace("/reporte-qr.html?code=" + code);
     if (!response.ok)
       throw Object.assign(
         Error(data.error || "No se pudo completar la operación."),

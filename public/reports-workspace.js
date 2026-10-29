@@ -514,6 +514,13 @@
     qr.id = "rwFleetQr";
     qr.disabled = !scoped.length;
     controls.append(qr);
+    if (view.company && isRole("admin")) {
+      const config = button("Configurar QR", "btn btn-primary", () =>
+        openQrSettings(view.company, view.fleet || null),
+      );
+      config.id = "rwFleetQrSettings";
+      controls.append(config);
+    }
     heading.append(controls);
     nav.append(heading);
     const colors = ["green", "amber", "red", "blue"];
@@ -1029,6 +1036,67 @@
     document.body.append(root);
     root.showModal();
     return root;
+  }
+  async function openQrSettings(company, fleet) {
+    const root = dialog(
+      "Tipo de QR de la flota",
+      company + (fleet ? " · " + fleet : " · Todas las flotas"),
+    );
+    const content = root.querySelector(".rw-dialog-content");
+    content.innerHTML = '<p role="status">Consultando la configuración…</p>';
+    try {
+      const query = new URLSearchParams({ company });
+      if (fleet) query.set("fleet", fleet);
+      let config = await api.request("/api/report-qr/settings?" + query);
+      if (!root.isConnected) return;
+      const modeLabel = {
+        single: "Sencillo",
+        dual: "Doble",
+        mixed: "Mixto: hay flotas con distintas opciones",
+      };
+      content.innerHTML = `<div class="rw-qr-setting-summary"><span class="rw-eyebrow">CONFIGURACIÓN ACTUAL</span><strong id="rwQrModeCurrent">${esc(modeLabel[config.mode])}</strong><p>${config.unitCount} unidades · ${fleet ? "Solo se modifica la flota seleccionada." : "Al guardar, todas las flotas de esta empresa usarán la opción elegida."}</p></div>
+        <form id="rwQrModeForm"><fieldset class="rw-qr-mode-choices"><legend>¿Qué puede reportar quien escanea?</legend>
+        <label class="rw-qr-mode"><input type="radio" name="mode" value="single" required ${config.mode === "single" ? "checked" : ""}><span><b>QR sencillo</b><small>Daños y garantías</small><span>Abre directamente el formulario general.</span></span></label>
+        <label class="rw-qr-mode"><input type="radio" name="mode" value="dual" required ${config.mode === "dual" ? "checked" : ""}><span><b>QR doble</b><small>General + aire acondicionado</small><span>Permite elegir entre los dos tipos de reporte.</span></span></label></fieldset>
+        <p class="rw-qr-setting-note">Aplica a los QR ya pegados y a las nuevas unidades de ${fleet ? "esta flota" : "esta empresa"}. No necesitas imprimir otras etiquetas. Los reportes recibidos se conservan.</p>
+        <p id="rwQrModeMessage" role="status" aria-live="polite"></p><div class="rw-dialog-footer"><span>Puedes cambiar esta opción cuando lo necesites.</span><button id="rwQrModeSave" class="btn btn-primary" type="submit">Guardar configuración</button></div></form>`;
+      const form = content.querySelector("form");
+      form.onsubmit = async (event) => {
+        event.preventDefault();
+        const mode = new FormData(form).get("mode"),
+          save = $("rwQrModeSave"),
+          message = $("rwQrModeMessage");
+        if (save.disabled) return;
+        save.disabled = true;
+        form.querySelector("fieldset").disabled = true;
+        message.textContent = "Guardando…";
+        try {
+          config = await api.request("/api/report-qr/settings", {
+            method: "PATCH",
+            body: JSON.stringify({
+              company,
+              fleet,
+              mode,
+              version: config.version,
+            }),
+          });
+          content.querySelector("#rwQrModeCurrent").textContent =
+            modeLabel[config.mode];
+          message.textContent =
+            "Guardado. Los QR existentes ya usan el modo " +
+            modeLabel[config.mode].toLowerCase() +
+            ".";
+          notify("Configuración de QR guardada.");
+        } catch (error) {
+          message.textContent = error.message;
+        } finally {
+          save.disabled = false;
+          form.querySelector("fieldset").disabled = false;
+        }
+      };
+    } catch (error) {
+      content.textContent = error.message;
+    }
   }
   function openQr(units) {
     if (!units.length) return;

@@ -2243,3 +2243,82 @@ body#carlabWorkspace[data-role="operador"] .rw-report-search {
     padding: 16px !important;
   }
 }
+
+/* Fleet QR mode settings. Existing printed codes resolve the current setting. */
+body#carlabWorkspace.carlab-workspace .rw-qr-setting-summary {
+  padding: 18px;
+  border: 1px solid #dce3ed;
+  border-radius: 12px;
+  background: #f5f7fc;
+  margin-bottom: 22px;
+}
+body#carlabWorkspace.carlab-workspace .rw-qr-setting-summary strong {
+  display: block;
+  font-size: 24px;
+  color: #1c293e;
+  margin: 8px 0;
+}
+body#carlabWorkspace.carlab-workspace .rw-qr-setting-summary p {
+  margin: 0;
+  line-height: 1.6;
+}
+body#carlabWorkspace.carlab-workspace .rw-qr-mode-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 0;
+  padding: 0;
+  gap: 14px;
+  margin: 0;
+}
+body#carlabWorkspace.carlab-workspace .rw-qr-mode-choices legend {
+  font-weight: 700;
+  padding: 0 0 14px;
+}
+body#carlabWorkspace.carlab-workspace .rw-qr-mode {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px;
+  border: 2px solid #e0e5ee;
+  border-radius: 12px;
+  cursor: pointer;
+}
+body#carlabWorkspace.carlab-workspace .rw-qr-mode:has(input:checked) {
+  border-color: #b92869;
+  background: #fff5fa;
+}
+body#carlabWorkspace.carlab-workspace .rw-qr-mode:focus-within {
+  outline: 2px solid #b92869;
+  outline-offset: 3px;
+}
+body#carlabWorkspace.carlab-workspace .rw-qr-mode input {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  margin: 3px 0 0;
+  accent-color: #b92869;
+}
+body#carlabWorkspace.carlab-workspace .rw-qr-mode b {
+  display: block;
+  font-size: 18px;
+}
+body#carlabWorkspace.carlab-workspace .rw-qr-mode small {
+  display: block;
+  margin: 8px 0;
+  color: #a4215a;
+  font-weight: 700;
+}
+body#carlabWorkspace.carlab-workspace .rw-qr-mode span span,
+body#carlabWorkspace.carlab-workspace .rw-qr-setting-note {
+  font-size: 14px;
+  line-height: 1.65;
+  color: #596b85;
+}
+body#carlabWorkspace.carlab-workspace .rw-qr-setting-note {
+  margin: 20px 0;
+}
+@media (max-width: 620px) {
+  body#carlabWorkspace.carlab-workspace .rw-qr-mode-choices {
+    grid-template-columns: 1fr;
+  }
+}

@@ -23,6 +23,10 @@
       });
       const data = await r.json();
       if (!r.ok) throw Error(data.error || "No se pudo consultar la unidad.");
+      if (data.reportOptions?.ac !== true) {
+        location.replace("/reporte-qr.html?code=" + code);
+        return;
+      }
       $("unitCompany").textContent = data.unit.empresa;
       $("unitNumber").textContent = "Unidad " + data.unit.numeroEconomico;
       $("unitModel").textContent = [data.unit.marca, data.unit.modelo]

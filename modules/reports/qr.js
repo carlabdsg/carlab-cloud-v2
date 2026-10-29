@@ -1,5 +1,6 @@
 "use strict";
 const crypto = require("node:crypto");
+const settings = require("./qr-settings");
 
 // Additive QR registry. Existing units and report records are never rewritten.
 function register(app, { pool, authRequired, normalizedIdentitySql }) {
@@ -13,7 +14,7 @@ function register(app, { pool, authRequired, normalizedIdentitySql }) {
         fleet_unit_id TEXT PRIMARY KEY REFERENCES fleet_units(id) ON DELETE CASCADE,
         token TEXT NOT NULL UNIQUE,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );`,
+      );` + settings.schema,
         )
         .catch((error) => {
           initialization = null;
@@ -21,6 +22,7 @@ function register(app, { pool, authRequired, normalizedIdentitySql }) {
         });
     return initialization;
   }
+  settings.register(app, { pool, ready, authRequired });
   const allowed = [
     "admin",
     "operativo",
@@ -50,14 +52,13 @@ function register(app, { pool, authRequired, normalizedIdentitySql }) {
     } catch (error) {
       console.error("[report-qr]", error.message);
       if (!res.headersSent)
-        res
-          .status(500)
-          .json({
-            error: "No se pudieron preparar las etiquetas. Intenta nuevamente.",
-          });
+        res.status(500).json({
+          error: "No se pudieron preparar las etiquetas. Intenta nuevamente.",
+        });
     }
   };
-  const map = (row) => ({
+  const map = (row, reportOptions) => ({
+    reportOptions,
     id: row.id,
     empresa: row.empresa,
     nombreFlota: row.nombre_flota || "",
@@ -75,12 +76,10 @@ function register(app, { pool, authRequired, normalizedIdentitySql }) {
       const user = await currentUser(req, res);
       if (!user) return;
       if (user.role === "operador")
-        return res
-          .status(403)
-          .json({
-            error:
-              "La descarga de etiquetas está disponible para administración y supervisión.",
-          });
+        return res.status(403).json({
+          error:
+            "La descarga de etiquetas está disponible para administración y supervisión.",
+        });
       const ids = req.body?.unitIds;
       if (
         !Array.isArray(ids) ||
@@ -109,12 +108,10 @@ function register(app, { pool, authRequired, normalizedIdentitySql }) {
         );
         if (units.rows.length !== ids.length) {
           await client.query("ROLLBACK");
-          return res
-            .status(404)
-            .json({
-              error:
-                "Una o más unidades ya no están disponibles en tu flota. Actualiza la lista.",
-            });
+          return res.status(404).json({
+            error:
+              "Una o más unidades ya no están disponibles en tu flota. Actualiza la lista.",
+          });
         }
         const tokens = ids.map(() => crypto.randomBytes(24).toString("hex"));
         await client.query(
@@ -131,8 +128,20 @@ function register(app, { pool, authRequired, normalizedIdentitySql }) {
           codes.rows.map((row) => [row.fleet_unit_id, row.token]),
         );
         const rows = new Map(units.rows.map((row) => [row.id, row]));
+        const configs = new Map();
+        for (const row of units.rows)
+          if (!configs.has(row.empresa))
+            configs.set(row.empresa, await settings.read(client, row.empresa));
         res.json({
-          units: ids.map((id) => map({ ...rows.get(id), token: byId.get(id) })),
+          units: ids.map((id) =>
+            map(
+              { ...rows.get(id), token: byId.get(id) },
+              settings.resolve(
+                configs.get(rows.get(id).empresa),
+                rows.get(id).nombre_flota,
+              ),
+            ),
+          ),
         });
       } catch (error) {
         await client.query("ROLLBACK").catch(() => {});
@@ -166,7 +175,7 @@ function register(app, { pool, authRequired, normalizedIdentitySql }) {
           .status(404)
           .json({ error: "La unidad no está disponible para tu cuenta." });
       res.json({
-        unit: map(result.rows[0]),
+        unit: map(result.rows[0], await settings.options(pool, result.rows[0])),
         canReport: ["admin", "operador"].includes(user.role),
       });
     }),

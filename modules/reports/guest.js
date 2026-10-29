@@ -1,5 +1,6 @@
 "use strict";
 const crypto = require("node:crypto");
+const qrSettings = require("./qr-settings");
 const fail = (status, message) => Object.assign(new Error(message), { status });
 const codePattern = /^[a-f0-9]{48}$/;
 const MAX_PHOTO = 650 * 1024;
@@ -129,7 +130,7 @@ function register(
   }
   const readUnit = (client, code, lock = false) =>
     client.query(
-      `SELECT u.id,u.empresa,u.numero_economico,u.numero_obra,u.modelo,u.marca FROM report_unit_qr q JOIN fleet_units u ON u.id=q.fleet_unit_id WHERE q.token=$1${lock ? " FOR UPDATE OF u" : ""}`,
+      `SELECT u.id,u.empresa,u.nombre_flota,u.numero_economico,u.numero_obra,u.modelo,u.marca FROM report_unit_qr q JOIN fleet_units u ON u.id=q.fleet_unit_id WHERE q.token=$1${lock ? " FOR UPDATE OF u" : ""}`,
       [code],
     );
   const receipt = (row) => ({
@@ -174,6 +175,7 @@ function register(
         );
       res.json({
         unit: unit(row),
+        reportOptions: await qrSettings.options(pool, row),
         formToken: issue(req.params.code, row),
         maxPhotos: 4,
       });

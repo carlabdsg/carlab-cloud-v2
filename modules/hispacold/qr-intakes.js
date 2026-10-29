@@ -1,5 +1,6 @@
 "use strict";
 const crypto = require("node:crypto");
+const qrSettings = require("../reports/qr-settings");
 const fail = (status, message) => Object.assign(new Error(message), { status });
 const codePattern = /^[a-f0-9]{48}$/;
 const MAX_PHOTO = 650 * 1024;
@@ -205,7 +206,7 @@ function registerPublic(
     }));
   const read = (db, code, lock = false) =>
     db.query(
-      `SELECT g.id,g.empresa,g.numero_economico,g.modelo,g.marca FROM report_unit_qr q JOIN fleet_units g ON g.id=q.fleet_unit_id WHERE q.token=$1${lock ? " FOR UPDATE OF g,q" : ""}`,
+      `SELECT g.id,g.empresa,g.nombre_flota,g.numero_economico,g.modelo,g.marca FROM report_unit_qr q JOIN fleet_units g ON g.id=q.fleet_unit_id WHERE q.token=$1${lock ? " FOR UPDATE OF g,q" : ""}`,
       [code],
     );
   const sign = (code, nonce, expires, u) =>
@@ -264,6 +265,7 @@ function registerPublic(
       if (!e.status) console.error("[ac-qr-intake]", e.message);
       if (e.status === 429) res.set("Retry-After", "3600");
       res.status(e.status || 500).json({
+        ...(e.code === "REPORT_QR_GENERAL_ONLY" ? { code: e.code } : {}),
         error: e.status
           ? e.message
           : "No se pudo confirmar el reporte. Conserva esta página e intenta nuevamente.",
@@ -277,6 +279,14 @@ function registerPublic(
       const u = (await read(pool, req.params.code)).rows[0];
       if (!u)
         throw fail(404, "La unidad de esta etiqueta ya no está disponible.");
+      if (!(await qrSettings.options(pool, u)).ac)
+        throw Object.assign(
+          fail(
+            403,
+            "Esta flota tiene QR sencillo: únicamente daños y garantías.",
+          ),
+          { code: "REPORT_QR_GENERAL_ONLY" },
+        );
       const ac = await matchUnit(pool, u);
       res.json({
         unit: {
@@ -338,6 +348,7 @@ function registerPublic(
         await db.query("BEGIN");
         const u = (await read(db, req.params.code, true)).rows[0];
         if (!u) throw fail(404, "La unidad ya no está disponible.");
+        await qrSettings.requireAC(db, u);
         const nonce = verify(b.formToken, req.params.code, u),
           previous = (
             await db.query(
