@@ -63,10 +63,15 @@ const api = {
     try {
       data = text ? JSON.parse(text) : null;
     } catch (_error) {
-      if (!response.ok) throw new Error(`Error ${response.status}: el servidor respondió fuera de formato JSON.`);
+      if (!response.ok) { const error = new Error(`Error ${response.status}: el servidor no está disponible. Intenta nuevamente.`); error.status = response.status; throw error; }
       throw new Error('La respuesta del servidor no se pudo interpretar.');
     }
-    if (!response.ok) throw new Error(data?.error || `Error ${response.status}.`);
+    if (!response.ok) {
+      const error = new Error(data?.error || `Error ${response.status}.`);
+      error.status = response.status;
+      error.retryable = !!data?.retryable || response.status === 503;
+      throw error;
+    }
     return data;
   },
   login(email, password) { return this.request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }); },
@@ -124,6 +129,12 @@ const api = {
   getFleetUnitSchedules(id) { return this.request(`/api/fleet/units/${id}/schedules`); },
   getFleetUnitParts(id) { return this.request(`/api/fleet/units/${id}/parts`); },
   createFleetUnit(payload) { return this.request('/api/fleet/units', { method: 'POST', body: JSON.stringify(payload) }); },
+  async createFleetBatch(payload) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
+    try { return await this.request('/api/fleet/units/batch', { method: 'POST', body: JSON.stringify(payload), signal: controller.signal }); }
+    finally { clearTimeout(timeout); }
+  },
   updateFleetUnit(id, payload) { return this.request(`/api/fleet/units/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }); },
   updateFleetStatus(id, payload) { return this.request(`/api/fleet/units/${id}/status`, { method: 'PATCH', body: JSON.stringify(payload) }); },
   deleteFleetUnit(id) { return this.request(`/api/fleet/units/${id}`, { method: 'DELETE' }); },
@@ -566,6 +577,7 @@ function resetCompanyForm() {
   els.companyCancelEditBtn?.classList.add('hidden');
 }
 function setFleetEntryMode(mode = 'single') {
+  if (state.fleetBatchSaving) return;
   state.fleetEntryMode = mode === 'batch' ? 'batch' : 'single';
   const isBatch = state.fleetEntryMode === 'batch';
   document.getElementById('fleetIndividualForm')?.classList.toggle('hidden', isBatch);
@@ -597,6 +609,7 @@ function clearFleetBatchForm() {
   if (summary) summary.textContent = '';
 }
 function resetFleetForm() {
+  if (state.fleetBatchSaving) return;
   state.fleetDirty = false;
   state.editingFleetUnitId = '';
   state.fleetEntryMode = 'single';
@@ -610,6 +623,7 @@ function resetFleetForm() {
   if (els.fleetEmpresa && !['supervisor','supervisor_flotas'].includes(state.user?.role)) els.fleetEmpresa.value = '';
 }
 function beginFleetEdit(unit) {
+  if (state.fleetBatchSaving) return;
   if (window.CarlabReportsUI) closeFleetDetailModal();
   state.editingFleetUnitId = unit.id;
   state.fleetEntryMode = 'single';
@@ -633,6 +647,7 @@ function parseFleetBatchUnits(text = '') {
   const push = (value) => {
     const clean = String(value || '').trim().replace(/\s+/g, ' ');
     if (clean && !units.some(item => normalizeIdentityKey(item) === normalizeIdentityKey(clean))) units.push(clean);
+    if (units.length > 500) throw new Error('El lote admite hasta 500 unidades. Divide la lista en lotes más pequeños.');
   };
   String(text || '').split(/[\n,]+/).map(part => part.trim()).filter(Boolean).forEach(part => {
     const range = part.match(/^([A-Za-zÁÉÍÓÚÑáéíóúñ\s]*?)(\d+)\s*-\s*([A-Za-zÁÉÍÓÚÑáéíóúñ\s]*?)(\d+)$/);
@@ -644,7 +659,8 @@ function parseFleetBatchUnits(text = '') {
         const end = Number(range[4]);
         const width = Math.max(range[2].length, range[4].length);
         const step = start <= end ? 1 : -1;
-        if (Math.abs(end - start) <= 500) {
+        if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || Math.abs(end - start) >= 500) throw new Error('Cada lote admite hasta 500 unidades. Revisa el rango capturado.');
+        if (Math.abs(end - start) < 500) {
           for (let n = start; step > 0 ? n <= end : n >= end; n += step) push(`${prefixA}${String(n).padStart(width, '0')}`);
           return;
         }
@@ -655,43 +671,66 @@ function parseFleetBatchUnits(text = '') {
   return units;
 }
 async function saveFleetBatch() {
-  const empresa = String(document.getElementById('fleetBatchEmpresa')?.value || '').trim();
-  const numeros = parseFleetBatchUnits(document.getElementById('fleetBatchNumeros')?.value || '');
+  if (state.fleetBatchSaving) return;
+  const value = id => String(document.getElementById(id)?.value || '').trim();
+  const empresa = value('fleetBatchEmpresa');
+  const field = document.getElementById('fleetBatchNumeros');
+  const numeros = parseFleetBatchUnits(field?.value || '');
   const summary = document.getElementById('fleetBatchSummary');
   if (!empresa) throw new Error('Captura la empresa para registrar el lote.');
   if (!numeros.length) throw new Error('Captura al menos un número económico para el lote.');
-  const companyKey = normalizeIdentityKey(empresa);
-  const duplicates = [];
-  const toCreate = numeros.filter(num => {
-    const exists = (state.fleetUnits || []).some(unit => normalizeIdentityKey(unit.numeroEconomico) === normalizeIdentityKey(num) && normalizeIdentityKey(unit.empresa) === companyKey);
-    if (exists) duplicates.push(num);
-    return !exists;
-  });
-  let created = 0;
-  let failed = 0;
-  for (const numeroEconomico of toCreate) {
-    const payload = {
-      empresa,
-      nombreFlota: String(document.getElementById('fleetBatchNombreFlota')?.value || '').trim(),
-      numeroEconomico,
-      numeroObra: String(document.getElementById('fleetBatchNumeroObra')?.value || '').trim(),
-      marca: String(document.getElementById('fleetBatchMarca')?.value || '').trim(),
-      modelo: String(document.getElementById('fleetBatchModelo')?.value || '').trim(),
-      anio: String(document.getElementById('fleetBatchAnio')?.value || '').trim(),
-      kilometraje: String(document.getElementById('fleetBatchKilometraje')?.value || '').trim(),
-      polizaActiva: !!document.getElementById('fleetBatchPolizaActiva')?.checked,
-      campaignActiva: !!document.getElementById('fleetBatchCampaignActiva')?.checked,
-    };
-    try { await api.createFleetUnit(payload); created += 1; }
-    catch (_error) { failed += 1; }
-  }
-  const msg = `Se crearon ${created} unidades. Se omitieron ${duplicates.length} duplicadas${failed ? ` y fallaron ${failed}` : ''}.`;
-  if (summary) summary.textContent = msg;
-  notify(msg, failed > 0);
-  state.fleetDirty = false;
-  if (created > 0) {
-    resetFleetForm();
+  const payload = {
+    empresa,
+    nombreFlota: value('fleetBatchNombreFlota'),
+    numeroObra: value('fleetBatchNumeroObra'),
+    marca: value('fleetBatchMarca'),
+    modelo: value('fleetBatchModelo'),
+    anio: value('fleetBatchAnio'),
+    kilometraje: value('fleetBatchKilometraje'),
+    polizaActiva: !!document.getElementById('fleetBatchPolizaActiva')?.checked,
+    campaignActiva: !!document.getElementById('fleetBatchCampaignActiva')?.checked,
+  };
+  const controls = [...document.querySelectorAll('#fleetFormBox input, #fleetFormBox textarea, #fleetFormBox select, #fleetFormBox button, #fleetNewBtn, #fleetCancelBtn')];
+  const previousDisabled = controls.map(el => el.disabled);
+  const save = document.getElementById('fleetBatchSaveBtn');
+  const previousLabel = save?.textContent;
+  let processed = 0, created = 0, existing = 0;
+  state.fleetBatchSaving = true;
+  state.fleetDirty = true;
+  controls.forEach(el => { el.disabled = true; });
+  const progress = message => {
+    if (summary) { summary.setAttribute('role', 'status'); summary.setAttribute('aria-live', 'polite'); summary.textContent = message; }
+  };
+  try {
+    while (processed < numeros.length) {
+      const block = numeros.slice(processed, processed + 50);
+      progress(`Verificando y guardando ${processed + 1}–${processed + block.length} de ${numeros.length} unidades… ${created} nuevas · ${existing} existentes.`);
+      if (save) save.textContent = `Guardando ${processed}/${numeros.length}…`;
+      const result = await api.createFleetBatch({ ...payload, numeros: block });
+      if (!Array.isArray(result?.created) || !Array.isArray(result?.existing) || result.processed !== block.length || result.created.length + result.existing.length !== block.length) {
+        throw new Error('No se pudo confirmar el resultado del bloque.');
+      }
+      created += result.created.length;
+      existing += result.existing.length;
+      processed += block.length;
+      // Only remove confirmed blocks. An uncertain result can be submitted again safely.
+      if (field) field.value = numeros.slice(processed).join('\n');
+    }
+    state.fleetDirty = false;
+    const message = `Lote completado: ${created} unidades nuevas y ${existing} existentes conservadas sin cambios.`;
+    progress(message);
+    notify(message);
     await loadFleet();
+  } catch (error) {
+    if (field) field.value = numeros.slice(processed).join('\n');
+    const reason = error.name === 'AbortError' ? 'Se agotó el tiempo de espera.' : error.message;
+    const message = `Carga detenida. ${processed} de ${numeros.length} unidades verificadas (${created} nuevas, ${existing} existentes). Quedan ${numeros.length - processed} por confirmar en el formulario. ${reason} Puedes volver a guardar el lote; las unidades existentes se omitirán.`;
+    progress(message);
+    notify(`Carga detenida: ${numeros.length - processed} unidades por confirmar. Revisa el aviso del formulario.`, true);
+  } finally {
+    state.fleetBatchSaving = false;
+    controls.forEach((el, i) => { el.disabled = previousDisabled[i]; });
+    if (save) save.textContent = previousLabel;
   }
 }
 
@@ -2319,7 +2358,12 @@ async function exportCommercialPdf(quote) {
   }
 }
 
-async function loadFleet() {
+let fleetLoadPromise = null;
+function loadFleet() {
+  if (!fleetLoadPromise) fleetLoadPromise = loadFleetOnce().finally(() => { fleetLoadPromise = null; });
+  return fleetLoadPromise;
+}
+async function loadFleetOnce() {
   try {
     const canManageFleet = isRole('admin','operativo');
     els.fleetSaveBtn?.classList.toggle('hidden', !canManageFleet);
@@ -2355,7 +2399,7 @@ async function loadFleet() {
       state.fleetUnits = previousUnits;
     }
     if (analyticsRes.status === 'fulfilled') state.fleetAnalytics = analyticsRes.value || state.fleetAnalytics;
-    if (preservingFleet && previousUnits.length) notify('Conservando última flota cargada. Reintentando conexión.');
+    if (preservingFleet && previousUnits.length) notify('No se pudo actualizar la flota. Se conserva la última consulta; vuelve a pulsar Actualizar en unos segundos.');
     if (unitsRes.status !== 'fulfilled' && !previousUnits.length) throw unitsRes.reason || new Error('No se pudieron cargar unidades de flota.');
     if (state.selectedFleetUnit?.unit?.id) {
       const still = state.fleetUnits.find(u => u.id === state.selectedFleetUnit.unit.id);
@@ -3991,7 +4035,7 @@ els.scheduleManualForm?.addEventListener('submit', async (e) => {
   }
 });
 
-els.fleetRefreshBtn?.addEventListener('click', async () => { await loadFleet(); switchPanel('fleet'); });
+els.fleetRefreshBtn?.addEventListener('click', () => { if (state.activePanel === 'fleet') loadFleet(); else switchPanel('fleet'); });
 els.partsRefreshBtn?.addEventListener('click', async () => { await loadPartsPending(true); switchPanel('parts'); });
 els.fleetSearchInput?.addEventListener('input', renderFleet);
 els.fleetStatusFilter?.addEventListener('change', () => { document.querySelectorAll('#fleetPanel [data-fleet-filter]').forEach(btn => btn.classList.toggle('active', btn.dataset.fleetFilter === (els.fleetStatusFilter?.value || 'todos'))); renderFleet(); });
@@ -4007,6 +4051,7 @@ document.querySelectorAll('#fleetPanel [data-fleet-filter]').forEach(btn => btn.
   el?.addEventListener('change', () => resetFleetBulkDeletePreview());
 });
 els.fleetSaveBtn?.addEventListener('click', async () => {
+  if (state.fleetBatchSaving) return;
   try {
     if (!state.editingFleetUnitId && state.fleetEntryMode === 'batch') { await saveFleetBatch(); return; }
     const payload = {
@@ -4086,8 +4131,10 @@ els.companyForm?.addEventListener('submit', async (e) => {
     renderCommandSidePanels();
     if (isRole('admin')) await Promise.allSettled([loadUsers(), loadRequests()]);
     resetReportForm(); resetCompanyForm(); resetFleetForm(); await window.CarlabReportsUI?.sessionReady();
-  } catch {
-    localStorage.removeItem('carlabToken'); state.token = ''; showLogin();
+  } catch (error) {
+    if ([401, 403, 404].includes(error.status)) { localStorage.removeItem('carlabToken'); state.token = ''; }
+    showLogin();
+    notify([401, 403, 404].includes(error.status) ? 'Vuelve a iniciar sesión.' : 'No se pudo conectar. Tu sesión se conserva; espera unos segundos y recarga la página.', true);
   }
 })();
 
@@ -4126,3 +4173,7 @@ document.querySelectorAll('.aa-template').forEach(btn => btn.addEventListener('c
 els.authorizedActivitiesClose?.addEventListener('click', closeAuthorizedActivitiesModal);
 els.authorizedActivitiesCancelBtn?.addEventListener('click', closeAuthorizedActivitiesModal);
 els.authorizedActivitiesSaveBtn?.addEventListener('click', async (event) => { event.preventDefault(); await saveAuthorizedActivities(); });
+
+window.addEventListener('beforeunload', event => {
+  if (state.fleetBatchSaving || (state.fleetEntryMode === 'batch' && state.fleetDirty)) { event.preventDefault(); event.returnValue = ''; }
+});

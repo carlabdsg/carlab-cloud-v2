@@ -55,10 +55,13 @@ pool.on('error', (error) => {
 });
 
 
-const TRANSIENT_DB_ERROR_CODES = new Set(['57P03', '57P01', '57P02', '08006', '08003', '53300', 'ECONNRESET', 'ETIMEDOUT']);
+const TRANSIENT_DB_ERROR_CODES = new Set(['57P03', '57P01', '57P02', '08006', '08003', '08001', '08004', '08007', '53300', '55P03', 'ECONNRESET', 'ETIMEDOUT']);
 const TRANSIENT_DB_ERROR_PATTERNS = [
   /connection terminated unexpectedly/i,
   /database system is in recovery mode/i,
+  /server_login_retry/i,
+  /server conn crashed/i,
+  /canceling statement due to statement timeout/i,
   /terminating connection/i,
   /connection timeout/i,
   /timeout exceeded/i,
@@ -87,7 +90,7 @@ async function dbQuery(sql, params = [], options = {}) {
       return await pool.query(sql, params);
     } catch (error) {
       lastError = error;
-      if (!isTransientDbError(error) || attempt >= retries) break;
+      if (!isTransientDbError(error) || attempt >= retries || /recovery mode|server_login_retry|server conn crashed/i.test(String(error.message || ''))) break;
       const delay = 250 * (attempt + 1);
       console.warn(`[db][retry] ${label} intento ${attempt + 1}/${retries + 1}: ${error?.code || ''} ${error?.message || error}`);
       await sleep(delay);
@@ -98,7 +101,16 @@ async function dbQuery(sql, params = [], options = {}) {
 
 function respondDbError(res, error, message = 'No se pudo cargar la información.') {
   const retryable = isTransientDbError(error);
-  return res.status(retryable ? 503 : 500).json({ error: message, retryable });
+  if (retryable) res.set('Retry-After', '15');
+  return res.status(retryable ? 503 : 500).json({
+    error: retryable ? 'La base de datos no está disponible temporalmente. Espera unos segundos y vuelve a intentar.' : message,
+    retryable
+  });
+}
+
+// Express 4 needs rejected route promises forwarded explicitly. Never replay writes here.
+function asyncRoute(handler) {
+  return (req, res, next) => Promise.resolve().then(() => handler(req, res, next)).catch(next);
 }
 
 app.use(compression());
@@ -1380,17 +1392,19 @@ app.get('/api/health', async (_req, res) => {
     const result = await pool.query('SELECT NOW() AS now');
     res.json({ ok: true, db: result.rows[0].now });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ ok: false, error: 'No hubo conexión con la base.' });
+    console.error('[health]', error?.message || error);
+    const retryable = isTransientDbError(error);
+    if (retryable) res.set('Retry-After', '15');
+    res.status(retryable ? 503 : 500).json({ ok: false, error: 'No hubo conexión con la base.', retryable });
   }
 });
 
-app.get('/api/public/companies', async (_req, res) => {
+app.get('/api/public/companies', asyncRoute(async (_req, res) => {
   const result = await pool.query('SELECT * FROM companies WHERE activo = TRUE ORDER BY nombre ASC');
   res.json(result.rows.map(mapCompany));
-});
+}));
 
-app.post('/api/public/register-operator', async (req, res) => {
+app.post('/api/public/register-operator', asyncRoute(async (req, res) => {
   const nombre = String(req.body.nombre || '').trim();
   const email = String(req.body.email || '').trim().toLowerCase();
   const telefono = normalizeMxPhone(req.body.telefono);
@@ -1427,9 +1441,9 @@ app.post('/api/public/register-operator', async (req, res) => {
   );
 
   res.status(201).json({ ok: true, message: 'Solicitud enviada. Un administrador debe aprobar tu acceso.', request: mapRegistrationRequest(result.rows[0]) });
-});
+}));
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', asyncRoute(async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   const password = String(req.body.password || '');
 
@@ -1448,18 +1462,18 @@ app.post('/api/auth/login', async (req, res) => {
 
   const token = signToken(user);
   res.json({ token, user: sanitizeUser(user) });
-});
+}));
 
-app.get('/api/auth/me', authRequired, async (req, res) => {
+app.get('/api/auth/me', authRequired, asyncRoute(async (req, res) => {
   const result = await pool.query('SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL', [req.user.id]);
   if (!result.rowCount) return res.status(404).json({ error: 'Usuario no encontrado.' });
   res.json({ user: sanitizeUser(result.rows[0]) });
-});
+}));
 
-app.get('/api/companies', authRequired, requireRoles('admin'), async (_req, res) => {
+app.get('/api/companies', authRequired, requireRoles('admin'), asyncRoute(async (_req, res) => {
   const result = await pool.query('SELECT * FROM companies ORDER BY nombre ASC');
   res.json(result.rows.map(mapCompany));
-});
+}));
 
 app.post('/api/companies', authRequired, requireRoles('admin'), async (req, res) => {
   const nombre = String(req.body.nombre || '').trim();
@@ -2522,7 +2536,7 @@ app.get('/api/fleet/units', authRequired, requireRoles('admin','operativo','supe
     garantia_stats AS (
       SELECT
         us.id AS fleet_unit_id,
-        COUNT(g.*)::int AS reportes_count,
+        COUNT(g.id)::int AS reportes_count,
         COUNT(*) FILTER (
           WHERE g.id IS NOT NULL
             AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
@@ -2664,7 +2678,7 @@ app.get('/api/fleet/analytics', authRequired, requireRoles('admin','operativo','
       garantia_stats AS MATERIALIZED (
         SELECT
           us.id AS fleet_unit_id,
-          COUNT(g.*)::int AS reportes_count,
+          COUNT(g.id)::int AS reportes_count,
           COUNT(*) FILTER (
             WHERE g.id IS NOT NULL
               AND COALESCE(LOWER(TRIM(g.estatus_operativo)), '') NOT IN ('terminada','rechazada')
@@ -2825,7 +2839,9 @@ app.get('/api/fleet/analytics', authRequired, requireRoles('admin','operativo','
   }
 });
 
-app.post('/api/fleet/units', authRequired, requireRoles('admin','operativo'), async (req, res) => {
+require('./modules/fleet/batch').register(app, { pool, authRequired, requireRoles, asyncRoute, normalizedIdentitySql, normalizeIdentityValue });
+
+app.post('/api/fleet/units', authRequired, requireRoles('admin','operativo'), asyncRoute(async (req, res) => {
   const body = req.body || {};
   const empresa = String(body.empresa || '').trim();
   const numeroEconomico = String(body.numeroEconomico || '').trim();
@@ -2860,7 +2876,7 @@ app.post('/api/fleet/units', authRequired, requireRoles('admin','operativo'), as
   ]);
   await backfillFleetUnitIdForGarantiasByIdentity(empresa, numeroEconomico, result.rows[0].id);
   res.status(201).json(mapFleetUnit(result.rows[0]));
-});
+}));
 
 app.patch('/api/fleet/units/:id', authRequired, requireRoles('admin'), async (req, res) => {
   const current = await pool.query('SELECT * FROM fleet_units WHERE id = $1', [req.params.id]);
@@ -4161,6 +4177,13 @@ require('./modules/reports/quotations').register(app, { pool, authRequired, norm
 
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.use((error, req, res, next) => {
+  if (res.headersSent) return next(error);
+  console.error(`[api] ${req.method} ${req.path}:`, error?.message || error);
+  if (error.status === 400 || error.status === 413) return res.status(error.status).json({ error: error.status === 413 ? 'La solicitud supera el tamaño permitido.' : 'La solicitud no tiene un formato válido.' });
+  return respondDbError(res, error, 'No se pudo completar la solicitud. Intenta nuevamente.');
 });
 
 initDb()

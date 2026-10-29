@@ -512,9 +512,9 @@
                 <div class="fleet-batch-numbers">
                   <label>Números económicos</label>
                   <textarea id="fleetBatchNumeros" rows="5" placeholder="B100-B126&#10;AUS 346, AUS 347&#10;502&#10;503"></textarea>
-                  <small>Acepta uno por línea, separados por coma o rangos como B100-B126.</small>
+                  <small>Hasta 500 unidades por lote: una por línea, separadas por coma o rangos como B100-B126. Se verifican en bloques de 50; las existentes se conservan.</small>
                 </div>
-                <div id="fleetBatchSummary" class="fleet-batch-summary muted"></div>
+                <div id="fleetBatchSummary" class="fleet-batch-summary muted" role="status" aria-live="polite"></div>
                 <div class="fleet-form-actions">
                   <button id="fleetBatchSaveBtn" class="fleet-primary-button hidden" type="button">Guardar lote</button>
                 </div>
@@ -876,7 +876,7 @@
   </div>
 
   <script src="/vendor/hc-jspdf.umd.min.js"></script>
-  <script src="/app.min.js?v=20261025-reportes73"></script>
+  <script src="/app.min.js?v=20261029-lotes781"></script>
   <script src="/agenda-pro.js?v=1"></script>
   <script src="/vendor/ac-qrcode.js"></script>
   <script src="/reports-qr.js?v=7.8"></script>
