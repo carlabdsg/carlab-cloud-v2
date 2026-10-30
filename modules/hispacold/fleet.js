@@ -267,8 +267,8 @@ function register(
   });
   async function companies(req) {
     const r = await pool.query(
-      `SELECT c.* FROM ac_fleet_companies c ${req.acAdmin ? "" : req.acCompanyId ? "WHERE c.id=$1" : "WHERE EXISTS(SELECT 1 FROM ac_fleet_units u WHERE u.company_id=c.id AND u.brand=$1 AND u.active=TRUE)"} ORDER BY c.name`,
-      req.acAdmin ? [] : [req.acCompanyId || req.acBrand],
+      `SELECT c.* FROM ac_fleet_companies c ${req.acAdmin ? "" : req.acCompany ? "WHERE LOWER(TRIM(c.name))=LOWER(TRIM($1))" : "WHERE EXISTS(SELECT 1 FROM ac_fleet_units u WHERE u.company_id=c.id AND u.brand=$1 AND u.active=TRUE)"} ORDER BY c.name`,
+      req.acAdmin ? [] : [req.acCompany || req.acBrand],
     );
     return r.rows.map(companyRow);
   }
@@ -303,9 +303,9 @@ function register(
       p.push(brand(req.query.brand));
       w.push(`u.brand=$${p.length}`);
     }
-    if (req.acCompanyId) {
-      p.push(req.acCompanyId);
-      w.push(`u.company_id=$${p.length}`);
+    if (req.acCompany) {
+      p.push(req.acCompany);
+      w.push(`LOWER(TRIM(c.name))=LOWER(TRIM($${p.length}))`);
     }
     w.push(
       req.acAdmin && req.query.archived === "true"
@@ -401,9 +401,9 @@ function register(
   router.get(
     "/fleet/options",
     wrap(async (req, res) => {
-      const p = req.acAdmin ? [] : [req.acCompanyId || req.acBrand];
+      const p = req.acAdmin ? [] : [req.acCompany || req.acBrand];
       const r = await pool.query(
-        `SELECT DISTINCT u.base,c.region FROM ac_fleet_units u JOIN ac_fleet_companies c ON c.id=u.company_id WHERE u.active=TRUE ${req.acAdmin ? "" : req.acCompanyId ? "AND u.company_id=$1" : "AND u.brand=$1"}`,
+        `SELECT DISTINCT u.base,c.region FROM ac_fleet_units u JOIN ac_fleet_companies c ON c.id=u.company_id WHERE u.active=TRUE ${req.acAdmin ? "" : req.acCompany ? "AND LOWER(TRIM(c.name))=LOWER(TRIM($1))" : "AND u.brand=$1"}`,
         p,
       );
       res.json({

@@ -145,6 +145,7 @@ async function setup() {
     const role =
       {
         operator: "operador",
+        foreign_operator: "operador",
         supervisor: "supervisor_flotas",
         other: "supervisor_flotas",
         reviewer: "supervisor",
@@ -156,7 +157,7 @@ async function setup() {
         id,
         role,
         empresa:
-          id === "other"
+          ["other", "foreign_operator"].includes(id)
             ? "Transportes del Pacífico"
             : id === "admin" || id === "ops"
               ? ""

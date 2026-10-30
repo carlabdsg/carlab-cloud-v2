@@ -7,7 +7,11 @@
     a.id = 'hcAdminEntry'; a.className = 'nav-btn hidden'; a.href = '/hispacold.html';
     a.textContent = 'Aire acondicionado'; a.style.textDecoration = 'none';
     nav.appendChild(a);
-    const sync = () => a.classList.toggle('hidden', document.body.dataset.role !== 'admin');
+    const sync = () => {
+      const role = document.body.dataset.role;
+      a.classList.toggle('hidden', !['admin', 'supervisor'].includes(role));
+      a.href = role === 'supervisor' ? '/ac-supervisor.html' : '/hispacold.html';
+    };
     new MutationObserver(sync).observe(document.body, { attributes: true, attributeFilter: ['data-role'] });
     sync();
   };

@@ -123,18 +123,22 @@
           : "Tu operación, de un vistazo",
         context.info.permissions.manageOrders
           ? "Atiende prioridades, organiza el taller y consulta cada empresa."
-          : "Elige una prioridad o entra a tu flota para solicitar atención.",
+          : context.info.permissions.readOnly
+            ? "Consulta el estado, los reportes y los servicios de tu empresa."
+            : "Elige una prioridad o entra a tu flota para solicitar atención.",
         context.info.permissions.manageOrders
           ? action(
               icon("plus") + " Nueva orden",
               'data-action="new"',
               "primary",
             ) + nav("requests", "Ver solicitudes", "tracking")
-          : action(
-              icon("plus") + " Solicitar atención",
-              'data-aportal="request"',
-              "primary",
-            ),
+          : context.info.permissions.readOnly
+            ? ""
+            : action(
+                icon("plus") + " Solicitar atención",
+                'data-aportal="request"',
+                "primary",
+              ),
       ) +
       `<section class="acp-kpis" aria-label="Resumen de tu operación">${[
         [
@@ -175,7 +179,7 @@
             `<button type="button" class="acp-kpi ${color}" data-aportal="metric" data-filter="${filter}" data-value="${value}"><span>${label}</span><strong>${count}</strong><small>${help} ${icon("arrow")}</small></button>`,
         )
         .join("")}</section>
-    <section class="aci-home-callout"><div><h2>Reportes AC</h2><p>${incidents.summary.abiertos} abiertos · ${incidents.summary.urgentes} urgentes · ${incidents.summary.confirmacion} por confirmar</p></div><div class="hc-actions">${action("+ Reportar falla", 'data-ac-action="new-incident"', "primary")}${nav("incidents", "Ver reportes", "incident")}</div></section>
+    <section class="aci-home-callout"><div><h2>Reportes AC</h2><p>${incidents.summary.abiertos} abiertos · ${incidents.summary.urgentes} urgentes · ${incidents.summary.confirmacion} por confirmar</p></div><div class="hc-actions">${context.info.permissions.readOnly ? "" : action("+ Reportar falla", 'data-ac-action="new-incident"', "primary")}${nav("incidents", "Ver reportes", "incident")}</div></section>
     <div class="acp-home-grid"><section class="acp-panel"><div class="acp-panel-head"><div><h2>Atención prioritaria</h2><p>Primero lo que necesita seguimiento.</p></div><span class="acp-count">${s.red + s.amber}</span></div>${priority.map(priorityRow).join("") || '<div class="acp-empty">Sin alertas en las unidades registradas.<small>Las unidades sin evaluación se muestran en gris en Flotas.</small></div>'}${nav("companies", context.info.permissions.manageOrders ? "Ver flotas" : "Ver mis flotas", "fleet", "acp-wide")}</section>
     <section class="acp-panel"><div class="acp-panel-head"><div><h2>Próximos 7 días</h2><p>Servicios con fecha registrada.</p></div>${icon("calendar")}</div>${
       calendar.items
@@ -312,8 +316,8 @@
         .join("") +
       '<a class="hc-btn aca-cloud-link" href="/">← Volver a Carlab Cloud</a>';
   }
-  function trackingTabs(view) {
-    return `<div class="acp-tabs" aria-label="Seguimiento">${nav("requests", "Solicitudes", "tracking", view === "requests" ? "primary" : "")}${nav("orders", "Órdenes de servicio", "fleet", view === "orders" ? "primary" : "")}${nav("parts", "Solicitar refacciones", "plus", view === "parts" ? "primary" : "")}</div>`;
+  function trackingTabs(view, info = ctx?.info) {
+    return `<div class="acp-tabs" aria-label="Seguimiento">${nav("requests", "Solicitudes", "tracking", view === "requests" ? "primary" : "")}${nav("orders", "Órdenes de servicio", "fleet", view === "orders" ? "primary" : "")}${nav("parts", info?.permissions?.readOnly ? "Consultar refacciones" : "Solicitar refacciones", "plus", view === "parts" ? "primary" : "")}</div>`;
   }
   function progress(x) {
     const cancelled =
@@ -356,6 +360,7 @@
     return `<article class="acp-follow-card"><div class="acp-follow-head"><span class="acp-kind">${x.kind === "part" ? "REFACCIÓN" : "SERVICIO"} · ${esc(x.folio)}</span><span class="hc-badge">${esc(x.deletedAt ? "Eliminada" : info.stages[x.status])}</span></div><h2>Unidad ${esc(x.unit)}</h2><p class="acp-follow-company">${esc(x.company)} · ${esc(info.brands[x.brand])}</p><p class="acp-follow-description">${esc(x.kind === "part" ? `${x.data.quantity} × ${x.data.partName}` : x.data.description)}</p>${x.deletedAt ? `<p class="acp-outcome">Motivo: ${esc(x.deletionReason)}</p>` : progress(x)}${x.serviceStatus ? `<p class="acp-linked-status">Orden vinculada · ${esc({ borrador: "Por iniciar", en_proceso: "En proceso", espera_refaccion: "En espera de refacción", completado: "Completada", cancelado: "Cancelada" }[x.serviceStatus] || x.serviceStatus)}</p>` : ""}${x.data.reply ? `<p class="acp-reply"><b>Respuesta de Carlab:</b> ${esc(x.data.reply)}</p>` : ""}<div class="hc-actions">${action(info.permissions.manageOrders ? "Gestionar solicitud" : "Ver seguimiento", `data-ac-action="request-detail" data-id="${esc(x.id)}"`)}${x.serviceId ? action("Ver orden", `data-ac-action="order-detail" data-id="${esc(x.serviceId)}"`) : ""}${info.permissions.manageOrders && x.kind === "service" ? action(x.deletedAt ? "Recuperar" : "Eliminar solicitud", `data-ac-action="${x.deletedAt ? "request-restore" : "request-delete"}" data-id="${esc(x.id)}"`, x.deletedAt ? "" : "aca-danger") : ""}</div></article>`;
   }
   function requestChooser(context) {
+    if (context.info.permissions.readOnly) return;
     ctx = context;
     ctx.dialog(
       `<h2>¿Qué necesita tu unidad?</h2><p>Elige el tipo de atención que quieres solicitar a Carlab.</p><div class="acp-request-choices">${action(icon("incident") + "<b>Reportar falla</b><span>Registrar una incidencia y darle seguimiento</span>", 'data-ac-action="new-incident"')}${action(icon("fleet") + "<b>Solicitar servicio</b><span>Revisión, mantenimiento o reparación</span>", 'data-ac-action="new-service"')}${action(icon("plus") + "<b>Solicitar refacción</b><span>Buscar una pieza o describir lo que necesitas</span>", 'data-ac-action="new-part"')}</div>`,

@@ -52,7 +52,7 @@ test("Report quotations: roles, company scope, PDF integrity, revisions, decisio
   r = await list("operator");
   assert.equal(r.body.units.length, 11);
   assert.ok(r.body.units.every((u) => u.empresa === "ANS"));
-  for (const role of ["supervisor", "reviewer", "ops", "ac", "inactive", null])
+  for (const role of ["supervisor", "ops", "ac", "inactive", null])
     assert.ok([401, 403].includes((await list(role)).status), role);
   assert.equal((await upload(0, {}, "operator")).status, 403);
   for (const extra of [

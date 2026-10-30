@@ -238,12 +238,14 @@ function register(
     authRequired,
     wrap(async (req, res, next) => {
       res.setHeader("Cache-Control", "no-store");
-      if (!["admin", "supervisor_ac"].includes(req.user.role))
-        fail("Acceso exclusivo de administrador o Supervisor AC.", 403);
-      const r = await pool.query(
-        "SELECT id,nombre,email,role,empresa,telefono,activo FROM users WHERE id=$1 AND activo=TRUE AND deleted_at IS NULL",
-        [req.user.id],
-      );
+      if (!["admin", "supervisor_ac", "supervisor"].includes(req.user.role))
+        fail("Acceso exclusivo de administrador o supervisor autorizado.", 403);
+      const r = req.account
+        ? { rows: [req.account] }
+        : await pool.query(
+            "SELECT id,nombre,email,role,empresa,telefono,activo FROM users WHERE id=$1 AND activo=TRUE AND deleted_at IS NULL",
+            [req.user.id],
+          );
       const u = r.rows[0];
       if (!u || u.role !== req.user.role)
         fail(
@@ -253,19 +255,38 @@ function register(
       req.acUser = u;
       req.acAdmin = u.role === "admin";
       await init();
-      const access = req.acAdmin
-        ? null
-        : (
-            await pool.query(
-              "SELECT a.scope_type,a.company_id,c.name AS company FROM ac_supervisor_access a LEFT JOIN ac_fleet_companies c ON c.id=a.company_id WHERE a.user_id=$1",
-              [u.id],
-            )
-          ).rows[0];
+      req.acReadOnly = u.role === "supervisor";
+      if (req.acReadOnly && !["GET", "HEAD"].includes(req.method))
+        fail(
+          "El supervisor tiene acceso de solo consulta a aire acondicionado.",
+          403,
+        );
+      const access =
+        req.acAdmin || req.acReadOnly
+          ? null
+          : (
+              await pool.query(
+                "SELECT a.scope_type,a.company_id,c.name AS company FROM ac_supervisor_access a LEFT JOIN ac_fleet_companies c ON c.id=a.company_id WHERE a.user_id=$1",
+                [u.id],
+              )
+            ).rows[0];
       req.acCompany = access?.scope_type === "fleet" ? access.company : null;
       req.acCompanyId =
         access?.scope_type === "fleet" ? access.company_id : null;
       if (access?.scope_type === "fleet" && !req.acCompany)
         fail("La cuenta no tiene una empresa válida asignada.", 403);
+      if (req.acReadOnly) {
+        if (!String(u.empresa || "").trim())
+          fail("La cuenta necesita una empresa asignada.", 403);
+        const company = (
+          await pool.query(
+            "SELECT id,name FROM ac_fleet_companies WHERE LOWER(TRIM(name))=LOWER(TRIM($1))",
+            [u.empresa],
+          )
+        ).rows[0];
+        req.acCompany = company?.name || u.empresa.trim();
+        req.acCompanyId = company?.id || null;
+      }
       req.acBrand = req.acAdmin || req.acCompany ? null : userBrand(u);
       if (
         ["POST", "PATCH", "PUT", "DELETE"].includes(req.method) &&
@@ -430,6 +451,7 @@ function register(
           manageInventory: req.acAdmin,
           manageUsers: req.acAdmin,
           viewLibrary: req.acAdmin,
+          readOnly: req.acReadOnly,
         },
       }),
     ),

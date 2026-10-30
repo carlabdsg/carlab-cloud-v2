@@ -2322,3 +2322,28 @@ body#carlabWorkspace.carlab-workspace .rw-qr-setting-note {
     grid-template-columns: 1fr;
   }
 }
+
+/* Supervisor: override the legacy rule that hid the fleet navigation. */
+body.carlab-workspace[data-role="supervisor"] .nav-btn#navFleetBtn:not(.hidden) { display: flex !important; }
+@media (max-width: 900px) {
+  /* Remove the closed drawer from layout, avoiding stale composited links in Safari. */
+  body#carlabWorkspace.carlab-workspace[data-role="supervisor"]:not(.rw-menu-open) #dashboardView .sidebar {
+    display: none !important;
+  }
+  body#carlabWorkspace.carlab-workspace[data-role="supervisor"] #dashboardView .sidebar {
+    transition: none !important;
+  }
+  body#carlabWorkspace.carlab-workspace[data-role="supervisor"] .sidebar-top,
+  body#carlabWorkspace.carlab-workspace[data-role="supervisor"] .nav-stack,
+  body#carlabWorkspace.carlab-workspace[data-role="supervisor"] .nav-group,
+  body#carlabWorkspace.carlab-workspace[data-role="supervisor"] .sidebar .nav-btn {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    align-self: stretch !important;
+    justify-content: flex-start !important;
+  }
+}
+body#carlabWorkspace.carlab-workspace[data-role="supervisor"] .nav-group:has(#navUsersBtn) {
+  display: none !important;
+}

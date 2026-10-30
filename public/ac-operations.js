@@ -118,6 +118,7 @@
     active: () => currentView === view,
   });
   async function newIncident(seed) {
+    if (info.permissions.readOnly) return;
     document.querySelector("#ac-dialog")?.close();
     await window.ACIncidents.create(portalContext("incidents"), seed);
   }
@@ -180,14 +181,14 @@
       items
         .map(
           (n) =>
-            `<article class="ac-notice ${n.read ? "read" : ""}"><button type="button" data-ac-action="notice-open" data-id="${n.id}"><div><b>${esc(n.title)}</b><span>${esc(n.body)}</span><small>${esc(name(n.brand))} · ${fmt(n.createdAt)}</small></div>${n.read ? "" : '<span class="ac-unread-dot" aria-label="Sin leer"></span>'}</button>${n.read ? "" : button("Marcar leída", "notice-read", `data-id="${n.id}"`, "hc-source")}</article>`,
+            `<article class="ac-notice ${n.read ? "read" : ""}"><button type="button" data-ac-action="notice-open" data-id="${n.id}"><div><b>${esc(n.title)}</b><span>${esc(n.body)}</span><small>${esc(name(n.brand))} · ${fmt(n.createdAt)}</small></div>${n.read ? "" : '<span class="ac-unread-dot" aria-label="Sin leer"></span>'}</button>${n.read || info.permissions.readOnly ? "" : button("Marcar leída", "notice-read", `data-id="${n.id}"`, "hc-source")}</article>`,
         )
         .join("") ||
       '<div class="hc-empty">No hay notificaciones para mostrar.</div>'
     );
   }
   function refreshPanel() {
-    panel().innerHTML = `<div class="ac-notification-head"><div><b>Notificaciones</b><small>${noticeData.unread} sin leer</small></div>${button("×", "notice-close", 'aria-label="Cerrar notificaciones"')}</div><div class="ac-notification-tools">${button("Marcar todas leídas", "notice-read-all", "", noticeData.unread ? "" : "")}${button("Actualizar", "notice-refresh")}</div><div class="ac-notification-feed">${notificationCards(noticeData.items)}</div><div class="ac-notification-footer">${button("Ver centro de notificaciones", "notice-center")}</div>`;
+    panel().innerHTML = `<div class="ac-notification-head"><div><b>Notificaciones</b><small>${noticeData.unread} sin leer</small></div>${button("×", "notice-close", 'aria-label="Cerrar notificaciones"')}</div><div class="ac-notification-tools">${info.permissions.readOnly ? "" : button("Marcar todas leídas", "notice-read-all")}${button("Actualizar", "notice-refresh")}</div><div class="ac-notification-feed">${notificationCards(noticeData.items)}</div><div class="ac-notification-footer">${button("Ver centro de notificaciones", "notice-center")}</div>`;
   }
   async function refreshNotifications() {
     if (notifying || !info || document.hidden) return;
@@ -197,6 +198,8 @@
         const latest = await api("/me");
         if (
           latest.user.brand !== info.user.brand ||
+          latest.user.company !== info.user.company ||
+          latest.permissions.readOnly !== info.permissions.readOnly ||
           latest.user.companyId !== info.user.companyId ||
           latest.user.scopeType !== info.user.scopeType
         ) {
@@ -240,8 +243,12 @@
     $("#hc-main").innerHTML =
       heading(
         "Centro de notificaciones",
-        "Nuevas órdenes, solicitudes y recordatorios. La lectura se guarda solo para tu usuario.",
-        button("Marcar todas leídas", "notice-read-all") +
+        info.permissions.readOnly
+          ? "Consulta nuevas órdenes, solicitudes y recordatorios de tu empresa."
+          : "Nuevas órdenes, solicitudes y recordatorios. La lectura se guarda solo para tu usuario.",
+        (info.permissions.readOnly
+          ? ""
+          : button("Marcar todas leídas", "notice-read-all")) +
           button("Actualizar", "notice-refresh"),
       ) +
       `<section class="hc-panel ac-notification-center">${notificationCards(noticeData.items)}</section>`;
@@ -326,9 +333,11 @@
         heading(
           "Seguimiento",
           `${name(info.user.brand)} · Consulta tus solicitudes y sus órdenes vinculadas.`,
-          button("+ Solicitar atención", "portal-request", "", "primary"),
+          info.permissions.readOnly
+            ? ""
+            : button("+ Solicitar atención", "portal-request", "", "primary"),
         ) +
-        window.ACPortal.trackingTabs("requests") +
+        window.ACPortal.trackingTabs("requests", info) +
         `<details class="acp-filter-details" ${Object.values(filters).some(Boolean) ? "open" : ""}><summary>Filtrar solicitudes ${filters.pending === "true" ? "· Solo pendientes" : ""}</summary><form id="ac-request-filters" class="hc-filters">${select("Tipo", "kind", { service: "Servicio", part: "Refacción" }, filters.kind, "Todos")}${select("Estado", "status", info.stages, filters.status, "Todos")}${select("Mostrar", "pending", { true: "Solo pendientes" }, filters.pending, "Todas las solicitudes")}<button type="submit" class="hc-btn primary">Aplicar</button></form></details><section class="acp-follow-grid">${requests.map((x) => window.ACPortal.requestCard(x, info)).join("") || '<div class="hc-empty">No hay solicitudes para esta selección.</div>'}</section><div class="hc-pager"><span>${r.total} solicitudes</span><div class="hc-actions">${button("Anterior", "request-prev", offset === 0 ? "disabled" : "")}${button("Siguiente", "request-next", offset + 25 >= r.total ? "disabled" : "")}</div></div>`;
       return;
     }
@@ -355,6 +364,7 @@
     );
   }
   async function newRequest(kind, partId = "", seed = null) {
+    if (info.permissions.readOnly) return;
     requestPhotos = [];
     requestKey = crypto.randomUUID();
     const available = await api("/parts");
@@ -485,13 +495,15 @@
           : "Almacén exclusivo de aire acondicionado. Las existencias y movimientos son independientes del almacén general.",
         info.permissions.manageInventory
           ? button("+ Nueva refacción", "new-inventory", "", "primary")
-          : button("+ Solicitar refacción", "new-part", "", "primary"),
+          : info.permissions.readOnly
+            ? ""
+            : button("+ Solicitar refacción", "new-part", "", "primary"),
       ) +
       `<form id="ac-parts-filter" class="hc-filters">${external ? "" : select("Marca", "brand", info.brands, "", "Todas las marcas")}${select("Origen", "family", { efficient: "Catálogo Efficient", recambios: "Recambios Hispacold 2025", cotizaciones: "Referencias de cotizaciones 2026", custom: "Otras piezas AC" }, "", "Todo el catálogo")}${field("Buscar pieza o referencia", "q", "", "search")}<button class="hc-btn" type="submit">Buscar</button>${button("Actualizar", "refresh")}</form><div id="ac-parts-list" class="ac-parts-grid">${partCards(parts)}</div>`;
     if (external)
       $("#ac-parts-filter").insertAdjacentHTML(
         "beforebegin",
-        window.ACPortal.trackingTabs("parts"),
+        window.ACPortal.trackingTabs("parts", info),
       );
   }
   function partCards(rows) {
@@ -499,7 +511,7 @@
       rows
         .map(
           (p) =>
-            `<article class="hc-panel ac-part-card">${p.image ? `<img class="ac-part-image" src="${esc(p.image)}" alt="${esc(p.name)}">` : ""}<div class="hc-kicker">${p.brands.map(name).map(esc).join(" · ")}</div><h2>${esc(p.name)}</h2>${p.official ? '<span class="acp-official-badge">Referencia documental Hispacold</span>' : ""}<p>${esc(p.reference || "Sin referencia registrada")}</p>${p.official?.notes ? `<p class="hc-subtle">${esc(p.official.notes)}</p>` : ""}${p.models ? `<p class="hc-subtle">Aplicación / equipo: ${esc(p.models)}</p>` : ""}${info.permissions.manageInventory ? `<div class="ac-stock-row"><b>${p.stock} disponibles</b><span class="hc-badge ${p.minimum > 0 && p.stock <= p.minimum ? "cancelado" : ""}">${p.minimum > 0 ? "Mínimo " + p.minimum : "Sin mínimo configurado"}</span></div><p class="hc-subtle">${esc(p.location || "Ubicación por registrar")}</p><div class="hc-actions">${button("Editar ficha", "edit-part", `data-id="${p.id}"`)}${button("Entrada / devolución", "movement", `data-id="${p.id}"`)}${button("Movimientos", "movements", `data-id="${p.id}"`)}${p.official ? button("Documentos de referencia", "official-sources", `data-id="${p.id}"`) : ""}</div>` : `<span class="hc-badge">${p.available ? "Disponible para solicitud" : "Consultar suministro"}</span>`}<div class="hc-actions">${button("Solicitar pieza", "request-part", `data-id="${p.id}"`)}</div></article>`,
+            `<article class="hc-panel ac-part-card">${p.image ? `<img class="ac-part-image" src="${esc(p.image)}" alt="${esc(p.name)}">` : ""}<div class="hc-kicker">${p.brands.map(name).map(esc).join(" · ")}</div><h2>${esc(p.name)}</h2>${p.official ? '<span class="acp-official-badge">Referencia documental Hispacold</span>' : ""}<p>${esc(p.reference || "Sin referencia registrada")}</p>${p.official?.notes ? `<p class="hc-subtle">${esc(p.official.notes)}</p>` : ""}${p.models ? `<p class="hc-subtle">Aplicación / equipo: ${esc(p.models)}</p>` : ""}${info.permissions.manageInventory ? `<div class="ac-stock-row"><b>${p.stock} disponibles</b><span class="hc-badge ${p.minimum > 0 && p.stock <= p.minimum ? "cancelado" : ""}">${p.minimum > 0 ? "Mínimo " + p.minimum : "Sin mínimo configurado"}</span></div><p class="hc-subtle">${esc(p.location || "Ubicación por registrar")}</p><div class="hc-actions">${button("Editar ficha", "edit-part", `data-id="${p.id}"`)}${button("Entrada / devolución", "movement", `data-id="${p.id}"`)}${button("Movimientos", "movements", `data-id="${p.id}"`)}${p.official ? button("Documentos de referencia", "official-sources", `data-id="${p.id}"`) : ""}</div>` : `<span class="hc-badge">${p.available ? "Disponible para solicitud" : "Consultar suministro"}</span>`}<div class="hc-actions">${info.permissions.readOnly ? "" : button("Solicitar pieza", "request-part", `data-id="${p.id}"`)}</div></article>`,
         )
         .join("") ||
       '<div class="hc-empty">No hay piezas catalogadas con este filtro.</div>'
@@ -576,7 +588,7 @@
         "Órdenes de servicio",
         `${name(info.user.brand)} · Consulta de avances y reportes.`,
       ) +
-      (external ? window.ACPortal.trackingTabs("orders") : "") +
+      (external ? window.ACPortal.trackingTabs("orders", info) : "") +
       `<div class="hc-order-cards">${r.items.map((o) => `<article class="hc-order-card"><div class="hc-order-top"><b>${esc(o.folio)}</b><span class="hc-badge ${esc(o.status)}">${esc(library.statuses[o.status])}</span></div><h3>${esc(o.company)} · ${esc(o.unit)}</h3><b>${esc(library.types[o.type])}</b><p>${esc(o.symptoms)}</p><small>${fmt(o.serviceDate)} · ${esc(o.technician || "Responsable por asignar")}</small>${button("Consultar orden", "order-detail", `data-id="${o.id}"`)}</article>`).join("") || '<div class="hc-empty">No hay órdenes de tu marca para mostrar.</div>'}</div><div class="hc-pager"><span>${r.total} órdenes</span><div>${button("Anterior", "order-prev", offset === 0 ? "disabled" : "")}${button("Siguiente", "order-next", offset + 25 >= r.total ? "disabled" : "")}</div></div>`;
   }
   let viewedOrder = null;
@@ -970,11 +982,11 @@
       }
       if (a === "notice-refresh") await refreshNotifications();
       if (a === "notice-center") await navigate("notifications");
-      if (a === "notice-read") {
+      if (a === "notice-read" && !info.permissions.readOnly) {
         await api("/notifications/read", post({ ids: [b.dataset.id] }));
         await refreshNotifications();
       }
-      if (a === "notice-read-all") {
+      if (a === "notice-read-all" && !info.permissions.readOnly) {
         await api(
           "/notifications/read",
           post({ throughId: noticeData.throughId }),
@@ -983,7 +995,8 @@
       }
       if (a === "notice-open") {
         const n = noticeData.items.find((n) => n.id === b.dataset.id);
-        await api("/notifications/read", post({ ids: [n.id] }));
+        if (!info.permissions.readOnly)
+          await api("/notifications/read", post({ ids: [n.id] }));
         await refreshNotifications();
         if (n.targetType === "order") {
           panel().hidden = true;
@@ -1020,7 +1033,10 @@
       sessionToken = localStorage.getItem("carlabToken") || "";
       info = await api("/me");
       library = await api("/catalog");
-      if (external && info.user.role !== "supervisor_ac") {
+      if (
+        external &&
+        !["supervisor_ac", "supervisor"].includes(info.user.role)
+      ) {
         location.replace("/hispacold.html");
         return;
       }
@@ -1041,6 +1057,20 @@
           name(info.user.brand).toUpperCase() + " / PORTAL EXTERNO";
         $(".hc-topbar>span:first-child").textContent =
           name(info.user.brand) + " / AC";
+        if (info.permissions.readOnly) {
+          $("#hc-user").textContent =
+            info.user.nombre + " · Supervisor · Solo consulta";
+          $(".hc-space-label").textContent =
+            info.user.company + " / SUPERVISIÓN";
+          $(".hc-side-note").textContent =
+            "Consulta de flotas, reportes y servicios de tu empresa.";
+          $(".hc-footer span").textContent =
+            "Aire acondicionado · Solo consulta";
+          $(".ac-logout").insertAdjacentHTML(
+            "beforebegin",
+            '<a class="hc-back" href="/">← Volver a Reportes</a>',
+          );
+        }
         const unitId = new URLSearchParams(location.search).get("unit");
         await show(unitId ? "fleet" : "home", unitId);
       }

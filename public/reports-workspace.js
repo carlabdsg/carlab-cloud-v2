@@ -513,7 +513,7 @@
     );
     qr.id = "rwFleetQr";
     qr.disabled = !scoped.length;
-    controls.append(qr);
+    if (!isRole("supervisor")) controls.append(qr);
     if (view.company && isRole("admin")) {
       const config = button("Configurar QR", "btn btn-primary", () =>
         openQrSettings(view.company, view.fleet || null),
@@ -624,7 +624,8 @@
     close.className = "rw-close";
     close.setAttribute("aria-label", "Cerrar expediente");
     const qr = button("Etiqueta QR", "btn btn-secondary", () => openQr([unit]));
-    header.querySelector(".stack-inline").prepend(qr);
+    if (!isRole("supervisor"))
+      header.querySelector(".stack-inline").prepend(qr);
     const summary = root.querySelector(".fleet-detail-summary"),
       hero = root.querySelector(".fleet-hero"),
       insights = root.querySelector(".fleet-owner-insights"),
@@ -919,7 +920,11 @@
     renderUnitPicker();
     try {
       const company = els.empresa.value;
-      const units = company ? await api.request("/api/fleet/unit-options?empresa=" + encodeURIComponent(company)) : [];
+      const units = company
+        ? await api.request(
+            "/api/fleet/unit-options?empresa=" + encodeURIComponent(company),
+          )
+        : [];
       if (requestId !== view.unitLoadId) return;
       view.units = units;
     } catch {
@@ -1205,7 +1210,10 @@
             switchPanel("report");
           }),
         );
-      if (unit.id && isRole("admin", "operativo", "supervisor_flotas"))
+      if (
+        unit.id &&
+        isRole("admin", "operativo", "supervisor_flotas", "supervisor")
+      )
         content.append(
           button("Consultar expediente", "btn btn-secondary", () => {
             root.close();

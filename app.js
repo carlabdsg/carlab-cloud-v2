@@ -814,7 +814,7 @@ function roleCopy(role) {
     admin: { title:'Cabina administrativa', summary:'Vista ejecutiva: decide rápido con KPIs y acciones clave.', panels:[['Operación viva','Entradas, validación y avance en una lectura.'],['Comercial','Detecta oportunidad por unidad y reincidencia.'],['Gobierno','Usuarios, empresas y accesos bajo control.']], boardKicker:'ADMIN', listTitle:'Bandeja general del sistema', legend:'KPIs, control y trazabilidad en una sola vista.' },
     operador: { title:'Portal de operador', summary:'Reportas fallas, subes evidencia y ves el estatus sin depender de llamadas.', panels:[['Levantar incidencia','Captura la falla con datos, fotos, refacción y firma.'],['Seguimiento','Consulta si fue aceptada, rechazada o quedó pendiente.'],['Sin cruces','Solo ves tus reportes. No puedes decidir ni alterar revisiones.']], boardKicker:'OPERADOR', listTitle:'Mis reportes de garantía', legend:'Aquí ves solo tus reportes y su estatus actual.' },
     operativo: { title:'Mesa de validación operativa', summary:'Revisas reportes, decides si proceden y mueves el trabajo hasta terminar.', panels:[['Decisión','Acepta, rechaza o marca pendiente de revisión.'],['Flujo','Mueve el trabajo a en proceso, espera refacción o terminada.'],['Patrones','También ves unidades reincidentes para atacar la raíz.']], boardKicker:'OPERATIVO', listTitle:'Bandeja operativa', legend:'Aquí validas, autorizas y avanzas el trabajo.' },
-    supervisor: { title:'Portal de supervisor', summary:'Consulta únicamente la información de tu empresa en modo corporativo de solo lectura.', panels:[['Visibilidad','Revisa empresas, unidades, evidencias y avances.'],['Lectura ejecutiva','Historial por unidad y top de fallas sin tocar procesos.'],['Sin edición','No cambias decisiones ni alteras procesos.']], boardKicker:'SUPERVISOR', listTitle:'Bandeja supervisada', legend:'Monitoreo integral con lectura operativa y comercial.' },
+    supervisor: { title:'Portal de supervisor', summary:'Consulta reportes, flotas y aire acondicionado de tu empresa, y responde sus cotizaciones.', panels:[['Visibilidad','Revisa empresas, unidades, evidencias y avances.'],['Lectura ejecutiva','Historial por unidad y top de fallas sin tocar procesos.'],['Cotizaciones','Puedes aceptar o rechazar cotizaciones. Los demás módulos son de consulta.']], boardKicker:'SUPERVISOR', listTitle:'Bandeja supervisada', legend:'Monitoreo integral con lectura operativa y comercial.' },
     supervisor_flotas: { title:'Centro de flotas Carlab', summary:'Supervisión de unidades, semáforo vivo, historial y lectura por empresa sin tocar usuarios ni validaciones.', panels:[['Semáforo vivo','Detecta qué unidad opera, cuál cayó al taller y cuál reincide.'],['Lectura por unidad','Historial de reportes, costos y último movimiento en una sola vista.'],['Control enfocado','Supervisa flotas sin entrar a módulos ajenos.']], boardKicker:'FLOTAS', listTitle:'Radar de unidades', legend:'Tablero ejecutivo para seguir flota, carga histórica y reincidencia por empresa.' },
   }[role];
 }
@@ -855,7 +855,7 @@ function updateOperatorAppNav(panel) {
 function switchPanel(panel) {
   if (state.user?.role === 'supervisor_flotas' && ['users','requests','companies','report','stock','cobranza'].includes(panel)) panel = 'fleet';
   if (!isRole('admin') && ['stock','cobranza'].includes(panel)) panel = state.user?.role === 'supervisor_flotas' ? 'fleet' : 'board';
-  if (state.user?.role === 'supervisor' && ['users','requests','companies','fleet','parts','report','stock','cobranza'].includes(panel)) panel = 'board';
+  if (state.user?.role === 'supervisor' && !['board','fleet','quotes'].includes(panel)) panel = 'board';
   if (panel !== 'fleet') {
     document.body.classList.remove('fleet-detail-modal-open');
     document.getElementById('fleetDetailModalRoot')?.classList.add('hidden');
@@ -921,14 +921,14 @@ function showDashboard() {
   document.body.classList.toggle('executive-mode', state.user?.role !== 'operador');
   document.body.dataset.role = state.user?.role || ''; 
   els.navNewReportBtn?.classList.toggle('hidden', !isRole('operador','admin'));
-  els.navQuotesBtn?.classList.toggle('hidden', !isRole('operador','admin'));
+  els.navQuotesBtn?.classList.toggle('hidden', !isRole('operador','admin','supervisor'));
   els.navUsersBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navRequestsBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navCompaniesBtn?.classList.toggle('hidden', !isRole('admin'));
   els.navAnalyticsBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo'));
   els.navHistoryBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo'));
   els.navScheduleBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo','operador'));
-  els.navFleetBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas','operativo'));
+  els.navFleetBtn?.classList.toggle('hidden', !isRole('admin','supervisor','supervisor_flotas','operativo'));
   els.navServicesBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas','operativo'));
   els.navPartsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas'));
   els.navStockBtn?.classList.toggle('hidden', !isRole('admin'));
@@ -936,7 +936,9 @@ function showDashboard() {
   els.navCampaignsBtn?.classList.toggle('hidden', !isRole('admin','supervisor_flotas','operativo'));
   document.querySelectorAll('[data-role-admin-only]').forEach(el => el.classList.toggle('hidden', !isRole('admin')));
   if (state.user?.role === 'supervisor') {
-    els.navFleetBtn?.classList.add('hidden');
+    els.navAnalyticsBtn?.classList.add('hidden');
+    els.navHistoryBtn?.classList.add('hidden');
+    els.navScheduleBtn?.classList.add('hidden');
     els.navPartsBtn?.classList.add('hidden');
     els.navCobranzaBtn?.classList.add('hidden');
     els.navUsersBtn?.classList.add('hidden');
@@ -3574,7 +3576,7 @@ els.loginForm?.addEventListener('submit', async (e) => {
   e.preventDefault(); els.loginError?.classList.add('hidden');
   try {
     const data = await api.login(els.loginEmail.value.trim(), els.loginPassword.value);
-    state.token = data.token; localStorage.setItem('carlabToken', state.token); state.user = data.user; const acQrCode = new URLSearchParams(location.search).get('acqr'); if (/^[a-f0-9]{48}$/.test(acQrCode || '') && ['admin','supervisor_ac'].includes(state.user.role)) { location.replace('/ac-unit.html?code=' + acQrCode + '&access=account'); return; } if (state.user.role === 'supervisor_ac') { location.replace('/ac-supervisor.html'); return; } showDashboard();
+    state.token = data.token; localStorage.setItem('carlabToken', state.token); state.user = data.user; const acQrCode = new URLSearchParams(location.search).get('acqr'); if (/^[a-f0-9]{48}$/.test(acQrCode || '') && ['admin','supervisor_ac','supervisor'].includes(state.user.role)) { location.replace('/ac-unit.html?code=' + acQrCode + '&access=account'); return; } if (state.user.role === 'supervisor_ac') { location.replace('/ac-supervisor.html'); return; } showDashboard();
     await loadCompanies();
     await loadGarantias();
     resetReportForm(); resetCompanyForm(); resetFleetForm(); await window.CarlabReportsUI?.sessionReady(); notify(`Bienvenido, ${state.user.nombre}.`);
@@ -4130,7 +4132,7 @@ els.companyForm?.addEventListener('submit', async (e) => {
 (async function init() {
   if (!state.token) return showLogin();
   try {
-    const data = await api.me(); state.user = data.user; const acQrCode = new URLSearchParams(location.search).get('acqr'); if (/^[a-f0-9]{48}$/.test(acQrCode || '') && ['admin','supervisor_ac'].includes(state.user.role)) { location.replace('/ac-unit.html?code=' + acQrCode + '&access=account'); return; } if (state.user.role === 'supervisor_ac') { location.replace('/ac-supervisor.html'); return; } showDashboard();
+    const data = await api.me(); state.user = data.user; const acQrCode = new URLSearchParams(location.search).get('acqr'); if (/^[a-f0-9]{48}$/.test(acQrCode || '') && ['admin','supervisor_ac','supervisor'].includes(state.user.role)) { location.replace('/ac-unit.html?code=' + acQrCode + '&access=account'); return; } if (state.user.role === 'supervisor_ac') { location.replace('/ac-supervisor.html'); return; } showDashboard();
     await Promise.allSettled([loadCompanies(), loadGarantias()]);
     if (!window.CarlabReportsUI) { await loadSchedules(''); renderCommandSidePanels(); }
     resetReportForm(); resetCompanyForm(); resetFleetForm(); await window.CarlabReportsUI?.sessionReady();

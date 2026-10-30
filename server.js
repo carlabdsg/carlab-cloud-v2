@@ -811,22 +811,35 @@ function mapDirectSale(row) {
 }
 
 
-function authRequired(req, res, next) {
+async function authRequired(req, res, next) {
   const auth = req.headers.authorization || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
   if (!token) return res.status(401).json({ error: 'No autorizado.' });
   try {
     req.user = jwt.verify(token, JWT_SECRET);
-    if (req.user.role === 'supervisor_ac') {
-      const accessPath = req.originalUrl.split('?')[0];
-      if (!accessPath.startsWith('/api/ac/') && accessPath !== '/api/auth/me') {
-        return res.status(403).json({ error: 'Este usuario tiene acceso únicamente al portal de aire acondicionado.' });
-      }
-    }
-    next();
   } catch {
     return res.status(401).json({ error: 'Sesión inválida o vencida.' });
   }
+  // Current account permissions win over older sessions, including after a role or company change.
+  try {
+    const result = await pool.query('SELECT id,nombre,email,role,empresa,telefono,activo FROM users WHERE id=$1 AND activo=TRUE AND deleted_at IS NULL', [req.user.id]);
+    const account = result.rows[0];
+    if (!account || account.role !== req.user.role) return res.status(403).json({ error: 'La cuenta cambió o está inactiva. Inicia sesión nuevamente.' });
+    req.account = account;
+    req.user = { ...req.user, ...account };
+  } catch (error) {
+    return respondDbError(res, error, 'No se pudo verificar el acceso. Intenta nuevamente.');
+  }
+  const accessPath = req.originalUrl.split('?')[0];
+  if (req.user.role === 'supervisor_ac' && !accessPath.startsWith('/api/ac/') && accessPath !== '/api/auth/me') {
+    return res.status(403).json({ error: 'Este usuario tiene acceso únicamente al portal de aire acondicionado.' });
+  }
+  if (req.user.role === 'supervisor') {
+    if (!String(req.user.empresa || '').trim()) return res.status(403).json({ error: 'Tu cuenta de supervisor necesita una empresa asignada.' });
+    const quotationDecision = req.method === 'POST' && /^\/api\/report-quotes\/[^/]+\/decision\/?$/.test(accessPath);
+    if (!['GET', 'HEAD'].includes(req.method) && !quotationDecision) return res.status(403).json({ error: 'Acceso de solo consulta. Únicamente puedes aceptar o rechazar cotizaciones.' });
+  }
+  next();
 }
 
 function requireRoles(...roles) {

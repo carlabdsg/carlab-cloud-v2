@@ -292,7 +292,7 @@
         preventScroll: true,
       });
     dialog(`<div class="acf-detail-heading"><div><div class="hc-kicker">EXPEDIENTE DE CLIMATIZACIÓN</div><h2>Unidad ${esc(u.unit)}</h2><p>${esc(u.company)} · ${esc(brandName(u.brand))}</p></div><span class="acf-badge ${u.signal}">${esc(u.signalLabel)}</span></div>
-      <div class="hc-actions">${btn("Cerrar", "close")}${config.canManage ? btn("Editar ficha / evaluación", "edit-unit") + (u.active ? btn("Etiqueta QR", "qr-label") + btn("Crear orden", "new-order") + btn("Eliminar unidad", "delete-unit") : btn("Restaurar unidad", "restore-unit")) : ""}${u.active ? btn("Reportar falla", "report-incident", "", true) + btn("Solicitar servicio", "request-service") + btn("Solicitar refacción", "request-part") : ""}</div>
+      <div class="hc-actions">${btn("Cerrar", "close")}${config.canManage ? btn("Editar ficha / evaluación", "edit-unit") + (u.active ? btn("Etiqueta QR", "qr-label") + btn("Crear orden", "new-order") + btn("Eliminar unidad", "delete-unit") : btn("Restaurar unidad", "restore-unit")) : ""}${u.active && !ctx.info.permissions.readOnly ? btn("Reportar falla", "report-incident", "", true) + btn("Solicitar servicio", "request-service") + btn("Solicitar refacción", "request-part") : ""}</div>
       <section class="acf-reasons"><h3>Qué requiere atención</h3>${u.reasons.map((r) => `<div class="acf-reason ${r.color}"><i></i><div><b>${esc(r.text)}</b><p>${esc(r.detail)}</p></div></div>`).join("")}</section>
       ${ctx.external || ctx.visual ? '<details class="acp-filter-details"><summary>Datos de la unidad y del equipo AC</summary>' : ""}<dl class="acf-detail-facts">${[
         ["Región / base", [u.region, u.base].filter(Boolean).join(" · ")],

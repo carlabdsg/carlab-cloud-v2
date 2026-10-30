@@ -67,14 +67,16 @@ function register(
     isCurrent: r.is_current !== false,
   });
   async function actor(req) {
-    const r = await pool.query(
-      "SELECT id,nombre,role,empresa FROM users WHERE id=$1 AND activo=true AND deleted_at IS NULL",
-      [req.user.id],
-    );
+    const r = req.account
+      ? { rows: [req.account] }
+      : await pool.query(
+          "SELECT id,nombre,role,empresa FROM users WHERE id=$1 AND activo=true AND deleted_at IS NULL",
+          [req.user.id],
+        );
     const user = r.rows[0];
-    if (!user || !["admin", "operador"].includes(user.role))
+    if (!user || !["admin", "operador", "supervisor"].includes(user.role))
       throw fail(403, "No tienes acceso a las cotizaciones de reportes.");
-    if (user.role === "operador" && !identity(user.empresa))
+    if (user.role !== "admin" && !identity(user.empresa))
       throw fail(
         403,
         "Tu cuenta necesita una empresa asignada para consultar cotizaciones.",
@@ -349,8 +351,11 @@ function register(
     "/api/report-quotes/:id/decision",
     authRequired,
     route(async (req, res, user) => {
-      if (user.role !== "operador")
-        throw fail(403, "La respuesta corresponde al operador de la empresa.");
+      if (!["operador", "supervisor"].includes(user.role))
+        throw fail(
+          403,
+          "La respuesta corresponde al operador o supervisor de la empresa.",
+        );
       const decision = req.body?.decision,
         note = String(req.body?.note || "").trim();
       if (!["aceptada", "rechazada"].includes(decision) || note.length > 1500)

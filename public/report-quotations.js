@@ -93,7 +93,10 @@
   const hasDraft = () =>
     Boolean($("rqPdfInput")?.files?.length || $("rqDecisionBox"));
   async function load(silent = false) {
-    if (view.loading || !["admin", "operador"].includes(state.user?.role))
+    if (
+      view.loading ||
+      !["admin", "operador", "supervisor"].includes(state.user?.role)
+    )
       return;
     view.loading = true;
     const sessionToken = state.token;
@@ -285,7 +288,7 @@
           `<div class="rq-response rq-${quote.status}"><strong>${esc(labels[quote.status])} por ${esc(quote.respondedBy)}</strong><span>${date(quote.respondedAt)}</span>${quote.responseNote ? `<p>${esc(quote.responseNote)}</p>` : ""}</div>`,
         );
       if (
-        view.role === "operador" &&
+        ["operador", "supervisor"].includes(view.role) &&
         quote.status === "cotizada" &&
         quote.reportId &&
         !report.archived

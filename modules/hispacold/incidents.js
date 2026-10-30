@@ -211,9 +211,9 @@ function register(router, deps) {
         p.push(req.acBrand);
         w.push(`u.brand=$${p.length}`);
       }
-      if (req.acCompanyId) {
-        p.push(req.acCompanyId);
-        w.push(`u.company_id=$${p.length}`);
+      if (req.acCompany) {
+        p.push(req.acCompany);
+        w.push(`LOWER(TRIM(c.name))=LOWER(TRIM($${p.length}))`);
       }
       if (req.query.id) {
         p.push(text(req.query.id, 100));
